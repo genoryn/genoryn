@@ -1,34 +1,30 @@
-//! Incremental wallet sync against the user's own validating node.
+//! Incremental wallet sync over an already validated chain.
 //!
-//! A full scan downloads and re-validates the whole chain on every refresh. When the
-//! wallet talks to its own loopback node, which already validated every block, this
-//! module instead keeps an encrypted cache of the wallet's notes and history and only
-//! decrypts blocks added since the last sync. Forks are detected by block hash and
-//! rolled back to the common ancestor; payments still use the full validated scan.
+//! The wallet keeps an encrypted cache of its notes, history and mining rewards
+//! and only decrypts blocks added since the last sync. The blocks come either
+//! from the user's own validating node (Full mode) or from the locally verified
+//! chain of the light wallet (Quick mode). Forks are detected by block hash and
+//! rolled back to the common ancestor. Mining rewards stay in the history after
+//! a reorganization: one replaced by a different block at its height is shown as
+//! replaced, never silently deleted, and never counted in any balance.
 use crate::{
     keys::Wallet,
     scan::{HistoryEntry, WalletSummary},
+    sealed,
 };
-use anyhow::{Context, Result, ensure};
-use chacha20poly1305::{
-    KeyInit, XChaCha20Poly1305,
-    aead::{Aead, Payload},
-};
-use genoryn_core::{
-    block::Block,
-    codec::{self, Hash},
-    emission, names,
-    params::Network,
-};
+use anyhow::{Result, ensure};
+use genoryn_core::{block::Block, codec::Hash, emission, names, params::Network};
 use orchard::keys::{FullViewingKey, IncomingViewingKey, OutgoingViewingKey, Scope};
-use rand08::RngCore;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-const CACHE_VERSION: u16 = 1;
+const CACHE_VERSION: u16 = 2;
+const CACHE_DOMAIN: &[u8] = b"GENORYN/scan-cache/v2";
 /// Recent block hashes kept for locating a fork point after a reorganization.
 pub const REORG_WINDOW: usize = 128;
 const MAX_CACHE_BYTES: u64 = 64 * 1024 * 1024;
+/// A reward this young is shown as just mined: the highest reorganization risk.
+pub const JUST_MINED_CONFIRMATIONS: u64 = 6;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CachedNote {
@@ -39,6 +35,8 @@ pub struct CachedNote {
     pub height: u64,
     pub unlock_height: u64,
     pub spent_height: Option<u64>,
+    /// The transaction that spent this note, for matching the outbox.
+    pub spent_txid: Option<Hash>,
     pub memo: String,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,17 +48,44 @@ pub struct CachedEntry {
     pub timestamp: u64,
     pub memo: String,
 }
+/// Where a recorded mining reward stands on the current chain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RewardState {
+    /// Its block is on the chain this wallet follows.
+    Canonical,
+    /// The chain was rolled back below its height and has not yet reached that
+    /// height again: not counted, not yet known to be replaced.
+    Unconfirmed,
+    /// A different block now occupies its height on the chain this wallet follows.
+    Replaced,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MinedReward {
+    pub txid: Hash,
+    pub action: u32,
+    pub height: u64,
+    pub block_hash: Hash,
+    pub amount_atomic: u64,
+    pub timestamp: u64,
+    pub unlock_height: u64,
+    pub state: RewardState,
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanCache {
     pub version: u16,
     pub network: Network,
     pub account: u32,
     pub height: u64,
+    /// Blocks below this height are validated but not trial-decrypted: the wallet
+    /// cannot have received anything before it existed. 0 scans everything.
+    pub birthday: u64,
     /// `(height, hash)` of the most recent blocks, oldest first.
     pub recent: Vec<(u64, Hash)>,
     pub notes: Vec<CachedNote>,
     /// Chronological; summaries list the newest first.
     pub history: Vec<CachedEntry>,
+    /// Every reward this wallet has seen, including replaced ones.
+    pub mined: Vec<MinedReward>,
 }
 
 /// Keys derived once per sync rather than once per block.
@@ -94,17 +119,100 @@ fn decode_memo(bytes: &[u8; 512]) -> String {
         .into_owned()
 }
 
+/// Display status of a mining reward at chain tip `tip`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum RewardStatus {
+    JustMined,
+    Maturing,
+    Mature,
+    /// Rolled back, waiting for the chain to reach its height again.
+    Unconfirmed,
+    Replaced,
+}
+impl RewardStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::JustMined => "Just mined",
+            Self::Maturing => "Maturing",
+            Self::Mature => "Mature",
+            Self::Unconfirmed => "Verification pending",
+            Self::Replaced => "Replaced",
+        }
+    }
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct MinedSummary {
+    pub txid: String,
+    pub action: u32,
+    pub height: u64,
+    pub block_hash: String,
+    pub amount_atomic: String,
+    pub timestamp: u64,
+    pub unlock_height: u64,
+    pub confirmations: u64,
+    pub status: RewardStatus,
+    pub status_label: &'static str,
+    /// Fraction of the maturity period completed, 0 to 1000 (per mille).
+    pub progress_permille: u64,
+    pub spent: bool,
+}
+impl MinedReward {
+    /// `confirmations` counts the reward's own block: at the tip it has one. It is
+    /// mature (spendable) once the tip reaches `unlock_height`, exactly as consensus.
+    pub fn status(&self, tip: u64, maturity: u64) -> (RewardStatus, u64, u64) {
+        match self.state {
+            RewardState::Replaced => return (RewardStatus::Replaced, 0, 0),
+            RewardState::Unconfirmed => return (RewardStatus::Unconfirmed, 0, 0),
+            RewardState::Canonical => {}
+        }
+        if tip < self.height {
+            return (RewardStatus::Unconfirmed, 0, 0);
+        }
+        let confirmations = tip - self.height + 1;
+        let progress = if maturity == 0 {
+            1000
+        } else {
+            ((tip - self.height).min(maturity) * 1000) / maturity
+        };
+        let status = if tip >= self.unlock_height {
+            RewardStatus::Mature
+        } else if confirmations <= JUST_MINED_CONFIRMATIONS {
+            RewardStatus::JustMined
+        } else {
+            RewardStatus::Maturing
+        };
+        (status, confirmations, progress)
+    }
+}
+
 impl ScanCache {
     pub fn new(network: Network, account: u32) -> Self {
+        Self::with_birthday(network, account, 0)
+    }
+    pub fn with_birthday(network: Network, account: u32, birthday: u64) -> Self {
         Self {
             version: CACHE_VERSION,
             network,
             account,
             height: 0,
+            birthday,
             recent: Vec::new(),
             notes: Vec::new(),
             history: Vec::new(),
+            mined: Vec::new(),
         }
+    }
+    /// A rescan from genesis that keeps the birthday and the mining history; the
+    /// rewards are re-confirmed or marked replaced as the rescan reaches them.
+    pub fn restart(&self) -> Self {
+        let mut fresh = Self::with_birthday(self.network, self.account, self.birthday);
+        fresh.mined = self.mined.clone();
+        for reward in &mut fresh.mined {
+            if reward.state == RewardState::Canonical {
+                reward.state = RewardState::Unconfirmed;
+            }
+        }
+        fresh
     }
     pub fn tip_hash(&self) -> Hash {
         self.recent
@@ -121,16 +229,44 @@ impl ScanCache {
             "block does not extend the scanned chain"
         );
         let height = header.height;
+        let block_hash = block.hash()?;
+        // A recorded reward at this height is canonical only if this is its block.
+        for reward in self.mined.iter_mut().filter(|r| r.height == height) {
+            reward.state = if reward.block_hash == block_hash {
+                RewardState::Canonical
+            } else {
+                RewardState::Replaced
+            };
+        }
+        if height >= self.birthday {
+            self.scan_transactions(keys, block, block_hash)?;
+        }
+        self.height = height;
+        self.recent.push((height, block_hash));
+        if self.recent.len() > REORG_WINDOW {
+            self.recent.remove(0);
+        }
+        Ok(())
+    }
+    fn scan_transactions(
+        &mut self,
+        keys: &ScanKeys,
+        block: &Block,
+        block_hash: Hash,
+    ) -> Result<()> {
+        let header = &block.header;
+        let height = header.height;
         for tx in block.body.all_transactions() {
+            let txid = tx.id()?;
             for action in &tx.bundle.actions {
                 for note in self.notes.iter_mut().filter(|note| {
                     note.spent_height.is_none() && note.nullifier == action.nullifier
                 }) {
                     note.spent_height = Some(height);
+                    note.spent_txid = Some(txid);
                 }
             }
             let bundle = tx.bundle.to_bundle()?;
-            let txid = tx.id()?;
             let incoming = bundle.decrypt_outputs_with_keys(&keys.ivks);
             let mut received = 0u128;
             let mut last_memo = None;
@@ -141,16 +277,38 @@ impl ScanCache {
                 received += note.value().inner() as u128;
                 let memo = decode_memo(memo);
                 last_memo = Some(memo.clone());
+                let unlock = unlock_height(self.network, tx.context.kind, height);
                 self.notes.push(CachedNote {
                     value: note.value().inner(),
                     nullifier: note.nullifier(&keys.fvk).to_bytes(),
                     txid,
                     action: *action as u32,
                     height,
-                    unlock_height: unlock_height(self.network, tx.context.kind, height),
+                    unlock_height: unlock,
                     spent_height: None,
+                    spent_txid: None,
                     memo,
                 });
+                if tx.context.kind == 1 {
+                    let action = *action as u32;
+                    match self
+                        .mined
+                        .iter_mut()
+                        .find(|r| r.txid == txid && r.action == action)
+                    {
+                        Some(reward) => reward.state = RewardState::Canonical,
+                        None => self.mined.push(MinedReward {
+                            txid,
+                            action,
+                            height,
+                            block_hash,
+                            amount_atomic: note.value().inner(),
+                            timestamp: header.timestamp,
+                            unlock_height: unlock,
+                            state: RewardState::Canonical,
+                        }),
+                    }
+                }
             }
             let outgoing = bundle.recover_outputs_with_ovks(std::slice::from_ref(&keys.ovk));
             let mut sent = 0u128;
@@ -200,28 +358,63 @@ impl ScanCache {
                     .push(entry(direction, received, last_memo.unwrap_or_default()));
             }
         }
-        self.height = height;
-        self.recent.push((height, block.hash()?));
-        if self.recent.len() > REORG_WINDOW {
-            self.recent.remove(0);
-        }
         Ok(())
     }
-    /// Forgets everything above `height`, the last block shared with the node's chain.
+    /// Forgets everything above `height`, the last block shared with the chain.
+    /// Mining rewards above it stay recorded as unconfirmed until the chain
+    /// reaches their height again and shows which block is there.
     pub fn rollback_to(&mut self, height: u64) {
         self.notes.retain(|note| note.height <= height);
         for note in &mut self.notes {
             if note.spent_height.is_some_and(|spent| spent > height) {
                 note.spent_height = None;
+                note.spent_txid = None;
             }
         }
         self.history.retain(|entry| entry.height <= height);
         self.recent.retain(|(at, _)| *at <= height);
+        for reward in self.mined.iter_mut().filter(|r| r.height > height) {
+            if reward.state == RewardState::Canonical {
+                reward.state = RewardState::Unconfirmed;
+            }
+        }
         self.height = height;
     }
     /// Whether a rollback to `height` can still be represented; otherwise rescan.
     pub fn can_roll_back_to(&self, height: u64) -> bool {
         height == 0 || self.recent.iter().any(|(at, _)| *at == height)
+    }
+    /// The wallet's mining rewards, newest first, with status at the cached tip.
+    pub fn mined_summary(&self) -> Vec<MinedSummary> {
+        let maturity = self.network.maturity();
+        let mut rewards: Vec<MinedSummary> = self
+            .mined
+            .iter()
+            .map(|reward| {
+                let (status, confirmations, progress) = reward.status(self.height, maturity);
+                let spent = self.notes.iter().any(|note| {
+                    note.txid == reward.txid
+                        && note.action == reward.action
+                        && note.spent_height.is_some()
+                });
+                MinedSummary {
+                    txid: hex::encode(reward.txid),
+                    action: reward.action,
+                    height: reward.height,
+                    block_hash: hex::encode(reward.block_hash),
+                    amount_atomic: reward.amount_atomic.to_string(),
+                    timestamp: reward.timestamp,
+                    unlock_height: reward.unlock_height,
+                    confirmations,
+                    status,
+                    status_label: status.label(),
+                    progress_permille: progress,
+                    spent,
+                }
+            })
+            .collect();
+        rewards.sort_by(|a, b| b.height.cmp(&a.height).then(a.txid.cmp(&b.txid)));
+        rewards
     }
     pub fn summary(&self, wallet: &Wallet, confirmation_target: u64) -> Result<WalletSummary> {
         ensure!(
@@ -271,6 +464,26 @@ impl ScanCache {
     }
 }
 
+/// `wallet.gnr` keeps its scan cache in `wallet.scan` beside it.
+pub fn cache_path(wallet_path: &Path) -> PathBuf {
+    wallet_path.with_extension("scan")
+}
+/// A missing, foreign or undecryptable cache yields a fresh one (a full rescan).
+pub fn load_cache(wallet: &Wallet, path: &Path) -> ScanCache {
+    sealed::load::<ScanCache>(wallet, path, CACHE_DOMAIN, CACHE_VERSION, MAX_CACHE_BYTES)
+        .ok()
+        .flatten()
+        .filter(|cache| {
+            cache.version == CACHE_VERSION
+                && cache.network == wallet.network
+                && cache.account == wallet.account
+        })
+        .unwrap_or_else(|| ScanCache::new(wallet.network, wallet.account))
+}
+pub fn save_cache(wallet: &Wallet, path: &Path, cache: &ScanCache) -> Result<()> {
+    sealed::save(wallet, path, CACHE_DOMAIN, CACHE_VERSION, cache)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,6 +500,7 @@ mod tests {
                 height,
                 unlock_height: height + 2,
                 spent_height: (height == 3).then_some(9),
+                spent_txid: (height == 3).then_some([99; 32]),
                 memo: String::new(),
             });
             cache.history.push(CachedEntry {
@@ -296,6 +510,16 @@ mod tests {
                 height,
                 timestamp: height,
                 memo: String::new(),
+            });
+            cache.mined.push(MinedReward {
+                txid: [height as u8; 32],
+                action: 0,
+                height,
+                block_hash: [height as u8; 32],
+                amount_atomic: 5,
+                timestamp: height,
+                unlock_height: height + 2,
+                state: RewardState::Canonical,
             });
         }
         cache.height = 10;
@@ -316,9 +540,81 @@ mod tests {
             cache.notes[2].spent_height, None,
             "a spend in an abandoned block is undone"
         );
+        assert_eq!(cache.notes[2].spent_txid, None);
         cache.rollback_to(0);
         assert_eq!(cache.tip_hash(), Network::Devnet.genesis());
         assert!(cache.notes.is_empty() && cache.history.is_empty());
+    }
+
+    #[test]
+    fn rolled_back_rewards_stay_recorded_but_never_count() {
+        let mut cache = cache_with_history();
+        let balance_before: u64 = cache.notes.iter().map(|n| n.value).sum();
+        cache.rollback_to(7);
+        assert_eq!(cache.mined.len(), 10, "history keeps every reward");
+        let summary = cache.mined_summary();
+        let unconfirmed: Vec<_> = summary
+            .iter()
+            .filter(|r| r.status == RewardStatus::Unconfirmed)
+            .map(|r| r.height)
+            .collect();
+        assert_eq!(unconfirmed, vec![10, 9, 8]);
+        let balance_after: u64 = cache.notes.iter().map(|n| n.value).sum();
+        assert_eq!(
+            balance_after,
+            balance_before - 15,
+            "removed from the balance"
+        );
+        assert!(
+            !summary.iter().any(|r| r.status == RewardStatus::Replaced),
+            "a rollback alone is not evidence of replacement"
+        );
+    }
+
+    #[test]
+    fn reward_status_follows_consensus_maturity_without_off_by_one() {
+        let reward = MinedReward {
+            txid: [1; 32],
+            action: 0,
+            height: 100,
+            block_hash: [1; 32],
+            amount_atomic: 1,
+            timestamp: 0,
+            unlock_height: 160,
+            state: RewardState::Canonical,
+        };
+        assert_eq!(reward.status(100, 60), (RewardStatus::JustMined, 1, 0));
+        assert_eq!(reward.status(105, 60).0, RewardStatus::JustMined);
+        assert_eq!(reward.status(106, 60).0, RewardStatus::Maturing);
+        assert_eq!(reward.status(159, 60), (RewardStatus::Maturing, 60, 983));
+        assert_eq!(
+            reward.status(160, 60),
+            (RewardStatus::Mature, 61, 1000),
+            "spendable exactly when the tip reaches the unlock height"
+        );
+        assert_eq!(reward.status(99, 60).0, RewardStatus::Unconfirmed);
+        let replaced = MinedReward {
+            state: RewardState::Replaced,
+            ..reward
+        };
+        assert_eq!(replaced.status(500, 60).0, RewardStatus::Replaced);
+    }
+
+    #[test]
+    fn restart_keeps_birthday_and_mining_history() {
+        let mut cache = cache_with_history();
+        cache.birthday = 4;
+        let fresh = cache.restart();
+        assert_eq!(fresh.height, 0);
+        assert_eq!(fresh.birthday, 4);
+        assert_eq!(fresh.mined.len(), 10);
+        assert!(
+            fresh
+                .mined
+                .iter()
+                .all(|r| r.state == RewardState::Unconfirmed)
+        );
+        assert!(fresh.notes.is_empty());
     }
 
     #[test]
@@ -366,100 +662,4 @@ mod tests {
             ScanCache::new(Network::Devnet, 0)
         );
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct Envelope {
-    version: u16,
-    network: Network,
-    account: u32,
-    nonce: [u8; 24],
-    ciphertext: Vec<u8>,
-}
-
-/// `wallet.gnr` keeps its scan cache in `wallet.scan` beside it.
-pub fn cache_path(wallet_path: &Path) -> PathBuf {
-    wallet_path.with_extension("scan")
-}
-fn aad(network: Network, account: u32, nonce: &[u8; 24]) -> Result<Vec<u8>> {
-    codec::encode(&(b"GENORYN/scan-cache/v1".as_slice(), network, account, nonce))
-}
-/// A missing, foreign or undecryptable cache yields a fresh one (a full rescan).
-pub fn load_cache(wallet: &Wallet, path: &Path) -> ScanCache {
-    let fresh = || ScanCache::new(wallet.network, wallet.account);
-    let read = || -> Result<ScanCache> {
-        ensure!(
-            std::fs::metadata(path)?.len() <= MAX_CACHE_BYTES,
-            "scan cache too large"
-        );
-        let envelope: Envelope = serde_json::from_slice(&std::fs::read(path)?)?;
-        ensure!(
-            envelope.version == CACHE_VERSION
-                && envelope.network == wallet.network
-                && envelope.account == wallet.account,
-            "scan cache belongs to another wallet or version"
-        );
-        let key = wallet.scan_cache_key()?;
-        let cipher =
-            XChaCha20Poly1305::new_from_slice(&*key).map_err(|_| anyhow::anyhow!("cipher init"))?;
-        let plaintext = zeroize::Zeroizing::new(
-            cipher
-                .decrypt(
-                    (&envelope.nonce).into(),
-                    Payload {
-                        msg: &envelope.ciphertext,
-                        aad: &aad(envelope.network, envelope.account, &envelope.nonce)?,
-                    },
-                )
-                .map_err(|_| anyhow::anyhow!("scan cache does not belong to this wallet"))?,
-        );
-        let cache: ScanCache = codec::decode(&plaintext, MAX_CACHE_BYTES as usize)?;
-        ensure!(
-            cache.version == CACHE_VERSION
-                && cache.network == wallet.network
-                && cache.account == wallet.account,
-            "scan cache content mismatch"
-        );
-        Ok(cache)
-    };
-    read().unwrap_or_else(|_| fresh())
-}
-pub fn save_cache(wallet: &Wallet, path: &Path, cache: &ScanCache) -> Result<()> {
-    let mut nonce = [0u8; 24];
-    rand08::rngs::OsRng.fill_bytes(&mut nonce);
-    let key = wallet.scan_cache_key()?;
-    let cipher =
-        XChaCha20Poly1305::new_from_slice(&*key).map_err(|_| anyhow::anyhow!("cipher init"))?;
-    let plaintext = zeroize::Zeroizing::new(codec::encode(cache)?);
-    let ciphertext = cipher
-        .encrypt(
-            (&nonce).into(),
-            Payload {
-                msg: &plaintext,
-                aad: &aad(wallet.network, wallet.account, &nonce)?,
-            },
-        )
-        .map_err(|_| anyhow::anyhow!("scan cache encryption failed"))?;
-    let envelope = Envelope {
-        version: CACHE_VERSION,
-        network: wallet.network,
-        account: wallet.account,
-        nonce,
-        ciphertext,
-    };
-    let temporary = path.with_extension("scan.tmp");
-    {
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(&temporary)?;
-        std::io::Write::write_all(&mut file, &serde_json::to_vec(&envelope)?)?;
-        file.sync_all()?;
-    }
-    std::fs::rename(&temporary, path).context("could not store the scan cache")?;
-    Ok(())
 }

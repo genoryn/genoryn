@@ -1,12 +1,16 @@
 //! Light wallet transport: a wallet without a local node reads chain data from
 //! remote nodes' public RPC and hands transactions to them, only through Tor.
 //!
-//! Every downloaded block is fully validated locally by the caller's scan
-//! (RandomX work, Halo 2 proofs, state roots) before anything is derived from
-//! it, so a remote node can withhold data but cannot make the wallet accept an
-//! invalid chain. Several sources are compared to expose withholding, each on
-//! its own circuit, and transactions leave through a different source than the
-//! one the wallet synced from when there is one.
+//! Every downloaded block is fully validated on this computer (RandomX work,
+//! Halo 2 proofs, state roots) before anything is derived from it, so a remote
+//! node can withhold data but cannot make the wallet accept an invalid chain.
+//! The chain to follow is chosen exactly like a full node chooses: by the
+//! cumulative work computed locally from validated headers, never by a height
+//! or work figure a server advertises, and on equal work the chain already
+//! followed is kept. Verified blocks are kept locally, so each sync downloads
+//! only what is new. Several sources are compared to expose withholding, each
+//! on its own circuit, and transactions leave through a different source than
+//! the one the wallet synced from when there is one.
 use crate::{
     client::RpcClient,
     net::{
@@ -15,12 +19,27 @@ use crate::{
     },
 };
 use anyhow::{Context, Result, ensure};
-use genoryn_core::{block::Block, params::Network};
+use futures::{StreamExt, stream};
+use genoryn_core::{
+    block::Block,
+    chain::unix_time,
+    codec::Hash,
+    params::Network,
+    state::{ChainState, ProofCache, Verification},
+};
 use rand08::{RngCore, seq::SliceRandom};
 use serde::Serialize;
 use serde_json::Value;
-use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use zeroize::Zeroizing;
+
+/// Blocks requested from one source at a time while downloading.
+const PARALLEL_REQUESTS: usize = 8;
+/// How far back a fork point is searched block by block before the source's
+/// whole chain is downloaded instead.
+const MAX_FORK_SEARCH: u64 = 256;
+/// Upper bound on a chain this wallet downloads and keeps.
+pub const MAX_CHAIN_BLOCKS: u64 = 1_000_000;
 
 /// The Tor a light wallet uses: its own built-in client, or an external Tor.
 pub struct LightTor {
@@ -87,24 +106,107 @@ impl LightTor {
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct SourceReport {
     pub source: String,
+    /// The height the source advertised; informational only.
     pub height: Option<u64>,
-    /// `used`, `agrees`, `behind`, `different branch`, `rejected: …` or `unreachable: …`.
+    /// `used`, `agrees`, `behind`, `less work`, `equal work`, `rejected: …` or
+    /// `unreachable: …`.
     pub status: String,
 }
 
-/// Downloads the chain from the best source that passes `scan` (which must
-/// validate it fully) and compares the others with it. Returns the scan
-/// result, the index of the source used and a report per source.
-pub async fn sync<T>(
+/// The chain a light sync settled on.
+pub struct Verified {
+    /// Every block of the followed chain, validated on this computer.
+    pub blocks: Vec<Block>,
+    pub state: ChainState,
+    /// Blocks above this height differ from the chain followed before the sync
+    /// (equal to the previous height when the chain was only extended or kept).
+    pub fork: u64,
+    /// The source whose blocks were adopted; `None` when the local chain was kept.
+    pub used: Option<usize>,
+    pub reports: Vec<SourceReport>,
+    /// Sources that answered for this network and genesis.
+    pub reachable: usize,
+}
+impl Verified {
+    /// No source answered: the result is the last verified chain, possibly stale.
+    pub fn is_stale(&self) -> bool {
+        self.reachable == 0
+    }
+}
+
+struct Candidate {
+    source: usize,
+    fork: u64,
+    blocks: Vec<Block>,
+    state: ChainState,
+}
+
+async fn block_at(client: &RpcClient, height: u64) -> Result<Block> {
+    let mut page: Vec<Block> = client
+        .get(&format!("v1/blocks?from={height}&limit=1"))
+        .await?;
+    ensure!(
+        page.len() == 1,
+        "source returned no block at height {height}"
+    );
+    let block = page.remove(0);
+    ensure!(
+        block.header.height == height,
+        "source returned the wrong block for height {height}"
+    );
+    Ok(block)
+}
+/// Blocks `from..=to` in order, several requests in flight.
+async fn download(client: &RpcClient, from: u64, to: u64) -> Result<Vec<Block>> {
+    stream::iter(from..=to)
+        .map(|height| block_at(client, height))
+        .buffered(PARALLEL_REQUESTS)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect()
+}
+/// The highest height at which `client`'s chain and `local` share a block.
+async fn fork_point(client: &RpcClient, local: &[Block], their_height: u64) -> Result<u64> {
+    let top = their_height.min(local.len() as u64);
+    let mut height = top;
+    while height > 0 && top - height < MAX_FORK_SEARCH {
+        let theirs = block_at(client, height).await?.hash()?;
+        if theirs == local[height as usize - 1].hash()? {
+            return Ok(height);
+        }
+        height -= 1;
+    }
+    Ok(0)
+}
+fn replay(network: Network, blocks: &[Block]) -> Result<ChainState> {
+    let mut state = ChainState::new(network);
+    let mut cache = ProofCache::default();
+    for block in blocks {
+        state.apply_block_in_place(block, unix_time(), &mut cache, Verification::Stored)?;
+    }
+    Ok(state)
+}
+
+/// Brings the locally verified chain (`local`, whose validated state is
+/// `local_state`) up to date from `clients`, following the valid chain with the
+/// most cumulative work. Unreachable sources leave the local chain in place.
+pub async fn sync_verified(
     network: Network,
     clients: &[RpcClient],
     labels: &[String],
-    mut scan: impl FnMut(&[Block]) -> Result<T>,
-) -> Result<(T, usize, Vec<SourceReport>)> {
+    local: Vec<Block>,
+    local_state: ChainState,
+) -> Result<Verified> {
     ensure!(
         !clients.is_empty() && clients.len() == labels.len(),
         "light sync needs at least one source"
     );
+    ensure!(
+        local_state.height == local.len() as u64,
+        "local chain and its state disagree"
+    );
+    let local_tip = local_state.best_hash;
     let mut reports: Vec<SourceReport> = labels
         .iter()
         .map(|label| SourceReport {
@@ -113,64 +215,194 @@ pub async fn sync<T>(
             status: String::new(),
         })
         .collect();
-    let mut tips = vec![None; clients.len()];
-    for (index, client) in clients.iter().enumerate() {
-        match client.get::<Value>("v1/info").await {
+    let infos =
+        futures::future::join_all(clients.iter().map(|client| client.get::<Value>("v1/info")))
+            .await;
+    let mut tips: Vec<Option<(u64, String)>> = vec![None; clients.len()];
+    let mut reachable = 0;
+    for (index, info) in infos.into_iter().enumerate() {
+        match info {
             Ok(info)
                 if info["chain_id"] == network.chain_id()
                     && info["genesis_hash"] == hex::encode(network.genesis()) =>
             {
-                let height = info["height"].as_u64();
-                reports[index].height = height;
-                tips[index] = height.zip(info["best_hash"].as_str().map(str::to_owned));
+                match (info["height"].as_u64(), info["best_hash"].as_str()) {
+                    (Some(0), Some(best)) if best != hex::encode(network.genesis()) => {
+                        reports[index].status = "rejected: tip does not match genesis".into()
+                    }
+                    (Some(height), Some(best)) if height <= MAX_CHAIN_BLOCKS => {
+                        reachable += 1;
+                        reports[index].height = Some(height);
+                        tips[index] = Some((height, best.to_owned()));
+                    }
+                    _ => reports[index].status = "rejected: malformed status".into(),
+                }
             }
             Ok(_) => reports[index].status = "rejected: another network or genesis".into(),
             Err(error) => reports[index].status = format!("unreachable: {}", short(&error)),
         }
     }
-    let mut order: Vec<usize> = (0..clients.len()).filter(|i| tips[*i].is_some()).collect();
-    order.sort_by_key(|i| std::cmp::Reverse(tips[*i].as_ref().map(|(height, _)| *height)));
-    let mut chosen = None;
-    for index in order {
-        let attempt = async {
-            let blocks = clients[index].chain(network).await?;
-            let scanned = scan(&blocks)?;
-            Ok::<_, anyhow::Error>((blocks, scanned))
+    let mut candidates: Vec<Candidate> = Vec::new();
+    // Sources advertising a tip already examined share its verdict.
+    let mut examined: BTreeMap<String, usize> = BTreeMap::new();
+    let mut fork_states: BTreeMap<u64, ChainState> = BTreeMap::new();
+    for index in 0..clients.len() {
+        let Some((height, best)) = tips[index].clone() else {
+            continue;
         };
-        match attempt.await {
-            Ok((blocks, scanned)) => {
-                reports[index].status = "used".into();
-                chosen = Some((index, blocks, scanned));
-                break;
-            }
-            Err(error) => reports[index].status = format!("rejected: {}", short(&error)),
-        }
-    }
-    let (used, blocks, scanned) =
-        chosen.context("no source served a chain that passed full validation")?;
-    for (index, tip) in tips.iter().enumerate() {
-        let Some((height, hash)) = tip else { continue };
-        if index == used || !reports[index].status.is_empty() {
+        if best == hex::encode(local_tip) {
+            reports[index].status = "agrees".into();
             continue;
         }
-        let ours = match *height {
-            0 => Some(hex::encode(network.genesis())),
-            h => blocks
-                .get(h as usize - 1)
-                .and_then(|block| block.hash().ok())
-                .map(hex::encode),
+        if let Some(first) = examined.get(&best) {
+            reports[index].status = reports[*first].status.clone();
+            continue;
+        }
+        examined.insert(best.clone(), index);
+        let attempt = async {
+            let fork = fork_point(&clients[index], &local, height).await?;
+            if height <= fork {
+                return Ok::<_, anyhow::Error>(None);
+            }
+            let state = match fork_states.get(&fork) {
+                Some(state) => state.clone(),
+                None if fork == local.len() as u64 => local_state.clone(),
+                None => {
+                    let state = replay(network, &local[..fork as usize])?;
+                    fork_states.insert(fork, state.clone());
+                    state
+                }
+            };
+            let blocks = download(&clients[index], fork + 1, height).await?;
+            Ok(Some((fork, state, blocks)))
         };
-        reports[index].status = if *height as usize > blocks.len() {
-            "claims a longer chain; not verified".into()
-        } else if ours.as_deref() != Some(hash.as_str()) {
-            "different branch".into()
-        } else if (*height as usize) < blocks.len() {
-            "behind".into()
-        } else {
-            "agrees".into()
+        let (fork, mut state, blocks) = match attempt.await {
+            Ok(Some(found)) => found,
+            Ok(None) => {
+                reports[index].status = "behind".into();
+                continue;
+            }
+            Err(error) => {
+                reports[index].status = format!("rejected: {}", short(&error));
+                continue;
+            }
         };
+        let base = state.clone();
+        let mut cache = ProofCache::default();
+        let mut valid = Vec::with_capacity(blocks.len());
+        let mut failure = None;
+        for block in blocks {
+            match state.apply_block_in_place(&block, unix_time(), &mut cache, Verification::Full) {
+                Ok(()) => valid.push(block),
+                Err(error) => {
+                    failure = Some(format!(
+                        "invalid block at height {}: {}",
+                        block.header.height,
+                        short(&error)
+                    ));
+                    break;
+                }
+            }
+        }
+        if failure.is_some() {
+            // A failed block leaves the state partly updated; rebuild the valid part.
+            state = base;
+            for block in &valid {
+                state.apply_block_in_place(block, unix_time(), &mut cache, Verification::Stored)?;
+            }
+        }
+        if failure.is_none() && hex::encode(state.best_hash) != best {
+            failure = Some("blocks do not lead to the advertised tip".into());
+        }
+        if let Some(reason) = &failure {
+            reports[index].status = format!("rejected: {reason}");
+        }
+        if !valid.is_empty() {
+            candidates.push(Candidate {
+                source: index,
+                fork,
+                blocks: valid,
+                state,
+            });
+        }
     }
-    Ok((scanned, used, reports))
+    // Most cumulative work wins; on equal work the chain already followed (or
+    // the first one examined) is kept, as in the full node.
+    let mut best: Option<usize> = None;
+    let mut best_work = local_state.work;
+    for (position, candidate) in candidates.iter().enumerate() {
+        if candidate.state.work > best_work {
+            best_work = candidate.state.work;
+            best = Some(position);
+        }
+    }
+    // A source whose tip lies on the newly followed chain is merely behind it.
+    let chosen_hashes: Option<BTreeMap<u64, Hash>> = best.map(|position| {
+        let chosen = &candidates[position];
+        chosen
+            .blocks
+            .iter()
+            .filter_map(|block| Some((block.header.height, block.hash().ok()?)))
+            .collect()
+    });
+    let on_chosen = |candidate: &Candidate| {
+        let chosen = &candidates[best.expect("checked")];
+        let tip = candidate.state.height;
+        candidate.fork >= chosen.fork
+            && chosen_hashes
+                .as_ref()
+                .and_then(|hashes| hashes.get(&tip))
+                .is_some_and(|hash| *hash == candidate.state.best_hash)
+    };
+    let behind: Vec<bool> = candidates
+        .iter()
+        .enumerate()
+        .map(|(position, candidate)| {
+            best.is_some() && Some(position) != best && on_chosen(candidate)
+        })
+        .collect();
+    for (position, candidate) in candidates.iter().enumerate() {
+        let report = &mut reports[candidate.source];
+        if behind[position] && report.status.is_empty() {
+            report.status = "behind".into();
+        } else if Some(position) == best {
+            if report.status.is_empty() {
+                report.status = "used".into();
+            } else {
+                report.status = format!("used valid part; {}", report.status);
+            }
+        } else if report.status.is_empty() {
+            report.status = if candidate.state.work == best_work {
+                "equal work; current chain kept".into()
+            } else {
+                "less work; not followed".into()
+            };
+        }
+    }
+    Ok(match best {
+        Some(position) => {
+            let candidate = candidates.swap_remove(position);
+            let mut blocks = local;
+            blocks.truncate(candidate.fork as usize);
+            blocks.extend(candidate.blocks);
+            Verified {
+                blocks,
+                state: candidate.state,
+                fork: candidate.fork,
+                used: Some(candidate.source),
+                reports,
+                reachable,
+            }
+        }
+        None => Verified {
+            fork: local.len() as u64,
+            blocks: local,
+            state: local_state,
+            used: None,
+            reports,
+            reachable,
+        },
+    })
 }
 
 /// Hands `tx` to a source other than `synced_from` when possible (in random
@@ -195,6 +427,25 @@ pub async fn relay(
     Err(last
         .unwrap_or_else(|| anyhow::anyhow!("no source to relay through"))
         .context("no source accepted the transaction"))
+}
+
+/// The id a node acknowledged, or its refusal as text.
+pub fn acknowledged(answer: Result<Value>) -> std::result::Result<String, String> {
+    match answer {
+        Ok(value) => value["txid"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| "the node answered without a transaction id".to_owned()),
+        Err(error) => Err(format!("{error:#}")),
+    }
+}
+
+/// Local tip hash helper for callers that report the followed chain.
+pub fn tip_hash(network: Network, blocks: &[Block]) -> Result<Hash> {
+    Ok(match blocks.last() {
+        Some(block) => block.hash()?,
+        None => network.genesis(),
+    })
 }
 
 fn short(error: &anyhow::Error) -> String {

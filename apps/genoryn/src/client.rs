@@ -99,6 +99,10 @@ impl RpcClient {
             token: None,
         })
     }
+    /// Whether administrative calls (`post`) can be made.
+    pub fn has_token(&self) -> bool {
+        self.token.is_some()
+    }
     /// Hands a transaction to the node's public relay (no token needed).
     pub async fn relay<T: DeserializeOwned>(&self, tx: &impl Serialize) -> Result<T> {
         let response = self

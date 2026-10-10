@@ -202,7 +202,10 @@ mod tests {
         let before = app.network_generation;
         app.apply_network_mode(Mode::Direct);
         assert!(app.network_transition.is_none());
-        assert_ne!(app.network_generation, before, "older reports are discarded");
+        assert_ne!(
+            app.network_generation, before,
+            "older reports are discarded"
+        );
     }
 
     #[test]

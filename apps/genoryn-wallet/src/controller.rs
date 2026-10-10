@@ -437,9 +437,9 @@ impl WalletApp {
                         && self.network_transition.is_some()
                     {
                         self.network_transition = None;
-                        self.network_outcome = Some(network_transition::Outcome::Failed(
-                            format!("could not stop the {kind}: {error}"),
-                        ));
+                        self.network_outcome = Some(network_transition::Outcome::Failed(format!(
+                            "could not stop the {kind}: {error}"
+                        )));
                     }
                     self.status = match result {
                         Ok(()) => format!("Owned {kind} process stopped."),

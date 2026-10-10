@@ -69,10 +69,19 @@ pub fn validate_chain(
     network: genoryn_core::params::Network,
     blocks: &[Block],
 ) -> Result<ChainState> {
+    replay_chain(network, blocks, Verification::Full)
+}
+/// Applies `blocks` from genesis. `Verification::Stored` is only for blocks this
+/// computer (or the user's own node) already validated in full.
+pub fn replay_chain(
+    network: genoryn_core::params::Network,
+    blocks: &[Block],
+    verification: Verification,
+) -> Result<ChainState> {
     let mut state = ChainState::new(network);
     let mut cache = ProofCache::default();
     for block in blocks {
-        state.apply_block_in_place(block, unix_time(), &mut cache, Verification::Full)?;
+        state.apply_block_in_place(block, unix_time(), &mut cache, verification)?;
     }
     Ok(state)
 }
@@ -81,7 +90,21 @@ impl Wallet {
     /// Fully validate the downloaded chain before reconstructing any private balance.
     /// All scanning happens locally, never by requesting address-specific outputs.
     pub fn scan(&self, blocks: &[Block]) -> Result<ScannedWallet> {
-        let state = validate_chain(self.network, blocks)?;
+        self.scan_with_state(validate_chain(self.network, blocks)?, blocks)
+    }
+    /// Scans `blocks`, whose validated state is `state` (from `replay_chain` or
+    /// the light wallet's verified chain).
+    pub fn scan_with_state(&self, state: ChainState, blocks: &[Block]) -> Result<ScannedWallet> {
+        ensure!(
+            state.height == blocks.len() as u64
+                && state.best_hash
+                    == blocks
+                        .last()
+                        .map(|b| b.hash())
+                        .transpose()?
+                        .unwrap_or_else(|| self.network.genesis()),
+            "validated state does not match the scanned blocks"
+        );
         let fvk = self.viewing_key()?;
         let ivks = [fvk.to_ivk(Scope::External), fvk.to_ivk(Scope::Internal)];
         let ovk = fvk.to_ovk(Scope::External);

@@ -116,6 +116,18 @@ impl Wallet {
             .map_err(|_| anyhow::anyhow!("scan cache key derivation failed"))?;
         Ok(key)
     }
+    /// Key for one kind of local wallet storage (`domain`), bound to network and
+    /// account; distinct from every spending/viewing key and from other domains.
+    pub fn storage_key(&self, domain: &[u8]) -> Result<Zeroizing<[u8; 32]>> {
+        let seed = self.seed()?;
+        let hk = hkdf::Hkdf::<sha2::Sha256>::new(Some(domain), &*seed);
+        let mut key = Zeroizing::new([0u8; 32]);
+        let mut info = vec![self.network.id()];
+        info.extend_from_slice(&self.account.to_le_bytes());
+        hk.expand(&info, &mut *key)
+            .map_err(|_| anyhow::anyhow!("storage key derivation failed"))?;
+        Ok(key)
+    }
     pub fn save_new(&self, path: &Path, password: &str) -> Result<()> {
         ensure!(
             password.chars().count() >= 8,

@@ -4,7 +4,9 @@ use genoryn::client::RpcClient;
 use genoryn_core::{block::Block, names};
 use genoryn_core::{chain::unix_time, emission::parse_gnr, params::Network};
 use genoryn_wallet_core::{
+    chain_store,
     keys::{Wallet, decode_address},
+    outbox,
     scan::{NoteProof, verify_payment_proof},
     sync,
     username::ReceiverBundle,
@@ -118,15 +120,72 @@ async fn block_at(rpc: &RpcClient, height: u64) -> Result<Block> {
     );
     Ok(block)
 }
-/// Balance and history from the encrypted scan cache plus any new blocks. Used only
-/// with the wallet's own loopback node, which has already validated every block.
-async fn incremental_sync(
+/// Blocks below a new wallet's birthday are validated but not decrypted. The
+/// margin keeps a short reorganization around its creation harmless.
+const BIRTHDAY_MARGIN: u64 = 100;
+
+/// An outbox left at this path by a different wallet would block every sync;
+/// it is renamed aside (never deleted) so its owner could still recover it.
+fn set_aside_foreign_files(wallet: &Wallet, path: &Path) {
+    let file = outbox::outbox_path(path);
+    if file.exists() && outbox::load(wallet, &file).is_err() {
+        let mut aside = file.as_os_str().to_owned();
+        aside.push(format!(".foreign-{}", unix_time()));
+        let _ = std::fs::rename(&file, aside);
+    }
+}
+
+/// The scan cache to continue from; `full_rescan` starts over (keeping the
+/// mining history), optionally from `rescan_height`.
+fn open_cache(wallet: &Wallet, path: &Path, request: &Value) -> sync::ScanCache {
+    let cache = sync::load_cache(wallet, &sync::cache_path(path));
+    if request["full_rescan"].as_bool() != Some(true) {
+        return cache;
+    }
+    let mut fresh = cache.restart();
+    if let Some(height) = request["rescan_height"].as_u64() {
+        fresh.birthday = height;
+    }
+    fresh
+}
+/// Brings `cache` to the tip of `blocks`, which are already validated, rolling
+/// back to the last shared block when the chain forked.
+fn advance_cache(
+    cache: &mut sync::ScanCache,
+    keys: &sync::ScanKeys,
+    blocks: &[Block],
+) -> Result<()> {
+    let shared = if cache.height == 0 {
+        Some(0)
+    } else {
+        cache
+            .recent
+            .iter()
+            .rev()
+            .find(|(height, hash)| {
+                *height as usize <= blocks.len()
+                    && blocks[*height as usize - 1].hash().ok() == Some(*hash)
+            })
+            .map(|(height, _)| *height)
+    };
+    match shared {
+        Some(height) if height == cache.height => {}
+        Some(height) if cache.can_roll_back_to(height) => cache.rollback_to(height),
+        _ => *cache = cache.restart(),
+    }
+    for block in &blocks[cache.height as usize..] {
+        cache.apply_block(keys, block)?;
+    }
+    Ok(())
+}
+/// Advances `cache` block by block from the wallet's own loopback node, which
+/// has already validated every block.
+async fn advance_cache_from_node(
     rpc: &RpcClient,
     network: Network,
-    wallet: &Wallet,
-    path: &Path,
-    request: &Value,
-) -> Result<Value> {
+    cache: &mut sync::ScanCache,
+    keys: &sync::ScanKeys,
+) -> Result<()> {
     let info: Value = rpc.get("v1/info").await?;
     ensure!(
         info["chain_id"] == network.chain_id()
@@ -134,12 +193,6 @@ async fn incremental_sync(
         "RPC network/genesis mismatch"
     );
     let tip = info["height"].as_u64().context("RPC height missing")?;
-    let file = sync::cache_path(path);
-    let mut cache = if request["full_rescan"].as_bool() == Some(true) {
-        sync::ScanCache::new(network, wallet.account)
-    } else {
-        sync::load_cache(wallet, &file)
-    };
     // Find the newest cached block that is still on the node's chain.
     if cache.height > 0 {
         let mut shared = None;
@@ -150,36 +203,185 @@ async fn incremental_sync(
             }
         }
         match shared {
+            Some(height) if height == cache.height => {}
             Some(height) if cache.can_roll_back_to(height) => cache.rollback_to(height),
-            _ => cache = sync::ScanCache::new(network, wallet.account),
+            _ => *cache = cache.restart(),
         }
     }
-    let keys = sync::ScanKeys::new(wallet)?;
-    let mut progress = Ok(());
     while cache.height < tip {
-        match block_at(rpc, cache.height + 1).await {
-            Ok(block) => {
-                if let Err(error) = cache.apply_block(&keys, &block) {
-                    progress = Err(error);
-                    break;
-                }
-            }
-            Err(error) => {
-                progress = Err(error);
-                break;
-            }
+        let block = block_at(rpc, cache.height + 1).await?;
+        cache.apply_block(keys, &block)?;
+    }
+    Ok(())
+}
+/// How a payment reaches the network.
+enum Relayer<'a> {
+    /// The wallet's own or configured node.
+    Node(&'a RpcClient),
+    /// Remote light-wallet sources over Tor, preferring one other than the
+    /// source the chain was synced from.
+    Light(&'a [RpcClient], usize),
+}
+impl Relayer<'_> {
+    async fn send(&self, tx: &genoryn_core::privacy::ShieldedTx) -> Result<Value> {
+        match self {
+            Self::Node(rpc) if rpc.has_token() => rpc.post("v1/transactions", tx).await,
+            Self::Node(rpc) => rpc.relay(tx).await,
+            Self::Light(clients, synced_from) => genoryn::light::relay(clients, *synced_from, tx)
+                .await
+                .map(|(_, answer)| answer),
         }
     }
-    // Keep verified progress even when the chain moved during the sync.
-    sync::save_cache(wallet, &file, &cache)?;
-    progress.context("the chain changed during sync; the next sync continues")?;
-    with_name_identity(
-        serde_json::to_value(cache.summary(
-            wallet,
-            request["confirmation_target"].as_u64().unwrap_or(10),
-        )?)?,
+}
+/// Relays every outbox entry that is due, with its exact stored bytes.
+async fn relay_due(outbox: &mut outbox::Outbox, relayer: &Relayer<'_>) {
+    let now = unix_time();
+    for index in outbox.to_relay(now) {
+        let entry = &outbox.entries[index];
+        let txid = hex::encode(entry.txid);
+        let answer = match entry.transaction() {
+            Ok(tx) => match genoryn::light::acknowledged(relayer.send(&tx).await) {
+                Err(error) if outbox::is_already_known(&error) => Ok(txid),
+                other => other,
+            },
+            Err(error) => Err(error.to_string()),
+        };
+        outbox.record_relay(index, now, answer);
+    }
+}
+/// Stores the signed `tx` durably first, then relays it. The id the node
+/// returns must match the locally computed one.
+async fn submit_durably(
+    wallet: &Wallet,
+    path: &Path,
+    outbox: &mut outbox::Outbox,
+    tx: &genoryn_core::privacy::ShieldedTx,
+    recipient: String,
+    amount: u64,
+    fee: u64,
+    relayer: &Relayer<'_>,
+) -> Result<Value> {
+    let entry = outbox::OutboxEntry::new(tx, recipient, amount, fee, unix_time())?;
+    let txid = hex::encode(entry.txid);
+    outbox.add(entry)?;
+    let file = outbox::outbox_path(path);
+    outbox::save(wallet, &file, outbox)
+        .context("the payment was not sent: it could not be stored safely first")?;
+    relay_due(outbox, relayer).await;
+    outbox::save(wallet, &file, outbox)?;
+    let entry = outbox
+        .entries
+        .iter()
+        .find(|entry| hex::encode(entry.txid) == txid)
+        .context("stored payment missing")?;
+    Ok(json!({
+        "txid": txid,
+        "status": entry.status.label(),
+        "acknowledged": entry.status == outbox::OutboxStatus::Submitted,
+        "relay_error": entry.last_error,
+        "note": "Stored on this computer and handed to the network. It is confirmed only when a block includes it; until then it is retried automatically with the same signed bytes.",
+    }))
+}
+/// Notes whose spend the chain has not yet settled are not available again.
+fn exclude_reserved(
+    wallet: &Wallet,
+    outbox: &outbox::Outbox,
+    scanned: &mut genoryn_wallet_core::scan::ScannedWallet,
+) -> Result<()> {
+    let reserved = outbox.reserved();
+    if reserved.is_empty() {
+        return Ok(());
+    }
+    let fvk = wallet.viewing_key()?;
+    for note in scanned.notes.iter_mut().filter(|note| !note.spent) {
+        if reserved.contains(&note.note.nullifier(&fvk).to_bytes()) {
+            note.spent = true;
+        }
+    }
+    Ok(())
+}
+/// Balance, history, mining rewards and outgoing payments for the GUI.
+fn wallet_summary(
+    wallet: &Wallet,
+    cache: &sync::ScanCache,
+    outbox: &outbox::Outbox,
+    request: &Value,
+) -> Result<Value> {
+    let mut summary = serde_json::to_value(cache.summary(
         wallet,
-    )
+        request["confirmation_target"].as_u64().unwrap_or(10),
+    )?)?;
+    let reserved = outbox.reserved();
+    let held = |mature_only: bool| -> u128 {
+        cache
+            .notes
+            .iter()
+            .filter(|note| note.spent_height.is_none() && reserved.contains(&note.nullifier))
+            .filter(|note| !mature_only || note.unlock_height <= cache.height)
+            .map(|note| note.value as u128)
+            .sum()
+    };
+    let spendable: u128 = summary["spendable_atomic"]
+        .as_str()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0);
+    summary["spendable_atomic"] = json!(spendable.saturating_sub(held(true)).to_string());
+    summary["reserved_atomic"] = json!(held(false).to_string());
+    summary["mined"] = serde_json::to_value(cache.mined_summary())?;
+    summary["outbox"] = serde_json::to_value(outbox.summary())?;
+    summary["birthday"] = json!(cache.birthday);
+    with_name_identity(summary, wallet)
+}
+/// Full mode: updates the scan cache from the configured node, settles the
+/// outbox against the chain and relays what is due. Returns the validated
+/// chain too when `need_chain` (for building a payment).
+async fn refresh_from_node(
+    rpc: &RpcClient,
+    network: Network,
+    wallet: &Wallet,
+    path: &Path,
+    request: &Value,
+    need_chain: bool,
+) -> Result<(
+    sync::ScanCache,
+    outbox::Outbox,
+    Option<(Vec<Block>, genoryn_core::state::ChainState)>,
+)> {
+    let own_node = request["full_validation"].as_bool() != Some(true)
+        && is_loopback_url(
+            request["rpc_url"]
+                .as_str()
+                .unwrap_or("http://127.0.0.1:29611"),
+        );
+    let keys = sync::ScanKeys::new(wallet)?;
+    let mut cache = open_cache(wallet, path, request);
+    let mut chain = None;
+    let progress = if own_node && !need_chain {
+        advance_cache_from_node(rpc, network, &mut cache, &keys).await
+    } else {
+        // A remote node's blocks are validated here in full; the wallet's own
+        // node already validated them.
+        let blocks = rpc.chain(network).await?;
+        let verification = if own_node {
+            genoryn_core::state::Verification::Stored
+        } else {
+            genoryn_core::state::Verification::Full
+        };
+        let state = genoryn_wallet_core::scan::replay_chain(network, &blocks, verification)?;
+        let advanced = advance_cache(&mut cache, &keys, &blocks);
+        chain = Some((blocks, state));
+        advanced
+    };
+    // Keep verified progress even when the chain moved during the sync.
+    sync::save_cache(wallet, &sync::cache_path(path), &cache)?;
+    progress.context("the chain changed during sync; the next sync continues")?;
+    let outbox_file = outbox::outbox_path(path);
+    let mut outbox = outbox::load(wallet, &outbox_file)?;
+    outbox.reconcile(&cache);
+    relay_due(&mut outbox, &Relayer::Node(rpc)).await;
+    outbox::save(wallet, &outbox_file, &outbox)?;
+    Ok((cache, outbox, chain))
 }
 /// Public username identity of a wallet, so the GUI can look up its names.
 fn with_name_identity(mut summary: Value, wallet: &Wallet) -> Result<Value> {
@@ -252,17 +454,39 @@ async fn dispatch(request: &Value) -> Result<Value> {
     if op == "create" {
         let wallet = Wallet::create(network)?.for_account(account_field(request)?)?;
         wallet.save_new(path, &password)?;
+        set_aside_foreign_files(&wallet, path);
+        // A new seed cannot have received anything before the verified height
+        // known at creation; unknown (offline) means scanning from genesis.
+        let birthday = request["birthday_height"]
+            .as_u64()
+            .map_or(0, |height| height.saturating_sub(BIRTHDAY_MARGIN));
+        sync::save_cache(
+            &wallet,
+            &sync::cache_path(path),
+            &sync::ScanCache::with_birthday(network, wallet.account, birthday),
+        )?;
         let phrase = wallet.phrase()?;
         return Ok(
-            json!({"address":wallet.receiving_identity()?,"seed_phrase":phrase.as_str(),"network":network.name(),"account":wallet.account}),
+            json!({"address":wallet.receiving_identity()?,"seed_phrase":phrase.as_str(),"network":network.name(),"account":wallet.account,"birthday":birthday}),
         );
     }
     if op == "restore" {
         let wallet = Wallet::restore(network, field(request, "seed_phrase")?)?
             .for_account(account_field(request)?)?;
         wallet.save_new(path, &password)?;
+        set_aside_foreign_files(&wallet, path);
+        // A restored seed scans its whole history unless told where it began.
+        // Local state this same seed left at this path (pending payments,
+        // mining history) is kept.
+        let birthday = request["restore_height"].as_u64().unwrap_or(0);
+        let mut cache = sync::load_cache(&wallet, &sync::cache_path(path));
+        cache.birthday = cache.birthday.min(birthday);
+        if cache.height == 0 && cache.mined.is_empty() {
+            cache.birthday = birthday;
+        }
+        sync::save_cache(&wallet, &sync::cache_path(path), &cache)?;
         return Ok(
-            json!({"address":wallet.receiving_identity()?,"network":network.name(),"account":wallet.account}),
+            json!({"address":wallet.receiving_identity()?,"network":network.name(),"account":wallet.account,"birthday":birthday}),
         );
     }
     let wallet = if ["resolve_username", "verify_proof", "name_status"].contains(&op) {
@@ -357,16 +581,43 @@ async fn dispatch(request: &Value) -> Result<Value> {
         let owner = hex::encode(w.identity_key()?.verifying_key().to_bytes());
         return names_rpc(rpc.get(&format!("v1/names/owner?owner={owner}")).await);
     }
-    if op == "sync"
-        && request["full_validation"].as_bool() != Some(true)
-        && is_loopback_url(
+    if op == "sync" {
+        let wallet = wallet.as_ref().context("wallet required")?;
+        let (cache, outbox, _) =
+            refresh_from_node(&rpc, network, wallet, path, request, false).await?;
+        let mut summary = wallet_summary(wallet, &cache, &outbox, request)?;
+        summary["mode"] = json!("full");
+        summary["verified_by"] = json!(if is_loopback_url(
             request["rpc_url"]
                 .as_str()
-                .unwrap_or("http://127.0.0.1:29611"),
-        )
-    {
+                .unwrap_or("http://127.0.0.1:29611")
+        ) {
+            "your own node"
+        } else {
+            "this computer (every block validated)"
+        });
+        return Ok(summary);
+    }
+    if matches!(op, "send" | "register_name" | "update_name") {
         let wallet = wallet.as_ref().context("wallet required")?;
-        return incremental_sync(&rpc, network, wallet, path, request).await;
+        let (_, mut outbox, chain) =
+            refresh_from_node(&rpc, network, wallet, path, request, true).await?;
+        let (blocks, state) = chain.context("validated chain required")?;
+        let mut scanned = wallet.scan_with_state(state, &blocks)?;
+        exclude_reserved(wallet, &outbox, &mut scanned)?;
+        exclude_pending_spends(&rpc, wallet, &mut scanned).await?;
+        return build_and_submit(
+            op,
+            request,
+            network,
+            wallet,
+            path,
+            &rpc,
+            &scanned,
+            &mut outbox,
+            &Relayer::Node(&rpc),
+        )
+        .await;
     }
     let blocks = rpc.chain(network).await?;
     if matches!(op, "verify_proof" | "export_proof") {
@@ -392,21 +643,28 @@ async fn dispatch(request: &Value) -> Result<Value> {
             .context("transaction not found")?;
         return Ok(serde_json::to_value(wallet.payment_proof(tx, index)?)?);
     }
-    let mut scanned = wallet.scan(&blocks)?;
-    if matches!(op, "send" | "register_name" | "update_name") {
-        exclude_pending_spends(&rpc, &wallet, &mut scanned).await?;
-    }
-    if op == "sync" {
-        return with_name_identity(
-            serde_json::to_value(wallet.summary_with_confirmation_target(
-                &scanned,
-                request["confirmation_target"].as_u64().unwrap_or(10),
-            )?)?,
-            &wallet,
-        );
-    }
+    anyhow::bail!("unsupported wallet operation")
+}
+/// Builds the payment or name transaction from `scanned` (reserved and
+/// mempool-spent notes already excluded) and submits it through the outbox.
+#[allow(clippy::too_many_arguments)]
+async fn build_and_submit(
+    op: &str,
+    request: &Value,
+    network: Network,
+    wallet: &Wallet,
+    path: &Path,
+    names_rpc_client: &RpcClient,
+    scanned: &genoryn_wallet_core::scan::ScannedWallet,
+    outbox: &mut outbox::Outbox,
+    relayer: &Relayer<'_>,
+) -> Result<Value> {
+    let fee = request["fee_atomic"]
+        .as_str()
+        .unwrap_or("10000000")
+        .parse::<u64>()?;
     if op == "register_name" || op == "update_name" {
-        let status = chain_name_status(&rpc, field(request, "name")?).await?;
+        let status = chain_name_status(names_rpc_client, field(request, "name")?).await?;
         let name = status["name"]
             .as_str()
             .context("name status missing")?
@@ -426,86 +684,108 @@ async fn dispatch(request: &Value) -> Result<Value> {
             let sequence = entry["sequence"].as_u64().context("name sequence")? as u32;
             (names::OP_UPDATE, sequence + 1)
         };
-        let fee = request["fee_atomic"]
-            .as_str()
-            .unwrap_or("10000000")
-            .parse::<u64>()?;
-        let tx = wallet.name_transaction(&scanned, kind, &name, sequence, fee)?;
-        let submitted: Value = rpc.post("v1/transactions", &tx).await?;
+        let tx = wallet.name_transaction(scanned, kind, &name, sequence, fee)?;
         let burned = if kind == names::OP_REGISTER {
             names::registration_price(&name)
         } else {
             names::UPDATE_PRICE
         };
-        return Ok(json!({
-            "name": name,
-            "txid": submitted["txid"].clone(),
-            "burned_atomic": burned.to_string(),
-            "receiver": genoryn_wallet_core::keys::encode_address(network, wallet.name_receiver()?)?,
-        }));
-    }
-    if op == "send" {
-        let to = field(request, "to")?.trim();
-        let named = names_a_username(network, to);
-        let on_chain = if named {
-            chain_name_status(&rpc, to)
-                .await
-                .ok()
-                .and_then(|status| status["registered"]["receiver"].as_str().map(str::to_owned))
-        } else {
-            None
-        };
-        let address = if let Some(receiver) = on_chain {
-            decode_address(network, &receiver)?
-        } else if named {
-            let name = genoryn_wallet_core::username::canonicalize(to)?;
-            let b: ReceiverBundle = rpc.get(&format!("v1/usernames?username={name}")).await?;
-            b.verify(network, unix_time())?;
-            ensure!(b.username == name, "resolver returned a different username");
-            // Owner pinning is local and contains only public identity material. A changed key fails closed.
-            let pinpath = path.with_extension("username-pins.json");
-            let mut pins: std::collections::BTreeMap<String, String> = if pinpath.exists() {
-                ensure!(
-                    std::fs::metadata(&pinpath)?.len() <= 100_000,
-                    "pin file too large"
-                );
-                serde_json::from_slice(&std::fs::read(&pinpath)?)?
-            } else {
-                Default::default()
-            };
-            if let Some(old) = pins.get(&name) {
-                ensure!(
-                    *old == b.fingerprint(),
-                    "username owner fingerprint changed; verify independently before updating trust"
-                );
-            } else {
-                pins.insert(name, b.fingerprint());
-                std::fs::write(&pinpath, serde_json::to_vec(&pins)?)?;
-            }
-            decode_address(network, &b.receiver)?
-        } else {
-            decode_address(network, to).with_context(|| not_a_recipient(network))?
-        };
-        let amount = field(request, "amount_atomic")?.parse::<u64>()?;
-        let fee = request["fee_atomic"]
-            .as_str()
-            .unwrap_or("10000000")
-            .parse::<u64>()?;
-        let tx = wallet.send(
-            &scanned,
-            address,
-            amount,
+        let mut submitted = submit_durably(
+            wallet,
+            path,
+            outbox,
+            &tx,
+            format!("@{name}"),
+            burned,
             fee,
-            request["memo"].as_str().unwrap_or(""),
-        )?;
-        return rpc.post("v1/transactions", &tx).await;
+            relayer,
+        )
+        .await?;
+        submitted["name"] = json!(name);
+        submitted["burned_atomic"] = json!(burned.to_string());
+        submitted["receiver"] = json!(genoryn_wallet_core::keys::encode_address(
+            network,
+            wallet.name_receiver()?
+        )?);
+        return Ok(submitted);
     }
-    anyhow::bail!("unsupported wallet operation")
+    let to = field(request, "to")?.trim();
+    let named = names_a_username(network, to);
+    let address = if !named {
+        decode_address(network, to).with_context(|| not_a_recipient(network))?
+    } else if matches!(relayer, Relayer::Light(..)) {
+        anyhow::bail!("usernames are not resolved in Quick mode yet; use an address")
+    } else {
+        resolve_username(names_rpc_client, network, path, to).await?
+    };
+    let amount = field(request, "amount_atomic")?.parse::<u64>()?;
+    let tx = wallet.send(
+        scanned,
+        address,
+        amount,
+        fee,
+        request["memo"].as_str().unwrap_or(""),
+    )?;
+    submit_durably(
+        wallet,
+        path,
+        outbox,
+        &tx,
+        to.to_owned(),
+        amount,
+        fee,
+        relayer,
+    )
+    .await
 }
-/// Light wallet: no local node. Chain data comes from remote nodes' public RPC
+/// The receiving address an `@username` points to: the on-chain name first,
+/// then a signed resolver record pinned to its owner on first use.
+async fn resolve_username(
+    rpc: &RpcClient,
+    network: Network,
+    path: &Path,
+    to: &str,
+) -> Result<orchard::Address> {
+    if let Some(receiver) = chain_name_status(rpc, to)
+        .await
+        .ok()
+        .and_then(|status| status["registered"]["receiver"].as_str().map(str::to_owned))
+    {
+        return decode_address(network, &receiver);
+    }
+    let name = genoryn_wallet_core::username::canonicalize(to)?;
+    let b: ReceiverBundle = rpc.get(&format!("v1/usernames?username={name}")).await?;
+    b.verify(network, unix_time())?;
+    ensure!(b.username == name, "resolver returned a different username");
+    // Owner pinning is local and contains only public identity material. A changed key fails closed.
+    let pinpath = path.with_extension("username-pins.json");
+    let mut pins: std::collections::BTreeMap<String, String> = if pinpath.exists() {
+        ensure!(
+            std::fs::metadata(&pinpath)?.len() <= 100_000,
+            "pin file too large"
+        );
+        serde_json::from_slice(&std::fs::read(&pinpath)?)?
+    } else {
+        Default::default()
+    };
+    if let Some(old) = pins.get(&name) {
+        ensure!(
+            *old == b.fingerprint(),
+            "username owner fingerprint changed; verify independently before updating trust"
+        );
+    } else {
+        pins.insert(name, b.fingerprint());
+        std::fs::write(&pinpath, serde_json::to_vec(&pins)?)?;
+    }
+    decode_address(network, &b.receiver)
+}
+/// Quick mode: no local node. Chain data comes from remote nodes' public RPC
 /// (`sources`, onion services or HTTPS) and transactions go out through them,
 /// only over Tor: the built-in client (state beside the wallet) or `tor_socks`.
-/// The chain is fully validated here before it is scanned.
+/// Every new block is validated here in full and kept in the wallet's verified
+/// chain, so later syncs fetch only what is new. When no source answers, the
+/// last verified state is returned and marked stale; it is never presented as
+/// current.
 async fn light_dispatch(
     op: &str,
     request: &Value,
@@ -515,7 +795,7 @@ async fn light_dispatch(
 ) -> Result<Value> {
     ensure!(
         matches!(op, "sync" | "send"),
-        "{op} is not available in light mode yet"
+        "{op} is not available in Quick mode yet"
     );
     let wallet = wallet.context("wallet required")?;
     let sources: Vec<String> = match request["sources"].as_array() {
@@ -528,7 +808,7 @@ async fn light_dispatch(
     };
     ensure!(
         (1..=8).contains(&sources.len()),
-        "light mode needs one to eight sources"
+        "Quick mode needs one to eight remote nodes"
     );
     let external = request["tor_socks"]
         .as_str()
@@ -540,53 +820,126 @@ async fn light_dispatch(
         .as_str()
         .map(PathBuf::from)
         .unwrap_or_else(|| path.with_extension("tor"));
+    let started = std::time::Instant::now();
+    let store = chain_store::chain_path(path);
+    let mut chain = chain_store::load(&wallet, &store);
+    let local_state = chain.replay(network);
+    let replayed_ms = started.elapsed().as_millis() as u64;
+    let keys = sync::ScanKeys::new(&wallet)?;
+    let mut cache = open_cache(&wallet, path, request);
+    let outbox_file = outbox::outbox_path(path);
+    let mut outbox = outbox::load(&wallet, &outbox_file)?;
     let tor =
         genoryn::light::LightTor::start(&tor_dir, external, std::time::Duration::from_secs(300))
+            .await;
+    let (verified, clients, offline) = match tor {
+        Ok(tor) => {
+            let clients = sources
+                .iter()
+                .map(|url| RpcClient::through_tor(url, &tor.proxy()))
+                .collect::<Result<Vec<_>>>()?;
+            let verified = genoryn::light::sync_verified(
+                network,
+                &clients,
+                &sources,
+                std::mem::take(&mut chain.blocks),
+                local_state,
+            )
             .await?;
-    let clients = sources
-        .iter()
-        .map(|url| RpcClient::through_tor(url, &tor.proxy()))
-        .collect::<Result<Vec<_>>>()?;
-    let (mut scanned, synced_from, reports) =
-        genoryn::light::sync(network, &clients, &sources, |blocks| wallet.scan(blocks)).await?;
-    let reports = serde_json::to_value(&reports)?;
+            (verified, Some((tor, clients)), None)
+        }
+        Err(error) => {
+            let height = local_state.height;
+            (
+                genoryn::light::Verified {
+                    blocks: std::mem::take(&mut chain.blocks),
+                    state: local_state,
+                    fork: height,
+                    used: None,
+                    reports: Vec::new(),
+                    reachable: 0,
+                },
+                None,
+                Some(format!("{error:#}")),
+            )
+        }
+    };
+    let stale = verified.is_stale();
+    let previous_height = chain_height_before(&verified);
+    chain.blocks = verified.blocks;
+    if verified.used.is_some() {
+        chain_store::save(&wallet, &store, &chain)?;
+    }
+    advance_cache(&mut cache, &keys, &chain.blocks)?;
+    sync::save_cache(&wallet, &sync::cache_path(path), &cache)?;
+    outbox.reconcile(&cache);
+    // The source the chain came from, or the first that answered.
+    let synced_from = verified.used.unwrap_or_else(|| {
+        verified
+            .reports
+            .iter()
+            .position(|report| report.height.is_some())
+            .unwrap_or(0)
+    });
+    if let Some((_, clients)) = &clients
+        && !stale
+    {
+        relay_due(&mut outbox, &Relayer::Light(clients, synced_from)).await;
+    }
+    outbox::save(&wallet, &outbox_file, &outbox)?;
+    let reports = serde_json::to_value(&verified.reports)?;
     if op == "sync" {
-        let mut summary = with_name_identity(
-            serde_json::to_value(wallet.summary_with_confirmation_target(
-                &scanned,
-                request["confirmation_target"].as_u64().unwrap_or(10),
-            )?)?,
-            &wallet,
-        )?;
+        let mut summary = wallet_summary(&wallet, &cache, &outbox, request)?;
+        summary["mode"] = json!("quick");
+        summary["verified_by"] = json!("this computer (Quick mode, every block validated)");
         summary["light_sources"] = reports;
+        summary["stale"] = json!(stale);
+        if let Some(reason) = offline {
+            summary["offline_reason"] = json!(reason);
+        }
+        summary["sync_stats"] = json!({
+            "replayed_local_blocks": previous_height,
+            "replay_ms": replayed_ms,
+            "fork_height": verified.fork,
+            "total_ms": started.elapsed().as_millis() as u64,
+        });
         return Ok(summary);
     }
-    exclude_pending_spends(&clients[synced_from], &wallet, &mut scanned).await?;
-    let to = field(request, "to")?.trim();
+    let Some((_tor, clients)) = clients else {
+        anyhow::bail!(
+            "no payment was created: Tor is not connected ({})",
+            offline.unwrap_or_default()
+        );
+    };
     ensure!(
-        !names_a_username(network, to),
-        "usernames are not resolved in light mode yet; use an address"
+        !stale,
+        "no payment was created: no remote node answered, so the balance may be out of date"
     );
-    let address = decode_address(network, to).with_context(|| not_a_recipient(network))?;
-    let amount = field(request, "amount_atomic")?.parse::<u64>()?;
-    let fee = request["fee_atomic"]
-        .as_str()
-        .unwrap_or("10000000")
-        .parse::<u64>()?;
-    let tx = wallet.send(
+    let mut scanned = wallet.scan_with_state(verified.state, &chain.blocks)?;
+    exclude_reserved(&wallet, &outbox, &mut scanned)?;
+    exclude_pending_spends(&clients[synced_from], &wallet, &mut scanned).await?;
+    let mut submitted = build_and_submit(
+        op,
+        request,
+        network,
+        &wallet,
+        path,
+        &clients[synced_from],
         &scanned,
-        address,
-        amount,
-        fee,
-        request["memo"].as_str().unwrap_or(""),
-    )?;
-    let (via, answer) = genoryn::light::relay(&clients, synced_from, &tx).await?;
-    Ok(json!({
-        "txid": answer["txid"].clone(),
-        "status": "relayed through a remote node; unconfirmed",
-        "relayed_via": sources[via],
-        "light_sources": reports,
-    }))
+        &mut outbox,
+        &Relayer::Light(&clients, synced_from),
+    )
+    .await?;
+    submitted["light_sources"] = reports;
+    Ok(submitted)
+}
+/// Height of the local chain before the sync replaced anything above `fork`.
+fn chain_height_before(verified: &genoryn::light::Verified) -> u64 {
+    if verified.used.is_some() {
+        verified.fork
+    } else {
+        verified.blocks.len() as u64
+    }
 }
 /// Treats coins spent by this wallet's own unconfirmed transfers as spent, so a
 /// second transfer before the next block uses other coins instead of being refused
