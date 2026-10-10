@@ -6,13 +6,16 @@
 use genoryn_core::params::Network;
 use std::time::Duration;
 
-const MAINNET: &[&str] = &["187.7.72.137"];
+const MAINNET: &[&str] = &["187.7.72.137", "2.24.162.163"];
 const DEVNET: &[&str] = &[];
 const TESTNET: &[&str] = &[];
 /// v3 onion seeds, reached onion-to-onion without Tor exits. Kept apart from
 /// the lists above because nodes before 0.6 read those and would hand an onion
 /// name to the system resolver.
-const MAINNET_ONION: &[&str] = &[];
+const MAINNET_ONION: &[&str] = &[
+    "ycnowntcndxfvr3rkeqkiyfkfvxoqmee3qsrfsz43hq5rkxkmsklrcad.onion",
+    "2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion",
+];
 const PUBLISHED: &str = "https://raw.githubusercontent.com/genoryn/genoryn/main/seeds";
 const MAX_PUBLISHED_BYTES: usize = 16 * 1024;
 const MAX_PUBLISHED_SEEDS: usize = 16;

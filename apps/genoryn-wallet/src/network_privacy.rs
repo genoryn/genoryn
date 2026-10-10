@@ -245,9 +245,12 @@ pub(super) fn http_client(proxy: Option<&str>) -> Result<reqwest::ClientBuilder>
     })
 }
 pub(super) const MAX_LIGHT_SOURCES: usize = 8;
-/// Remote nodes Quick mode starts with: the project's published public API
-/// onion service. One operator; add independent nodes for better assurance.
-pub(super) const DEFAULT_QUICK_SOURCES: &[&str] = &[];
+/// Remote nodes Quick mode starts with: the public RPC onion services of seed 1
+/// and genoryn.io. Both are run by one operator; add independent nodes.
+pub(super) const DEFAULT_QUICK_SOURCES: &[&str] = &[
+    "http://ycnowntcndxfvr3rkeqkiyfkfvxoqmee3qsrfsz43hq5rkxkmsklrcad.onion:29712",
+    "http://2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion:29712",
+];
 /// Operations that never contact a node.
 const OFFLINE_OPS: [&str; 6] = [
     "create",

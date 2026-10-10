@@ -1,0 +1,3 @@
+# GENORYN Mainnet 1.0 onion seeds (P2P port 29710, public RPC 29712).
+ycnowntcndxfvr3rkeqkiyfkfvxoqmee3qsrfsz43hq5rkxkmsklrcad.onion # seed 1
+2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion # genoryn.io
