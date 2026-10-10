@@ -803,6 +803,51 @@ async fn register(
 fn rpc_limit_layer(gate: Arc<Semaphore>) -> tower::limit::GlobalConcurrencyLimitLayer {
     tower::limit::GlobalConcurrencyLimitLayer::with_semaphore(gate)
 }
+/// Requests per second the public RPC accepts in total, and the burst above it.
+/// Onion clients have no address to limit individually, so the budget is global;
+/// a light wallet syncing over Tor stays far below it.
+const PUBLIC_RPC_RATE: f64 = 200.0;
+const PUBLIC_RPC_BURST: f64 = 400.0;
+/// A token bucket shared by every public RPC request.
+#[derive(Clone)]
+struct RateLimit(Arc<std::sync::Mutex<(f64, std::time::Instant)>>);
+impl RateLimit {
+    fn new() -> Self {
+        Self(Arc::new(std::sync::Mutex::new((
+            PUBLIC_RPC_BURST,
+            std::time::Instant::now(),
+        ))))
+    }
+    fn allow(&self) -> bool {
+        let mut bucket = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let now = std::time::Instant::now();
+        let refill = now.duration_since(bucket.1).as_secs_f64() * PUBLIC_RPC_RATE;
+        bucket.0 = (bucket.0 + refill).min(PUBLIC_RPC_BURST);
+        bucket.1 = now;
+        if bucket.0 >= 1.0 {
+            bucket.0 -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+async fn rate_limited(
+    axum::extract::State(limit): axum::extract::State<RateLimit>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if limit.allow() {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "public RPC rate limit; retry shortly"})),
+        )
+            .into_response()
+    }
+}
 pub async fn serve(node: Node, listen: SocketAddr, admin: bool) -> Result<()> {
     if admin {
         ensure!(listen.ip().is_loopback(), "admin RPC must bind to loopback");
@@ -847,10 +892,16 @@ pub async fn serve(node: Node, listen: SocketAddr, admin: bool) -> Result<()> {
             node.public_rpc_gate.clone()
         }))
         .timeout(std::time::Duration::from_secs(600));
-    let router = router
+    let mut router = router
         .layer(limits)
-        .layer(DefaultBodyLimit::max(node.limits.rpc_request_bytes))
-        .with_state(node);
+        .layer(DefaultBodyLimit::max(node.limits.rpc_request_bytes));
+    if !admin {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            RateLimit::new(),
+            rate_limited,
+        ));
+    }
+    let router = router.with_state(node);
     let listener = tokio::net::TcpListener::bind(listen).await?;
     tracing::info!(%listen,admin,"RPC listening");
     axum::serve(listener, router).await?;
@@ -874,6 +925,18 @@ mod diagnostics_tests {
         std::fs::create_dir(directory.join("usernames.sqlite-shm")).unwrap();
         assert!(database_size(&directory).is_err());
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn public_rpc_rate_limit_allows_a_burst_then_refills() {
+        let limit = RateLimit::new();
+        let allowed = (0..1000).filter(|_| limit.allow()).count();
+        assert!(
+            (PUBLIC_RPC_BURST as usize..PUBLIC_RPC_BURST as usize + 20).contains(&allowed),
+            "{allowed}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(limit.allow(), "tokens refill over time");
     }
 
     #[test]
