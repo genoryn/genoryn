@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "scope": "Independent bounded review of fee ordering, resource limits and local GUI lifecycle; not a cryptographic audit",
+  "fee_ordering_oracle_cases": 10018,
+  "initial_findings": [
+    "RPC limit applied per route",
+    "Dismissed log could reopen on late result",
+    "Cleared sensitive editor text retained undo history"
+  ],
+  "all_three_findings_closed": true,
+  "closure_focused_tests_passed": 12,
+  "extra_sensitive_editor_cases": [
+    "ordinary typing",
+    "paste",
+    "clear",
+    "typing after clear",
+    "select-all replacement"
+  ],
+  "no_network_or_held_scenario_executed": true,
+  "source_sha256": {
+    "apps/genoryn/src/node.rs": "1e438d43628434d0b177b71a09b6a2d6e11683144d4839e54a612fcb4af6f243",
+    "apps/genoryn-wallet/src/node_controls.rs": "90cbd04a9eb5e0a9b61a89ffc6289f3e58c7e072be5932d5b603786f5a3177c0",
+    "apps/genoryn-wallet/src/protocol.rs": "7b0d1ff245c21879840d0cc25dd67f539c51ef70bbd92ca209a40e1e6fe337eb",
+    "apps/genoryn-wallet/src/payment_proof.rs": "4afd23f681aa730fa13a59ff815594a43caa3925ba23ac1d7f9b5eee39853d18"
+  },
+  "final_exact_commit_ci_required": true
+}

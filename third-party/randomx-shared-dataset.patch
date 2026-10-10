@@ -1,0 +1,16 @@
+--- binding-safety/src/lib.rs
++++ patched/src/lib.rs
+@@ -213,6 +213,13 @@ pub struct RandomXDataset {
+     inner: Arc<RandomXDatasetInner>,
+ }
+ 
++// GENORYN downstream addition for full-memory mining: VMs on several threads share
++// one dataset, as the native API intends. `new` finishes every write to the dataset
++// and its retained cache before returning; afterwards both are only read. Clones
++// share one reference count, so the native memory is released exactly once.
++unsafe impl Send for RandomXDataset {}
++unsafe impl Sync for RandomXDataset {}
++
+ impl RandomXDataset {
+     /// Creates a new dataset object, allocates memory to the `dataset` object and initializes it.
+     ///

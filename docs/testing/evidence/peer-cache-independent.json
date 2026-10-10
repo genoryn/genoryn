@@ -1,0 +1,28 @@
+{
+  "base_commit": "69669a5c2b8a40358d429075af6ac8d34da66f4f",
+  "p2p_blob": "6dcba1b3aec20e32cc3238ee23436a1ae54a9cd2",
+  "daemon_sha256": "38951ecee6af911ab11373d82202743e2c6b33432949993a5a8757ae90608b30",
+  "network": "devnet",
+  "scope": "peer discovery only; all addresses are owned loopback sockets",
+  "first_connected_seconds": 0.103,
+  "stale_cached_peers": 128,
+  "full_cache_peer_counts": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "persisted_count": 128,
+  "explicit_peer_in_persisted_cache": true,
+  "fresh_cache_control_peer_count": 1,
+  "regression_fixed": true,
+  "check": "independent_local_peer_cache_regression"
+}

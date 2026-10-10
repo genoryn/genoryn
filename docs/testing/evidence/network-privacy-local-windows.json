@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "scope": "single developer machine; not CI, not Linux, not an audit; no real Tor network",
+  "date": "2026-10-10",
+  "platform": "Windows 11 build 26300, x86_64",
+  "rustc": "1.92.0",
+  "branch": "privacy/tor-network-hardening",
+  "base_commit": "ec4b4d5",
+  "results": {
+    "cargo_fmt_check": "pass",
+    "clippy_strict_all_targets": "pass",
+    "workspace_tests": {"passed": 188, "failed": 0, "ignored": 4, "baseline_passed_before_change": 136},
+    "network_privacy_integration_tests": {"passed": 15, "failed": 0, "consecutive_full_runs_without_failure": 4},
+    "ignored_real_proof_and_mining_tests": {"passed": 4, "failed": 0},
+    "devnet_real_process_lab": {
+      "passed": true,
+      "checks": [
+        "three_real_peers_same_genesis",
+        "three_encrypted_wallets_created",
+        "derived_account_and_receiving_index_recover",
+        "real_randomx_mining_and_supply",
+        "private_payment_gossip_scan_and_double_spend_rejection",
+        "voluntary_payment_proof_verified",
+        "real_fee_priority_template_order",
+        "recipient_spends_private_received_note",
+        "signed_username_payment_without_plaintext_linkage",
+        "seed_recovery_restores_private_balance",
+        "offline_node_catches_up_after_restart",
+        "real_competing_chain_reorganization",
+        "abrupt_three_node_restart_and_no_secrets_in_logs"
+      ],
+      "elapsed_seconds": 106
+    },
+    "peer_cache": "pass",
+    "policy_limits": "pass",
+    "consensus_vectors": {"passed": true, "monetary_sha256": "f3e96a389206cbc70a761898e2eb1f030b3e83ca5f2c9c8a827c128569217ce6"},
+    "native_wallet_smoke_frames": "exit 0",
+    "live_tor_only_mainnet_start_without_tor": {
+      "observation_seconds": 40,
+      "outgoing_sockets_observed": ["SynSent 127.0.0.1:59050 (configured SOCKS proxy probe)"],
+      "status": {"mode": "tor-only", "ready": false, "direct_attempts": 0, "tor_attempts": 0},
+      "published_seed_list": "skipped (Tor not ready); not fetched directly"
+    },
+    "invalid_cli_combinations_rejected": 6
+  },
+  "not_run": [
+    "Linux build and tests",
+    "real Tor daemon or Tor network",
+    "windows_native_controls.py (moves the real mouse pointer)",
+    "default peer rotation (Linux CI)",
+    "50,000-identity capacity, RPC load, fuzzing, cargo audit, packaging"
+  ]
+}

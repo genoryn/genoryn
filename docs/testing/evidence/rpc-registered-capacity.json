@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "scope": "owned loopback read-only RPC, genesis state; not wallet/TPS/network scale certification",
+  "registered_records": 50000,
+  "levels": [
+    {
+      "clients": 1,
+      "requests": 1000,
+      "seconds": 1.379675453001255,
+      "completed_per_second": 724.8081408020024,
+      "http_statuses": {
+        "200": 1000
+      },
+      "successful_p50_ms": 0.7243889995152131,
+      "successful_p95_ms": 3.040239000256406,
+      "successful_p99_ms": 7.132029000786133,
+      "all_successful_payloads_valid": true
+    },
+    {
+      "clients": 4,
+      "requests": 1000,
+      "seconds": 0.837910591999389,
+      "completed_per_second": 1193.4447535910003,
+      "http_statuses": {
+        "200": 1000
+      },
+      "successful_p50_ms": 1.9721570006367983,
+      "successful_p95_ms": 8.486663000439876,
+      "successful_p99_ms": 13.545251000323333,
+      "all_successful_payloads_valid": true
+    },
+    {
+      "clients": 16,
+      "requests": 1000,
+      "seconds": 1.0103042349983298,
+      "completed_per_second": 989.800859343773,
+      "http_statuses": {
+        "200": 1000
+      },
+      "successful_p50_ms": 10.378592000051867,
+      "successful_p95_ms": 33.631050000622054,
+      "successful_p99_ms": 47.368282999741496,
+      "all_successful_payloads_valid": true
+    },
+    {
+      "clients": 64,
+      "requests": 1000,
+      "seconds": 0.8749970639983076,
+      "completed_per_second": 1142.860977647731,
+      "http_statuses": {
+        "200": 1000
+      },
+      "successful_p50_ms": 22.08670399886614,
+      "successful_p95_ms": 85.48365800015745,
+      "successful_p99_ms": 115.90554900067218,
+      "all_successful_payloads_valid": true
+    },
+    {
+      "clients": 128,
+      "requests": 1000,
+      "seconds": 1.0591679539993493,
+      "completed_per_second": 944.1373261191155,
+      "http_statuses": {
+        "200": 1000
+      },
+      "successful_p50_ms": 16.381339999497868,
+      "successful_p95_ms": 81.77771199916606,
+      "successful_p99_ms": 115.6526249997114,
+      "all_successful_payloads_valid": true
+    }
+  ],
+  "node_resources": {
+    "VmRSS": "18076 kB",
+    "VmHWM": "18076 kB",
+    "Threads": "10",
+    "open_fds": 18
+  },
+  "healthy_after_load": true
+}

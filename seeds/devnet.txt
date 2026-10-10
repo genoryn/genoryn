@@ -1,0 +1,10 @@
+# GENORYN public devnet bootstrap seeds.
+#
+# Public nodes read this file from the main branch at startup, in addition to the
+# built-in list in apps/genoryn/src/seeds.rs. One DNS name or IP address per line;
+# the devnet P2P port 29410 is implied. Lines starting with # are comments.
+#
+# Seeds only help new nodes find their first peers. They are not consensus
+# authorities: every block and transaction is validated independently. Add only
+# always-on nodes you operate or have verified.
+

@@ -1,0 +1,64 @@
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## [1.5.0](https://github.com/tari-project/randomx-rs/compare/v1.4.1...v1.5.0) (2026-08-24)
+### Bug Fixes
+* `RandomXDataset::get_data` returned only `randomx_dataset_item_count()` **bytes** instead of
+  `randomx_dataset_item_count() * RANDOMX_DATASET_ITEM_SIZE` bytes, i.e. 32.5 MiB of the ~2.03 GB dataset. The
+  returned buffer is now 64x larger; callers that sized a file or buffer from the old value must be updated [#82]
+* `RandomXDataset::new` passed the full item count to `randomx_init_dataset` together with `start`, causing a heap
+  buffer overflow of `start * 64` bytes whenever `start > 0`. It now passes the remaining item count, and zeroes the
+  leading `start` items that the library leaves uninitialised
+
+### Features
+* `RANDOMX_DATASET_ITEM_SIZE` is now exported so callers can compute the dataset size themselves
+* `RandomXDataset::get_data` allocates fallibly and reports an out-of-memory condition as a `RandomXError` instead of
+  aborting the process
+
+### [1.4.1](https://github.com/tari-project/randomx-rs/compare/v1.4.0...v1.4.1) (2025-09-04)
+### Bug Fixes
+* Build support for freebsd [#79]
+* Build support for Fedora [#78]
+
+## [1.4.0](https://github.com/tari-project/randomx-rs/compare/v1.3.2...v1.4.0) (2025-05-21)
+### Feature
+
+* switch to cmake crate and support less hard-coded build system
+
+## [1.3.2](https://github.com/tari-project/randomx-rs/compare/v1.3.1...v1.3.2) (2024-11-13)
+### Feature
+
+* support windows builds with either visual studio 2022 or visual studio 2019
+
+## [1.3.1](https://github.com/tari-project/randomx-rs/compare/v1.3.1...v1.3.0) (2024-10-07)
+### Feature
+
+* add cross-compile target ```make``` arguments for riscv64 (riscv64gc-unknown-linux-gnu)
+
+## [1.3.0](https://github.com/tari-project/randomx-rs/compare/v1.3.0...v1.2.1) (2023-11-01)
+### Feature
+
+* update randomx
+
+### [1.2.1](https://github.com/tari-project/randomx-rs/compare/v1.1.15...v1.2.1) (2023-08-30)
+
+### Bug Fixes
+
+* fix compile on windows ([#61](https://github.com/tari-project/randomx-rs/issues/61)) ([646c615](https://github.com/tari-project/randomx-rs/commit/646c6150a01659417a2cacd9f1db0a7e492bdf1d))
+
+## [1.2.0](https://github.com/tari-project/randomx-rs/compare/v1.1.15...v1.2.0) (2023-08-22)
+### Feature
+
+* update randomx ([#60](https://github.com/tari-project/randomx-rs/issues/60)) ([5300721](https://github.com/tari-project/randomx-rs/commit/530072139e09a86b7247831f66b6ac6991c729e6))
+
+### [1.1.15](https://github.com/tari-project/randomx-rs/compare/v1.1.14...v1.1.15) (2023-05-19)
+
+### [1.1.14](https://github.com/tari-project/randomx-rs/compare/v1.1.13...v1.1.14) (2022-12-07)
+
+### [1.1.13](https://github.com/tari-project/randomx-rs/compare/v1.1.12...v1.1.13) (2022-07-19)
+
+
+### Bug Fixes
+
+* hard code cross-compile build option for ARM64/M1 ([#46](https://github.com/tari-project/randomx-rs/issues/46)) ([4f88a37](https://github.com/tari-project/randomx-rs/commit/4f88a37f41d4ab5b5a8fe95f8653104dea8e045d))

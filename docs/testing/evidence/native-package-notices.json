@@ -1,0 +1,27 @@
+{
+  "archive_sha256": "c4b1528f99527072dc760946535c02464c5b57e9c32bdeabe61788e7ba73a6aa",
+  "archive_bytes": 306403221,
+  "extracted_bytes": 1420763139,
+  "manifest_files_verified": 876,
+  "dependency_count": 436,
+  "dependencies_without_notice_text": [],
+  "missing_local_document_links": [],
+  "archive_integrity_pass": true,
+  "validation_scope": "Local dirty-worktree Linux package only; final exact-commit CI artifacts require separate verification",
+  "target_triple": "x86_64-unknown-linux-gnu",
+  "notice_file_count": 805,
+  "critical_notice_checks": {
+    "wgpu-hal-24.0.4": {
+      "notice_files": 1,
+      "substantive_text_verified": true
+    },
+    "epaint_default_fonts-0.31.1": {
+      "notice_files": 5,
+      "substantive_text_verified": true
+    },
+    "randomx-rs-1.6.0": {
+      "notice_files": 2,
+      "substantive_text_verified": true
+    }
+  }
+}

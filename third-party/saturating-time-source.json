@@ -1,0 +1,27 @@
+{
+  "name": "saturating-time",
+  "version": "0.5.0",
+  "kind": "vendored-registry-source-with-termination-patch",
+  "upstream_repository": "https://gitlab.torproject.org/tpo/core/arti.git",
+  "upstream_path": "crates/saturating-time",
+  "upstream_revision": "ce8bc6e0998bd5a4efdf06dd62dce53c98ea1087",
+  "original_crate_sha256": "a586db154f85f3faf78398c37b6792d71f99d2253d3277571e14f8a8c6e49a65",
+  "original_file_sha256": {
+    ".cargo_vcs_info.json": "928bbfcfb3e46fdf9e0553863819a5464907b5590abbd745d65369d1706057c8",
+    ".gitignore": "44c92e3a70ad3307b7056871c2bdb096d8bfa9373f5bf06a79bb6324a20ff2fb",
+    "Cargo.lock": "7914d43c1b9d1fa44bb96581c8384978b488d53fb6aade3fafc4e6794191b4f8",
+    "Cargo.toml": "2c2599c8945f0dac04b8b8e7b3e7b14bfe834314c76acbde48b66c6367b7fd99",
+    "Cargo.toml.orig": "d6e6845753a62ad926e8d301ea3c9ec4ec257f5ae38b7d9bab820219d142f0f1",
+    "README.md": "1ab9989cc5356f4c9c5664d4633c7e7b35f2e349661ac69d5da10a10681a0db5",
+    "src/internal.rs": "1265a0f900ba5012d148ac2d886bbbe3fea058f85eb913c9031f72ce04f083a2",
+    "src/lib.rs": "315a0dca2dc81288963b3fd332ff10cbea327929c5a23ee0c2b666395223cea8"
+  },
+  "patched_files": {
+    "src/internal.rs": "cc3b150fa7d22b16d3d7316ae0067c6e5cc7254cb796dc7be91a9d6f6239297d",
+    "src/lib.rs": "f2a2a610f97ed045cff8a77b147374c323a4e35e3eac95c88b851adea1cc4fcd"
+  },
+  "patch": "third-party/saturating-time-windows-limits.patch",
+  "patch_sha256": "3c081e1163a43ebaa62c06f203df558fb7a870b5893489e6fadf924e96062eae",
+  "change": "find_limit treats a step that succeeds without moving as reaching the limit, so the SystemTime/Instant limit search terminates on clocks coarser than 1ns (Windows SystemTime: 100ns). saturating_add/saturating_sub compute the limit lazily (unwrap_or_else). Platform-neutral test assertions; coarse-clock regression test.",
+  "reason": "On Windows the unpatched search never terminates; tor-netdoc calls saturating_sub while parsing every network-status consensus, so embedded Arti stalled at 15% bootstrap with one CPU core busy."
+}

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "three_real_peers_same_genesis",
+      "passed": true,
+      "genesis": "2e0bf2679ab25b86999f9ad2004dbf6d6a9087db4b0ced82bb1cb1424821de11"
+    },
+    {
+      "check": "three_encrypted_wallets_created",
+      "passed": true
+    },
+    {
+      "check": "real_randomx_mining_and_supply",
+      "passed": true,
+      "height": 4,
+      "issued_gori": "31682267884320"
+    },
+    {
+      "check": "private_payment_gossip_scan_and_double_spend_rejection",
+      "passed": true,
+      "txid": "8afc65da485c9387cf1a099fee29d4541a03fc44e9adc18e91608892db08b6cc"
+    },
+    {
+      "check": "voluntary_payment_proof_verified",
+      "passed": true
+    },
+    {
+      "check": "recipient_spends_private_received_note",
+      "passed": true
+    },
+    {
+      "check": "signed_username_payment_without_plaintext_linkage",
+      "passed": true
+    },
+    {
+      "check": "seed_recovery_restores_private_balance",
+      "passed": true
+    },
+    {
+      "check": "offline_node_catches_up_after_restart",
+      "passed": true
+    },
+    {
+      "check": "real_competing_chain_reorganization",
+      "passed": true,
+      "height": 12
+    },
+    {
+      "check": "abrupt_three_node_restart_and_no_secrets_in_logs",
+      "passed": true,
+      "height": 12
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,312 @@
+{
+  "schema": 1,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "three_real_peers_same_genesis",
+      "passed": true,
+      "genesis": "2e0bf2679ab25b86999f9ad2004dbf6d6a9087db4b0ced82bb1cb1424821de11"
+    },
+    {
+      "check": "three_encrypted_wallets_created",
+      "passed": true
+    },
+    {
+      "check": "derived_account_and_receiving_index_recover",
+      "passed": true
+    },
+    {
+      "check": "real_randomx_mining_and_supply",
+      "passed": true,
+      "height": 4,
+      "issued_gori": "31682267884320"
+    },
+    {
+      "check": "private_payment_gossip_scan_and_double_spend_rejection",
+      "passed": true,
+      "txid": "b28999c438b233af8220595d3f5945b8254426d52331ed7d5579003588984e93"
+    },
+    {
+      "check": "voluntary_payment_proof_verified",
+      "passed": true
+    },
+    {
+      "check": "real_fee_priority_template_order",
+      "passed": true,
+      "public_fees_gori": [
+        50000000,
+        10000000
+      ]
+    },
+    {
+      "check": "recipient_spends_private_received_note",
+      "passed": true
+    },
+    {
+      "check": "signed_username_payment_without_plaintext_linkage",
+      "passed": true
+    },
+    {
+      "check": "seed_recovery_restores_private_balance",
+      "passed": true
+    },
+    {
+      "check": "offline_node_catches_up_after_restart",
+      "passed": true
+    },
+    {
+      "check": "real_competing_chain_reorganization",
+      "passed": true,
+      "height": 12
+    },
+    {
+      "check": "abrupt_three_node_restart_and_no_secrets_in_logs",
+      "passed": true,
+      "height": 12
+    }
+  ],
+  "measurements": [
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 0.5079714010025782
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 0.5024768559997028
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 0.5061863519986218
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.36078725600236794,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.37724037500083796,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.17054075299893157,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_address",
+      "seconds": 0.16150744200058398,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_derive_account",
+      "seconds": 0.32244660899959854,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_restore",
+      "seconds": 0.18332148300032713,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 4,
+      "hashes": 4,
+      "elapsed_seconds": 37.935905121,
+      "template_seconds": 29.753127086000003,
+      "hashing_seconds": 5.321411785,
+      "submission_seconds": 2.861248348
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 6.727421197996591,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 12.098360842999682,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 10.567043757,
+      "template_seconds": 6.663446694,
+      "hashing_seconds": 1.667480791,
+      "submission_seconds": 2.236110143
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 6.311518528000306,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 4.941416930996638,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_export_proof",
+      "seconds": 5.443273528999271,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_verify_proof",
+      "seconds": 5.843250686000829,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 15.133352533997822,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 18.913360976002878,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 8.418569421,
+      "template_seconds": 5.73326163,
+      "hashing_seconds": 1.307346066,
+      "submission_seconds": 1.377947764
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 5.454905474001862,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_register_username",
+      "seconds": 0.2670707750003203,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_resolve_username",
+      "seconds": 0.007517636997363297,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 20.553967423998984,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 7.808556565,
+      "template_seconds": 5.383984859,
+      "hashing_seconds": 1.183777048,
+      "submission_seconds": 1.240789023
+    },
+    {
+      "operation": "wallet_restore",
+      "seconds": 0.29166754000107176,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 6.323445342000923,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 7.661702163000882,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 2,
+      "hashes": 2,
+      "elapsed_seconds": 16.103608455,
+      "template_seconds": 12.969823821,
+      "hashing_seconds": 1.909836011,
+      "submission_seconds": 1.223913974
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 6.3361240409976745
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 6.5181543930011685
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 5.930505236,
+      "template_seconds": 4.38196628,
+      "hashing_seconds": 1.360279225,
+      "submission_seconds": 0.188254638
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 3,
+      "hashes": 4,
+      "elapsed_seconds": 27.338220895,
+      "template_seconds": 18.387109601,
+      "hashing_seconds": 7.166004068,
+      "submission_seconds": 1.7850185439999997
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 19.065888684999663
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 10.63487582200105
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 10.040101618997141
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 7.026787559996592
+    },
+    {
+      "operation": "node_startup_including_database_replay",
+      "seconds": 6.517465984998125
+    }
+  ],
+  "propagation": [
+    {
+      "height": 1,
+      "three_node_acceptance_span_ms": 9683.042049407959
+    },
+    {
+      "height": 2,
+      "three_node_acceptance_span_ms": 3084.268093109131
+    },
+    {
+      "height": 3,
+      "three_node_acceptance_span_ms": 385.24389266967773
+    },
+    {
+      "height": 4,
+      "three_node_acceptance_span_ms": 257.4901580810547
+    },
+    {
+      "height": 5,
+      "three_node_acceptance_span_ms": 1833.0659866333008
+    },
+    {
+      "height": 6,
+      "three_node_acceptance_span_ms": 1401.9358158111572
+    },
+    {
+      "height": 7,
+      "three_node_acceptance_span_ms": 1459.758996963501
+    }
+  ],
+  "measurement_scope": "Single same-host development run. Acceptance span includes network relay, block validation and scheduling; not pure wire latency or a production throughput guarantee.",
+  "passed": true
+}

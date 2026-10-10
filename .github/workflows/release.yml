@@ -1,0 +1,92 @@
+name: Publish release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build and attach, for example v0.2.0
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.TAG }}
+      - name: Tag matches the workspace version
+        shell: bash
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version *= *"\(.*\)"/\1/p' Cargo.toml)
+          test "v${version}" = "${TAG}" || { echo "Tag ${TAG} does not match Cargo.toml version ${version}"; exit 1; }
+      - name: Linux native prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -o Acquire::Retries=1
+          sudo apt-get install -y --no-install-recommends cmake libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Pinned Rust
+        run: rustup toolchain install 1.92.0 --profile minimal
+      - name: Optimized release build
+        run: cargo build --release --locked --workspace
+      - name: Package with provenance, licenses and checksums
+        run: |
+          python scripts/release/package.py --bin-dir target/release --output dist
+          python scripts/release/package.py --bin-dir target/release --output dist --edition lite
+      - name: Verify the archives before publishing
+        run: python scripts/release/verify_archive.py --packages dist --output dist/archive-verification-${{ runner.os }}.json
+      - name: Windows installer from the verified package
+        if: runner.os == 'Windows'
+        run: |
+          # The dark wizard style needs Inno Setup 6.7 or newer.
+          choco install innosetup --version=6.7.3 -y --no-progress || choco install innosetup -y --no-progress
+          python scripts/release/build_installer.py --packages dist --output dist
+          python scripts/release/build_installer.py --packages dist --output dist --edition lite
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.zip
+            dist/*.exe
+            dist/*.sha256
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="docs/releases/${TAG}.md"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" assets/* --clobber
+          else
+            if [ -f "${notes}" ]; then
+              gh release create "${TAG}" assets/* --verify-tag --title "GENORYN ${TAG}" --notes-file "${notes}"
+            else
+              gh release create "${TAG}" assets/* --verify-tag --title "GENORYN ${TAG}" --generate-notes
+            fi
+          fi

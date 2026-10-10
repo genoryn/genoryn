@@ -1,0 +1,1 @@
+# GENORYN testnet bootstrap seeds. Same format as devnet.txt; port 29510 is implied.

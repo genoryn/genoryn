@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "scope": "Actual native Linux GUI, empty real devnet wallet and owned loopback node; no mining or payments",
+  "source_commit": "a68868044dcbe14e4927cd2ff30154fb7205e123",
+  "native_binary_sha256": "d1ffbadddfd44e1cb65385cc487945d5b1d0ea75bf9ba84f39fd1c11499d7382",
+  "checks": {
+    "native_start_and_owned_node_start": true,
+    "sensitive_input_typed_natively": true,
+    "clear_then_control_z_does_not_restore_text": true,
+    "normal_icccm_window_close_exit_code": 0,
+    "owned_node_stopped_on_normal_close": true,
+    "all_qa_processes_stopped": true
+  },
+  "additional_evidence": "Independent headless regression covers generation-bound log results and ordinary typing/paste/replacement with discarded undo history.",
+  "unexpected_window_destruction_limit": "A separate forced XDestroyWindow test caused an upstream winit X11 panic with owned-process cleanup. This is distinct from the normal WM_DELETE_WINDOW close, which passed.",
+  "normal_close_reference": "https://www.x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.pdf",
+  "passed": true
+}

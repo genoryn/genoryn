@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "private_payment_rollback_and_mempool_reconsideration",
+      "passed": true,
+      "depth": 5,
+      "txid": "1a333a367c536105c519a34af238fe0df2aa9a9667d1905fd8359d75c0fcc590",
+      "height": 19
+    },
+    {
+      "check": "orphaned_private_payment_remined_once",
+      "passed": true,
+      "depth": 5
+    }
+  ],
+  "passed": true
+}

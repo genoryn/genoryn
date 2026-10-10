@@ -1,0 +1,18 @@
+{
+  "arch": "x86_64",
+  "canonical_block_parse_us_mean_1000": 137.580604,
+  "fixture_bytes": 12375,
+  "logical_cpus": 9,
+  "one_action_mint_proof_create_and_sign_ms": 2789.329285,
+  "one_action_proof_and_signature_verify_ms": 25.228215,
+  "os": "linux",
+  "profile": "development opt-level=1 dependencies=2",
+  "proof_bytes": 4992,
+  "prover_key_setup_ms": 4546.229521,
+  "randomx_cold_cache_and_hash_ms": 1835.1326110000002,
+  "randomx_warm_hash_ms_mean_10": 222.2328446,
+  "schema": 1,
+  "single_note_trial_decryption_us_mean_1000": 1905.1299,
+  "verifier_key_setup_ms": 3718.895908,
+  "warning": "Single local run; includes scheduler noise. No hardware or throughput guarantee."
+}

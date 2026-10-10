@@ -1,0 +1,13 @@
+# Stable checkout bytes for canonical fixtures and checksummed upstream notices.
+* text=auto eol=lf
+*.bin -text
+*.png -text
+# Preserve upstream whitespace exactly; SHA-256 verifies these vendored texts.
+third-party/license-supplements/* -text -whitespace
+
+# Preserve the byte-verified vendored upstream source across platforms.
+third-party/randomx-rs/** -text -whitespace
+third-party/randomx-binding-safety.patch -whitespace
+third-party/randomx-build-isolation.patch -whitespace
+third-party/saturating-time/** -text -whitespace
+third-party/saturating-time-windows-limits.patch -whitespace

@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "commit": "c5d5fee8e6b94428ebd375fbbd97be9e0337a949",
+  "run_url": "https://github.com/deepdrogo/GENORYN/actions/runs/37693795376",
+  "outcome": "success",
+  "targets": [
+    {
+      "target": "block_parser",
+      "executions": 773180,
+      "seconds": 121
+    },
+    {
+      "target": "transaction_parser",
+      "executions": 2080159,
+      "seconds": 121
+    },
+    {
+      "target": "username_parser",
+      "executions": 19673047,
+      "seconds": 121
+    }
+  ],
+  "scope": "Bounded parser campaigns; no claim of exhaustive security or proof-system audit."
+}

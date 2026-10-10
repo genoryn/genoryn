@@ -1,0 +1,28 @@
+[
+  {
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "selected_registry_packages": 436,
+    "collected_notice_files": 805,
+    "missing": [],
+    "critical_notice_counts": {
+      "epaint_default_fonts": 5,
+      "randomx-rs": 2,
+      "wgpu-hal": 1
+    },
+    "graph_scope": "Cargo native-target filtered workspace graph; includes build/test dependencies conservatively",
+    "placeholder_and_checker_files_excluded": true
+  },
+  {
+    "target_triple": "x86_64-pc-windows-msvc",
+    "selected_registry_packages": 425,
+    "collected_notice_files": 791,
+    "missing": [],
+    "critical_notice_counts": {
+      "epaint_default_fonts": 5,
+      "randomx-rs": 2,
+      "wgpu-hal": 1
+    },
+    "graph_scope": "Cargo native-target filtered workspace graph; includes build/test dependencies conservatively",
+    "placeholder_and_checker_files_excluded": true
+  }
+]

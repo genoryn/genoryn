@@ -1,0 +1,50 @@
+---
+name: Coverage
+
+'on':
+  push:
+    branches:
+      - development
+      - cov-*
+
+env:
+  RUSTUP_TOOLCHAIN: "nightly"
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: "true"
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install --no-install-recommends --assume-yes \
+            jq lcov
+
+      - name: toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+
+      - name: Install requirements for code coverage
+        run: |
+          cargo install cargo-binutils
+          cargo install rustfilt
+
+      - name: Run test coverage
+        id: coverage
+        env:
+          SKIP_HTML: "1"
+        run: |
+          /bin/bash -c ./scripts/code_coverage.sh
+
+      - name: Coveralls upload
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./cov_raw/randomx-rs.lcov

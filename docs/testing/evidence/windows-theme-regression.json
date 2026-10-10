@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "scope": "Pinned egui context regression plus actual failed Windows screenshots; final native rerun remains required",
+  "base_commit": "246130dc43bba1846d69a743b77681ec7796fcff",
+  "observed_failure": "A Windows system-theme event selected the uncustomized light style over fixed dark app panels, changing contrast and navigation spacing. The control click reached Network instead of Node.",
+  "before_fix_regression": "FAIL: effective Light theme when app selected Dark",
+  "after_fix_regression": "PASS for both app appearances under the opposite system theme",
+  "checks": [
+    "explicit appearance remains selected",
+    "custom item and button spacing remains selected",
+    "text contrast and monochrome selection are preserved"
+  ],
+  "implementation": "Bind egui ThemePreference to the app appearance before configuring its style.",
+  "native_control_assertions_preserved": true,
+  "passed": true
+}

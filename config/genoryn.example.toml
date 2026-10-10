@@ -1,0 +1,57 @@
+# Copy to a private location; CLI arguments override matching values.
+[network]
+name = "devnet"
+
+[database]
+data_dir = ".genoryn/devnet"
+
+[p2p]
+# Loopback = isolated local lab. Omit or use "0.0.0.0:29410" to join the public devnet.
+# In tor-only mode omit it: inbound peers then arrive only through the onion service.
+listen = "127.0.0.1:29410"
+# "IP:PORT", "[IPV6]:PORT", "<56 characters>.onion:PORT" (hybrid/tor-only) or "HOST:PORT".
+peers = []
+dns_seeds = [] # Add independently operated seeds only when verified.
+
+[rpc]
+admin_listen = "127.0.0.1:29411" # Non-loopback admin binding is rejected.
+
+[public_rpc]
+enabled = false
+listen = "127.0.0.1:29412" # Read-only. Put behind your TLS proxy for public HTTPS.
+
+[mining]
+enabled = false # Must stay false: mining always needs an explicit action.
+
+# Local admission policy, bounded by the tested implementation ceilings.
+# These values do not change consensus block/transaction/proof limits.
+# Inbound peers may use only connections - outbound_connections slots, so the
+# outbound peers this node chooses can never be crowded out.
+[limits]
+connections = 24
+inbound_connections = 16
+outbound_connections = 8
+rpc_concurrency = 16
+rpc_request_bytes = 12000000
+mempool_transactions = 256
+mempool_bytes = 8000000
+
+# Network privacy. "direct" (default) is standard TCP: peers see your IP.
+# "hybrid" adds onion peers through Tor; clearnet peers still see your IP.
+# "tor-only" sends every peer connection, discovery request and transaction
+# broadcast through Tor and never falls back to direct connections.
+# Tor protects your IP address, not transaction contents (shielded notes do
+# that), and it cannot protect a compromised computer. See docs/network-privacy.md.
+[network_privacy]
+mode = "direct"
+
+# Tor for hybrid and tor-only modes. Without `socks` the node uses its built-in
+# Tor client: nothing to install. Set `socks` (and optionally `control`) to use a
+# Tor daemon or Tor Browser you run yourself instead; GENORYN never starts it.
+[tor]
+# socks = "127.0.0.1:9050"        # external Tor; Tor Browser's bundled Tor uses 9150
+# control = "127.0.0.1:9051"      # external Tor: bootstrap status and its onion service
+# control_password_file = "/path/to/tor-control-password"  # else SAFECOOKIE
+onion_service = false             # with an external Tor this needs `control`
+# onion_listen = "127.0.0.1:29413"  # external Tor only
+stream_isolation = true

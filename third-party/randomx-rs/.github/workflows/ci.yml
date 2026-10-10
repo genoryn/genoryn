@@ -1,0 +1,130 @@
+---
+name: CI
+
+'on':
+  workflow_dispatch:
+  push:
+    branches:
+      - "development"
+      - "build-ci-*"
+  pull_request:
+    branches:
+      - "development"
+    types:
+      - opened
+      - reopened
+      - synchronize
+  merge_group:
+
+env:
+  nightly_toolchain: nightly-2025-06-01
+
+concurrency:
+  # https://docs.github.com/en/actions/examples/using-concurrency-expressions-and-a-test-matrix
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') || github.ref != 'refs/heads/development' || github.ref != 'refs/heads/nextnet' || github.ref != 'refs/heads/stagenet' }}
+
+permissions: {}
+
+jobs:
+  clippy:
+    name: clippy
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "true"
+
+      - name: toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: ${{ env.nightly_toolchain }}
+          components: rustfmt, clippy
+
+      - name: Cache rust dependencies
+        uses: swatinem/rust-cache@v2
+
+      - name: cargo fmt
+        run: |
+          cargo +${{ env.nightly_toolchain }} fmt --all -- --check
+
+      - name: Install cargo-lints
+        run: |
+          cargo install cargo-lints
+
+      - name: Clippy check (with lints)
+        run: |
+          cargo lints clippy --all-targets --all-features
+
+      - name: cargo machete
+        run: |
+          cargo install cargo-machete@0.7.0
+          cargo machete
+
+      - name: cargo vet
+        # Disable cargo vet
+        if: ${{ false }}
+        run: |
+          cargo install cargo-vet@0.10.0 --locked
+          cargo vet
+
+  file-licenses:
+    name: file-licenses
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+      - name: install ripgrep
+        run: |
+          # https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb.sha256
+          wget -v https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb
+          sudo dpkg -i ripgrep_14.1.1-1_amd64.deb
+          rg --version || exit 1
+      - name: run the license check
+        run: ./scripts/file_license_check.sh
+
+  build:
+    name: build
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "true"
+
+      - name: toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo check
+        run: cargo check --release --all-targets --workspace
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "true"
+
+      - name: toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        # Cap the parallelism: each dataset test holds a ~2.03 GB RandomX dataset, and several also hold a ~2.03 GB
+        # copy of it, so a single test can be resident at ~4.06 GB. `cargo test` otherwise uses
+        # `available_parallelism()` (4 on ubuntu-latest), which would peak above this runner's 16 GB and be killed
+        # with an opaque SIGKILL.
+        run: |
+          cargo test -- --test-threads=2

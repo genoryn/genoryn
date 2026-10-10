@@ -1,0 +1,23 @@
+{
+  "arch": "x86_64",
+  "canonical_block_parse_us_mean_1000": 114.732859,
+  "database_initialize_ms": 1.750605,
+  "database_scope": "One actual committed proof-of-work/proof fixture; warm process crypto keys/cache. Not long-history capacity.",
+  "fixture_bytes": 12375,
+  "indexed_block_lookup_us_mean_1000": 4.602247,
+  "logical_cpus": 9,
+  "one_action_mint_proof_create_and_sign_ms": 2089.791228,
+  "one_action_proof_and_signature_verify_ms": 26.267452,
+  "one_block_database_reopen_and_full_replay_ms": 98.93381,
+  "os": "linux",
+  "profile": "development opt-level=1 dependencies=2",
+  "proof_bytes": 4992,
+  "prover_key_setup_ms": 3348.5522680000004,
+  "randomx_cold_cache_and_hash_ms": 747.5829699999999,
+  "randomx_warm_hash_ms_mean_10": 43.0334671,
+  "real_block_validate_and_durable_write_ms": 234.761356,
+  "schema": 1,
+  "single_note_trial_decryption_us_mean_1000": 1538.320665,
+  "verifier_key_setup_ms": 2684.8628639999997,
+  "warning": "Single local run; includes scheduler noise. No hardware or throughput guarantee."
+}

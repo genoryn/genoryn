@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "scope": "Independent bounded integration review of selected RandomX execution flags and minimal Rust FFI corrections; not a cryptographic audit",
+  "base_commit": "a68868044dcbe14e4927cd2ff30154fb7205e123",
+  "date": "2026-10-08",
+  "provenance": {
+    "archive_sha256": "34837f0cf043a56a66e7a07f835969714a27fc9b561d4743620c54a165a7fc8f",
+    "unchanged_files": 176,
+    "changed_files": [
+      "src/lib.rs"
+    ],
+    "omitted_nonbuild_files": [
+      "RandomX/audits/Report-Kudelski.pdf",
+      "RandomX/audits/Report-Quarkslab.pdf",
+      "RandomX/audits/Report-TrailOfBits.pdf",
+      "RandomX/audits/Report-X41.pdf"
+    ],
+    "extra_files": [],
+    "native_and_build_source_match": true,
+    "patch_matches_actual_diff": true,
+    "patched_lib_sha256": "89904be79f569879070c412a6060aabcd1a5e30714b2d9e176c8cc5dd73c8570"
+  },
+  "valid_hash_comparisons": 70,
+  "known_flag_combinations_checked": 128,
+  "forced_portable_process_golden_passed": true,
+  "golden_hash": "84e3a938d3af0741e0b035a26e5fcd8e0653d3f196f68c99443746b8e917200b",
+  "resource_observation": {
+    "exit_code": 0,
+    "elapsed_s": 22.05863240299368,
+    "max_rss_kib": 532880,
+    "user_s": 19.385415,
+    "system_s": 2.6097859999999997,
+    "stderr": ""
+  },
+  "limitations": [
+    "Linux x86-64 executed; final Windows native CI is separate",
+    "No native failure injection or OS policy alteration",
+    "Null rejection verified through source inspection and isolated pure guard tests",
+    "No broad cryptographic audit or anonymity proof"
+  ],
+  "passed": true
+}

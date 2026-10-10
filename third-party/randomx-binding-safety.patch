@@ -1,0 +1,81 @@
+--- upstream/src/lib.rs
++++ patched/src/lib.rs
+@@ -179,7 +179,7 @@
+             } else {
+                 let inner = RandomXCacheInner { cache_ptr };
+                 let result = RandomXCache { inner: Arc::new(inner) };
+-                let key_ptr = key.as_ptr() as *mut c_void;
++                let key_ptr = key.as_ptr() as *const c_void;
+                 let key_size = key.len();
+                 unsafe {
+                     randomx_init_cache(result.inner.cache_ptr, key_ptr, key_size);
+@@ -372,8 +372,25 @@
+     /// De-allocates memory for the `VM` object.
+     fn drop(&mut self) {
+         unsafe {
+-            randomx_destroy_vm(self.vm);
+-        }
++            if !self.vm.is_null() { randomx_destroy_vm(self.vm); }
++        }
++    }
++}
++
++// GENORYN downstream safety correction: the native API documents NULL on failure.
++fn checked_vm_pointer(vm: *mut randomx_vm) -> Result<*mut randomx_vm, RandomXError> {
++    if vm.is_null() {
++        Err(RandomXError::CreationError("Failed to allocate VM".to_string()))
++    } else {
++        Ok(vm)
++    }
++}
++
++#[cfg(test)]
++mod genoryn_safety_tests {
++    #[test]
++    fn rejects_null_vm_without_native_call() {
++        assert!(super::checked_vm_pointer(std::ptr::null_mut()).is_err());
+     }
+ }
+ 
+@@ -417,7 +434,7 @@
+                     .as_ref()
+                     .map(|data| data.inner.dataset_ptr)
+                     .unwrap_or_else(ptr::null_mut);
+-                let vm = unsafe { randomx_create_vm(flags.bits, cache_ptr, dataset_ptr) };
++                let vm = checked_vm_pointer(unsafe { randomx_create_vm(flags.bits, cache_ptr, dataset_ptr) })?;
+                 Ok(RandomXVM {
+                     vm,
+                     flags,
+@@ -468,9 +485,9 @@
+             Err(RandomXError::ParameterError("input was empty".to_string()))
+         } else {
+             let size_input = input.len();
+-            let input_ptr = input.as_ptr() as *mut c_void;
+-            let arr = [0; RANDOMX_HASH_SIZE as usize];
+-            let output_ptr = arr.as_ptr() as *mut c_void;
++            let input_ptr = input.as_ptr() as *const c_void;
++            let mut arr = [0; RANDOMX_HASH_SIZE as usize];
++            let output_ptr = arr.as_mut_ptr() as *mut c_void;
+             unsafe {
+                 randomx_calculate_hash(self.vm, input_ptr, size_input, output_ptr);
+             }
+@@ -504,7 +521,7 @@
+ 
+         // For multiple inputs
+         let mut output_ptr: *mut c_void = ptr::null_mut();
+-        let arr = [0; RANDOMX_HASH_SIZE as usize];
++        let mut arr = [0; RANDOMX_HASH_SIZE as usize];
+ 
+         // Not len() as last iteration assigns final hash
+         let iterations = input.len() + 1;
+@@ -526,8 +543,8 @@
+                     return Err(RandomXError::ParameterError("input was empty".to_string()));
+                 };
+                 let size_input = input[i].len();
+-                let input_ptr = input[i].as_ptr() as *mut c_void;
+-                output_ptr = arr.as_ptr() as *mut c_void;
++                let input_ptr = input[i].as_ptr() as *const c_void;
++                output_ptr = arr.as_mut_ptr() as *mut c_void;
+                 if i == 0 {
+                     // For first iteration
+                     unsafe {

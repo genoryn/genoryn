@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "kind": "mixed-versions",
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "versions": {
+    "v0.4.0": "separate build directory",
+    "v0.5.0": "separate build directory",
+    "current": "this branch, target/debug"
+  },
+  "checks": [
+    {
+      "check": "v040_v050_current_direct_and_hybrid_peer",
+      "passed": true,
+      "genesis": "2e0bf2679ab25b86999f9ad2004dbf6d6a9087db4b0ced82bb1cb1424821de11"
+    },
+    {
+      "check": "blocks_mined_by_v040_accepted_by_all",
+      "passed": true,
+      "height": 4
+    },
+    {
+      "check": "v040_wallet_tx_mined_by_current_miner_and_accepted_by_legacy_nodes",
+      "passed": true,
+      "height": 5
+    },
+    {
+      "check": "current_wallet_tx_relayed_to_and_mined_by_v040_seen_by_v050_wallet",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "legacy_nodes_stay_connected_and_log_no_decode_errors",
+      "passed": true
+    },
+    {
+      "check": "v050_chain_database_opened_by_current_build",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "v040_chain_database_opened_by_current_build",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "v040_and_v050_wallet_files_opened_by_current_wallet_cli",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

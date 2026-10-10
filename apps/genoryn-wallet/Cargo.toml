@@ -1,0 +1,31 @@
+[package]
+name = "genoryn-wallet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+genoryn-core = { path = "../../crates/genoryn-core" }
+genoryn-wallet-core = { path = "../../crates/genoryn-wallet-core" }
+genoryn-connect = { path = "../../crates/genoryn-connect" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+zeroize.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+hex.workspace = true
+qrcode = { version = "0.14", default-features = false }
+png = "0.18"
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+eframe = { version = "=0.31.1", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+eframe = { version = "=0.31.1", default-features = false, features = ["wgpu", "default_fonts"] }
+wgpu = { version = "24.0.5", default-features = false, features = ["dx12", "wgsl"] }
+rfd = { version = "0.15", default-features = false }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"

@@ -1,0 +1,71 @@
+[package]
+name = "genoryn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+genoryn-core = { path = "../../crates/genoryn-core" }
+genoryn-wallet-core = { path = "../../crates/genoryn-wallet-core" }
+genoryn-connect = { path = "../../crates/genoryn-connect" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+orchard.workspace = true
+hex.workspace = true
+rand08.workspace = true
+zeroize.workspace = true
+rpassword = "7.4"
+axum = "0.8"
+tower = { version = "0.5", features = ["limit", "load-shed", "timeout"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tokio-socks.workspace = true
+sha2.workspace = true
+sha3 = "0.10"
+hmac = "0.12"
+data-encoding = "2.6"
+ed25519-dalek = "2.2"
+arti-client = { version = "0.47", default-features = false, features = ["tokio", "rustls", "compression", "onion-service-client", "onion-service-service", "vanguards", "static-sqlite"] }
+tor-rtcompat = { version = "0.47", default-features = false, features = ["tokio", "rustls"] }
+tor-hsservice = "0.47"
+tor-cell = "0.47"
+tor-proto = { version = "0.47", default-features = false, features = ["tokio", "hs-service"] }
+safelog = "0.10"
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3.23"
+
+[[bin]]
+name = "genoryn-emission"
+path = "src/bin/emission.rs"
+
+[[bin]]
+name = "genorynd"
+path = "src/bin/node.rs"
+
+[[bin]]
+name = "genoryn-miner"
+path = "src/bin/miner.rs"
+
+[[bin]]
+name = "genoryn-wallet-cli"
+path = "src/bin/wallet.rs"
+
+[[bin]]
+name = "genoryn-cli"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "genoryn-vectors"
+path = "src/bin/vectors.rs"
+
+[[bin]]
+name = "genoryn-identity-bench"
+path = "src/bin/identity_bench.rs"

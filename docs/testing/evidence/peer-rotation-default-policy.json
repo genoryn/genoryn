@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "real_tcp_peers": 4,
+  "mining": false,
+  "payments": false,
+  "passed": true,
+  "initial_peer_counts": {
+    "a": 3,
+    "b": 3,
+    "c": 3,
+    "d": 3
+  },
+  "rotated_nodes": [
+    "d"
+  ],
+  "final_peer_counts": {
+    "a": 3,
+    "b": 3,
+    "c": 3,
+    "d": 3
+  },
+  "same_genesis": true,
+  "elapsed_seconds": 918.659
+}

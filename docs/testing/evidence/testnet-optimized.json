@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "scope": "two real isolated loopback testnet nodes, one valueless proof-of-work block; no external peers",
+  "passed": true,
+  "miner_exit_code": 0,
+  "miner_metrics": {
+    "accepted_blocks": 1,
+    "elapsed_seconds": 16.081780454,
+    "event": "mining",
+    "hashes": 120,
+    "hashing_seconds": 4.99080136,
+    "hashrate_basis": "hashes / hashing wall time, including RandomX cache setup; excludes template and submission RPC",
+    "hashrate_hs": 24.04423485209598,
+    "height": 1,
+    "rejected_blocks": 0,
+    "submission_seconds": 0.689939492,
+    "template_seconds": 10.401033613,
+    "threads": 1
+  },
+  "mining_budget_seconds": 300,
+  "network": "testnet",
+  "height": 1,
+  "genesis_hash": "b0e925ebe7580ba9df4da5284dca206d05f17f8a1b68764a0a366ef2703b4073",
+  "same_validated_tip": true,
+  "testnet_receiving_prefix": true,
+  "real_randomx_and_shielded_coinbase": true,
+  "public_supply_matches_calculator": true,
+  "mainnet_refuses_before_data_creation": true,
+  "elapsed_mining_and_sync_seconds": 20.46685842399893
+}

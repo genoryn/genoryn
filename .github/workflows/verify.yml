@@ -1,0 +1,168 @@
+name: Verify local network
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  RAYON_NUM_THREADS: 2
+  CARGO_BUILD_JOBS: 2
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install pinned official advisory scanner
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Check locked dependency graph against RustSec
+        run: |
+          mkdir -p evidence
+          cargo audit --json > evidence/dependency-audit.json
+      - name: Preserve advisory snapshot and maintenance warnings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: genoryn-dependency-audit-${{ github.sha }}
+          path: evidence/dependency-audit.json
+          if-no-files-found: warn
+  parser-fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install official fuzz tooling
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo install cargo-fuzz --locked
+      - name: Seed actual mined block corpus
+        run: |
+          python scripts/test/fuzz_graph.py
+          mkdir -p fuzz/corpus/block_parser
+          cp tests/vectors/devnet-block-1.bin fuzz/corpus/block_parser/real-block
+      - name: Bounded block parser campaign
+        run: cargo +nightly fuzz run block_parser -- -max_total_time=120 -max_len=65536 -rss_limit_mb=2048
+      - name: Bounded transaction and proof parser campaign
+        run: cargo +nightly fuzz run transaction_parser -- -max_total_time=120 -max_len=65536 -rss_limit_mb=2048
+      - name: Bounded username and receiver-bundle parser campaign
+        run: cargo +nightly fuzz run username_parser -- -max_total_time=120 -max_len=8192 -rss_limit_mb=2048
+      - name: Preserve minimized failures
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: genoryn-parser-fuzz-failures-${{ github.sha }}
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Linux native prerequisites
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y --no-install-recommends cmake libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev xvfb xdotool imagemagick
+      - name: Pinned Rust
+        run: rustup toolchain install 1.92.0 --profile minimal --component rustfmt --component clippy
+      - name: Cache compiled dependencies
+        id: rust_cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: genoryn-${{ runner.os }}-rust1.92-${{ hashFiles('Cargo.lock') }}
+          restore-keys: genoryn-${{ runner.os }}-rust1.92-
+      - name: Complete portable practical suite
+        run: python scripts/test/all.py --output evidence/practical
+      - name: Preserve practical diagnostics before optional cache work
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: genoryn-practical-${{ runner.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            evidence/practical/*.json
+            evidence/practical/*.png
+            evidence/practical/*.txt
+      - name: Save compiled dependencies before slow capacity checks
+        if: success() && steps.rust_cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: genoryn-${{ runner.os }}-rust1.92-${{ hashFiles('Cargo.lock') }}
+      - name: Actual default-policy peer rotation and reconnection
+        if: runner.os == 'Linux'
+        timeout-minutes: 35
+        run: python scripts/test/peer_rotation.py --bin-dir target/debug --work-dir .devnet/rotation --report evidence/peer-rotation-Linux.json --max-wait 1900
+      - name: Fifty thousand registered identities
+        run: target/debug/genoryn-identity-bench --count 50000 --workers 2 --database .devnet/capacity/usernames.sqlite > evidence/registered-${{ runner.os }}.json
+      - name: Read RPC on the registered-identity dataset
+        run: python scripts/test/rpc_load.py --bin-dir target/debug --work-dir .devnet/rpc-capacity --report evidence/rpc-capacity-${{ runner.os }}.json --registry-fixture .devnet/capacity/usernames.sqlite --registered-count 50000 --requests 1000
+      - name: Package verified development build
+        run: python scripts/release/package.py --bin-dir target/debug --output dist
+      - name: Verify actual native ZIP contents and provenance
+        run: python scripts/release/verify_archive.py --packages dist --output evidence/archive-verification-${{ runner.os }}.json
+      - name: Capture actual packaged native wallet (Linux)
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: 1
+        run: xvfb-run -a python scripts/test/packaged_runtime.py --packages dist --output evidence/packaged-wallet-Linux.png --report evidence/packaged-runtime-Linux.json
+      - name: Capture actual packaged native wallet (Windows)
+        if: runner.os == 'Windows'
+        run: python scripts/test/packaged_runtime.py --packages dist --output evidence/packaged-wallet-Windows.png --report evidence/packaged-runtime-Windows.json
+      - name: Packaged launcher runtime (Linux)
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: 1
+        run: xvfb-run -a dist/genoryn-*-mainnet-linux-x86_64/start-wallet --smoke-test-frames 5
+      - name: Packaged launcher runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $launcher = (Get-ChildItem dist -Recurse -Filter Start-Wallet.cmd | Select-Object -First 1).FullName
+          $p = Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/c',"`"$launcher`" --smoke-test-frames 5" -RedirectStandardError evidence/launcher-Windows.stderr.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id -Force; throw 'Packaged launcher timed out' }
+          if ($p.ExitCode -ne 0) { Get-Content evidence/launcher-Windows.stderr.txt; throw "Packaged launcher failed: $($p.ExitCode)" }
+      - name: Evidence and binaries
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: genoryn-${{ runner.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            evidence/*.json
+            evidence/practical/*.json
+            evidence/*.txt
+      - name: Small standalone verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: genoryn-verification-${{ runner.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            evidence/*.json
+            evidence/practical/*.json
+            evidence/*.png
+            evidence/practical/*.png

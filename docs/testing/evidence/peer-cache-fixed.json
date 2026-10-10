@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "scope": "owned loopback sockets only",
+  "real_tcp_peers": 2,
+  "mining": false,
+  "payments": false,
+  "passed": true,
+  "stale_cached_peers": 128,
+  "explicit_peer_connected": true,
+  "explicit_peer_preserved": true,
+  "persisted_count": 128,
+  "elapsed_seconds": 0.218
+}

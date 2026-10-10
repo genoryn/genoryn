@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "scope": "Independent bounded review of the Rust native-build isolation delta; no cryptographic audit",
+  "base_commit": "29347dcabc12bedc1b0f8c867c37a3cab710ce31",
+  "build_rs_sha256": "f888c79d3813c792d15b114fa43bdf25a20566d70c75660b34697f67c398874a",
+  "native_tree_files_unchanged": 147,
+  "checks": [
+    "exact-script ordinary-file copying and deterministic output",
+    "fresh source copy preserves original generated-assembly fixture",
+    "stale copied output removed while isolated build cache remains",
+    "separate OUT_DIR target isolation",
+    "external and empty RANDOMX_DIR override rejected before writes",
+    "source root and child symlinks rejected before native configuration",
+    "actual CMake source/install directories remain under Cargo OUT_DIR"
+  ],
+  "native_cpp_cmake_inputs_unchanged": true,
+  "passed": true,
+  "limits": [
+    "The independent review did not rebuild native dependencies",
+    "Final Windows and Linux CI must verify the complete source after native generation",
+    "No native failure injection or broader cryptographic review"
+  ]
+}

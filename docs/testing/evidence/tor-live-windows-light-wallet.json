@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "kind": "live-tor",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "engine": "built-in",
+  "real_tor_network": true,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "two_tor_only_nodes_with_v3_onion_services",
+      "passed": true,
+      "engine": "built-in",
+      "onion_a": "5bek4blb\u2026",
+      "onion_b": "6mq43w3b\u2026"
+    },
+    {
+      "check": "onion_to_onion_p2p_without_clearnet",
+      "passed": true
+    },
+    {
+      "check": "block_sync_over_tor",
+      "passed": true,
+      "height": 4,
+      "mining_seconds": 22.5
+    },
+    {
+      "check": "shielded_tx_a_to_b_relayed_and_mined",
+      "passed": true,
+      "height": 5
+    },
+    {
+      "check": "shielded_tx_b_to_a_relayed_and_mined",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "light_wallet_synced_and_validated_through_two_onion_rpcs",
+      "passed": true,
+      "sources": [
+        "agrees",
+        "used"
+      ]
+    },
+    {
+      "check": "light_wallet_payment_relayed_through_a_remote_node_and_mined",
+      "passed": true,
+      "height": 8
+    },
+    {
+      "check": "onion_identities_and_chain_persist_across_hard_restart",
+      "passed": true
+    },
+    {
+      "check": "os_level_endpoints_only_loopback_or_tor_relays",
+      "passed": true,
+      "engine": "built-in",
+      "distinct_relay_endpoints": 11,
+      "fallback_directories_used": 6,
+      "samples_scope": "netstat/ss every 0.5 s for each node process; short-lived sockets between samples can be missed"
+    }
+  ],
+  "measurements": [
+    {
+      "operation": "tor_ready_and_onion_identity",
+      "engine": "built-in",
+      "seconds": 21.15757709999889
+    },
+    {
+      "operation": "onion_to_onion_peering_after_start",
+      "engine": "built-in",
+      "seconds": 20.444835800000874
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.438117699995928,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.22864330000447808,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 4,
+      "hashes": 4,
+      "elapsed_seconds": 22.2877678,
+      "template_seconds": 15.4328535,
+      "hashing_seconds": 5.2760194,
+      "submission_seconds": 1.5787309
+    },
+    {
+      "operation": "four_block_sync_over_tor_after_mining",
+      "engine": "built-in",
+      "seconds": 1.5981860000028973
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.25332120000530267,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 7.821845899998152,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 9.355623800001922
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 5.4784409,
+      "template_seconds": 4.0443714,
+      "hashing_seconds": 1.3521793,
+      "submission_seconds": 0.0818798
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.25115830000140704,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 7.935923800003366,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 9.961940799999866
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 4.164129,
+      "template_seconds": 2.7893582,
+      "hashing_seconds": 1.2939884,
+      "submission_seconds": 0.0807736
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.2522333000015351,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.2172121000039624,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.26270389999990584,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 9.687457599997288,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 4.1156359,
+      "template_seconds": 2.7690249,
+      "hashing_seconds": 1.2658142,
+      "submission_seconds": 0.080787
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 71.58085690000007,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "light_wallet_first_sync_over_tor",
+      "seconds": 71.58092329999636,
+      "scope": "includes bootstrapping its own built-in Tor in an empty directory and full validation"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 64.2774860999998,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "light_wallet_send_over_tor",
+      "seconds": 64.2775599000015
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 5.3838131,
+      "template_seconds": 2.7598266000000002,
+      "hashing_seconds": 1.3518366,
+      "submission_seconds": 1.2721409000000001
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 532.228045900003,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "onion_peering_after_hard_restart",
+      "engine": "built-in",
+      "seconds": 52.74945019999723
+    }
+  ],
+  "measurement_scope": "Single same-host run over the public Tor network; timings depend on circuits and relays chosen and are not guarantees.",
+  "passed": true
+}

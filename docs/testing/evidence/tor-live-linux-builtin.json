@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "kind": "live-tor",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "engine": "built-in",
+  "real_tor_network": true,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "two_tor_only_nodes_with_v3_onion_services",
+      "passed": true,
+      "engine": "built-in",
+      "onion_a": "6kqrl4rb\u2026",
+      "onion_b": "dar6mw4d\u2026"
+    },
+    {
+      "check": "onion_to_onion_p2p_without_clearnet",
+      "passed": true
+    },
+    {
+      "check": "block_sync_over_tor",
+      "passed": true,
+      "height": 4,
+      "mining_seconds": 11.4
+    },
+    {
+      "check": "shielded_tx_a_to_b_relayed_and_mined",
+      "passed": true,
+      "height": 5
+    },
+    {
+      "check": "shielded_tx_b_to_a_relayed_and_mined",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "onion_identities_and_chain_persist_across_hard_restart",
+      "passed": true
+    },
+    {
+      "check": "pending_local_tx_restored_after_hard_restart_during_outage",
+      "passed": true,
+      "restored": true
+    },
+    {
+      "check": "tx_submitted_during_tor_outage_stays_local",
+      "passed": true,
+      "outage_seconds": 300,
+      "local_broadcasts_pending": 1
+    },
+    {
+      "check": "tx_from_outage_delivered_after_recovery_and_mined",
+      "passed": true,
+      "height": 7
+    },
+    {
+      "check": "os_level_endpoints_only_loopback_or_tor_relays",
+      "passed": true,
+      "engine": "built-in",
+      "distinct_relay_endpoints": 15,
+      "fallback_directories_used": 6,
+      "samples_scope": "netstat/ss every 0.5 s for each node process; short-lived sockets between samples can be missed"
+    },
+    {
+      "check": "no_dns_queries_from_node_processes",
+      "passed": true,
+      "positive_control_seen": true
+    }
+  ],
+  "measurements": [
+    {
+      "operation": "tor_ready_and_onion_identity",
+      "engine": "built-in",
+      "seconds": 16.050417696
+    },
+    {
+      "operation": "onion_to_onion_peering_after_start",
+      "engine": "built-in",
+      "seconds": 8.518091171000002
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.12150837800000147,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.12096806800001048,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 4,
+      "hashes": 4,
+      "elapsed_seconds": 11.387144809,
+      "template_seconds": 9.122906469,
+      "hashing_seconds": 1.749131758,
+      "submission_seconds": 0.515021127
+    },
+    {
+      "operation": "four_block_sync_over_tor_after_mining",
+      "engine": "built-in",
+      "seconds": 1.0045187650000003
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.12328049200000635,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 4.593245690000003,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 6.5984555319999885
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 2.298869274,
+      "template_seconds": 1.7960008379999999,
+      "hashing_seconds": 0.441253751,
+      "submission_seconds": 0.061609172
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.14316047500000195,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 4.5723139809999935,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 8.580777295999994
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 2.129460236,
+      "template_seconds": 1.658491522,
+      "hashing_seconds": 0.413346751,
+      "submission_seconds": 0.057616577
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.17209329500001047,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "onion_peering_after_hard_restart",
+      "engine": "built-in",
+      "seconds": 7.514457959999987
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 5.970926301000006,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "tx_delivery_after_tor_outage_restored",
+      "seconds": 19.432396061999953,
+      "outage_seconds": 300.1
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 6.673867816,
+      "template_seconds": 5.301441625,
+      "hashing_seconds": 0.63454451,
+      "submission_seconds": 0.737874379
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.28516343300003655,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    }
+  ],
+  "measurement_scope": "Single same-host run over the public Tor network; timings depend on circuits and relays chosen and are not guarantees.",
+  "passed": true
+}

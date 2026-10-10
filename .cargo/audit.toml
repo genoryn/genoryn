@@ -1,0 +1,9 @@
+# cargo-audit configuration. Every ignore needs a recorded justification and
+# maintainer approval in docs/security/dependency-review.md.
+[advisories]
+ignore = [
+    # rsa 0.9 Marvin timing attack on RSA private-key operations, via Arti.
+    # GENORYN's Tor client and onion service only verify RSA signatures and
+    # create no RSA keys. Approved 2026-10-10; revisit when Arti moves off rsa 0.9.
+    "RUSTSEC-2023-0071",
+]

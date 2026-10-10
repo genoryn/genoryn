@@ -1,0 +1,17 @@
+{
+  "database_bytes": 35586048,
+  "distinct_owners": 50000,
+  "distinct_receivers": 50000,
+  "generation_and_durable_registration_seconds": 272.303422525,
+  "passed": true,
+  "persistent_record_count": 50000,
+  "registered_identities": 50000,
+  "registrations_per_second": 183.61869834893292,
+  "renewals_verified": 10,
+  "reopen_integrity_check_ms": 1339.566519,
+  "schema": 1,
+  "scope": "distinct local wallet receiving identities and signed username owners; not concurrent wallets, payments or chain TPS",
+  "verified_indexed_lookup_p50_us": 79,
+  "verified_indexed_lookup_p95_us": 252,
+  "verified_indexed_lookup_p99_us": 1111
+}

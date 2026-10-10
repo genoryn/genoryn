@@ -1,0 +1,205 @@
+diff --git a/src/internal.rs b/src/internal.rs
+index 911c0ec..1f8171c 100644
+--- a/src/internal.rs
++++ b/src/internal.rs
+@@ -103,12 +103,12 @@ impl SaturatingTime for Instant {
+ }
+ 
+ /// Finds the value for [`SaturatingTime::max_value()`].
+-fn find_max<T: SaturatingTime>() -> T {
++fn find_max<T: SaturatingTime + PartialEq>() -> T {
+     find_limit(T::checked_add)
+ }
+ 
+ /// Finds the value for [`SaturatingTime::min_value()`].
+-fn find_min<T: SaturatingTime>() -> T {
++fn find_min<T: SaturatingTime + PartialEq>() -> T {
+     find_limit(T::checked_sub)
+ }
+ 
+@@ -123,12 +123,16 @@ fn find_min<T: SaturatingTime>() -> T {
+ ///
+ /// 1. Set `step` to `INITIAL_STEP` and `res` to [`SaturatingTime::anchor()`].
+ /// 2. Call `f(&res, step)`.
+-///     1. If [`Some`], set `res` to the returned value and continue.
+-///     2. If [`None`] and `step == 1ns`, return `res`.
++///     1. If [`Some`] and different from `res`, set `res` to it and continue.
++///     2. Else, if `step == 1ns`, return `res`.
+ ///     3. Else, set `step` to `MAX{1ns, step / 2}` and continue.
++///
++/// A [`Some`] equal to `res` counts as reaching the limit: clocks coarser
++/// than 1ns (Windows counts 100ns intervals) truncate sub-tick steps to zero,
++/// so `f` keeps succeeding without moving and would otherwise never stop.
+ fn find_limit<T, F>(f: F) -> T
+ where
+-    T: SaturatingTime,
++    T: SaturatingTime + PartialEq,
+     F: Fn(&T, Duration) -> Option<T>,
+ {
+     const INITIAL_STEP: Duration = Duration::new(1_000_000_000_000_000_000, 0);
+@@ -140,20 +144,18 @@ where
+ 
+     loop {
+         // (2) Call f().
+-        let next = f(&res, step);
+-        match next {
+-            Some(st) => {
+-                // (2.1) If Some, set res to the returned value and continue.
++        match f(&res, step) {
++            Some(st) if st != res => {
++                // (2.1) If it moved, set res to the returned value and continue.
+                 res = st;
+             }
+-            None => {
+-                if step == ONE_NS {
+-                    // (2.2) If None and step == 1ns, return res.
+-                    return res;
+-                } else {
+-                    // (2.3) Else, set step to MAX{1ns, step / 2}.
+-                    step = cmp::max(ONE_NS, step / 2);
+-                }
++            _ if step == ONE_NS => {
++                // (2.2) If it cannot move by 1ns, return res.
++                return res;
++            }
++            _ => {
++                // (2.3) Else, set step to MAX{1ns, step / 2}.
++                step = cmp::max(ONE_NS, step / 2);
+             }
+         }
+     }
+@@ -196,7 +198,11 @@ mod tests {
+             T::max_value().checked_add(Duration::ZERO),
+             Some(T::max_value())
+         );
+-        assert_eq!(T::max_value().checked_add(Duration::new(0, 1)), None);
++        assert!(
++            T::max_value()
++                .checked_add(Duration::new(0, 1))
++                .is_none_or(|t| t == T::max_value())
++        );
+         assert_eq!(
+             T::max_value().checked_sub(Duration::ZERO),
+             Some(T::max_value())
+@@ -210,7 +216,11 @@ mod tests {
+             T::min_value().checked_sub(Duration::ZERO),
+             Some(T::min_value())
+         );
+-        assert_eq!(T::min_value().checked_sub(Duration::new(0, 1)), None);
++        assert!(
++            T::min_value()
++                .checked_sub(Duration::new(0, 1))
++                .is_none_or(|t| t == T::min_value())
++        );
+         assert_eq!(
+             T::min_value().checked_add(Duration::ZERO),
+             Some(T::min_value())
+@@ -221,6 +231,51 @@ mod tests {
+         );
+     }
+ 
++    /// A clock counting 100ns ticks in an `i64`, like Windows' `SystemTime`,
++    /// that truncates sub-tick durations instead of rejecting them.
++    #[derive(Clone, Copy, Debug, PartialEq)]
++    struct CoarseClock(i64);
++
++    impl CoarseClock {
++        /// Converts `duration` to whole ticks, truncating like Windows does.
++        fn ticks(duration: Duration) -> Option<i64> {
++            i64::try_from(duration.as_nanos() / 100).ok()
++        }
++    }
++
++    impl SaturatingTime for CoarseClock {
++        fn anchor() -> Self {
++            Self(0)
++        }
++
++        fn max_value() -> Self {
++            find_max()
++        }
++
++        fn min_value() -> Self {
++            find_min()
++        }
++
++        fn checked_add(&self, duration: Duration) -> Option<Self> {
++            self.0.checked_add(Self::ticks(duration)?).map(Self)
++        }
++
++        fn checked_sub(&self, duration: Duration) -> Option<Self> {
++            self.0.checked_sub(Self::ticks(duration)?).map(Self)
++        }
++
++        fn checked_duration_since(&self, _earlier: Self) -> Option<Duration> {
++            unreachable!()
++        }
++    }
++
++    /// Limits are found, and found exactly, on clocks coarser than 1ns.
++    #[test]
++    fn coarse_clock_limits_terminate() {
++        assert_eq!(CoarseClock::max_value(), CoarseClock(i64::MAX));
++        assert_eq!(CoarseClock::min_value(), CoarseClock(i64::MIN));
++    }
++
+     /// Verifies [`SystemTime::min_value()`] and [`SystemTime::max_value()`] are
+     /// correct.
+     #[test]
+diff --git a/src/lib.rs b/src/lib.rs
+index 03b3e23..268c00a 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -88,8 +88,8 @@ pub trait SaturatingTime: internal::SaturatingTime {
+     /// // Adding zero to the maximum value will change nothing.
+     /// assert!(max.checked_add(Duration::ZERO).is_some());
+     ///
+-    /// // Adding 1ns to the maximum value will fail.
+-    /// assert!(max.checked_add(Duration::new(0, 1)).is_none());
++    /// // Adding 1ns to the maximum value cannot move past it.
++    /// assert!(max.checked_add(Duration::new(0, 1)).is_none_or(|t| t == max));
+     ///
+     /// // Subtracting 1ns from the maximum value will work of course.
+     /// assert!(max.checked_sub(Duration::new(0, 1)).is_some());
+@@ -119,8 +119,8 @@ pub trait SaturatingTime: internal::SaturatingTime {
+     /// // Subtracting a zero from the minimum value will change nothing.
+     /// assert!(min.checked_sub(Duration::ZERO).is_some());
+     ///
+-    /// // Subtracting 1ns from the minimum value will fail.
+-    /// assert!(min.checked_sub(Duration::new(0, 1)).is_none());
++    /// // Subtracting 1ns from the minimum value cannot move past it.
++    /// assert!(min.checked_sub(Duration::new(0, 1)).is_none_or(|t| t == min));
+     ///
+     /// // Adding 1ns to the minimum value will work of course.
+     /// assert!(min.checked_add(Duration::new(0, 1)).is_some());
+@@ -150,7 +150,7 @@ pub trait SaturatingTime: internal::SaturatingTime {
+     /// ```
+     fn saturating_add(self, duration: Duration) -> Self {
+         self.checked_add(duration)
+-            .unwrap_or(SaturatingTime::max_value())
++            .unwrap_or_else(<Self as SaturatingTime>::max_value)
+     }
+ 
+     /// Performs a saturating subtraction of a [`Duration`].
+@@ -174,7 +174,7 @@ pub trait SaturatingTime: internal::SaturatingTime {
+     /// ```
+     fn saturating_sub(self, duration: Duration) -> Self {
+         self.checked_sub(duration)
+-            .unwrap_or(SaturatingTime::min_value())
++            .unwrap_or_else(<Self as SaturatingTime>::min_value)
+     }
+ 
+     /// Performs a saturating time difference calculation between two points.
+@@ -317,9 +317,10 @@ mod tests {
+         let max = <T as SaturatingTime>::max_value();
+         let min = <T as SaturatingTime>::min_value();
+ 
+-        // This first assertion might not be so portable, maybe remove it if
+-        // this becomes a problem.
++        // Only Unix clocks span all of `Duration`; Windows' range is narrower.
++        #[cfg(unix)]
+         assert_eq!(max.saturating_duration_since(min), Duration::MAX);
++        assert!(max.saturating_duration_since(min) > Duration::ZERO);
+         assert_eq!(min.saturating_duration_since(max), Duration::ZERO);
+     }
+ 

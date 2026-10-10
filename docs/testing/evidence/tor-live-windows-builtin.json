@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "kind": "live-tor",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "engine": "built-in",
+  "real_tor_network": true,
+  "real_processes": true,
+  "real_pow": true,
+  "real_zk_proofs": true,
+  "checks": [
+    {
+      "check": "two_tor_only_nodes_with_v3_onion_services",
+      "passed": true,
+      "engine": "built-in",
+      "onion_a": "a56j7vpd\u2026",
+      "onion_b": "5mci7apm\u2026"
+    },
+    {
+      "check": "onion_to_onion_p2p_without_clearnet",
+      "passed": true
+    },
+    {
+      "check": "block_sync_over_tor",
+      "passed": true,
+      "height": 4,
+      "mining_seconds": 23.9
+    },
+    {
+      "check": "shielded_tx_a_to_b_relayed_and_mined",
+      "passed": true,
+      "height": 5
+    },
+    {
+      "check": "shielded_tx_b_to_a_relayed_and_mined",
+      "passed": true,
+      "height": 6
+    },
+    {
+      "check": "onion_identities_and_chain_persist_across_hard_restart",
+      "passed": true
+    },
+    {
+      "check": "os_level_endpoints_only_loopback_or_tor_relays",
+      "passed": true,
+      "engine": "built-in",
+      "distinct_relay_endpoints": 10,
+      "fallback_directories_used": 6,
+      "samples_scope": "netstat/ss every 0.5 s for each node process; short-lived sockets between samples can be missed"
+    }
+  ],
+  "measurements": [
+    {
+      "operation": "tor_ready_and_onion_identity",
+      "engine": "built-in",
+      "seconds": 10.57293049999862
+    },
+    {
+      "operation": "onion_to_onion_peering_after_start",
+      "engine": "built-in",
+      "seconds": 8.089563599998655
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.46674600000551436,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_create",
+      "seconds": 0.1725462000031257,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 4,
+      "hashes": 4,
+      "elapsed_seconds": 23.642062,
+      "template_seconds": 16.5653427,
+      "hashing_seconds": 5.450996600000001,
+      "submission_seconds": 1.6255632
+    },
+    {
+      "operation": "four_block_sync_over_tor_after_mining",
+      "engine": "built-in",
+      "seconds": 0.5958032999988063
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.1892022999963956,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 7.456133400002727,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 10.506939400002011
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 3.2834037,
+      "template_seconds": 2.0573109,
+      "hashing_seconds": 1.1458428999999999,
+      "submission_seconds": 0.0802434
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.18979350000154227,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "wallet_send",
+      "seconds": 7.830570500002068,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "shielded_tx_relay_over_tor",
+      "engine": "built-in",
+      "seconds": 9.384679299997515
+    },
+    {
+      "operation": "actual_mining",
+      "accepted_blocks": 1,
+      "hashes": 1,
+      "elapsed_seconds": 4.0375085,
+      "template_seconds": 2.6387045000000002,
+      "hashing_seconds": 1.3135781,
+      "submission_seconds": 0.0852187
+    },
+    {
+      "operation": "wallet_sync",
+      "seconds": 0.1869176000036532,
+      "scope": "includes CLI process, password KDF, local RPC and operation; cold process cryptographic setup"
+    },
+    {
+      "operation": "onion_peering_after_hard_restart",
+      "engine": "built-in",
+      "seconds": 54.14530119999836
+    }
+  ],
+  "measurement_scope": "Single same-host run over the public Tor network; timings depend on circuits and relays chosen and are not guarantees.",
+  "passed": true
+}

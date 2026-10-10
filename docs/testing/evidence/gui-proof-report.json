@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "scope": "native wallet selective payment-proof controls",
+  "real_node": true,
+  "real_chain_fixture": true,
+  "native_binary_sha256": "4b4d5937ec17a66428934889393403228c7af570f9bc50069810d44d053b8bd1",
+  "proof_source_sha256": "0cef7e76f5af19be1aa45c3394471f35166f0dac79c6ff3220c98b6202da9798",
+  "checks": {
+    "locked_local_file_import": true,
+    "locked_real_chain_verification": true,
+    "numeric_confirmation_display": true,
+    "selected_transaction_export": true,
+    "reviewed_recipient_amount_output": true,
+    "save_disabled_until_disclosure_acknowledged": true,
+    "repeat_save_creates_one_file": true,
+    "saved_proof_verified_by_paired_cli": true,
+    "unix_export_mode_0600": true,
+    "explicit_copy_and_paste_roundtrip": true,
+    "lock_clears_proof_inputs_and_results": true,
+    "cancel_stops_inflight_verification_without_late_result": true,
+    "malformed_input_visible_error": true,
+    "local_processes_stopped_and_reaped": true
+  },
+  "native_runtime_limit": "The native binary predates the final default review-window height and numeric JSON clearing adjustments. Source tests cover final proof code; final integrated native CI remains a separate gate.",
+  "private_artifacts_published": false,
+  "final_shared_source_checks": {
+    "cargo_fmt_genoryn_wallet_check": "passed",
+    "cargo_test_genoryn_wallet_locked": {
+      "passed": 18,
+      "failed": 0
+    },
+    "cargo_clippy_genoryn_wallet_all_targets_locked_deny_warnings": "passed"
+  }
+}

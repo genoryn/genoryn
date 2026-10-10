@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "commit": "cc280b585b339800af111475ac800982c4d7806c",
+  "workflow": "https://github.com/deepdrogo/GENORYN/actions/runs/37739804704",
+  "all_four_jobs_passed": true,
+  "native_vectors_identical": true,
+  "windows": {
+    "independently_downloaded": true,
+    "archive_sha256": "bd053cb6033765b5c7d7c31c75013b3e9a06a6e83af185b7806b2cbbd7c55338",
+    "manifest_files_verified": 886,
+    "dependencies": 425,
+    "notice_files": 791
+  },
+  "linux": {
+    "independently_downloaded": false,
+    "verification_location": "CI streamed the complete ZIP; its separate small report and actual runtime PNG were downloaded, hash-checked and inspected",
+    "archive_sha256": "2f7d4a654038929d576c3e50011193047bef7031eb4ab20dd372fb1837ac7bcc",
+    "manifest_files_verified": 900,
+    "dependencies": 436,
+    "notice_files": 805
+  },
+  "native_startup_and_packaged_launchers_passed": true,
+  "real_devnet_checks_per_platform": 13,
+  "isolated_real_testnet_passed_both_platforms": true,
+  "windows_owned_node_lifecycle_checks": 5,
+  "registered_identities_per_platform": 50000,
+  "limits": [
+    "One separately held additional RPC regression remains unexecuted",
+    "No mixed Windows/Linux live LAN run is claimed",
+    "No external cryptographic audit, legal certification or mainnet approval"
+  ]
+}

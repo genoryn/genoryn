@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "scope": "actual native selective-proof verification after final layout and numeric clearing changes",
+  "binary_sha256": "3350736976233ddbc9d92995a3d0ab08f7d732287ca8776ac76e73746f980abc",
+  "real_node_height": 12,
+  "locked_file_import": true,
+  "locked_proof_verified": true,
+  "clear_removes_verified_output": true,
+  "malformed_input_shows_error": true,
+  "limitations": "Binary predates addition of --node-config CLI parsing only; final exact source CI remains separate. Full export/copy/save/cancel runtime coverage is recorded in gui-proof-report.json.",
+  "passed": true
+}
