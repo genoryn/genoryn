@@ -156,6 +156,7 @@ impl WalletApp {
         self.last_health = Instant::now();
         let tx = self.tx.clone();
         let endpoint = self.settings.rpc_url.clone();
+        let generation = self.network_generation;
         thread::spawn(move || {
             let result = (|| -> Result<(HealthyNode, Value)> {
                 network_privacy::guard_rpc(&endpoint)?;
@@ -180,6 +181,7 @@ impl WalletApp {
                 .then(|| network_privacy::fetch_status(&endpoint).ok())
                 .flatten();
             let _ = tx.send(Event::Health {
+                generation,
                 endpoint,
                 result: Box::new(result),
                 privacy,
@@ -378,12 +380,15 @@ impl WalletApp {
                     self.last_health = Instant::now() - Duration::from_secs(10);
                 }
                 Event::Health {
+                    generation,
                     endpoint,
                     result,
                     privacy,
                 } => {
                     self.health_busy = false;
-                    if endpoint.trim_end_matches('/') != self.settings.rpc_url.trim_end_matches('/')
+                    if generation != self.network_generation
+                        || endpoint.trim_end_matches('/')
+                            != self.settings.rpc_url.trim_end_matches('/')
                     {
                         self.last_health = Instant::now() - Duration::from_secs(10);
                         continue;
@@ -428,9 +433,13 @@ impl WalletApp {
                 }
                 Event::Stopped { kind, result } => {
                     self.process_busy = false;
-                    let restart = kind == "node" && self.restart_node_pending && result.is_ok();
-                    if kind == "node" {
-                        self.restart_node_pending = false;
+                    if let Err(error) = &result
+                        && self.network_transition.is_some()
+                    {
+                        self.network_transition = None;
+                        self.network_outcome = Some(network_transition::Outcome::Failed(
+                            format!("could not stop the {kind}: {error}"),
+                        ));
                     }
                     self.status = match result {
                         Ok(()) => format!("Owned {kind} process stopped."),
@@ -440,9 +449,6 @@ impl WalletApp {
                         self.mining_stats = None;
                     }
                     self.last_health = Instant::now() - Duration::from_secs(10);
-                    if restart {
-                        self.start_process("node");
-                    }
                 }
                 Event::Mining(value) => self.mining_stats = Some(value),
                 event @ (Event::NameStatus { .. } | Event::MyNames { .. }) => {
@@ -522,7 +528,11 @@ impl WalletApp {
         let Some(at) = self.miner_retry_at else {
             return;
         };
-        if Instant::now() < at || self.process_busy || self.miner.is_some() {
+        if Instant::now() < at
+            || self.process_busy
+            || self.miner.is_some()
+            || self.network_transition.is_some()
+        {
             return;
         }
         self.miner_retry_at = None;

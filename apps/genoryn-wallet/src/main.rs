@@ -8,6 +8,7 @@ mod miner_recovery;
 mod motion;
 mod names_ui;
 mod network_privacy;
+mod network_transition;
 mod node_controls;
 mod payment_proof;
 mod payment_uri;
@@ -133,6 +134,8 @@ enum Event {
         result: Result<SecretJson, String>,
     },
     Health {
+        /// `network_generation` when the check began; older results are stale.
+        generation: u64,
         endpoint: String,
         result: Box<Result<(HealthyNode, Value), String>>,
         /// `/v1/network` from a local node; `None` for remote or older nodes.
@@ -173,7 +176,11 @@ struct WalletApp {
     busy: Option<String>,
     health_busy: bool,
     process_busy: bool,
-    restart_node_pending: bool,
+    /// The single network-mode change being applied to the owned node.
+    network_transition: Option<network_transition::Transition>,
+    network_outcome: Option<network_transition::Outcome>,
+    /// Bumped on every mode change; health results from before it are dropped.
+    network_generation: u64,
     auto_node_checked: bool,
     log_busy: bool,
     log_generation: u64,
@@ -308,7 +315,9 @@ impl WalletApp {
             busy: None,
             health_busy: false,
             process_busy: false,
-            restart_node_pending: false,
+            network_transition: None,
+            network_outcome: None,
+            network_generation: 0,
             auto_node_checked: false,
             log_busy: false,
             log_generation: 0,
@@ -594,6 +603,7 @@ impl eframe::App for WalletApp {
             self.page = 0;
         }
         self.auto_scan();
+        self.network_transition_tick();
         self.miner_retry_tick();
         if self
             .clipboard_warning

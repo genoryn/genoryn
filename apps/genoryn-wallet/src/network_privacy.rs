@@ -371,10 +371,51 @@ impl WalletApp {
             let _ = tx.send(Event::Reconnect(result));
         });
     }
+    /// Saves the mode, applies it to the wallet's own traffic at once and to the
+    /// owned node through a single serialized restart.
     fn choose_mode(&mut self, mode: Mode) {
         self.preferences.network_mode = mode.name().into();
         set_active(mode);
         self.save_preferences();
+        self.apply_network_mode(mode);
+    }
+    fn transition_status(&mut self, ui: &mut egui::Ui) {
+        use network_transition::Outcome;
+        if let Some(transition) = self.network_transition {
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                motion::loader(ui, 14.0);
+                ui.label(format!(
+                    "Applying {}: {}…",
+                    transition.target.label(),
+                    transition.phase.describe()
+                ));
+                if ui.button("Cancel").clicked() {
+                    self.cancel_network_transition();
+                }
+            });
+            return;
+        }
+        match &self.network_outcome {
+            Some(Outcome::Applied(mode)) => {
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(format!("{} is active on the node.", mode.label()))
+                        .small()
+                        .color(GRAY),
+                );
+            }
+            Some(Outcome::Failed(reason)) => {
+                ui.add_space(8.0);
+                ui.label(RichText::new(format!("Not applied: {reason}")).strong());
+                ui.label(
+                    RichText::new("Nothing switched to a direct connection. Try again, or check the node log.")
+                        .small()
+                        .color(GRAY),
+                );
+            }
+            Some(Outcome::Cancelled) | None => {}
+        }
     }
     pub(super) fn network_privacy_card(&mut self, ui: &mut egui::Ui) {
         let selected = Mode::parse(&self.preferences.network_mode).unwrap_or(Mode::Direct);
@@ -393,6 +434,7 @@ impl WalletApp {
                 }
             });
             ui.label(RichText::new(selected.summary()).color(GRAY));
+            self.transition_status(ui);
             if let Some(warning) = selected.warning() {
                 ui.add_space(6.0);
                 ui.label(RichText::new(warning).strong());
@@ -497,11 +539,11 @@ impl WalletApp {
             ui.horizontal_wrapped(|ui| {
                 if ui
                     .add_enabled(
-                        self.node.is_some() && self.miner.is_none() && !self.process_busy,
+                        self.node.is_some() && self.network_transition.is_none(),
                         egui::Button::new("Apply and restart node"),
                     )
                     .on_hover_text(
-                        "Stops and starts the node this wallet owns with the selected mode",
+                        "Restarts the node this wallet owns with the saved Tor settings; a running miner pauses and resumes",
                     )
                     .clicked()
                 {

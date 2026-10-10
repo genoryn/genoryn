@@ -62,12 +62,15 @@ fn read_log_tail(directory: &str) -> Result<String> {
 }
 
 impl WalletApp {
+    /// Restarts the owned node with the saved network settings, pausing and
+    /// resuming the miner around it.
     pub(super) fn restart_owned_node(&mut self) {
-        if self.node.is_none() || self.miner.is_some() || self.process_busy {
+        if self.node.is_none() || self.network_transition.is_some() {
             return;
         }
-        self.restart_node_pending = true;
-        self.stop_process("node");
+        let mode = network_privacy::Mode::parse(&self.preferences.network_mode)
+            .unwrap_or(network_privacy::Mode::Direct);
+        self.apply_network_mode(mode);
     }
 
     pub(super) fn load_node_log(&mut self) {
@@ -214,7 +217,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut app = WalletApp::with_context(&ctx, Settings::default());
         app.restart_owned_node();
-        assert!(!app.restart_node_pending);
+        assert!(app.network_transition.is_none());
         assert!(!app.process_busy);
     }
     #[test]
