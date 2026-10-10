@@ -271,7 +271,7 @@ pub(super) fn light_fields(
         return Ok(None);
     }
     ensure!(
-        matches!(op, "sync" | "send"),
+        matches!(op, "sync" | "sync_batch" | "send"),
         "Not available in light wallet mode yet: it needs a node of your own."
     );
     ensure!(

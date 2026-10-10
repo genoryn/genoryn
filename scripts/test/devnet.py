@@ -195,6 +195,7 @@ class Lab:
         self.record("offline_node_catches_up_after_restart")
         self.lost_acknowledgement(alice,carol)
         self.quick_mode(alice,carol)
+        self.batch_sync()
         if not self.args.quick:self.reorg(alice["address"])
         height=self.get("a","info")["height"];tip=self.get("a","info")["best_hash"]
         for n in "abc":self.stop(n)
@@ -261,6 +262,24 @@ class Lab:
         dead=self.wallet("alice-quick","sync",**quick)
         assert dead["stale"] is True and dead["balance_atomic"]==again["balance_atomic"],"stale, never zero"
         self.record("quick_mode_validates_locally_sends_and_syncs_incrementally",replay_ms=stats["replay_ms"],total_ms=stats["total_ms"])
+    def batch_sync(self):
+        """One sync_batch call scans several wallets from the node's blocks once;
+        each result equals that wallet's own scan, and a wrong password or a
+        missing file fails only that entry."""
+        names=["alice","bob","carol","recovered"]
+        singles={n:self.wallet(n,"sync") for n in names}
+        password="GENORYN-local-test-only-7!"
+        entries=[dict(wallet_path=str(self.root/f"{n}.wallet"),password=password) for n in names]
+        entries+=[dict(wallet_path=str(self.root/"alice.wallet"),password="not-the-password-42"),dict(wallet_path=str(self.root/"absent.wallet"),password=password)]
+        batch=self.wallet("alice","sync_batch",wallets=entries)
+        rows=batch["wallets"];assert batch["stale"] is False and batch["mode"]=="full",batch
+        for name,row in zip(names,rows):
+            single=singles[name]
+            assert row["ok"] and row["wallet_path"].endswith(f"{name}.wallet"),row
+            for key in ["balance_atomic","spendable_atomic","height","address"]:assert row[key]==single[key],(name,key,row[key],single[key])
+        assert rows[4]["ok"] is False and rows[5]["ok"] is False,rows[4:]
+        assert all("history" not in row and "mined" not in row for row in rows),"compact summaries"
+        self.record("batch_sync_matches_single_wallet_scans",wallets=len(names))
     def reorg(self,address):
         # Snapshot a stopped peer, mine different genuine-work branches, reconnect.
         import sqlite3
@@ -277,7 +296,12 @@ class Lab:
         self.stop("d");self.start("d",["a"])
         self.wait(lambda:self.get("a","info")["best_hash"]==branch_tip,timeout=360,description="heavier fork reorganization")
         self.start("c",["a"]);self.sync("abc",base+3)
+        # The batch meets the reorganization first: it rolls Alice back exactly
+        # as her own scan would.
+        batched=self.wallet("alice","sync_batch",wallets=[dict(wallet_path=str(self.root/"alice.wallet"),password="GENORYN-local-test-only-7!")])["wallets"][0]
         after=self.wallet("alice","sync")
+        assert batched["ok"] and batched["height"]==after["height"]==base+3,batched
+        assert batched["balance_atomic"]==after["balance_atomic"],(batched["balance_atomic"],after["balance_atomic"])
         at=[r for r in after["mined"] if r["height"]==base+1]
         statuses={r["block_hash"]:r["status"] for r in at}
         assert statuses.get(replaced_hash)=="Replaced",statuses

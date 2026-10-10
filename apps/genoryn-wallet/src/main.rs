@@ -21,6 +21,7 @@ mod updates;
 mod views_node;
 mod views_status;
 mod views_wallet;
+mod views_wallets;
 use anyhow::{Context, Result, ensure};
 use eframe::egui::{self, Color32, RichText, Stroke};
 use genoryn_connect::{Connect, ConnectConfig, HealthyNode};
@@ -42,7 +43,8 @@ use std::{
 };
 use zeroize::{Zeroize, Zeroizing};
 
-const SECTIONS: [&str; 8] = [
+/// Page indices are stable; `NAV_ORDER` is the order in the menu.
+const SECTIONS: [&str; 9] = [
     "Overview",
     "Send",
     "Receive",
@@ -51,7 +53,10 @@ const SECTIONS: [&str; 8] = [
     "Node",
     "Network",
     "Settings",
+    "Wallets",
 ];
+const WALLETS_PAGE: usize = 8;
+const NAV_ORDER: [usize; 9] = [0, WALLETS_PAGE, 1, 2, 3, 4, 5, 6, 7];
 /// The network this wallet runs. Mainnet since 0.4.0.
 const NETWORK: Network = Network::Mainnet;
 const GRAY: Color32 = Color32::from_gray(150);
@@ -255,9 +260,20 @@ struct WalletApp {
     update_status: updates::UpdateStatus,
     update_dismissed: bool,
     preferences: preferences::Preferences,
-    pending_unlocks: Vec<String>,
+    pending_unlocks: std::collections::VecDeque<String>,
     pending_password: Option<Zeroizing<String>>,
-    unlock_inflight: Option<(String, Zeroizing<String>)>,
+    /// The batch being unlocked now.
+    unlock_inflight: Vec<String>,
+    /// Remembered wallets that did not open, by path key, with a short reason.
+    unlock_failures: std::collections::HashMap<String, String>,
+    /// Wallets unlocked so far and queued in total, while unlocking runs.
+    unlock_progress: Option<(usize, usize)>,
+    /// Changes on every lock; batch results from before a lock are discarded.
+    lock_epoch: u64,
+    scan_epoch: u64,
+    last_batch_scan: Instant,
+    batch_scan_duration: Duration,
+    wallets_view: views_wallets::WalletsView,
     unlock_others: bool,
     sessions: Vec<sessions::WalletSession>,
     adding_wallet: bool,
@@ -392,9 +408,16 @@ impl WalletApp {
             update_status: updates::UpdateStatus::NotChecked,
             update_dismissed: false,
             preferences: preferences::Preferences::default(),
-            pending_unlocks: Vec::new(),
+            pending_unlocks: Default::default(),
             pending_password: None,
-            unlock_inflight: None,
+            unlock_inflight: Vec::new(),
+            unlock_failures: Default::default(),
+            unlock_progress: None,
+            lock_epoch: 0,
+            scan_epoch: 0,
+            last_batch_scan: Instant::now(),
+            batch_scan_duration: Duration::ZERO,
+            wallets_view: Default::default(),
             unlock_others: true,
             sessions: Vec::new(),
             adding_wallet: false,
@@ -488,6 +511,10 @@ impl WalletApp {
 }
 /// An amount with the GNR sign before it and the unit after it.
 /// The exact amount with thousands grouped: `54,000.9999`. Never rounded.
+/// A count with thousands grouped: `10,000`.
+fn grouped_count(count: usize) -> String {
+    grouped_amount(&(count as u128 * 1_000_000_000_000).to_string())
+}
 fn grouped_amount(atomic: &str) -> String {
     let exact = format_atomic(atomic);
     let (whole, fraction) = exact.split_once('.').unwrap_or((&exact, ""));
@@ -516,6 +543,8 @@ mod amount_tests {
         assert_eq!(super::grouped_amount("7000999950000000"), "7,000.99995");
         assert_eq!(super::grouped_amount("21000000000000000000"), "21,000,000");
         assert_eq!(super::grouped_amount("1"), "0.000000000001");
+        assert_eq!(super::grouped_count(10_000), "10,000");
+        assert_eq!(super::grouped_count(0), "0");
         assert_eq!(super::grouped_amount("x"), "Unavailable");
     }
 }
@@ -699,22 +728,24 @@ impl eframe::App for WalletApp {
                 brand_header(ui, !self.light, self.settings.lite);
                 ui.add_space(34.0);
                 let unlocked = self.unlocked;
-                for (index, label) in SECTIONS.iter().enumerate() {
+                // Nine entries fit the smallest window with a 46-point step.
+                ui.spacing_mut().item_spacing.y = 4.0;
+                for index in NAV_ORDER {
                     if self.settings.lite && index == MINING_PAGE {
                         continue;
                     }
                     let response = nav_item(
                         ui,
                         icons::SECTION_ICONS[index],
-                        label,
+                        SECTIONS[index],
                         self.page == index,
                         unlocked,
                     );
                     if response.clicked() {
                         self.page = index;
                     }
-                    ui.add_space(3.0);
                 }
+                ui.spacing_mut().item_spacing.y = 12.0;
                 ui.add_space(14.0);
                 ui.separator();
                 ui.add_space(6.0);
@@ -876,12 +907,13 @@ impl eframe::App for WalletApp {
                         // Overview and Transactions use wide windows; forms stay readable.
                         let limit = match self.page {
                             0 => 1600.0,
-                            3 => 1280.0,
+                            3 | WALLETS_PAGE => 1280.0,
                             _ => 1040.0,
                         };
                         ui.set_max_width(ui.available_width().min(limit));
                         match self.page {
                             0 => self.overview(ui),
+                            WALLETS_PAGE => self.wallets_page(ui),
                             1 => self.send(ui),
                             2 => self.receive(ui),
                             3 => self.transactions(ui),
@@ -1438,7 +1470,7 @@ mod ui_tests {
         for light in [false, true] {
             app.light = light;
             set_style(&ctx, light);
-            for page in 0..8 {
+            for page in 0..SECTIONS.len() {
                 let output = ctx.run(
                     egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(
@@ -1456,6 +1488,7 @@ mod ui_tests {
                             4 => app.mining(ui),
                             5 => app.node_page(ui),
                             6 => app.network(ui),
+                            WALLETS_PAGE => app.wallets_page(ui),
                             _ => app.settings_page(ui),
                         });
                     },

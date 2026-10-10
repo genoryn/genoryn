@@ -18,6 +18,12 @@ use std::{
 };
 use zeroize::{Zeroize, Zeroizing};
 
+#[path = "wallet/batch.rs"]
+mod batch;
+
+/// A batch request carries up to 10,000 wallet paths with their passwords.
+const MAX_REQUEST_BYTES: u64 = 16 * 1024 * 1024;
+
 #[derive(Parser)]
 #[command(
     name = "genoryn-wallet-cli",
@@ -453,6 +459,9 @@ async fn dispatch(request: &Value) -> Result<Value> {
         return Ok(serde_json::to_value(
             genoryn_wallet_core::fees::estimate_fee(priority),
         )?);
+    }
+    if op == "sync_batch" {
+        return batch::sync_batch(request, network).await;
     }
     let path = Path::new(request["wallet_path"].as_str().unwrap_or("wallet.wallet"));
     let password = Zeroizing::new(request["password"].as_str().unwrap_or("").to_owned());
@@ -967,8 +976,13 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     if args.json_stdio {
         let mut input = Zeroizing::new(String::new());
-        std::io::stdin().take(65_537).read_to_string(&mut input)?;
-        ensure!(input.len() <= 65_536, "wallet request too large");
+        std::io::stdin()
+            .take(MAX_REQUEST_BYTES + 1)
+            .read_to_string(&mut input)?;
+        ensure!(
+            input.len() as u64 <= MAX_REQUEST_BYTES,
+            "wallet request too large"
+        );
         let mut request: Value = serde_json::from_str(&input)?;
         let result = dispatch(&request).await;
         zeroize_value(&mut request);

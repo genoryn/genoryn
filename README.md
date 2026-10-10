@@ -76,7 +76,7 @@ phrase does not carry any balance over.
 | **Reliable Tor switching** | Changing between Tor only, Hybrid and Direct restarts the node the wallet owns through one serialized transition with progress, Cancel and Retry; nothing ever falls back to a direct connection. |
 | **GENORYN Explorer link** | The wallet's sidebar opens [genoryn.io](https://genoryn.io/) on request, with a warning in Tor-only mode that your browser does not use GENORYN's Tor. |
 
-Full details: [1.0.0 release notes](docs/releases/v1.0.0.md) · [1.0.1](docs/releases/v1.0.1.md) (Quick mode over Tor, onion-service recovery) · [1.0.2](docs/releases/v1.0.2.md) (Overview layout, payment notices) · [1.0.3](docs/releases/v1.0.3.md) (balances always in full).
+Full details: [1.0.0 release notes](docs/releases/v1.0.0.md) · [1.0.1](docs/releases/v1.0.1.md) (Quick mode over Tor, onion-service recovery) · [1.0.2](docs/releases/v1.0.2.md) (Overview layout, payment notices) · [1.0.3](docs/releases/v1.0.3.md) (balances always in full) · [1.0.4](docs/releases/v1.0.4.md) (up to 10,000 wallets, Wallets page).
 
 ## Monetary policy
 
@@ -101,9 +101,9 @@ each with a `.sha256` checksum. They share your wallets, so you can switch at an
 
 | | **GENORYN** | **GENORYN Lite** |
 |---|---|---|
-| Windows installer | `GENORYN-Setup-1.0.3.exe` | `GENORYN-Lite-Setup-1.0.3.exe` |
-| Windows portable | `genoryn-1.0.3-mainnet-windows-amd64.zip` | `genoryn-1.0.3-mainnet-lite-windows-amd64.zip` |
-| Linux (desktop wallet, full node, miner, CLI tools) | `genoryn-1.0.3-mainnet-linux-x86_64.zip` | `genoryn-1.0.3-mainnet-lite-linux-x86_64.zip` |
+| Windows installer | `GENORYN-Setup-1.0.4.exe` | `GENORYN-Lite-Setup-1.0.4.exe` |
+| Windows portable | `genoryn-1.0.4-mainnet-windows-amd64.zip` | `genoryn-1.0.4-mainnet-lite-windows-amd64.zip` |
+| Linux (desktop wallet, full node, miner, CLI tools) | `genoryn-1.0.4-mainnet-linux-x86_64.zip` | `genoryn-1.0.4-mainnet-lite-linux-x86_64.zip` |
 | Send, receive, usernames, payment proofs | ✓ | ✓ |
 | Quick mode and Full mode | ✓ | ✓ |
 | CPU mining | ✓ | — |
@@ -113,8 +113,8 @@ SHA-256 of every file) and `SHA256SUMS`. [Verify the checksum](docs/security/rel
 before running:
 
 ```sh
-sha256sum -c genoryn-1.0.3-mainnet-linux-x86_64.zip.sha256          # Linux
-Get-FileHash .\GENORYN-Setup-1.0.3.exe -Algorithm SHA256             # Windows PowerShell
+sha256sum -c genoryn-1.0.4-mainnet-linux-x86_64.zip.sha256          # Linux
+Get-FileHash .\GENORYN-Setup-1.0.4.exe -Algorithm SHA256             # Windows PowerShell
 ```
 
 > [!NOTE]
@@ -125,14 +125,14 @@ Get-FileHash .\GENORYN-Setup-1.0.3.exe -Algorithm SHA256             # Windows P
 
 ## Get started
 
-**Windows:** run `GENORYN-Setup-1.0.3.exe` (no administrator rights needed), or unzip the
+**Windows:** run `GENORYN-Setup-1.0.4.exe` (no administrator rights needed), or unzip the
 portable package and run `Start-Wallet.cmd`.
 
 **Linux:**
 
 ```sh
-unzip genoryn-1.0.3-mainnet-linux-x86_64.zip
-cd genoryn-1.0.3-mainnet-linux-x86_64 && sha256sum -c SHA256SUMS --quiet
+unzip genoryn-1.0.4-mainnet-linux-x86_64.zip
+cd genoryn-1.0.4-mainnet-linux-x86_64 && sha256sum -c SHA256SUMS --quiet
 ./start-wallet
 ```
 
@@ -208,7 +208,7 @@ disk and an outbound internet connection. Opening TCP port 29710 lets others con
 
 ```sh
 # Linux, from the release package
-unzip genoryn-1.0.3-mainnet-linux-x86_64.zip && cd genoryn-1.0.3-mainnet-linux-x86_64
+unzip genoryn-1.0.4-mainnet-linux-x86_64.zip && cd genoryn-1.0.4-mainnet-linux-x86_64
 ./genorynd --data-dir ~/.genoryn/mainnet-1.0                  # Direct mode, joins the mainnet
 ./genorynd --data-dir ~/.genoryn/mainnet-1.0 --network-mode hybrid --onion-service
 ./genoryn-cli get-network-info

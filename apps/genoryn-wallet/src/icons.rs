@@ -12,9 +12,11 @@ pub(super) enum Icon {
     Node,
     Network,
     Settings,
+    Wallets,
 }
 
-pub(super) const SECTION_ICONS: [Icon; 8] = [
+/// Indexed like `SECTIONS`.
+pub(super) const SECTION_ICONS: [Icon; 9] = [
     Icon::Overview,
     Icon::Send,
     Icon::Receive,
@@ -23,6 +25,7 @@ pub(super) const SECTION_ICONS: [Icon; 8] = [
     Icon::Node,
     Icon::Network,
     Icon::Settings,
+    Icon::Wallets,
 ];
 
 /// Paints `icon` inside `rect` (drawn on a unit grid, scaled to the rect).
@@ -114,6 +117,22 @@ pub(super) fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
             }
             painter.circle_stroke(center, scale * 0.3, stroke);
             painter.circle_stroke(center, scale * 0.11, stroke);
+        }
+        Icon::Wallets => {
+            line(&[(0.18, 0.3), (0.7, 0.12), (0.76, 0.3)]);
+            painter.rect_stroke(
+                Rect::from_min_max(at(0.08, 0.3), at(0.92, 0.88)),
+                scale * 0.08,
+                stroke,
+                StrokeKind::Middle,
+            );
+            painter.rect_stroke(
+                Rect::from_min_max(at(0.62, 0.49), at(0.92, 0.69)),
+                scale * 0.05,
+                stroke,
+                StrokeKind::Middle,
+            );
+            painter.circle_filled(at(0.73, 0.59), stroke.width * 0.8, color);
         }
     }
 }

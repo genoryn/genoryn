@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 const FILE: &str = "wallet-preferences.json";
-const MAX_BYTES: u64 = 64 * 1024;
+/// Room for 10,000 remembered wallet paths.
+const MAX_BYTES: u64 = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -76,27 +77,42 @@ impl Preferences {
             .filter(|source| !source.is_empty())
             .take(network_privacy::MAX_LIGHT_SOURCES)
             .collect();
-        let mut kept: Vec<String> = Vec::new();
-        for path in self.wallets.drain(..) {
-            let path = path.trim().to_owned();
-            if !path.is_empty() && !kept.iter().any(|known| sessions::same_path(known, &path)) {
-                kept.push(path);
-            }
-        }
-        kept.truncate(sessions::MAX_OPEN_WALLETS);
-        self.wallets = kept;
+        let wallets = std::mem::take(&mut self.wallets);
+        self.remember_many(wallets);
         self
     }
     /// Puts `path` first, as the wallet to preselect at the next launch.
     pub fn remember(&mut self, path: &str) {
+        let key = sessions::path_key(path);
         self.wallets
-            .retain(|known| !sessions::same_path(known, path));
-        self.wallets.insert(0, path.to_owned());
+            .retain(|known| sessions::path_key(known) != key);
+        self.wallets.insert(0, path.trim().to_owned());
         self.wallets.truncate(sessions::MAX_OPEN_WALLETS);
     }
+    /// Adds wallets not remembered yet after the known ones, up to the limit;
+    /// returns how many were added.
+    pub fn remember_many(&mut self, paths: impl IntoIterator<Item = String>) -> usize {
+        let mut known: std::collections::HashSet<String> = self
+            .wallets
+            .iter()
+            .map(|path| sessions::path_key(path))
+            .collect();
+        let before = self.wallets.len();
+        for path in paths {
+            if self.wallets.len() >= sessions::MAX_OPEN_WALLETS {
+                break;
+            }
+            let path = path.trim().to_owned();
+            if !path.is_empty() && known.insert(sessions::path_key(&path)) {
+                self.wallets.push(path);
+            }
+        }
+        self.wallets.len() - before
+    }
     pub fn forget(&mut self, path: &str) {
+        let key = sessions::path_key(path);
         self.wallets
-            .retain(|known| !sessions::same_path(known, path));
+            .retain(|known| sessions::path_key(known) != key);
     }
 }
 
@@ -185,6 +201,17 @@ mod tests {
             "the privacy mode is remembered"
         );
         assert_eq!(loaded.wallets, ["a/two.gnr", "a/one.gnr"]);
+        let mut many = loaded;
+        many.remember_many(
+            (0..sessions::MAX_OPEN_WALLETS)
+                .map(|n| format!("C:/Users/someone/Documents/GENORYN wallets/wallet-{n:05}.gnr")),
+        );
+        save(&path, &many).unwrap();
+        assert_eq!(
+            load(&path).wallets.len(),
+            sessions::MAX_OPEN_WALLETS,
+            "10,000 long paths fit in the preferences file"
+        );
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -194,8 +221,24 @@ mod tests {
         for n in 0..12 {
             preferences.remember(&format!("w{n}.gnr"));
         }
-        assert_eq!(preferences.wallets.len(), sessions::MAX_OPEN_WALLETS);
+        assert_eq!(preferences.wallets.len(), 12);
         assert_eq!(preferences.wallets[0], "w11.gnr");
+        let added = preferences
+            .remember_many((0..sessions::MAX_OPEN_WALLETS + 50).map(|n| format!("w{n}.gnr")));
+        assert_eq!(
+            added,
+            sessions::MAX_OPEN_WALLETS - 12,
+            "known ones are skipped"
+        );
+        assert_eq!(preferences.wallets.len(), sessions::MAX_OPEN_WALLETS);
+        assert_eq!(
+            preferences.wallets[0], "w11.gnr",
+            "order of known ones kept"
+        );
+        preferences.remember("new.gnr");
+        assert_eq!(preferences.wallets.len(), sessions::MAX_OPEN_WALLETS);
+        assert_eq!(preferences.wallets[0], "new.gnr");
+        preferences.wallets.truncate(12);
         preferences.remember("w5.gnr");
         assert_eq!(preferences.wallets[0], "w5.gnr");
         assert_eq!(

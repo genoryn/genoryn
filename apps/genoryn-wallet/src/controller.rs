@@ -3,7 +3,11 @@ use super::*;
 
 /// Results of the background scan lane: the active wallet's or another open wallet's.
 pub(super) fn is_scan_label(label: &str) -> bool {
-    label == "sync" || label.starts_with("sync@")
+    label == "sync" || label.starts_with("sync@") || is_batch_label(label)
+}
+/// Batches of many wallets, which outlive switching the active wallet.
+pub(super) fn is_batch_label(label: &str) -> bool {
+    label == sessions::BATCH_UNLOCK || label == sessions::BATCH_SCAN
 }
 /// The parts of a scan result shown besides balance and history.
 pub(super) fn sync_detail(result: &Value) -> Value {
@@ -66,7 +70,10 @@ impl WalletApp {
         self.sessions.clear();
         self.pending_unlocks.clear();
         self.pending_password = None;
-        self.unlock_inflight = None;
+        self.unlock_inflight.clear();
+        self.unlock_failures.clear();
+        self.unlock_progress = None;
+        self.lock_epoch = self.lock_epoch.wrapping_add(1);
         self.adding_wallet = false;
         self.prepare_wallet_form(self.wallet_mode);
         self.status =
@@ -88,7 +95,7 @@ impl WalletApp {
     ) {
         let extra = SecretJson(extra);
         // Scans run in their own lane so they never block the user's actions.
-        let scan = op == "sync";
+        let scan = op == "sync" || op == "sync_batch";
         if (scan && self.scan_busy.is_some()) || (!scan && self.busy.is_some()) {
             return;
         }
@@ -153,6 +160,7 @@ impl WalletApp {
             self.scan_busy = Some(label.clone());
             self.scan_started = Some(Instant::now());
             self.scan_cancellation = cancelled.clone();
+            self.scan_epoch = self.lock_epoch;
         } else {
             self.busy = Some(op.into());
             self.cancellation = cancelled.clone();
@@ -244,16 +252,29 @@ impl WalletApp {
                 } => {
                     let scan = is_scan_label(&op);
                     let mut automatic = false;
+                    let batch = is_batch_label(&op);
                     if scan {
                         self.scan_busy = None;
                         automatic = std::mem::take(&mut self.auto_scan_running);
                         if let Some(started) = self.scan_started.take() {
-                            self.last_scan_duration = started.elapsed();
+                            // Only the active wallet's scans pace its automatic scans.
+                            if op == "sync" {
+                                self.last_scan_duration = started.elapsed();
+                            } else if batch {
+                                self.batch_scan_duration = started.elapsed();
+                            }
                         }
                     } else {
                         self.busy = None;
                     }
-                    if generation != self.generation {
+                    // A batch belongs to the whole unlocked session, not to the
+                    // active wallet: only locking discards it.
+                    let stale = if batch {
+                        self.scan_epoch != self.lock_epoch
+                    } else {
+                        generation != self.generation
+                    };
+                    if stale {
                         self.requeue_stale_unlock(&op);
                         continue;
                     }
@@ -262,12 +283,12 @@ impl WalletApp {
                             if matches!(op.as_str(), "send" | "register_name") {
                                 self.action_error = Some((op.clone(), error.clone()));
                             }
-                            if !self.background_unlock_failed(&op) {
+                            if !self.batch_failed(&op, &error) {
                                 self.status = error;
                             }
                         }
                         Ok(response) if self.apply_background_sync(&op, &response.0) => {}
-                        Ok(response) if self.apply_background_unlock(&op, &response.0) => {}
+                        Ok(response) if self.apply_batch(&op, &response.0) => {}
                         Ok(response) => {
                             let result = &response.0;
                             match op.as_str() {
@@ -611,9 +632,12 @@ impl WalletApp {
             self.last_auto_scan = Instant::now();
             self.request("sync", json!({}));
             self.auto_scan_running = self.scan_busy.is_some();
-        } else if let Some(index) = self.session_needing_scan(node_height) {
-            self.last_auto_scan = Instant::now();
-            self.scan_session(index);
+        } else if self.pending_password.is_none()
+            && self.last_batch_scan.elapsed() >= AUTO_SCAN_INTERVAL.max(self.batch_scan_duration)
+        {
+            // Other open wallets catch up in batches, never ahead of unlocking.
+            self.last_batch_scan = Instant::now();
+            self.scan_sessions_batch(node_height);
         }
     }
     /// Decided once, on the first health result after launch: an already-running

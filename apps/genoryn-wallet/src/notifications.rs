@@ -125,7 +125,14 @@ impl Notifier {
         if parts.is_empty() {
             return;
         }
-        let text = format!("{}: {}", sessions::wallet_name(path), parts.join(" · "));
+        self.announce(format!(
+            "{}: {}",
+            sessions::wallet_name(path),
+            parts.join(" · ")
+        ));
+    }
+    /// Queues a notice as is.
+    pub fn announce(&mut self, text: String) {
         self.toasts.push(Toast {
             text,
             created: Instant::now(),

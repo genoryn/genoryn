@@ -500,21 +500,37 @@ impl WalletApp {
     fn all_wallets_card(&mut self, ui: &mut egui::Ui) {
         let (total, unscanned) = self.combined_balance();
         let mut switch_to = None;
+        let mut show_all = false;
+        let top = self.top_sessions(OVERVIEW_TOP_WALLETS);
         card(ui, |ui| {
             ui.label(
-                RichText::new(format!("ALL OPEN WALLETS · {}", self.open_wallet_count()))
-                    .small()
-                    .color(GRAY),
+                RichText::new(format!(
+                    "ALL OPEN WALLETS · {}",
+                    grouped_count(self.open_wallet_count())
+                ))
+                .small()
+                .color(GRAY),
             );
             ui.add_space(8.0);
             gnr_amount(ui, Some(&total.to_string()), 34.0, None);
             if unscanned > 0 {
                 ui.label(
                     RichText::new(format!(
-                        "{unscanned} wallet(s) not scanned yet; their balance is added after the first scan."
+                        "{} wallet(s) not scanned yet; their balance is added after the first scan.",
+                        grouped_count(unscanned)
                     ))
                     .small()
                     .color(GRAY),
+                );
+            }
+            if let Some((done, total)) = self.unlock_progress {
+                ui.add_space(4.0);
+                ui.add(
+                    egui::ProgressBar::new(done as f32 / total.max(1) as f32).text(format!(
+                        "Unlocking {} of {}",
+                        grouped_count(done),
+                        grouped_count(total)
+                    )),
                 );
             }
             ui.add_space(10.0);
@@ -578,7 +594,16 @@ impl WalletApp {
                 self.wallet_height,
                 None,
             );
-            for (index, session) in self.sessions.iter().enumerate() {
+            if self.sessions.len() > top.len() {
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(format!("TOP {} BY BALANCE", top.len()))
+                        .small()
+                        .color(GRAY),
+                );
+            }
+            for &index in &top {
+                let session = &self.sessions[index];
                 row(
                     ui,
                     &session.path,
@@ -587,9 +612,21 @@ impl WalletApp {
                     Some(index),
                 );
             }
+            ui.add_space(10.0);
+            let label = if self.sessions.len() > top.len() {
+                format!(
+                    "Show all {} wallets  →",
+                    grouped_count(self.open_wallet_count())
+                )
+            } else {
+                "Manage wallets  →".to_owned()
+            };
+            show_all = ui.button(label).clicked();
         });
         if let Some(index) = switch_to {
             self.switch_wallet(index);
+        } else if show_all {
+            self.page = WALLETS_PAGE;
         }
     }
     /// The active wallet comes first. Other open wallets are listed beside it
@@ -1128,6 +1165,8 @@ impl WalletApp {
 const HISTORY_PAGE: usize = 50;
 /// Content width from which the Overview shows open wallets beside the active one.
 const OVERVIEW_SIDE_BY_SIDE: f32 = 1060.0;
+/// Background wallets listed on the Overview; the Wallets page lists all.
+const OVERVIEW_TOP_WALLETS: usize = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Category {

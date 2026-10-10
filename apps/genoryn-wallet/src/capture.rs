@@ -34,6 +34,7 @@ fn steps(lite: bool) -> Vec<(usize, bool, &'static str)> {
     }
     vec![
         (0, false, "wallet-overview"),
+        (WALLETS_PAGE, false, "wallet-wallets"),
         (1, false, "wallet-send"),
         (2, false, "wallet-receive"),
         (3, false, "wallet-transactions"),
@@ -116,6 +117,10 @@ impl WalletApp {
         let mining_ready = page != MINING_PAGE
             || self.mining_stats.is_some()
             || capture.since.elapsed() > MINING_WAIT;
+        // Remembered wallets finish unlocking before anything is shown.
+        if self.pending_password.is_some() {
+            capture.since = Instant::now();
+        }
         if !capture.awaiting_image && capture.since.elapsed() > SETTLE && mining_ready {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
             capture.awaiting_image = true;

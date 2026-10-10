@@ -164,7 +164,7 @@ def main():
             # Unlocking runs the CLI's Argon2id key derivation before navigation opens.
             time.sleep(5);desktop.screenshot(window,report_path.with_name('windows-native-unlocked.png'))
             record('test_wallet_unlocked_before_navigation')
-            desktop.click(window,100,470)
+            desktop.click(window,100,461)  # Node: 7th menu entry, 46 px apart
             desktop.screenshot(window,report_path.with_name('windows-native-node-before-start.png'))
             desktop.click(window,343,279)
             first=wait(info,'owned node started');assert first['network']=='mainnet'and first['height']==0
