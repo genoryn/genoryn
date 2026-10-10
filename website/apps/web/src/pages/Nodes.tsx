@@ -81,7 +81,7 @@ WantedBy=multi-user.target`}
       </section>
       <section class="section">
         <div class="container">
-          <SectionHead eyebrow="genoryn.io seed" title={<>Our node, for your node.</>} lead="The genoryn.io server runs an always-on, non-mining Mainnet 1.0 full node in Hybrid mode. Its onion service, for Tor-only installations, is published at launch." />
+          <SectionHead eyebrow="genoryn.io seed" title={<>Our node, for your node.</>} lead="The genoryn.io server runs an always-on, non-mining Mainnet 1.0 full node in Hybrid mode. Its onion service for Tor-only installations is listed below." />
           <div class="grid cols-2">
             <div class="card">
               <h3>Clearnet seed</h3>
