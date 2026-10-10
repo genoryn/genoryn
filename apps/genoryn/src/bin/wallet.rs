@@ -249,6 +249,12 @@ async fn relay_due(outbox: &mut outbox::Outbox, relayer: &Relayer<'_>) {
         outbox.record_relay(index, now, answer);
     }
 }
+/// What a payment pays, as recorded in the outbox.
+struct Payee {
+    recipient: String,
+    amount: u64,
+    fee: u64,
+}
 /// Stores the signed `tx` durably first, then relays it. The id the node
 /// returns must match the locally computed one.
 async fn submit_durably(
@@ -256,12 +262,11 @@ async fn submit_durably(
     path: &Path,
     outbox: &mut outbox::Outbox,
     tx: &genoryn_core::privacy::ShieldedTx,
-    recipient: String,
-    amount: u64,
-    fee: u64,
+    payee: Payee,
     relayer: &Relayer<'_>,
 ) -> Result<Value> {
-    let entry = outbox::OutboxEntry::new(tx, recipient, amount, fee, unix_time())?;
+    let entry =
+        outbox::OutboxEntry::new(tx, payee.recipient, payee.amount, payee.fee, unix_time())?;
     let txid = hex::encode(entry.txid);
     outbox.add(entry)?;
     let file = outbox::outbox_path(path);
@@ -690,17 +695,12 @@ async fn build_and_submit(
         } else {
             names::UPDATE_PRICE
         };
-        let mut submitted = submit_durably(
-            wallet,
-            path,
-            outbox,
-            &tx,
-            format!("@{name}"),
-            burned,
+        let payee = Payee {
+            recipient: format!("@{name}"),
+            amount: burned,
             fee,
-            relayer,
-        )
-        .await?;
+        };
+        let mut submitted = submit_durably(wallet, path, outbox, &tx, payee, relayer).await?;
         submitted["name"] = json!(name);
         submitted["burned_atomic"] = json!(burned.to_string());
         submitted["receiver"] = json!(genoryn_wallet_core::keys::encode_address(
@@ -726,17 +726,12 @@ async fn build_and_submit(
         fee,
         request["memo"].as_str().unwrap_or(""),
     )?;
-    submit_durably(
-        wallet,
-        path,
-        outbox,
-        &tx,
-        to.to_owned(),
+    let payee = Payee {
+        recipient: to.to_owned(),
         amount,
         fee,
-        relayer,
-    )
-    .await
+    };
+    submit_durably(wallet, path, outbox, &tx, payee, relayer).await
 }
 /// The receiving address an `@username` points to: the on-chain name first,
 /// then a signed resolver record pinned to its owner on first use.

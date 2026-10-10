@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
                     input[8..16].copy_from_slice(&nonce.to_le_bytes());
                     vm.hash(&input)?;
                     nonce += 1;
-                    if nonce % 64 == 0 {
+                    if nonce.is_multiple_of(64) {
                         hashes.fetch_add(64, Ordering::Relaxed);
                     }
                 }

@@ -819,7 +819,10 @@ impl RateLimit {
         ))))
     }
     fn allow(&self) -> bool {
-        let mut bucket = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut bucket = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let now = std::time::Instant::now();
         let refill = now.duration_since(bucket.1).as_secs_f64() * PUBLIC_RPC_RATE;
         bucket.0 = (bucket.0 + refill).min(PUBLIC_RPC_BURST);
