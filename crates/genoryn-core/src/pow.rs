@@ -59,31 +59,61 @@ pub struct FastDataset {
     seed: Hash,
     flags: RandomXFlag,
     dataset: RandomXDataset,
+    large_pages: bool,
+}
+/// Opt-in 2 MiB pages for mining (`GENORYN_RANDOMX_LARGE_PAGES=1`). They need pages
+/// reserved by the administrator (Linux `vm.nr_hugepages`) or the lock-pages
+/// privilege (Windows); without them mining keeps normal pages. Hashes are
+/// identical either way: page size changes memory access speed only.
+fn large_pages_requested() -> bool {
+    std::env::var_os("GENORYN_RANDOMX_LARGE_PAGES").is_some_and(|value| value == "1")
 }
 impl FastDataset {
     /// Builds the dataset for `seed` on the calling thread, which takes about a minute.
     pub fn new(seed: Hash) -> Result<Self> {
         let flags = preferred_flags();
         let cache = RandomXCache::new(flags, &seed)?;
-        let dataset = RandomXDataset::new(RandomXFlag::FLAG_DEFAULT, cache, 0)?;
+        let large = large_pages_requested()
+            .then(|| RandomXDataset::new(RandomXFlag::FLAG_LARGE_PAGES, cache.clone(), 0).ok())
+            .flatten();
+        let large_pages = large.is_some();
+        let dataset = match large {
+            Some(dataset) => dataset,
+            None => RandomXDataset::new(RandomXFlag::FLAG_DEFAULT, cache, 0)?,
+        };
         Ok(Self {
             seed,
             flags: full_memory_flags(flags),
             dataset,
+            large_pages,
         })
     }
     pub fn seed(&self) -> Hash {
         self.seed
     }
+    /// Whether the dataset lives in 2 MiB pages.
+    pub fn large_pages(&self) -> bool {
+        self.large_pages
+    }
     /// A VM for the calling thread; like the light-mode VM it never leaves it.
     pub fn vm(&self) -> Result<FastVm> {
-        let vm = RandomXVM::new(self.flags, None, Some(self.dataset.clone())).or_else(|_| {
-            RandomXVM::new(
-                full_memory_flags(RandomXFlag::FLAG_DEFAULT),
-                None,
-                Some(self.dataset.clone()),
-            )
-        })?;
+        let dataset = || Some(self.dataset.clone());
+        let large = self
+            .large_pages
+            .then(|| {
+                RandomXVM::new(self.flags | RandomXFlag::FLAG_LARGE_PAGES, None, dataset()).ok()
+            })
+            .flatten();
+        let vm = match large {
+            Some(vm) => vm,
+            None => RandomXVM::new(self.flags, None, dataset()).or_else(|_| {
+                RandomXVM::new(
+                    full_memory_flags(RandomXFlag::FLAG_DEFAULT),
+                    None,
+                    dataset(),
+                )
+            })?,
+        };
         Ok(FastVm(vm))
     }
 }

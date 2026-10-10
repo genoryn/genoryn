@@ -100,8 +100,13 @@ fn fast_dataset(fast: &SharedFast, seed: Hash) -> Option<pow::FastDataset> {
         match result {
             Ok(dataset) => {
                 eprintln!(
-                    "RandomX fast mode ready after {:.0}s: one dataset shared by all threads",
-                    started.elapsed().as_secs_f64()
+                    "RandomX fast mode ready after {:.0}s: one dataset shared by all threads{}",
+                    started.elapsed().as_secs_f64(),
+                    if dataset.large_pages() {
+                        ", in 2 MiB pages"
+                    } else {
+                        ""
+                    }
                 );
                 state.ready = Some(dataset);
             }
