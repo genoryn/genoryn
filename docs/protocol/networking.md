@@ -30,7 +30,7 @@ is a local lab: its discovered peers remain loopback-only and it never contacts
 the built-in seeds. Any other node is public: discovery rejects
 private, loopback, link-local, multicast and invalid endpoints, and the built-in
 bootstrap hosts in `apps/genoryn/src/seeds.rs`, plus the list published at
-`seeds/mainnet.txt` (or `seeds/devnet.txt`, `seeds/testnet.txt`) on the main repository's `main` branch,
+`seeds/mainnet-1.0.txt` (or `seeds/devnet-1.0.txt`, `seeds/testnet-1.0.txt`) on the main repository's `main` branch,
 are used at startup like operator DNS seeds (`--no-default-seeds` opts out of
 both). The published list is fetched over HTTPS (through Tor in tor-only mode)
 with a 5-second timeout, a 16 KiB bound and at most 16 names; when it is

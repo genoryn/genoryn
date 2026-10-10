@@ -1,6 +1,6 @@
 # RPC v1
 
-Default mainnet ports: 29610 P2P, 29611 loopback administrative RPC, 29612 optional
+Default mainnet ports: 29710 P2P, 29711 loopback administrative RPC, 29712 optional
 read-only public RPC. Devnet uses 29410-29412 and testnet 29510-29512.
 Administrative endpoints answer HTTP 401 when the bearer token is missing or wrong.
 No wallet secret service is exposed: wallet construction/scanning stays local.
@@ -32,7 +32,7 @@ Read endpoints:
 
 A node started with `--public-rpc` and `--onion-service` (built-in Tor) also serves
 its public RPC through its onion service on the base port + 2, for example
-`http://<56 characters>.onion:29612` on mainnet; `GET /v1/network` shows it as
+`http://<56 characters>.onion:29712` on mainnet; `GET /v1/network` shows it as
 `tor.onion.rpc_address`. At most 16 such streams are open at once.
 - `GET /v1/usernames?username=name`: legacy local signed receiver bundle, checked locally.
 - `GET /v1/peers`: local administrative listener only. Each peer has `address`,

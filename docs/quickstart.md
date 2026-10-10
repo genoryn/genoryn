@@ -1,6 +1,7 @@
 # Start with GENORYN
 
-GENORYN runs on its mainnet (`genoryn-mainnet-v1`), launched on 10 October 2026.
+GENORYN runs on Mainnet 1.0 (`genoryn-mainnet-1.0`), launched with release 1.0.0. The earlier
+network (`genoryn-mainnet-v1`) is retired; its coins do not exist on 1.0.
 The software has not been independently audited: mine or hold only what you can
 afford to lose. No VPS, exchange, domain account or cloud key is needed; your
 computer runs its own full node.
@@ -82,7 +83,7 @@ A matching checksum detects changed bytes; it does not replace an authenticated
 publisher signature or the exact-source verification evidence.
 
 The wrapper and direct native executable use the same default wallet under
-your home directory's `.genoryn/mainnet` folder (`wallet.gnr`), unless you explicitly
+your home directory's `.genoryn/mainnet-1.0` folder (`wallet.gnr`), unless you explicitly
 choose another path. They never silently create separate profiles by launch method.
 
 The package must keep all seven executable files together. The wallet starts
@@ -197,8 +198,8 @@ registry metadata need their own backups. No maintainer can recover a lost seed.
 ### Back up and restore local metadata
 
 For the default profile, the encrypted wallet is
-`$HOME/.genoryn/mainnet/wallet.gnr` on Linux or
-`%USERPROFILE%\.genoryn\mainnet\wallet.gnr` on Windows. Its contact-owner pins
+`$HOME/.genoryn/mainnet-1.0/wallet.gnr` on Linux or
+`%USERPROFILE%\.genoryn\mainnet-1.0\wallet.gnr` on Windows. Its contact-owner pins
 are beside it as `wallet.username-pins.json`. With a custom wallet filename,
 replace its final extension with `.username-pins.json` (for example,
 `alice.wallet` uses `alice.username-pins.json`). Pins are trust decisions;

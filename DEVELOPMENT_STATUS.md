@@ -1,11 +1,28 @@
 # Development status
 
-## Current status (2026-10-10)
+## Mainnet 1.0 (release 1.0.0)
 
-- **Mainnet is live.** It launched on 10 October 2026 with release 0.4.0
-  (genesis `c5fc87d9…d708`, burned treasury). Statements below that say
-  "mainnet stays/remains disabled" describe the state at the time they were
-  written and are superseded.
+- **New network.** `genoryn-mainnet-1.0`, genesis `2b27dda9…6b2e`, magic `0x474e5213`,
+  port 29710. The pre-1.0 mainnet (`genoryn-mainnet-v1`, `c5fc87d9…d708`) is retired;
+  its data was archived and verified before its nodes were stopped.
+- **Emission.** Blocks 1–500 pay 1,000 GNR each (500,000 GNR, the whole subsidy); from
+  block 501 the normal reward 4.825437595129 GNR halves every 2,102,400 blocks, plus a
+  burned 1 GNR treasury share for 210,000 blocks. Lifetime issuance 20,999,999.999950064 GNR
+  ([emission](docs/protocol/emission.md)). Initial difficulty 150,000.
+- **Wallet.** Quick mode (locally validated chain from remote onion sources, kept between
+  syncs, fork choice by cumulative work), durable encrypted outbox, persistent mining
+  history with Replaced rewards, honest balance states, wallet birthday, serialized Tor
+  mode transitions, Explorer link and About section ([release notes](docs/releases/v1.0.0.md)).
+- **Evidence.** Consensus suite with exact emission vectors and retired-network replay
+  rejection; real mined fork-choice tests; real three-node devnet including Quick mode,
+  lost acknowledgements and a reorganization; Quick mode over the public Tor network
+  against both mainnet onion services.
+
+## Earlier status (2026-10-10, pre-1.0)
+
+- **The pre-1.0 mainnet** launched on 10 October 2026 with release 0.4.0
+  (genesis `c5fc87d9…d708`, burned treasury) and is retired by 1.0. Statements below
+  describe the state at the time they were written and are superseded.
 - **No independent audit.** Consensus, the Orchard/Halo 2 integration, wallet key
   handling and the new Tor integration have only internal engineering reviews
   ([October review](docs/security/audit-2026-10.md),

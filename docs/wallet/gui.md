@@ -24,7 +24,7 @@ source compatibility alone is not evidence that a desktop runtime passed.
 
 Optional arguments: `--wallet PATH`, `--data-dir PATH`, `--rpc-url URL`,
 `--bin-dir PATH`, `--node-config PATH`, `--auto-node on|off`. `GENORYN_DATA_DIR` changes the default data directory. Without
-it the default is `$HOME/.genoryn/mainnet` (or `%USERPROFILE%/.genoryn/mainnet`). The GUI
+it the default is `$HOME/.genoryn/mainnet-1.0` (or `%USERPROFILE%/.genoryn/mainnet-1.0`). The GUI
 always uses the mainnet; development networks are reached with the CLI programs.
 Settings are session-only, except the update-check preference, the dark/light
 appearance and the list of remembered wallet files, which are stored as

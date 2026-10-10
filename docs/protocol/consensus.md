@@ -2,9 +2,14 @@
 
 GENORYN selects the valid branch with the greatest sum of verified per-block
 difficulty. Equal work keeps the current branch. Height 1 follows a deterministic
-network-specific zero-issuance genesis identifier. The mainnet genesis was finalized
-on 10 October 2026 (`c5fc87d996c7fd9dc69ff0cdf96183c65e1be5c9293748b33c31cd8fb6e1d708`);
-devnet and testnet remain for development.
+network-specific zero-issuance genesis identifier. The Mainnet 1.0 genesis
+(`genoryn-mainnet-1.0`, `2b27dda9c2adcf9d61a58efc43a40213adc7fb2addfdae210f3357d72adf6b2e`)
+is the domain-separated hash of a preimage that commits the chain ID, the supply, the
+proof-of-work and shielded protocols and the early-emission rule (`early:500x1000`).
+P2P frames carry the magic `GNR` + `0x10 + network id` (`0x474e5213` on mainnet). The
+retired pre-1.0 mainnet (`c5fc87d9…d708`) is rejected by peers, blocks and transaction
+signatures alike. Devnet and testnet remain for development. Mainnet starts at difficulty
+150,000 until the retarget window fills. Issuance: [emission](emission.md).
 
 A header commits version, network, height, parent, Unix timestamp, integer
 difficulty, RandomX seed, nonce, body digest, matured-note root and nullifier root.

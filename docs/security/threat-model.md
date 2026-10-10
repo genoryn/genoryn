@@ -1,7 +1,7 @@
 # Threat model
 
 This document states what GENORYN protects, against whom, how, and what it does
-not protect. It describes release 0.6.0. GENORYN has **not** been independently
+not protect. It describes release 1.0.0 (Mainnet 1.0). GENORYN has **not** been independently
 audited; everything below is an engineering claim backed by tests, not a proof.
 
 ## What GENORYN protects
@@ -99,7 +99,7 @@ locally; no server is ever asked for a balance.
   Logs show salted labels instead of peer addresses; tested by capturing every
   log line of a full Tor-mode scenario.
 - **Bootstrap through Tor**: tor-only nodes need peers Tor can reach. Onion seeds
-  are published separately (`seeds/mainnet-onion.txt`) so nodes before 0.6 never
+  are published separately (`seeds/mainnet-1.0-onion.txt`) so nodes before 0.6 never
   see onion names. If no seed is reachable, the node and wallet say so instead of
   connecting directly.
 

@@ -3,7 +3,7 @@
 This document describes the consensus emission schedule of **GENORYN Mainnet 1.0**
 (chain ID `genoryn-mainnet-1.0`). Every rule below is enforced by every full node
 when it validates a block; the source of truth is
-[`crates/genoryn-core/src/emission.rs`](../../crates/genoryn-core/src/emission.rs).
+[`crates/genoryn-core/src/emission.rs`](https://github.com/genoryn/genoryn/blob/main/crates/genoryn-core/src/emission.rs).
 All arithmetic is integer arithmetic in *gori*: 1 GNR = 10^12 gori. No floating
 point is used anywhere in consensus.
 

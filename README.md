@@ -6,7 +6,6 @@
   <a href="https://github.com/genoryn/genoryn/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/genoryn/genoryn?style=flat-square&label=release&color=111111"></a>
   <a href="https://genoryn.io/"><img alt="Explorer" src="https://img.shields.io/badge/explorer-genoryn.io-111111?style=flat-square"></a>
   <a href="docs/network-privacy.md"><img alt="Tor built in" src="https://img.shields.io/badge/Tor-built%20in-111111?style=flat-square&logo=torproject"></a>
-  <a href="https://github.com/genoryn/genoryn/actions/workflows/verify.yml"><img alt="Verification" src="https://img.shields.io/github/actions/workflow/status/genoryn/genoryn/verify.yml?branch=main&style=flat-square&label=verify"></a>
   <a href="https://github.com/genoryn/genoryn/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/genoryn/genoryn/total?style=flat-square&color=111111"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-111111?style=flat-square">
   <a href="https://github.com/genoryn/genoryn/blob/main/rust-toolchain.toml"><img alt="Rust 1.92" src="https://img.shields.io/badge/rust-1.92-111111?style=flat-square&logo=rust"></a>
@@ -17,105 +16,83 @@
 
 <p align="center">
   <b><a href="https://github.com/genoryn/genoryn/releases/latest">Download</a></b> ·
-  <b><a href="https://genoryn.io/">genoryn.io</a></b> ·
-  <a href="#whats-new-in-060">What's new</a> ·
-  <a href="#private-network-built-in-tor">Tor</a> ·
+  <b><a href="https://genoryn.io/">Explorer</a></b> ·
+  <a href="#mainnet-10">Mainnet 1.0</a> ·
   <a href="#get-started">Get started</a> ·
-  <a href="#a-tour-of-the-wallet">Wallet tour</a> ·
-  <a href="#why-it-is-safe">Why it is safe</a> ·
-  <a href="docs/protocol/consensus.md">Protocol</a> ·
+  <a href="#quick-mode-and-full-mode">Wallet modes</a> ·
+  <a href="#private-network-built-in-tor">Tor</a> ·
+  <a href="#run-an-independent-full-node">Run a node</a> ·
+  <a href="docs/protocol/emission.md">Monetary Policy &amp; Emission Schedule</a> ·
   <a href="docs/security/threat-model.md">Threat model</a>
 </p>
 
 GENORYN is an independent proof-of-work monetary network written in Rust. It combines
 three ideas that are rarely found together: **privacy by default** through shielded
 notes and Halo 2 zero-knowledge proofs, a **hard cap of 21,000,000 GNR** enforced by
-integer-only consensus rules, and **CPU-fair RandomX mining** that anyone can run. The
-desktop wallet ships with its own full node, so every user validates the chain on
-their own machine instead of trusting a server, and with a **built-in Tor client**, so
-new installations reach the network without revealing their IP address to peers.
+integer-only consensus rules, and **CPU-fair RandomX mining** that anyone can run. One
+desktop wallet works either with its own full node or, in **Quick mode**, with remote
+nodes over Tor while still validating every block itself, and it carries a **built-in
+Tor client**, so new installations reach the network without revealing their IP address.
 
 > [!WARNING]
-> **The GENORYN mainnet launched on 10 October 2026, and the software has not been
-> independently audited.** Mine or hold only what you can afford to lose, and keep your
-> recovery words offline. Cryptography protects transaction contents; it does not guarantee
-> anonymity against a compromised computer, a tiny anonymity set, timing analysis or
-> network surveillance. Read [the threat model](docs/security/threat-model.md) first.
+> **GENORYN has not been independently audited.** Mine or hold only what you can afford
+> to lose, and keep your recovery words offline. Cryptography protects transaction
+> contents; it does not guarantee anonymity against a compromised computer, a tiny
+> anonymity set, timing analysis or network surveillance. Read
+> [the threat model](docs/security/threat-model.md) first.
 
-<p align="center">
-  <img src="docs/images/wallet-overview.png" alt="The GENORYN wallet: balance, username, scan state and node connection" width="92%">
-</p>
+## Mainnet 1.0
 
-## What's new in 0.6.0
+GENORYN 1.0.0 launches a **new mainnet** with a new genesis block and chain identity. The
+earlier network (`genoryn-mainnet-v1`, releases 0.4–0.6) is retired: its blocks and
+transactions are rejected by 1.0, its coins do not exist on 1.0, and reusing a recovery
+phrase does not carry any balance over.
 
 | | |
 |---|---|
-| **Tor is built in** | Hybrid and Tor-only modes use a Tor client inside GENORYN. Nothing to download or keep open; Tor Browser or your own Tor still works if you prefer it. |
-| **Tor only from the first start** | New installations connect, look up peers and broadcast payments only through Tor. Nothing ever falls back to a direct connection. Existing installations keep their mode until you change it. |
-| **Payments always get out** | A payment made while Tor or the network is down waits, survives a restart and goes out as soon as a peer is reachable. A peer that silently drops it can no longer stop it from spreading. |
-| **Light wallet** | Run the wallet without a node of its own: it reads the chain from remote nodes over Tor and validates every block on your computer. The remote nodes never see your addresses or balance. |
-| **Same chain** | Consensus, the 21,000,000 GNR cap, RandomX, Halo 2 proofs, the peer protocol and wallet files are unchanged. 0.6.0 works with 0.4.x and 0.5.x nodes. |
+| Chain ID | `genoryn-mainnet-1.0` |
+| Genesis hash | `2b27dda9c2adcf9d61a58efc43a40213adc7fb2addfdae210f3357d72adf6b2e` |
+| Genesis preimage | `genoryn-mainnet-1.0\|Privacy is not a feature. Privacy is the default.\|GNR\|21000000\|1000000000000\|RandomX-v1\|Ironwood-v3\|early:500x1000\|2026-10-10-mainnet-1.0` |
+| Network magic | `0x474e5213` |
+| Proof of work | RandomX, 60-second target, LWMA retarget every block, initial difficulty 150,000 |
+| Privacy | Orchard / Halo 2 shielded notes (no trusted setup) |
+| Maximum supply | 21,000,000 GNR (1 GNR = 10^12 gori) |
+| Early mining | Blocks 1–500 pay **1,000 GNR** each: see [Monetary Policy & Emission Schedule](docs/protocol/emission.md) |
+| Coinbase maturity | 60 blocks |
+| Ports | 29710 peer-to-peer, 29711 loopback-only admin RPC, 29712 public RPC (opt-in), 29713 loopback target for an external Tor's onion service |
+| Data directory | `~/.genoryn/mainnet-1.0` (Windows: `%USERPROFILE%\.genoryn\mainnet-1.0`) |
+| Addresses | `gnr1…` |
+| Explorer | [genoryn.io](https://genoryn.io/) |
 
-Full details are in the [0.6.0 release notes](docs/releases/v0.6.0.md).
+### What is new in 1.0
 
-**0.6.1** makes new Tor-only installations find the network on their own (two mainnet
-onion seeds are built in) and accepts usernames typed without `@`. See the
-[0.6.1 release notes](docs/releases/v0.6.1.md).
+| | |
+|---|---|
+| **Quick mode and Full mode** | One wallet, two ways to follow the chain. Quick mode needs no node of its own: it downloads blocks from remote nodes over Tor, validates every block on your computer and keeps them, so later syncs fetch only new blocks. Full mode uses your own node. Switching never loses keys, scan progress, pending payments or mining history. |
+| **Correct fork choice in Quick mode** | The wallet follows the valid chain with the most cumulative work, computed locally from validated headers, exactly like a full node. A longer chain with less work, a stale source or a source serving invalid blocks is never followed. |
+| **Durable outgoing payments** | A payment is signed locally, its exact bytes are stored encrypted on disk, and only then sent. If Tor, the network, a node or your computer fails, the same signed bytes are sent again later; a lost answer never creates a second spend, and its coins stay reserved until the chain settles the outcome. |
+| **Complete mining history** | Rewards show as Just mined, Maturing, Mature or Replaced. A reward whose block a heavier chain replaced stays in the history, never in a balance. |
+| **Honest balance states** | Unknown balances are never shown as 0, and a balance from unreachable sources is labelled "last verified at block H", never as current. |
+| **Reliable Tor switching** | Changing between Tor only, Hybrid and Direct restarts the node the wallet owns through one serialized transition with progress, Cancel and Retry; nothing ever falls back to a direct connection. |
+| **GENORYN Explorer link** | The wallet's sidebar opens [genoryn.io](https://genoryn.io/) on request, with a warning in Tor-only mode that your browser does not use GENORYN's Tor. |
 
-**0.6.2** mines several times faster: all miner threads share one RandomX dataset
-instead of a cache each, and the Mining page offers every CPU thread. See the
-[0.6.2 release notes](docs/releases/v0.6.2.md).
+Full details: [1.0.0 release notes](docs/releases/v1.0.0.md).
 
-## genoryn.io: the chain, live
+## Monetary policy
 
-<p align="center">
-  <a href="https://genoryn.io/"><img src="docs/images/readme-explorer.png" alt="genoryn.io, the live GENORYN mainnet explorer" width="100%"></a>
-</p>
+| Height | Miner subsidy per block | Notes |
+|---|---|---|
+| 0 (genesis) | 0 | No premine, no allocation |
+| 1 – 500 | **1,000 GNR** | The entire subsidy; 500,000 GNR in total (≈ 2.38 % of the cap) |
+| 501 – 2,102,900 | 4.825437595129 GNR | Plus 1 GNR treasury per block for 210,000 blocks, **burned on mainnet** |
+| then | halves every 2,102,400 blocks | Reaches zero after 43 halvings; no tail emission |
 
-**[genoryn.io](https://genoryn.io/)** is the home of the GENORYN network and its public
-explorer, served by a validating mainnet full node. Open it to see:
-
-- **Blocks and transactions** as they arrive, searchable by height, block hash or transaction ID.
-- **The network**: block height, difficulty, network hashrate, average block time and connected peers.
-- **The money supply**: the miner reward and issued supply against the 21,000,000 GNR cap.
-- **The mempool**: transactions waiting for the next block.
-
-What it cannot show is what GENORYN keeps private. Amounts, senders and receivers of
-transfers are shielded notes, so no explorer, including this one, can list balances,
-trace payments or rank holders. Only your own wallet can find and read your notes.
-
-## A new generation of digital cash
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h4>Private by design</h4>
-      Every transfer is a shielded note. Amounts and receiving identities are hidden
-      from chain observers; spends reveal only a nullifier. There is no transparent
-      balance database, no address-balance API and no rich list to query.
-    </td>
-    <td width="50%" valign="top">
-      <h4>Finite by protocol</h4>
-      Issuance is an exact integer schedule inside 21,000,000 GNR. There is no mint
-      transaction class, no founder override and no financial master key. Issuance
-      and fees stay public, so anyone can audit the cap.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h4>Fair to mine</h4>
-      RandomX proof of work is designed for ordinary CPUs. Mining never starts by
-      itself and pays to a receiving address only, so it runs safely while the
-      wallet is locked, or on a server that holds no keys.
-    </td>
-    <td width="50%" valign="top">
-      <h4>Verify, don't trust</h4>
-      The wallet starts its own full node, which validates every block, proof,
-      signature and nullifier. Bootstrap seeds only introduce peers; they are never
-      trusted for consensus.
-    </td>
-  </tr>
-</table>
+Fees always go to the miner. Lifetime issuance is 20,999,999.999950064 GNR; integer rounding
+leaves 0.000049936 GNR that is never minted, and every block is rejected if issuance would
+exceed 21,000,000 GNR. There is **no founder-only minting privilege**: the early reward goes to
+whoever mines a valid block. At launch the only known miner is run by the project operator,
+so early holdings may be concentrated. The exact schedule, the reasoning and the risks are in
+**[GENORYN Monetary Policy & Early Mining Incentives](docs/protocol/emission.md)**.
 
 ## Download
 
@@ -124,122 +101,165 @@ each with a `.sha256` checksum. They share your wallets, so you can switch at an
 
 | | **GENORYN** | **GENORYN Lite** |
 |---|---|---|
-| Windows installer | `GENORYN-Setup-<version>.exe` | `GENORYN-Lite-Setup-<version>.exe` |
-| Portable package | `genoryn-<version>-mainnet-windows-amd64.zip` and `-linux-x86_64.zip` | `genoryn-<version>-mainnet-lite-windows-amd64.zip` and `-lite-linux-x86_64.zip` |
+| Windows installer | `GENORYN-Setup-1.0.0.exe` | `GENORYN-Lite-Setup-1.0.0.exe` |
+| Windows portable | `genoryn-1.0.0-mainnet-windows-amd64.zip` | `genoryn-1.0.0-mainnet-lite-windows-amd64.zip` |
+| Linux (desktop wallet, full node, miner, CLI tools) | `genoryn-1.0.0-mainnet-linux-x86_64.zip` | `genoryn-1.0.0-mainnet-lite-linux-x86_64.zip` |
 | Send, receive, usernames, payment proofs | ✓ | ✓ |
-| Own full node that validates everything | ✓ | ✓ |
+| Quick mode and Full mode | ✓ | ✓ |
 | CPU mining | ✓ | — |
-| For | Everyone who also wants to mine | Paying and getting paid, nothing else |
 
-<p align="center">
-  <img src="docs/images/wallet-lite.png" alt="GENORYN Lite: the same wallet without the Mining page" width="80%">
-  <br><sub>GENORYN Lite: the same wallet and node, without the Mining page.</sub>
-</p>
+Every package contains `release-manifest.json` (version, source commit, toolchain and the
+SHA-256 of every file) and `SHA256SUMS`. [Verify the checksum](docs/security/releases.md)
+before running:
 
-The installers need no administrator rights, add Start menu and desktop shortcuts and
-uninstall normally; your wallets and chain data in `%USERPROFILE%\.genoryn` are never
-touched. [Verify the checksum](docs/security/releases.md) before running.
+```sh
+sha256sum -c genoryn-1.0.0-mainnet-linux-x86_64.zip.sha256          # Linux
+Get-FileHash .\GENORYN-Setup-1.0.0.exe -Algorithm SHA256             # Windows PowerShell
+```
 
 > [!NOTE]
-> GENORYN is not code-signed yet. If Windows 11's **Smart App Control** is on, it blocks
-> unsigned programs and the installer explains how to turn it off (Windows Security →
-> App & browser control → Smart App Control settings). SmartScreen's "Windows protected
-> your PC" is a separate prompt: choose **More info → Run anyway**.
+> GENORYN is not code-signed. If Windows 11's **Smart App Control** is on, it blocks
+> unsigned programs (Windows Security → App & browser control → Smart App Control
+> settings). SmartScreen's "Windows protected your PC" is a separate prompt: choose
+> **More info → Run anyway**.
 
 ## Get started
 
-1. **Install** GENORYN or GENORYN Lite from the table above.
-2. **Open it.** A short launch animation, then the wallet starts its own full node, which
-   connects through the built-in Tor and joins the GENORYN mainnet by itself (the first
-   Tor start downloads Tor's directory and takes a little longer).
-3. **Create a wallet** and write the 24-word recovery phrase on paper. Nothing is
-   reachable until the wallet is unlocked with its password, and it locks itself after
-   five minutes without input. Your open wallets are remembered, so next time one
-   password brings them back.
-4. **Get GNR.** Receive from someone, or (in GENORYN) start mining on the Mining page.
-   Mined coins mature after 60 blocks, about an hour.
-5. **Pay** an address or an `@username`. The wallet checks your matured balance before
-   it lets you review a payment.
+**Windows:** run `GENORYN-Setup-1.0.0.exe` (no administrator rights needed), or unzip the
+portable package and run `Start-Wallet.cmd`.
 
-When a new version is published, the wallet offers its installer; running it updates in
-place and keeps your wallets. Nothing is downloaded or installed automatically. See the
-[quickstart](docs/quickstart.md) for platform requirements and recovery.
+**Linux:**
 
-## A tour of the wallet
+```sh
+unzip genoryn-1.0.0-mainnet-linux-x86_64.zip
+cd genoryn-1.0.0-mainnet-linux-x86_64 && sha256sum -c SHA256SUMS --quiet
+./start-wallet
+```
 
-The wallet is a native Rust application with no embedded website and no remote UI. It
-uses the typography of genoryn.io (Inter, Unbounded and JetBrains Mono), only black,
-white and gray, and is dark by default with a one-click light mode.
+Then:
 
-### Overview
+1. **Choose a wallet mode** on the Network page: **Full mode** (default; the wallet starts
+   its own node) or **Quick mode** (no node; remote nodes over Tor).
+2. **Create a wallet** and write the 24-word recovery phrase on paper. Nothing is reachable
+   until the wallet is unlocked, and it locks itself after five minutes without input.
+3. **Get GNR.** Receive from someone, or (in GENORYN) start mining on the Mining page.
+   Mining never starts by itself. Mined coins mature after 60 blocks, about an hour.
+4. **Pay** an address or an `@username`. The wallet checks your matured balance before it
+   lets you review a payment, then stores the signed payment before sending it.
 
-<img src="docs/images/wallet-overview.png" alt="Overview page" width="100%">
+See the [quickstart](docs/quickstart.md) for requirements and recovery.
 
-Your total balance with the GNR sign, what is available to spend now and what is still
-maturing, your `@username`, how far the wallet has scanned and the node connection. With
-several wallets open, the top bar shows their combined balance; switch between up to
-eight unlocked wallets from it.
+## Quick mode and Full mode
 
-### Send
+| | **Quick mode** | **Full mode** |
+|---|---|---|
+| Node on this computer | None | The wallet's own `genorynd` |
+| Where blocks come from | Remote nodes' public RPC, only over Tor | Your node's peers |
+| Validation | Every block on this computer (RandomX, Halo 2 proofs, state roots) | Your node validates every block |
+| Keys, signing, balance | Local | Local |
+| What remote nodes learn | When you sync; never your addresses or balance | — |
+| What they can do | Withhold new blocks (shown as "last verified at block H") | — |
 
-<img src="docs/images/wallet-send.png" alt="Send page" width="100%">
+Quick mode starts with two onion sources (seed 1 and genoryn.io, one operator); add
+independent nodes on the Network page for better assurance. Payments in both modes go
+through the same durable outbox, and the scan cache, outbox, verified chain and mining
+history are encrypted with keys derived from your wallet.
 
-Pay a `gnr1…` address or an `@username`, which your own node resolves and shows before
-you confirm. Choose an Economy, Standard or Priority fee and add an encrypted memo only
-the receiver can read. **Review payment** stays disabled while your matured balance cannot
-cover the amount plus the fee, and says exactly how much is missing.
+## Private network: built-in Tor
 
-### Receive and usernames
+GENORYN has two privacy layers. **Shielded notes** hide amounts, senders and receivers in
+every mode. **Tor** hides your computer's IP address from the peers you connect to. The
+node and the wallet carry their own Tor client
+([Arti](https://gitlab.torproject.org/tpo/core/arti), from the Tor Project).
 
-<img src="docs/images/wallet-receive.png" alt="Receive page" width="100%">
+| Mode | Peers | If Tor stops |
+|---|---|---|
+| **Tor only** (new installations) | Every connection, peer lookup and payment broadcast through Tor; inbound only through an optional v3 onion service | Networking pauses and payments wait; nothing falls back to direct |
+| **Hybrid** | Clearnet peers directly (they see your IP), onion peers and your payments through Tor | Onion peers pause |
+| **Direct** | Direct TCP; every peer sees your IP | n/a |
 
-Your receiving address as text and QR code, payment requests with an amount, and your
-on-chain username. Register `@you` once and forever: availability is checked as you type,
-the first valid registration wins, and the price is burned (3–4 letters 1,000 GNR,
-5–6 letters 100 GNR, 7 or more 10 GNR). A name points to a separate address of your
-wallet, so payments to it stay private.
+```sh
+genorynd --network-mode tor-only                    # built-in Tor
+genorynd --network-mode tor-only --onion-service    # also accept peers through an onion address
+genoryn-cli get-network-privacy                     # Tor progress, onion address, connections
+```
 
-### Transactions
+Tor-only nodes find the network through the onion seeds built into the release and the list
+in [`seeds/mainnet-1.0-onion.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet-1.0-onion.txt). Tor does not make anyone
+fully anonymous; read [network privacy and Tor](docs/network-privacy.md) before relying on it.
 
-<img src="docs/images/wallet-transactions.png" alt="Transactions page" width="100%">
+## Network and seeds
 
-Transfers and mining rewards in separate tabs, with search by transaction ID, memo,
-amount or block and filters for direction and confirmations. Every row shows its date,
-confirmations and memo, a copyable transaction ID and a **payment proof** export that
-discloses that single output to someone you choose.
+A new node finds the network by itself. It contacts the built-in seeds, the lists published
+in [`seeds/mainnet-1.0.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet-1.0.txt) and
+[`seeds/mainnet-1.0-onion.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet-1.0-onion.txt), then learns further peers by
+exchange and validates every block itself.
 
-### Mining (GENORYN)
+| Seed | Clearnet | Onion (P2P 29710, public RPC 29712) |
+|---|---|---|
+| Seed 1 (also the launch miner) | `187.7.72.137` | `ycnowntcndxfvr3rkeqkiyfkfvxoqmee3qsrfsz43hq5rkxkmsklrcad.onion` |
+| genoryn.io (non-mining) | `2.24.162.163` | `2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion` |
 
-<img src="docs/images/wallet-mining.png" alt="Mining page" width="100%">
+**Both seeds are run by the same operator.** A network with two seeds of one operator is not
+decentralized; it becomes so only as independent people run nodes and miners. Seeds only
+introduce peers and are never trusted for consensus.
 
-Solo CPU mining with as many threads as your computer has, paid to the wallet's
-receiving address. Live metrics show the hashrate, accepted blocks and how often this
-computer finds a block on average at the current difficulty. Mining keeps running while
-the wallet is locked. If the miner stops, the page explains why in plain words and
-restarts it in portable RandomX mode or with fewer threads when that helps; it never
-asks for administrator rights.
+## Run an independent full node
 
-### Node and network
+A full node needs about 1 GB of RAM (plus 2.5 GB if it also mines in fast mode), a few GB of
+disk and an outbound internet connection. Opening TCP port 29710 lets others connect to you.
 
-<img src="docs/images/wallet-node.png" alt="Node page" width="100%">
+```sh
+# Linux, from the release package
+unzip genoryn-1.0.0-mainnet-linux-x86_64.zip && cd genoryn-1.0.0-mainnet-linux-x86_64
+./genorynd --data-dir ~/.genoryn/mainnet-1.0                  # Direct mode, joins the mainnet
+./genorynd --data-dir ~/.genoryn/mainnet-1.0 --network-mode hybrid --onion-service
+./genoryn-cli get-network-info
+```
 
-The full node the wallet started: height, peers, mempool, difficulty and readable logs,
-with start, stop and restart for the node this wallet owns. The Network page sets the
-[network privacy mode](docs/network-privacy.md) of the node the wallet starts (Tor only,
-Hybrid or Direct), the Tor engine (built in, or your own Tor), the onion service and the
-light wallet, and shows Tor progress, readiness, the onion address and the current
-connection types; it also shows the pinned chain ID and genesis, which every connection
-must match, and the public supply: issued, remaining, mining, bootstrap and the burned
-treasury.
+Offer a source for Quick-mode wallets with `--public-rpc --onion-service`: the public RPC
+(read-only chain data and transaction relay, rate limited) is then also reachable at your
+onion address on port 29712. A systemd unit is as simple as:
 
-<img src="docs/images/wallet-network.png" alt="Network page" width="100%">
+```ini
+[Service]
+User=genoryn
+ExecStart=/opt/genoryn/genorynd --data-dir /var/lib/genoryn/mainnet-1.0 --network-mode hybrid --onion-service --public-rpc
+Restart=always
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/genoryn/mainnet-1.0
+```
 
-### Light mode
+### Mining on a server
 
-<img src="docs/images/wallet-light.png" alt="The wallet in light mode" width="100%">
+A miner needs a node and a public receiving address, never a wallet file or recovery phrase,
+so a server can mine without holding any spending keys:
 
-The sun/moon button in the top bar switches the appearance at any time; the choice is
-remembered.
+```sh
+genorynd --data-dir ~/.genoryn/mainnet-1.0
+genoryn-miner --node http://127.0.0.1:29711 \
+  --token-file ~/.genoryn/mainnet-1.0/admin.token --wallet YOUR_GNR1_ADDRESS --threads 4
+```
+
+The miner shares one 2 GiB RandomX dataset between all threads (fast mode, ready about a
+minute after start; light mode until then). On Linux, reserving 2 MiB pages
+(`sysctl vm.nr_hugepages=1280`) and setting `GENORYN_RANDOMX_LARGE_PAGES=1` makes it about
+15 % faster. CPU detection selects hardware AES and the JIT automatically; set
+`GENORYN_RANDOMX_PORTABLE=1` only for a CPU that cannot run them.
+
+## Explorer and API
+
+[genoryn.io](https://genoryn.io/) shows blocks, transactions, difficulty, estimated hashrate,
+average block time, the reward and the issued and remaining supply, searchable by height,
+block hash or transaction ID. It never shows balances: shielded notes cannot be read by any
+explorer. When its node does not answer, it says when the data was last updated instead of
+showing a live zero.
+
+Every node speaks versioned HTTP RPC: `GET /v1/info`, `/v1/genesis`, `/v1/supply`,
+`/v1/blocks?from=N`, `/v1/mempool/nullifiers` and `POST /v1/relay` on the public listener;
+mining, peer and network administration only on the loopback admin listener with a bearer
+token. Monetary values are decimal strings in gori. See the [RPC reference](docs/rpc/api.md).
 
 ## Why it is safe
 
@@ -249,122 +269,41 @@ remembered.
 
 | Risk | How GENORYN responds |
 |---|---|
-| Someone copies your wallet file | It is encrypted with Argon2id key derivation and XChaCha20-Poly1305. The recovery phrase comes from operating-system entropy and is never written in plain text. |
-| Someone uses your open wallet | Nothing is reachable without the password; the wallet locks after five minutes without input and Lock closes every open wallet. |
-| A server learns your balance | There is none to ask. Your wallet finds its own notes by scanning every ciphertext locally. |
-| A peer sends invalid blocks | Your node checks proof of work, Halo 2 proofs, signatures, anchors and nullifier uniqueness, with bounded messages and misbehaviour disconnection. |
-| Double spends and inflation | Nullifiers are unique across chain and mempool, reorganisations replay state, and coinbase value is fixed by an exact integer schedule. |
-| Spending money you do not have | The wallet refuses payments and registrations that its matured balance cannot cover before anything is built or sent, and nodes reject any transaction whose inputs do not exist. |
-| Peers learn where you are | New installations reach peers only through the built-in Tor client; your IP address is never sent to a peer, and nothing falls back to a direct connection. |
-| A peer drops or delays your payment | Your node keeps it until it is mined or expires, relays it again when it comes back through another peer, and hands it to every new peer. |
-| Remote control of your node | Administrative RPC binds to loopback only and requires a private capability token; public RPC is opt-in and only serves chain data and relays transactions. |
-| A tampered update | The wallet only points to this repository's releases and never installs anything; every package carries SHA-256 checksums and a manifest with its source commit. |
+| Someone copies your wallet file | It is encrypted with Argon2id and XChaCha20-Poly1305; the recovery phrase comes from operating-system entropy and is never written in plain text. |
+| A server learns your balance | There is none to ask. The wallet finds its own notes by scanning every ciphertext locally, in both modes. |
+| A remote node lies in Quick mode | Every block is validated locally; the chain with the most locally computed work wins; a withheld chain is labelled as possibly out of date. |
+| A payment's answer is lost | The exact signed bytes are stored first and sent again; the coins stay reserved until the chain shows the result. |
+| Double spends and inflation | Nullifiers are unique across chain and mempool, reorganisations replay state, and issuance follows an exact integer schedule under a hard cap. |
+| Replaying old-network transactions | Signatures commit to the 1.0 genesis; transactions of the retired network fail verification. |
+| Peers learn where you are | New installations reach peers only through Tor, and nothing falls back to a direct connection. |
+| Remote control of your node | Admin RPC binds to loopback and needs a capability token; public RPC is opt-in, read-only plus relay, size-, concurrency- and rate-limited. |
+| A tampered download | Every package carries SHA-256 checksums and a manifest with its source commit. |
 
 What privacy does **not** protect against: malware on your computer, copied seeds, weak
-passwords, screenshots and clipboard history, transaction timing, a small anonymity set,
-or a network observer watching your connection. In Direct mode (earlier installations),
-peers see your IP address; Tor modes hide it from peers but not from an adversary who can
-watch both ends of a Tor circuit. GENORYN does not claim absolute anonymity, instant finality or
-an inherited audit. Details are in the [threat model](docs/security/threat-model.md),
-[network privacy](docs/network-privacy.md) and [privacy notes](docs/protocol/privacy.md).
-
-## Private network: built-in Tor
-
-GENORYN has two privacy layers. **Shielded notes** hide amounts, senders and receivers
-in every mode. **Tor** hides your computer's IP address from the peers you connect to.
-Tor is part of GENORYN: the node carries its own Tor client
-([Arti](https://gitlab.torproject.org/tpo/core/arti), from the Tor Project), so there is
-nothing to install, configure or keep running.
-
-| Mode | Peers | If Tor stops |
-|---|---|---|
-| **Tor only** (new wallet installations) | Every connection, peer lookup and payment broadcast through Tor; inbound only through an optional v3 onion service | Networking pauses and payments wait; nothing falls back to direct |
-| **Hybrid** | Clearnet peers directly (they see your IP), onion peers and your payments through Tor | Onion peers pause |
-| **Direct** (earlier installations, `genorynd` without a mode) | Direct TCP; every peer sees your IP | n/a |
-
-Change the mode on the wallet's **Network** page. From the command line:
-
-```sh
-genorynd --network-mode tor-only                    # built-in Tor
-genorynd --network-mode tor-only --onion-service    # also accept peers through an onion address
-genoryn-cli get-network-privacy                     # Tor progress, onion address, connections
-```
-
-A Tor you already run works too: choose **My own Tor** in the wallet, or start the node
-with `--tor-socks 127.0.0.1:9050` (Tor Browser: `9150`).
-
-- **Payments**: your node first hands a new payment to a single peer, then spreads it
-  more widely, which makes it harder to tell which computer created it. If the network
-  is down the payment waits and goes out later, never outside Tor in Tor-only mode.
-- **Light wallet**: on the Network page, **Light wallet** runs the wallet without a node
-  of its own. It talks to remote nodes only over Tor and validates every block itself.
-- **Bootstrap**: Tor-only nodes find mainnet peers through onion seeds published in
-  [`seeds/mainnet-onion.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet-onion.txt),
-  read at startup, so seeds can be added without a new release.
-
-Tor does not make anyone fully anonymous: it cannot protect a compromised computer or
-defeat an observer who watches both ends of a circuit, and application checks do not
-replace operating-system isolation such as Whonix or Tails. Read
-[network privacy and Tor](docs/network-privacy.md) before relying on it.
-
-## Mainnet
-
-| | |
-|---|---|
-| Chain ID | `genoryn-mainnet-v1` |
-| Genesis hash | `c5fc87d996c7fd9dc69ff0cdf96183c65e1be5c9293748b33c31cd8fb6e1d708` |
-| Launched | 10 October 2026, from block 0, with no premine |
-| Explorer | [genoryn.io](https://genoryn.io/) |
-| Block target | 60 seconds, difficulty retargeted every block |
-| Ports | 29610 peer-to-peer (open it to accept peers in Direct and Hybrid), 29611 loopback-only admin RPC, 29612 public RPC (opt-in; also through the onion service for light wallets), 29613 loopback target for an external Tor's onion service |
-| Addresses | `gnr1…` |
-
-A node joins the mainnet by itself. It contacts the built-in seeds and the list
-published in [`seeds/mainnet.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet.txt)
-(Tor modes also read [`seeds/mainnet-onion.txt`](https://github.com/genoryn/genoryn/blob/main/seeds/mainnet-onion.txt)),
-learns further peers by exchange and validates every block itself. Nodes behind NAT or a
-VPN take part through outbound connections; a node bound to loopback stays an isolated
-local lab. The devnet and testnet remain for development and automated tests only; their
-coins never existed on mainnet. See [peer protocol and discovery](docs/protocol/networking.md).
-
-## Monetary policy
-
-| Allocation | Lifetime maximum | Rule |
-|---|---:|---|
-| Normal mining | 20,690,000 GNR | Derived integer subsidy, halves every 2,102,400 blocks |
-| Bootstrap | 100,000 GNR | 2 GNR per block at heights 1–50,000 |
-| Treasury, **burned on mainnet** | 210,000 GNR | 1 GNR per block at heights 1–210,000 |
-| **Combined** | **21,000,000 GNR** | No inflation above the cap; rounding dust stays unissued |
-
-**Fair launch.** On mainnet the treasury share is paid to a provably unspendable address:
-its key is derived by hashing to the curve, so no spending key exists for anyone,
-developers included. There is no premine and no founder allocation, and at most
-20,790,000 GNR can ever circulate. The treasury vesting schedule (locked until protocol
-year 10) applies only to the devnet and testnet, whose treasury keys are public test
-material. See the [monetary ADR](docs/adr/0003-emission.md) and
-[exact monetary policy](docs/protocol/monetary-policy.md).
+passwords, screenshots and clipboard history, transaction timing, a small anonymity set, or
+an adversary watching both ends of a Tor circuit. GENORYN does not claim absolute anonymity,
+instant finality or an inherited audit.
 
 ## Architecture
 
 ```text
-Native wallet / CLI           genoryn-connect
-        │ private local scan        │ pinned network + node failover
-        └──────────────┬────────────┘
-                 Versioned RPC
-                       │
-       independently validating P2P full nodes
-         │ consensus + shielded state │
-         │ SQLite WAL + branch replay │
-         └──── genuine RandomX PoW ───┘
+Desktop wallet / CLI  ── keys, signing, scan, outbox: always local
+   │ Full mode                     │ Quick mode
+   ▼                               ▼
+own genorynd ◄── P2P ──► genorynd seeds ◄── public RPC over Tor (onion)
+   │ consensus + shielded state   │ every block also validated by the wallet
+   │ SQLite WAL + branch replay   │
+   └────── RandomX proof of work ─┘
 ```
 
-The GUI uses the same wallet and consensus backend as the CLI. Every program defaults to
-mainnet; `--network devnet` or `--network testnet` selects a development network.
+Crates: `genoryn-core` (consensus, emission, RandomX, Orchard/Halo 2), `genoryn-wallet-core`
+(keys, scanning, encrypted local storage, outbox), `genoryn` (node, miner, CLI tools,
+networking, Tor), `genoryn-wallet` (desktop wallet), `genoryn-connect` (node discovery SDK).
 
 ## Build from source
 
 Prerequisites: Git, Rust 1.92.0, a C/C++ compiler and CMake. Linux also needs X11/Wayland
-development libraries; Windows needs Visual Studio Build Tools with the C++ desktop workload.
+development libraries; Windows needs Visual Studio Build Tools with the C++ workload.
 
 ```sh
 git clone https://github.com/genoryn/genoryn.git
@@ -373,78 +312,37 @@ cargo build --release --locked --workspace
 ./target/release/genoryn-wallet
 ```
 
-The command-line programs are `genorynd`, `genoryn-miner`, `genoryn-wallet-cli`,
-`genoryn-cli` and `genoryn-emission`; the desktop application is `genoryn-wallet`. Append
-`.exe` on Windows. Monetary RPC values are decimal strings in **gori**, with
-1 GNR = 1,000,000,000,000 gori. Without `genoryn-miner` next to it, the wallet runs as
-GENORYN Lite.
-
-<details>
-<summary><b>Mining on a server</b></summary>
-
-A miner needs a node and a receiving address, never a wallet file or recovery phrase, so a
-server can mine without holding any keys:
+Programs: `genorynd`, `genoryn-miner`, `genoryn-wallet-cli`, `genoryn-cli`,
+`genoryn-emission` and the desktop application `genoryn-wallet`. Tests:
 
 ```sh
-genorynd --data-dir ~/.genoryn/mainnet
-genoryn-miner --node http://127.0.0.1:29611 \
-  --token-file ~/.genoryn/mainnet/admin.token --wallet YOUR_GNR1_ADDRESS --threads 2
+cargo test --locked --workspace                        # unit, property and integration tests
+cargo test --locked -p genoryn-core -- --ignored       # real proofs, RandomX and mined fixtures
+python scripts/test/devnet.py --bin-dir target/debug   # three real nodes: mining, payments, Quick mode, reorg
+python scripts/test/all.py                             # the complete practical suite
 ```
 
-The admin token is a private loopback capability, never a spend key, and is never sent to
-a remote endpoint. The miner shares one 2 GiB RandomX dataset between all workers
-(fast mode, ready about a minute after start; light mode with 256 MiB per worker until
-then or with `--randomx-mode light`). If the miner
-stops, its last line names the cause, for example
-`genoryn-miner stopped [unauthorized]: …` when another node owns the RPC port.
+## Known limitations
 
-</details>
-
-<details>
-<summary><b>Command-line wallet</b></summary>
-
-```sh
-genoryn-wallet-cli --wallet ~/.genoryn/mainnet/alice.gnr create
-genoryn-wallet-cli --wallet ~/.genoryn/mainnet/alice.gnr address
-genoryn-cli get-network-info
-genoryn-cli get-supply
-```
-
-Create and restore prompts use hidden terminal input. Never paste a seed or password into
-command arguments.
-
-</details>
-
-## Status and evidence
-
-The `cc280b5` baseline passed [all four verification jobs](https://github.com/deepdrogo/GENORYN/actions/runs/37739804704)
-in the project's earlier repository: Windows and Linux real mining, private payments, seed
-and account recovery, reorg/restart, isolated testnet work, 50,000 registered identities,
-bounded read RPC, audit, fuzzing and native/packaged launchers, with consensus vectors
-matching across both systems ([artifact evidence](docs/testing/evidence/native-artifacts-cc280.json)).
-That baseline predates the mainnet releases 0.4.0–0.5.0, which have no recorded
-exact-commit CI evidence in this repository. Every later change runs the same
-[verification workflow](https://github.com/genoryn/genoryn/actions/workflows/verify.yml)
-on its exact commit. The 0.6.0 Tor work also has [recorded local evidence](docs/testing/network-privacy-evidence.md)
-on Windows and Linux: live runs over the public Tor network with real mining and proofs
-(onion-to-onion peers, payments both ways, a five-minute Tor outage, socket and DNS leak
-checks, a light wallet), a mixed 0.4.0/0.5.0/0.6.0 network, fuzzing and the full test suites. See the [requirement map](docs/specification-status.md),
-[development journal](DEVELOPMENT_STATUS.md) and [release gate](docs/testing/release-gate.md).
-GENORYN has not been independently audited.
+- **Not independently audited.** Consensus, privacy composition and network privacy still
+  need external review.
+- **Small network at launch.** Two seeds and one known miner, all run by one operator.
+  Wait for more confirmations than you would on a large network.
+- **Quick mode downloads full blocks** (no compact filters yet) and trusts remote nodes not
+  to withhold data; it detects but cannot prevent withholding.
+- **Usernames, names and payment proofs need Full mode.**
+- **No code signing** for Windows packages, and no reproducible-build attestation yet.
+- **No macOS build.**
 
 ## Documentation
 
-- [Quickstart for Windows and Linux](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md) · [release notes](docs/releases/)
-- [Protocol specification](docs/protocol/consensus.md) · [networking](docs/protocol/networking.md) · [network privacy and Tor](docs/network-privacy.md) · [privacy](docs/protocol/privacy.md) · [mining](docs/protocol/mining.md) · [usernames](docs/protocol/usernames.md)
-- [RPC reference](docs/rpc/api.md) · [node discovery SDK](crates/genoryn-connect/README.md)
-- [Architecture decisions](docs/adr/) · [three-node development lab](docs/testing/devnet.md)
-- [Release verification](docs/security/releases.md) · [security policy](SECURITY.md) · [threat model](docs/security/threat-model.md) · [network-privacy review](docs/security/network-privacy-review-2026-10.md) · [dependency review](docs/security/dependency-review.md) · [third-party notices](THIRD_PARTY.md)
-- [Brand assets and usage](https://github.com/genoryn/genoryn/tree/main/branding) · [genoryn.io](https://genoryn.io/)
+- [Monetary Policy & Emission Schedule](docs/protocol/emission.md) · [release notes](docs/releases/v1.0.0.md) · [quickstart](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md)
+- [Consensus](docs/protocol/consensus.md) · [networking](docs/protocol/networking.md) · [network privacy and Tor](docs/network-privacy.md) · [privacy](docs/protocol/privacy.md) · [mining](docs/protocol/mining.md) · [usernames](docs/protocol/usernames.md)
+- [RPC reference](docs/rpc/api.md) · [node discovery SDK](crates/genoryn-connect/README.md) · [architecture decisions](docs/adr/) · [development lab](docs/testing/devnet.md)
+- [Release verification](docs/security/releases.md) · [security policy](SECURITY.md) · [threat model](docs/security/threat-model.md) · [third-party notices](THIRD_PARTY.md)
 
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option. The
-bundled fonts are under the SIL Open Font License 1.1. The GENORYN integration has not
-inherited an upstream audit; consensus, privacy composition, issuance maturity and network
-privacy still need independent review. The mainnet was launched without one: the software
-is provided as is, without warranty.
+bundled fonts are under the SIL Open Font License 1.1. GENORYN has not inherited an upstream
+audit; the software is provided as is, without warranty.
