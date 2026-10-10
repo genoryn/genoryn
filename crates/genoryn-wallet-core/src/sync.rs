@@ -633,8 +633,13 @@ mod tests {
             50 + Network::Devnet.maturity()
         );
         assert_eq!(
+            unlock_height(Network::Devnet, 2, 600),
+            emission::treasury_unlock_height(600).unwrap()
+        );
+        assert_eq!(
             unlock_height(Network::Devnet, 2, 50),
-            emission::treasury_unlock_height(50).unwrap()
+            u64::MAX,
+            "no treasury output exists before height 501"
         );
     }
 
