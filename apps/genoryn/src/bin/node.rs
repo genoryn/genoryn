@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
     let data_dir = args
         .data_dir
         .or(config.database.data_dir)
-        .unwrap_or_else(|| PathBuf::from(format!(".genoryn/{}", network.name())));
+        .unwrap_or_else(|| PathBuf::from(format!(".genoryn/{}", network.data_dir_name())));
     let mut peers = args.peer;
     peers.extend(config.p2p.peers);
     for peer in &peers {

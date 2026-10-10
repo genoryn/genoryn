@@ -55,18 +55,27 @@ impl Network {
             Self::Mainnet => 3,
         }
     }
+    /// P2P message prefix. GENORYN 1.0 networks use `GNR` + `0x10 + id`, so
+    /// nodes of the retired pre-1.0 networks (`GNR` + id) are refused at once.
     pub fn magic(self) -> [u8; 4] {
-        [0x47, 0x4e, 0x52, self.id()]
+        [0x47, 0x4e, 0x52, 0x10 + self.id()]
     }
     pub fn chain_id(self) -> String {
-        format!("genoryn-{}-v1", self.name())
+        format!("genoryn-{}-1.0", self.name())
     }
+    /// P2P port; admin RPC is +1, public RPC +2, onion target +3. Mainnet 1.0
+    /// moved from 29610 so it never meets the retired network on a shared host.
     pub fn base_port(self) -> u16 {
         match self {
             Self::Devnet => 29410,
             Self::Testnet => 29510,
-            Self::Mainnet => 29610,
+            Self::Mainnet => 29710,
         }
+    }
+    /// Directory name for this network's node and wallet data, distinct from the
+    /// retired pre-1.0 networks' directories (whose databases this node refuses).
+    pub fn data_dir_name(self) -> String {
+        format!("{}-1.0", self.name())
     }
     pub fn hrp(self) -> &'static str {
         match self {
@@ -78,15 +87,17 @@ impl Network {
     pub fn genesis(self) -> Hash {
         hash(b"GENORYN/genesis/v1", self.genesis_preimage().as_bytes())
     }
+    /// Commits the chain identity, supply, proof-of-work and shielded protocols
+    /// and the early-emission rule (500 blocks of 1,000 GNR) to the genesis hash.
     pub fn genesis_preimage(self) -> String {
         format!(
-            "{}|{}|GNR|21000000|1000000000000|RandomX-v1|Ironwood-v3|{}",
+            "{}|{}|GNR|21000000|1000000000000|RandomX-v1|Ironwood-v3|early:500x1000|{}",
             self.chain_id(),
             GENESIS_MESSAGE,
             match self {
-                Self::Devnet => "2026-10-07-devnet",
-                Self::Testnet => "2026-10-07-testnet",
-                Self::Mainnet => "2026-10-10-mainnet",
+                Self::Devnet => "2026-10-10-devnet-1.0",
+                Self::Testnet => "2026-10-10-testnet-1.0",
+                Self::Mainnet => "2026-10-10-mainnet-1.0",
             }
         )
     }
@@ -125,6 +136,10 @@ impl Network {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// The retired pre-1.0 mainnet, for isolation tests.
+    const RETIRED_MAINNET_GENESIS: &str =
+        "c5fc87d996c7fd9dc69ff0cdf96183c65e1be5c9293748b33c31cd8fb6e1d708";
+
     #[test]
     fn network_separation_and_finalized_mainnet() {
         assert_ne!(Network::Devnet.genesis(), Network::Testnet.genesis());
@@ -134,9 +149,23 @@ mod tests {
         assert!(Network::Mainnet.genesis_block().finalized);
         assert_eq!(
             Network::Mainnet.genesis_preimage(),
-            "genoryn-mainnet-v1|Privacy is not a feature. Privacy is the default.|GNR|21000000|1000000000000|RandomX-v1|Ironwood-v3|2026-10-10-mainnet"
+            "genoryn-mainnet-1.0|Privacy is not a feature. Privacy is the default.|GNR|21000000|1000000000000|RandomX-v1|Ironwood-v3|early:500x1000|2026-10-10-mainnet-1.0"
         );
+        assert_eq!(Network::Mainnet.chain_id(), "genoryn-mainnet-1.0");
         assert_eq!(Network::Mainnet.maturity(), 60);
-        assert_eq!(Network::Mainnet.initial_difficulty(), 100);
+        assert_eq!(Network::Mainnet.data_dir_name(), "mainnet-1.0");
+    }
+
+    #[test]
+    fn mainnet_1_0_is_isolated_from_the_retired_network() {
+        assert_ne!(
+            hex::encode(Network::Mainnet.genesis()),
+            RETIRED_MAINNET_GENESIS
+        );
+        assert_ne!(Network::Mainnet.chain_id(), "genoryn-mainnet-v1");
+        assert_ne!(Network::Mainnet.magic(), [0x47, 0x4e, 0x52, 3]);
+        assert_eq!(Network::Mainnet.magic(), [0x47, 0x4e, 0x52, 0x13]);
+        assert_ne!(Network::Mainnet.base_port(), 29610);
+        assert_ne!(Network::Mainnet.data_dir_name(), "mainnet");
     }
 }

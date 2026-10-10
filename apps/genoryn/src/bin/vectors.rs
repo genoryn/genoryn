@@ -11,6 +11,9 @@ fn main() -> Result<()> {
         serde_json::to_string_pretty(&json!({
             "protocol":1,"devnet_genesis":hex::encode(Network::Devnet.genesis()),
             "testnet_genesis":hex::encode(Network::Testnet.genesis()),
+            "mainnet_genesis":hex::encode(Network::Mainnet.genesis()),
+            "mainnet_chain_id":Network::Mainnet.chain_id(),
+            "mainnet_magic":hex::encode(Network::Mainnet.magic()),
             "header_bytes":hex::encode(block.header.bytes()?),
             "block_hash":hex::encode(block.hash()?),"randomx_hash":hex::encode(pow_hash),
             "canonical_u16_u32":hex::encode(codec::encode(&(1u16,0x01020304u32))?),

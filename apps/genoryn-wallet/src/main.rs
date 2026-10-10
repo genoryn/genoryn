@@ -100,7 +100,7 @@ impl Default for Settings {
             .unwrap_or_else(|| PathBuf::from("."));
         let directory = std::env::var_os("GENORYN_DATA_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(".genoryn").join(NETWORK.name()));
+            .unwrap_or_else(|| home.join(".genoryn").join(NETWORK.data_dir_name()));
         Self {
             wallet_path: directory.join("wallet.gnr").display().to_string(),
             data_dir: directory.display().to_string(),

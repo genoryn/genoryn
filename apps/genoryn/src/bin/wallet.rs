@@ -30,7 +30,7 @@ struct Args {
     network: String,
     #[arg(long, default_value = "wallet.wallet")]
     wallet: PathBuf,
-    #[arg(long, default_value = "http://127.0.0.1:29611")]
+    #[arg(long, default_value = "http://127.0.0.1:29711")]
     node: String,
     #[arg(long)]
     token_file: Option<PathBuf>,
@@ -352,7 +352,7 @@ async fn refresh_from_node(
         && is_loopback_url(
             request["rpc_url"]
                 .as_str()
-                .unwrap_or("http://127.0.0.1:29611"),
+                .unwrap_or("http://127.0.0.1:29711"),
         );
     let keys = sync::ScanKeys::new(wallet)?;
     let mut cache = open_cache(wallet, path, request);
@@ -531,7 +531,7 @@ async fn dispatch(request: &Value) -> Result<Value> {
     let rpc = RpcClient::new(
         request["rpc_url"]
             .as_str()
-            .unwrap_or("http://127.0.0.1:29611"),
+            .unwrap_or("http://127.0.0.1:29711"),
         token_path.as_deref(),
     )?;
     if op == "resolve_username" {
@@ -590,7 +590,7 @@ async fn dispatch(request: &Value) -> Result<Value> {
         summary["verified_by"] = json!(if is_loopback_url(
             request["rpc_url"]
                 .as_str()
-                .unwrap_or("http://127.0.0.1:29611")
+                .unwrap_or("http://127.0.0.1:29711")
         ) {
             "your own node"
         } else {

@@ -12,10 +12,7 @@ const TESTNET: &[&str] = &[];
 /// v3 onion seeds, reached onion-to-onion without Tor exits. Kept apart from
 /// the lists above because nodes before 0.6 read those and would hand an onion
 /// name to the system resolver.
-const MAINNET_ONION: &[&str] = &[
-    "63zrcbotx6gmffirmb5jjc7sq6s5mnmgx6c4ybrvlvyf72umshuxs2id.onion",
-    "eyr5mbfyaqacrqf536aasjq37wtn4w67riv7q4iid3slvid2gcqzxcid.onion",
-];
+const MAINNET_ONION: &[&str] = &[];
 const PUBLISHED: &str = "https://raw.githubusercontent.com/genoryn/genoryn/main/seeds";
 const MAX_PUBLISHED_BYTES: usize = 16 * 1024;
 const MAX_PUBLISHED_SEEDS: usize = 16;
@@ -25,11 +22,8 @@ const DIRECT_FETCH: (Duration, usize) = (Duration::from_secs(5), 1);
 const TOR_FETCH: (Duration, usize) = (Duration::from_secs(30), 2);
 
 pub fn published_url(network: Network) -> Option<String> {
-    match network {
-        Network::Devnet => Some(format!("{PUBLISHED}/devnet.txt")),
-        Network::Testnet => Some(format!("{PUBLISHED}/testnet.txt")),
-        Network::Mainnet => Some(format!("{PUBLISHED}/mainnet.txt")),
-    }
+    // Named per 1.0 network: nodes of the retired networks read `mainnet.txt`.
+    Some(format!("{PUBLISHED}/{}.txt", network.data_dir_name()))
 }
 
 /// The published onion seed list, read only by hybrid and tor-only nodes.
@@ -172,7 +166,7 @@ mod tests {
         assert!(
             published_url(Network::Mainnet)
                 .unwrap()
-                .ends_with("/seeds/mainnet.txt")
+                .ends_with("/seeds/mainnet-1.0.txt")
         );
         assert!(
             published_url(Network::Devnet)
@@ -195,7 +189,7 @@ mod tests {
         assert!(
             published_onion_url(Network::Mainnet)
                 .unwrap()
-                .ends_with("/seeds/mainnet-onion.txt")
+                .ends_with("/seeds/mainnet-1.0-onion.txt")
         );
         for network in [Network::Devnet, Network::Testnet, Network::Mainnet] {
             for seed in default_onion_seeds(network) {

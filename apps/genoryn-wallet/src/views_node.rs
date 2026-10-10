@@ -353,8 +353,8 @@ impl WalletApp {
                     ("issued_supply", "Issued supply"),
                     ("remaining_supply", "Remaining supply"),
                     ("normal_mining_issued", "Normal mining issued"),
-                    ("bootstrap_issued", "Bootstrap issued"),
-                    ("treasury_issued", "Treasury issued"),
+                    ("early_issued", "Early mining issued (blocks 1-500)"),
+                    ("treasury_issued", "Treasury issued (burned on mainnet)"),
                     ("current_block_reward", "Current block reward"),
                 ] {
                     let value = supply

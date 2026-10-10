@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use serde_json::Value;
 #[derive(Parser)]
 struct Args {
-    #[arg(long, default_value = "http://127.0.0.1:29611")]
+    #[arg(long, default_value = "http://127.0.0.1:29711")]
     node: String,
     #[command(subcommand)]
     command: Command,

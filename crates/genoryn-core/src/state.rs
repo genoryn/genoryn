@@ -463,32 +463,32 @@ mod maturity_tests {
     use super::*;
 
     #[test]
-    #[ignore = "real block proof validation plus synthetic distant-height maturity boundaries"]
-    fn treasury_is_absent_until_unlock_and_witness_then_matches() {
+    #[ignore = "real block proof validation plus maturity boundaries"]
+    fn miner_output_is_absent_until_unlock_and_witness_then_matches() {
         let block =
             Block::decode(include_bytes!("../../../tests/vectors/devnet-block-1.bin")).unwrap();
         let mut state = ChainState::new(Network::Devnet)
             .apply_block(&block, block.header.timestamp, &mut ProofCache::default())
             .unwrap();
-        let treasury = block.body.treasury.as_ref().unwrap().bundle.actions[0].cmx;
+        assert!(
+            block.body.treasury.is_none(),
+            "early blocks pay no treasury"
+        );
         let miner = block.body.miner.bundle.actions[0].cmx;
         assert!(state.mature.is_empty());
         state.mature_at(2).unwrap();
-        assert!(state.mature.is_empty());
+        assert!(state.mature.is_empty(), "devnet maturity is two blocks");
         state.mature_at(3).unwrap();
         assert_eq!(state.mature.len(), 1);
         assert_eq!(state.mature[0].cmx, miner);
-        state.mature_at(emission::TREASURY_LOCK_HEIGHT - 1).unwrap();
-        assert!(state.mature.iter().all(|n| n.cmx != treasury));
-        state.mature_at(emission::TREASURY_LOCK_HEIGHT).unwrap();
-        let index = state.mature.iter().position(|n| n.cmx == treasury).unwrap();
         let commitment =
-            Option::<ExtractedNoteCommitment>::from(ExtractedNoteCommitment::from_bytes(&treasury))
+            Option::<ExtractedNoteCommitment>::from(ExtractedNoteCommitment::from_bytes(&miner))
                 .unwrap();
         assert_eq!(
-            state.witness(index).unwrap().root(commitment).to_bytes(),
+            state.witness(0).unwrap().root(commitment).to_bytes(),
             state.notes_root()
         );
+        assert_eq!(emission::treasury_unlock_height(1), None);
     }
 }
 

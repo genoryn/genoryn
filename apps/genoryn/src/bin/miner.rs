@@ -27,7 +27,7 @@ enum RandomXMode {
 struct Args {
     #[arg(long, default_value = "mainnet")]
     network: String,
-    #[arg(long, default_value = "http://127.0.0.1:29611")]
+    #[arg(long, default_value = "http://127.0.0.1:29711")]
     node: String,
     #[arg(long)]
     token_file: PathBuf,

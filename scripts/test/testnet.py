@@ -18,7 +18,7 @@ def main():
             lab.nodes[name]=subprocess.Popen(command,stdout=log,stderr=log,env=lab.env)
             lab.wait(lambda:lab.get(name,'info'),description='testnet startup')
         lab.wait(lambda:all(lab.get(name,'info')['peer_count']>=1 for name in 'ab'),description='testnet peer connection')
-        infos=[lab.get(name,'info')for name in 'ab'];assert all(info['network']=='testnet' and info['chain_id']=='genoryn-testnet-v1' for info in infos)
+        infos=[lab.get(name,'info')for name in 'ab'];assert all(info['network']=='testnet' and info['chain_id']=='genoryn-testnet-1.0' for info in infos)
         assert infos[0]['genesis_hash']==infos[1]['genesis_hash']
         request={'op':'create','network':'testnet','wallet_path':str(lab.root/'testnet.wallet'),'password':'GENORYN-testnet-test-only-8!'}
         result=subprocess.run([lab.exe('genoryn-wallet-cli'),'--json-stdio'],input=json.dumps(request),capture_output=True,text=True,env=lab.env,timeout=60)
