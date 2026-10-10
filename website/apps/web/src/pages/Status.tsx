@@ -131,7 +131,6 @@ export default function Status() {
             <Stat label="Chain ID" value={<span style={{ 'font-size': '16px' }}>{raw()?.chain_id ?? '—'}</span>} />
             <Stat label="Height" value={heightText()} sub={nodeDown() && s() ? 'last known' : undefined} />
             <Stat label="Network hashrate" value={s() ? formatHashrate(s()!.hashrate) : '—'} />
-            <Stat label="Nodes seen · 24h (estimate)" value={s() ? formatNumber(Math.max(s()!.nodes_24h, s()!.nodes_connected)) : '—'} sub={s() ? `${formatNumber(s()!.nodes_7d)} in 7 days · ${formatNumber(s()!.nodes_all)} all time` : undefined} />
             <Stat label="Connected now · seeds" value={s() ? formatNumber(s()!.nodes_connected) : '—'} sub={s() ? Object.entries(s()!.per_seed ?? {}).map(([k, v]) => `${k}: ${v < 0 ? 'offline' : formatNumber(v)}`).join(' · ') : undefined} />
             <Stat label="Est. miners" value={s() ? `≈ ${formatNumber(s()!.est_miners)}` : '—'} sub="estimate · network hashrate ÷ ~200 H/s per CPU" />
             <Stat label="Reachable nodes" value={s() ? formatNumber(s()!.reachable_24h) : '—'} sub={s() ? `crawler · ${formatNumber(s()!.crawl_addresses)} addresses known` : 'network crawler'} />
@@ -218,7 +217,7 @@ export default function Status() {
               </button>
             </div>
             <p class="hint mt-2">
-              <b>How big is the whole network?</b> GENORYN has no central registry, so nobody can list every node. Three numbers bound it: <b>nodes seen</b> (distinct nodes connected to either public seed — genoryn.io or seed 1 — including home computers behind NAT; every new node meets a seed first), <b>reachable nodes</b> (found by a crawler that walks the network through the peer protocol — only nodes with free inbound slots answer), and <b>estimated miners</b> (network hashrate divided by a typical light-mode CPU). The real network is at least as large as the largest of them.
+              <b>How big is the whole network?</b> GENORYN has no central registry, so nobody can list every node. Two numbers bound it: <b>reachable nodes</b> (found by a crawler that walks the network through the peer protocol — only nodes with free inbound slots answer), and <b>estimated miners</b> (network hashrate divided by a typical light-mode CPU). The real network is at least as large as the largest of them.
             </p>
             <p class="hint mt-2">
               This list shows the connections of this one node (at most 32 at a time — the protocol limit per node). "Last reported height" is what a peer told us when it connected or last announced a block; connected peers keep receiving every new block from us, so a slightly older number does not mean they are behind. The whole network is far larger: GENORYN has no central registry of nodes, and peers reached through Tor are counted but never listed.

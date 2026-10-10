@@ -487,22 +487,78 @@ impl WalletApp {
     }
 }
 /// An amount with the GNR sign before it and the unit after it.
+/// The exact amount with thousands grouped: `54,000.9999`. Never rounded.
+fn grouped_amount(atomic: &str) -> String {
+    let exact = format_atomic(atomic);
+    let (whole, fraction) = exact.split_once('.').unwrap_or((&exact, ""));
+    if !whole.bytes().all(|b| b.is_ascii_digit()) {
+        return exact;
+    }
+    let mut grouped = String::new();
+    for (index, digit) in whole.chars().enumerate() {
+        if index > 0 && (whole.len() - index) % 3 == 0 {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    if fraction.is_empty() {
+        grouped
+    } else {
+        format!("{grouped}.{fraction}")
+    }
+}
+#[cfg(test)]
+mod amount_tests {
+    #[test]
+    fn amounts_are_exact_and_grouped_by_thousands() {
+        assert_eq!(super::grouped_amount("999000000000000"), "999");
+        assert_eq!(super::grouped_amount("54000999900000000"), "54,000.9999");
+        assert_eq!(super::grouped_amount("7000999950000000"), "7,000.99995");
+        assert_eq!(super::grouped_amount("21000000000000000000"), "21,000,000");
+        assert_eq!(super::grouped_amount("1"), "0.000000000001");
+        assert_eq!(super::grouped_amount("x"), "Unavailable");
+    }
+}
+/// The whole amount always shows: a figure wider than the space left shrinks
+/// instead of being cut off.
 fn gnr_amount(ui: &mut egui::Ui, atomic: Option<&str>, size: f32, color: Option<Color32>) {
     let ink = color.unwrap_or_else(|| ui.visuals().text_color());
+    let text = atomic.map(grouped_amount).unwrap_or_else(|| "—".into());
+    let font = |size: f32| {
+        if size >= 24.0 {
+            egui::FontId::new(size, motion::display())
+        } else {
+            egui::FontId::proportional(size)
+        }
+    };
+    let measure = |ui: &egui::Ui, size: f32| {
+        let figure = ui
+            .fonts(|fonts| fonts.layout_no_wrap(text.clone(), font(size), ink))
+            .size()
+            .x;
+        // Sign, unit and spacing scale with the figure.
+        figure + size * (0.82 + 0.45 * 1.7 + 0.44)
+    };
+    let available = ui.available_width();
+    let mut size = size;
+    while size > 12.0 && measure(ui, size) > available {
+        size = (size * 0.92).max(12.0);
+    }
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = size * 0.22;
         let (sign, _) = ui.allocate_exact_size(egui::vec2(size * 0.82, size), egui::Sense::hover());
         icons::paint_sign(ui.painter(), sign, ink);
-        let figure = RichText::new(atomic.map(format_atomic).unwrap_or_else(|| "—".into()))
-            .size(size)
-            .color(ink);
-        ui.label(if size >= 24.0 {
-            figure
-                .family(motion::display())
-                .extra_letter_spacing(-0.04 * size)
-        } else {
-            figure
-        });
+        let figure = RichText::new(&text).size(size).color(ink);
+        ui.add(
+            egui::Label::new(if size >= 24.0 {
+                figure
+                    .family(motion::display())
+                    .extra_letter_spacing(-0.04 * size)
+            } else {
+                figure
+            })
+            .wrap_mode(egui::TextWrapMode::Extend),
+        );
         ui.label(
             RichText::new("GNR")
                 .size((size * 0.45).max(11.0))

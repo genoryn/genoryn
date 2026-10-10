@@ -122,11 +122,6 @@ function Hero() {
               <b>{s() ? `${formatGnr(s()!.issued_supply, 0)} GNR` : '—'}</b>
             </div>
             <div>
-              Nodes seen · 24h
-              <b>{s() ? formatNumber(Math.max(s()!.nodes_24h, s()!.nodes_connected)) : '—'}</b>
-              <small>connected to our seeds · estimate</small>
-            </div>
-            <div>
               Est. miners
               <b>{s() ? `≈ ${formatNumber(s()!.est_miners)}` : '—'}</b>
               <small>network hashrate ÷ ~200 H/s · estimate</small>
@@ -191,7 +186,7 @@ function LiveChain() {
           <Stat label="Hashrate" icon="cpu" value={s() ? formatHashrate(s()!.hashrate) : '—'} sub="difficulty ÷ 60 s target" />
           <Stat label="Avg block time" icon="clock" value={s()?.avg_block_time ? `${s()!.avg_block_time!.toFixed(1)} s` : '—'} sub="last 60 blocks · target 60 s" />
           <Stat label="Miner reward" icon="coins" value={<Gnr gori={s() ? reward(s()!.height + 1).miner.toString() : null} digits={3} />} sub={s() && s()!.height + 1 <= EARLY_BLOCKS ? 'early incentive (blocks 1–500) · fees extra' : 'normal subsidy · fees extra'} />
-          <Stat label="Nodes seen · 24h" icon="globe" value={s() ? formatNumber(Math.max(s()!.nodes_24h, s()!.nodes_connected)) : '—'} sub={s() ? `estimate · seen on our seeds · ≈ ${formatNumber(s()!.est_miners)} miners from hashrate` : 'estimate'} />
+          <Stat label="Issued supply" icon="coins" value={s() ? `${formatGnr(s()!.issued_supply, 0)} GNR` : '—'} sub="of 21,000,000 GNR maximum" />
         </div>
         <div class="card mt-3 reveal" style={{ padding: '22px' }}>
           <div class="panel-title">
