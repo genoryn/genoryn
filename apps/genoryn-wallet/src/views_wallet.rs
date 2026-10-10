@@ -518,11 +518,45 @@ impl WalletApp {
                 );
             }
             ui.add_space(10.0);
+            // Narrow cards (the side column) put the balance under the name.
+            let compact = ui.available_width() < 560.0;
             let mut row = |ui: &mut egui::Ui,
                            path: &str,
                            balance: Option<&str>,
                            height: Option<u64>,
                            index: Option<usize>| {
+                let scanned = height
+                    .map(|height| format!("scanned to block {height}"))
+                    .unwrap_or_else(|| "not scanned".into());
+                let mut action = |ui: &mut egui::Ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        match index {
+                            Some(index) => {
+                                if ui.button("Switch").clicked() {
+                                    switch_to = Some(index);
+                                }
+                            }
+                            None => {
+                                ui.label(RichText::new("ACTIVE").small().strong());
+                            }
+                        }
+                    });
+                };
+                if compact {
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::Label::new(RichText::new(sessions::wallet_name(path)).strong())
+                                .truncate(),
+                        );
+                        action(ui);
+                    });
+                    ui.horizontal(|ui| {
+                        gnr_amount(ui, balance, 15.0, None);
+                        ui.label(RichText::new(scanned).small().color(GRAY));
+                    });
+                    return;
+                }
                 ui.horizontal(|ui| {
                     ui.add_sized(
                         [190.0, 24.0],
@@ -533,27 +567,8 @@ impl WalletApp {
                         ui.horizontal(|ui| gnr_amount(ui, balance, 15.0, None))
                             .response
                     });
-                    ui.label(
-                        RichText::new(
-                            height
-                                .map(|height| format!("scanned to block {height}"))
-                                .unwrap_or_else(|| "not scanned".into()),
-                        )
-                        .small()
-                        .color(GRAY),
-                    );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        match index {
-                            Some(index) => {
-                                if ui.button("Switch").clicked() {
-                                    switch_to = Some(index);
-                                }
-                            }
-                            None => {
-                                ui.label(RichText::new("ACTIVE").small());
-                            }
-                        }
-                    });
+                    ui.label(RichText::new(scanned).small().color(GRAY));
+                    action(ui);
                 });
             };
             row(
@@ -577,16 +592,39 @@ impl WalletApp {
             self.switch_wallet(index);
         }
     }
+    /// The active wallet comes first. Other open wallets are listed beside it
+    /// when the window is wide enough, otherwise below it.
     pub(super) fn overview(&mut self, ui: &mut egui::Ui) {
         heading(ui, "Overview", "Private by design. Finite by protocol.");
         if !self.wallet_gate(ui) {
             return;
         }
         ui.add_space(22.0);
-        if !self.sessions.is_empty() {
-            self.all_wallets_card(ui);
+        let width = ui.available_width();
+        if self.sessions.is_empty() {
+            self.overview_main(ui);
+        } else if width >= OVERVIEW_SIDE_BY_SIDE {
+            let gap = 20.0;
+            let side = (width * 0.32).clamp(300.0, 440.0);
+            let main = width - side - gap;
+            ui.horizontal_top(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_width(main);
+                    self.overview_main(ui);
+                });
+                ui.add_space(gap);
+                ui.vertical(|ui| {
+                    ui.set_width(side);
+                    self.all_wallets_card(ui);
+                });
+            });
+        } else {
+            self.overview_main(ui);
             ui.add_space(20.0);
+            self.all_wallets_card(ui);
         }
+    }
+    fn overview_main(&mut self, ui: &mut egui::Ui) {
         card(ui, |ui| {
             ui.label(
                 RichText::new(format!(
@@ -1088,6 +1126,8 @@ impl WalletApp {
 }
 
 const HISTORY_PAGE: usize = 50;
+/// Content width from which the Overview shows open wallets beside the active one.
+const OVERVIEW_SIDE_BY_SIDE: f32 = 1060.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Category {

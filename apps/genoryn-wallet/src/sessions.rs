@@ -228,6 +228,8 @@ impl WalletApp {
             }
             session.detail = Some(controller::sync_detail(result));
             session.last_sync = Some(Instant::now());
+            let path = session.path.clone();
+            self.notifier.observe(&path, result);
             if let Some(address) = result["address"].as_str() {
                 session.address = address.into();
             }

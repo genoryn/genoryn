@@ -52,6 +52,7 @@ impl WalletApp {
             protocol::wipe_json(detail);
         }
         self.sync_detail = None;
+        self.notifier.clear();
         self.preview = None;
         self.proofs = payment_proof::ProofUi::default();
         self.to.zeroize();
@@ -305,6 +306,7 @@ impl WalletApp {
                                     self.history =
                                         result["history"].as_array().cloned().unwrap_or_default();
                                     self.sync_detail = Some(sync_detail(result));
+                                    self.notifier.observe(&self.settings.wallet_path, result);
                                     self.last_sync = Some(Instant::now());
                                     if let Some(address) = result["address"].as_str() {
                                         self.address = address.into();

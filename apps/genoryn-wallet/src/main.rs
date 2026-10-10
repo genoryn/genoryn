@@ -10,6 +10,7 @@ mod names_ui;
 mod network_privacy;
 mod network_transition;
 mod node_controls;
+mod notifications;
 mod payment_proof;
 mod payment_uri;
 mod preferences;
@@ -267,6 +268,8 @@ struct WalletApp {
     names: names_ui::NamesUi,
     /// The Tor-only warning before opening the Explorer in a browser.
     explorer_confirm: bool,
+    /// One-time notices about received, outgoing and mined payments.
+    notifier: notifications::Notifier,
 }
 impl WalletApp {
     fn new(cc: &eframe::CreationContext<'_>, settings: Settings) -> Self {
@@ -401,6 +404,7 @@ impl WalletApp {
             tx_view: views_wallet::HistoryView::default(),
             names: names_ui::NamesUi::default(),
             explorer_confirm: false,
+            notifier: notifications::Notifier::default(),
         };
         app.prepare_wallet_form(wallet_mode);
         app
@@ -813,7 +817,13 @@ impl eframe::App for WalletApp {
                     .show(ui, |ui| {
                         ui.set_opacity(shown);
                         ui.add_space(10.0 * (1.0 - shown));
-                        ui.set_max_width(ui.available_width().min(1040.0));
+                        // Overview and Transactions use wide windows; forms stay readable.
+                        let limit = match self.page {
+                            0 => 1600.0,
+                            3 => 1280.0,
+                            _ => 1040.0,
+                        };
+                        ui.set_max_width(ui.available_width().min(limit));
                         match self.page {
                             0 => self.overview(ui),
                             1 => self.send(ui),
@@ -831,6 +841,7 @@ impl eframe::App for WalletApp {
         self.node_log_window(ctx);
         self.name_confirm_window(ctx);
         self.explorer_confirm_window(ctx);
+        self.toasts_overlay(ctx);
         if let Some(preview) = self.preview.clone() {
             egui::Window::new("Confirm private payment").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER,[0.0,0.0]).default_width(480.0).show(ctx,|ui|{
                 ui.label("Review carefully. A confirmed blockchain payment cannot be reversed.");ui.add_space(14.0);ui.label(format!("Recipient: {}",preview.to));ui.label(format!("Amount: {} GNR",format_atomic(&preview.amount)));ui.label(format!("Fee: {} GNR",format_atomic(&preview.fee)));ui.label("Network: GENORYN mainnet");ui.add_space(16.0);ui.horizontal(|ui|{
