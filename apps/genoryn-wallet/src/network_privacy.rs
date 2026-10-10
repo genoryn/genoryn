@@ -245,6 +245,9 @@ pub(super) fn http_client(proxy: Option<&str>) -> Result<reqwest::ClientBuilder>
     })
 }
 pub(super) const MAX_LIGHT_SOURCES: usize = 8;
+/// Remote nodes Quick mode starts with: the project's published public API
+/// onion service. One operator; add independent nodes for better assurance.
+pub(super) const DEFAULT_QUICK_SOURCES: &[&str] = &[];
 /// Operations that never contact a node.
 const OFFLINE_OPS: [&str; 6] = [
     "create",
@@ -504,15 +507,38 @@ impl WalletApp {
                 }
             }
             ui.add_space(10.0);
-            if ui
-                .checkbox(
-                    &mut self.preferences.light_wallet,
-                    "Light wallet: no node of its own, remote nodes over Tor",
-                )
-                .changed()
-            {
-                self.save_preferences();
-            }
+            small_title(ui, "WALLET MODE");
+            ui.horizontal(|ui| {
+                for (quick, label) in [(false, "Full mode"), (true, "Quick mode")] {
+                    if ui
+                        .add(
+                            egui::Button::new(label)
+                                .selected(self.preferences.light_wallet == quick),
+                        )
+                        .clicked()
+                        && self.preferences.light_wallet != quick
+                    {
+                        self.preferences.light_wallet = quick;
+                        if quick && self.preferences.light_sources.is_empty() {
+                            self.preferences.light_sources = DEFAULT_QUICK_SOURCES
+                                .iter()
+                                .map(|source| (*source).to_owned())
+                                .collect();
+                        }
+                        self.save_preferences();
+                        self.last_auto_scan = Instant::now() - self.auto_scan_interval();
+                    }
+                }
+            });
+            ui.label(
+                RichText::new(if self.preferences.light_wallet {
+                    "Quick mode: no node of your own. Blocks come from remote nodes over Tor and every one is validated on this computer; keys, signing and balance stay here."
+                } else {
+                    "Full mode: your own node validates the chain independently. Switching keeps keys, scan progress, pending payments and mining history."
+                })
+                .small()
+                .color(GRAY),
+            );
             if self.preferences.light_wallet {
                 ui.label("Remote nodes, one per line (onion or HTTPS public RPC address)");
                 let mut text = self.preferences.light_sources.join("\n");

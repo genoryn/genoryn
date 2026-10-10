@@ -14,6 +14,7 @@ pub(super) struct WalletSession {
     pub spendable: Option<String>,
     pub height: Option<u64>,
     pub history: Vec<Value>,
+    pub detail: Option<Value>,
     pub last_sync: Option<Instant>,
 }
 impl Drop for WalletSession {
@@ -21,6 +22,9 @@ impl Drop for WalletSession {
         self.address.zeroize();
         for value in &mut self.history {
             protocol::wipe_json(value);
+        }
+        if let Some(detail) = &mut self.detail {
+            protocol::wipe_json(detail);
         }
     }
 }
@@ -89,6 +93,7 @@ impl WalletApp {
             spendable: self.spendable.take(),
             height: self.wallet_height.take(),
             history: std::mem::take(&mut self.history),
+            detail: self.sync_detail.take(),
             last_sync: self.last_sync.take(),
         })
     }
@@ -102,6 +107,7 @@ impl WalletApp {
         self.spendable = session.spendable.take();
         self.wallet_height = session.height.take();
         self.history = std::mem::take(&mut session.history);
+        self.sync_detail = session.detail.take();
         self.last_sync = session.last_sync.take();
         self.unlocked = true;
         self.adding_wallet = false;
@@ -217,6 +223,10 @@ impl WalletApp {
                 protocol::wipe_json(value);
             }
             session.history = result["history"].as_array().cloned().unwrap_or_default();
+            if let Some(detail) = &mut session.detail {
+                protocol::wipe_json(detail);
+            }
+            session.detail = Some(controller::sync_detail(result));
             session.last_sync = Some(Instant::now());
             if let Some(address) = result["address"].as_str() {
                 session.address = address.into();
@@ -294,6 +304,7 @@ impl WalletApp {
                 spendable: None,
                 height: None,
                 history: Vec::new(),
+                detail: None,
                 last_sync: None,
             });
             self.status = format!("Also unlocked {}.", wallet_name(path));
@@ -466,6 +477,7 @@ mod tests {
             spendable: balance.map(str::to_owned),
             height: Some(3),
             history: Vec::new(),
+            detail: None,
             last_sync: None,
         }
     }

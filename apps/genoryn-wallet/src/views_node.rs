@@ -573,6 +573,8 @@ impl WalletApp {
         ui.add_space(18.0);
         self.updates_card(ui);
         ui.add_space(18.0);
+        self.about_card(ui);
+        ui.add_space(18.0);
         card(ui, |ui| {
             small_title(ui, "EXPERIMENTAL SOFTWARE");
             ui.label(format!(

@@ -18,6 +18,7 @@ mod reference_value;
 mod sessions;
 mod updates;
 mod views_node;
+mod views_status;
 mod views_wallet;
 use anyhow::{Context, Result, ensure};
 use eframe::egui::{self, Color32, RichText, Stroke};
@@ -222,6 +223,9 @@ struct WalletApp {
     page_since: (usize, Instant),
     wallet_height: Option<u64>,
     history: Vec<Value>,
+    /// The rest of the last scan: mining rewards, outgoing payments, wallet
+    /// mode, staleness and reserved amounts.
+    sync_detail: Option<Value>,
     last_sync: Option<Instant>,
     last_auto_scan: Instant,
     auto_scan_running: bool,
@@ -261,6 +265,8 @@ struct WalletApp {
     wallet_files: Option<(String, Instant, Vec<String>)>,
     tx_view: views_wallet::HistoryView,
     names: names_ui::NamesUi,
+    /// The Tor-only warning before opening the Explorer in a browser.
+    explorer_confirm: bool,
 }
 impl WalletApp {
     fn new(cc: &eframe::CreationContext<'_>, settings: Settings) -> Self {
@@ -355,6 +361,7 @@ impl WalletApp {
             page_since: (0, Instant::now()),
             wallet_height: None,
             history: Vec::new(),
+            sync_detail: None,
             last_sync: None,
             last_auto_scan: Instant::now(),
             auto_scan_running: false,
@@ -393,6 +400,7 @@ impl WalletApp {
             wallet_files: None,
             tx_view: views_wallet::HistoryView::default(),
             names: names_ui::NamesUi::default(),
+            explorer_confirm: false,
         };
         app.prepare_wallet_form(wallet_mode);
         app
@@ -647,6 +655,10 @@ impl eframe::App for WalletApp {
                     }
                     ui.add_space(3.0);
                 }
+                ui.add_space(14.0);
+                ui.separator();
+                ui.add_space(6.0);
+                self.explorer_link(ui);
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.label(
                         RichText::new("EXPERIMENTAL · NOT AUDITED")
@@ -818,6 +830,7 @@ impl eframe::App for WalletApp {
         self.update_notice(ctx);
         self.node_log_window(ctx);
         self.name_confirm_window(ctx);
+        self.explorer_confirm_window(ctx);
         if let Some(preview) = self.preview.clone() {
             egui::Window::new("Confirm private payment").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER,[0.0,0.0]).default_width(480.0).show(ctx,|ui|{
                 ui.label("Review carefully. A confirmed blockchain payment cannot be reversed.");ui.add_space(14.0);ui.label(format!("Recipient: {}",preview.to));ui.label(format!("Amount: {} GNR",format_atomic(&preview.amount)));ui.label(format!("Fee: {} GNR",format_atomic(&preview.fee)));ui.label("Network: GENORYN mainnet");ui.add_space(16.0);ui.horizontal(|ui|{

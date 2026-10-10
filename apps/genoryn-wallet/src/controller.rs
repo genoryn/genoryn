@@ -5,6 +5,28 @@ use super::*;
 pub(super) fn is_scan_label(label: &str) -> bool {
     label == "sync" || label.starts_with("sync@")
 }
+/// The parts of a scan result shown besides balance and history.
+pub(super) fn sync_detail(result: &Value) -> Value {
+    let mut detail = serde_json::Map::new();
+    for key in [
+        "mined",
+        "outbox",
+        "mode",
+        "verified_by",
+        "stale",
+        "offline_reason",
+        "reserved_atomic",
+        "pending_atomic",
+        "light_sources",
+        "sync_stats",
+        "birthday",
+    ] {
+        if let Some(value) = result.get(key) {
+            detail.insert(key.into(), value.clone());
+        }
+    }
+    Value::Object(detail)
+}
 
 impl WalletApp {
     pub(super) fn lock(&mut self) {
@@ -26,6 +48,10 @@ impl WalletApp {
             protocol::wipe_json(value);
         }
         self.history.clear();
+        if let Some(detail) = &mut self.sync_detail {
+            protocol::wipe_json(detail);
+        }
+        self.sync_detail = None;
         self.preview = None;
         self.proofs = payment_proof::ProofUi::default();
         self.to.zeroize();
@@ -278,6 +304,7 @@ impl WalletApp {
                                     self.wallet_height = result["height"].as_u64();
                                     self.history =
                                         result["history"].as_array().cloned().unwrap_or_default();
+                                    self.sync_detail = Some(sync_detail(result));
                                     self.last_sync = Some(Instant::now());
                                     if let Some(address) = result["address"].as_str() {
                                         self.address = address.into();

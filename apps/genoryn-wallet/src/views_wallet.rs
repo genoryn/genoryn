@@ -465,7 +465,12 @@ impl WalletApp {
             {
                 match self.wallet_mode {
                     0 => self.request("open", json!({})),
-                    1 => self.request("create", json!({})),
+                    // A new seed starts scanning near the height the node has
+                    // verified; offline it scans from genesis.
+                    1 => {
+                        let birthday = self.node_info.as_ref().map(|node| node.info.height);
+                        self.request("create", json!({"birthday_height": birthday}))
+                    }
                     _ => {
                         let extra = SecretJson(json!({"seed_phrase":self.seed_input.trim()}));
                         self.request("restore", extra.0.clone());
@@ -606,7 +611,13 @@ impl WalletApp {
                 );
             }
             ui.add_space(8.0);
-            gnr_amount(ui, self.balance.as_deref(), 46.0, None);
+            gnr_amount(
+                ui,
+                self.balance.as_deref(),
+                46.0,
+                self.balance_is_stale().then_some(GRAY),
+            );
+            self.balance_state(ui);
             if let Some(name) = self.mining_elsewhere() {
                 ui.label(
                     RichText::new(format!(
@@ -654,6 +665,21 @@ impl WalletApp {
                 );
                 gnr_amount(ui, pending.map(|v| v.to_string()).as_deref(), 15.0, None);
             });
+            let reserved = self
+                .sync_detail
+                .as_ref()
+                .and_then(|detail| detail["reserved_atomic"].as_str())
+                .filter(|amount| *amount != "0")
+                .map(str::to_owned);
+            if let Some(reserved) = reserved {
+                ui.horizontal(|ui| {
+                    ui.add_sized(
+                        [180.0, 22.0],
+                        egui::Label::new(RichText::new("Held by pending payments").color(GRAY)),
+                    );
+                    gnr_amount(ui, Some(&reserved), 15.0, None);
+                });
+            }
             ui.add_space(18.0);
             ui.horizontal(|ui| {
                 if ui.button("Send GNR").clicked() {
@@ -706,6 +732,8 @@ impl WalletApp {
                 ui.label(RichText::new(&self.settings.rpc_url).small().color(GRAY));
             });
         });
+        ui.add_space(20.0);
+        self.mining_overview(ui);
         ui.add_space(20.0);
         ui.label(RichText::new("Balances come from your local wallet scan. Public APIs cannot look up private wallet balances.").color(GRAY));
     }
@@ -924,13 +952,14 @@ impl WalletApp {
             ui.label("A submission is not a confirmation. Scan mined blocks to check its state.");
             ui.add_space(12.0);
         }
+        self.outbox_card(ui);
         let target = self.settings.confirmation_target;
         let transfers = self
             .history
             .iter()
             .filter(|item| category(item) == Category::Transfers)
             .count();
-        let mined = self.history.len() - transfers;
+        let mined = self.rewards().len();
         ui.horizontal(|ui| {
             for (mined_tab, label) in [
                 (false, format!("Transfers  {transfers}")),
@@ -963,6 +992,14 @@ impl WalletApp {
             });
         });
         ui.add_space(10.0);
+        if self.tx_view.mined {
+            if self.last_sync.is_none() {
+                ui.label("No wallet scan has completed yet.");
+            } else {
+                self.mined_rewards(ui);
+            }
+            return;
+        }
         ui.horizontal(|ui| {
             let search = ui.add(
                 field(&mut self.tx_view.search)
@@ -1002,29 +1039,6 @@ impl WalletApp {
             }
         });
         ui.add_space(14.0);
-        if self.tx_view.mined {
-            let total = sessions::sum_balances(
-                self.history
-                    .iter()
-                    .filter(|item| category(item) == Category::Mined)
-                    .map(|item| item["amount_atomic"].as_str()),
-            )
-            .0;
-            card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        small_title(ui, "TOTAL MINED BY THIS WALLET");
-                        gnr_amount(ui, Some(&total.to_string()), 26.0, None);
-                    });
-                    ui.add_space(40.0);
-                    ui.vertical(|ui| {
-                        small_title(ui, "REWARDED BLOCKS");
-                        ui.label(RichText::new(mined.to_string()).size(26.0));
-                    });
-                });
-            });
-            ui.add_space(12.0);
-        }
         if self.last_sync.is_none() {
             ui.label("No wallet scan has completed yet.");
             return;
@@ -1122,6 +1136,7 @@ impl StatusFilter {
 #[derive(Default)]
 pub(super) struct HistoryView {
     pub mined: bool,
+    pub rewards: views_status::RewardFilter,
     pub search: String,
     pub direction: Direction,
     pub status: StatusFilter,
