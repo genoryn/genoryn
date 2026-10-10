@@ -1,11 +1,64 @@
 #!/usr/bin/env python3
 """Real-process devnet release checks. Never uses a mock consensus/proof backend."""
-import argparse, datetime, json, os, pathlib, socket, subprocess, sys, time, urllib.request, urllib.error, shutil
+import argparse, datetime, json, os, pathlib, socket, subprocess, sys, threading, time, urllib.request, urllib.error, shutil
 from contextlib import closing
 
 def free_port():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0)); return s.getsockname()[1]
+
+QUICK_ONION = "genorynquickmodetestsourcexxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion"
+
+class OnionProxy:
+    """Stand-in for Tor's SOCKS port: forwards one onion name to a local node and
+    refuses everything else, so Quick mode is exercised without the Tor network."""
+    def __init__(self, target_port):
+        self.target_port = target_port; self.requests = []
+        self.server = socket.socket(); self.server.bind(("127.0.0.1", 0)); self.server.listen(32)
+        self.address = "127.0.0.1:%d" % self.server.getsockname()[1]
+        threading.Thread(target=self.accept, daemon=True).start()
+    def accept(self):
+        while True:
+            try: client, _ = self.server.accept()
+            except OSError: return
+            threading.Thread(target=self.serve, args=(client,), daemon=True).start()
+    @staticmethod
+    def read(sock, n):
+        data = b""
+        while len(data) < n:
+            chunk = sock.recv(n - len(data))
+            if not chunk: raise OSError("closed")
+            data += chunk
+        return data
+    def serve(self, client):
+        try:
+            version, count = self.read(client, 2); methods = self.read(client, count)
+            if 2 in methods:
+                client.sendall(b"\x05\x02"); _, ulen = self.read(client, 2); self.read(client, ulen)
+                plen = self.read(client, 1)[0]; self.read(client, plen); client.sendall(b"\x01\x00")
+            else:
+                client.sendall(b"\x05\x00")
+            _, command, _, atyp = self.read(client, 4)
+            if atyp != 3: client.sendall(b"\x05\x08\x00\x01" + b"\x00" * 6); return
+            host = self.read(client, self.read(client, 1)[0]).decode(); self.read(client, 2)
+            self.requests.append(host)
+            if host != QUICK_ONION: client.sendall(b"\x05\x04\x00\x01" + b"\x00" * 6); return
+            upstream = socket.create_connection(("127.0.0.1", self.target_port))
+            client.sendall(b"\x05\x00\x00\x01" + b"\x00" * 6)
+            def pump(a, b):
+                try:
+                    while True:
+                        data = a.recv(65536)
+                        if not data: break
+                        b.sendall(data)
+                except OSError: pass
+                finally:
+                    try: b.shutdown(socket.SHUT_WR)
+                    except OSError: pass
+            threading.Thread(target=pump, args=(upstream, client), daemon=True).start()
+            pump(client, upstream)
+        except OSError:
+            pass
 
 class Lab:
     def __init__(self, args):
@@ -51,7 +104,8 @@ class Lab:
             time.sleep(0.5)
         raise AssertionError(f"Timed out: {description} ({last})")
     def wallet(self,name,op,node="a",**fields):
-        request=dict(op=op,network="devnet",wallet_path=str(self.root/f"{name}.wallet"),password="GENORYN-local-test-only-7!",rpc_url=self.url(node),token_file=str(self.root/node/"admin.token"),**fields)
+        request=dict(op=op,network="devnet",wallet_path=str(self.root/f"{name}.wallet"),password="GENORYN-local-test-only-7!",rpc_url=self.url(node),token_file=str(self.root/node/"admin.token"))
+        request.update(fields)
         started=time.perf_counter()
         p=subprocess.run([self.exe("genoryn-wallet-cli"),"--json-stdio"],input=json.dumps(request),capture_output=True,text=True,env=self.env,timeout=600)
         if p.returncode:raise AssertionError(f"wallet {op} process failed: {p.stderr[-1000:]}")
@@ -84,12 +138,24 @@ class Lab:
         self.record('derived_account_and_receiving_index_recover')
         self.mine("a",alice["address"],4);self.sync("abc",4)
         summary=self.wallet("alice","sync");assert int(summary["spendable_atomic"])>10**12
+        # Blocks 1-4 pay the early subsidy of exactly 1,000 GNR each.
+        assert summary["balance_atomic"]==str(4*1000*10**12),summary["balance_atomic"]
+        mined={r["height"]:r["status"] for r in summary["mined"]}
+        assert mined=={1:"Mature",2:"Mature",3:"JustMined",4:"JustMined"},mined
+        self.record("early_subsidy_and_reward_maturity_statuses",mined=mined)
         supply=self.get("a","supply");calculator=json.loads(subprocess.check_output([self.exe("genoryn-emission"),"--height","4"],env=self.env))
         assert supply==calculator
         self.record("real_randomx_mining_and_supply",height=4,issued_gori=supply["issued_supply"])
         sent=self.wallet("alice","send",to=bob_payment_address,amount_atomic="1000000000000",fee_atomic="10000000",memo="private devnet invoice")
+        assert sent["acknowledged"] is True and sent["status"]=="Submitted",sent
+        pending=self.wallet("alice","sync")
+        assert [e["status"] for e in pending["outbox"]]==["Submitted"] and int(pending["reserved_atomic"])>0,pending["outbox"]
         self.wait(lambda:self.get("b","info")["mempool_count"]==1,description="transaction gossip")
         self.mine("a",alice["address"],1);self.sync("abc",5)
+        settled=self.wallet("alice","sync")
+        assert settled["outbox"][0]["status"]=="Confirmed" and settled["outbox"][0]["confirmed_height"]==5,settled["outbox"]
+        assert settled["reserved_atomic"]=="0"
+        self.record("durable_outbox_confirms_and_releases_reservation",txid=sent["txid"])
         bobscan=self.wallet("bob","sync",node="b");carolscan=self.wallet("carol","sync",node="c")
         assert int(bobscan["balance_atomic"])==10**12;assert int(carolscan["balance_atomic"])==0
         blocks=self.get("a","blocks?from=5&limit=1");payment=blocks[0]["body"]["transactions"][0]
@@ -127,6 +193,8 @@ class Lab:
         self.record("seed_recovery_restores_private_balance")
         self.stop("c");self.mine("a",alice["address"],2);self.sync("ab",9);self.start("c",["a"]);self.sync("abc",9)
         self.record("offline_node_catches_up_after_restart")
+        self.lost_acknowledgement(alice,carol)
+        self.quick_mode(alice,carol)
         if not self.args.quick:self.reorg(alice["address"])
         height=self.get("a","info")["height"];tip=self.get("a","info")["best_hash"]
         for n in "abc":self.stop(n)
@@ -138,6 +206,61 @@ class Lab:
         if self.args.keep:
             # Test-only public receiver metadata, no seed/password. Useful for native UI QA.
             (self.root/"lab-public.json").write_text(json.dumps({"ports":self.ports,"alice_address":alice["address"],"height":height},indent=2))
+    def lost_acknowledgement(self,alice,carol):
+        """The node refuses the first relay (as if its answer were lost); the
+        payment stays stored and reserved, and the same signed bytes are relayed
+        again later. It confirms once, with no second spend."""
+        wrong=self.root/"wrong.token";wrong.write_text("0"*64)
+        height=self.get("a","info")["height"]
+        before=int(self.wallet("carol","sync")["balance_atomic"])
+        first=self.wallet("alice","send",to=carol["address"],amount_atomic="300000000000",fee_atomic="10000000",token_file=str(wrong))
+        assert first["status"]=="Pending" and first["acknowledged"] is False,first
+        assert self.get("a","info")["mempool_count"]==0,"nothing reached the node"
+        held=self.wallet("alice","sync",token_file=str(wrong))
+        assert held["outbox"][0]["txid"]==first["txid"] and held["outbox"][0]["status"]=="Pending"
+        assert int(held["reserved_atomic"])>0,"its coins stay reserved"
+        time.sleep(16)
+        retried=self.wallet("alice","sync")
+        entry=[e for e in retried["outbox"] if e["txid"]==first["txid"]][0]
+        assert entry["status"]=="Submitted" and entry["attempts"]>=2,entry
+        self.mine("a",alice["address"],1);self.sync("abc",height+1)
+        done=self.wallet("alice","sync")
+        entry=[e for e in done["outbox"] if e["txid"]==first["txid"]][0]
+        assert entry["status"]=="Confirmed",entry
+        after=int(self.wallet("carol","sync")["balance_atomic"])
+        assert after-before==300000000000,(before,after)
+        self.record("lost_acknowledgement_retries_same_bytes_without_double_spend",txid=first["txid"])
+    def quick_mode(self,alice,carol):
+        """Quick mode over a SOCKS stand-in for Tor: the chain is downloaded from a
+        remote node, validated here, kept, and later extended incrementally."""
+        proxy=OnionProxy(self.ports["b"][1])
+        quick=dict(light=True,sources=[f"http://{QUICK_ONION}:{self.ports['b'][1]}"],tor_socks=proxy.address)
+        full=self.wallet("alice","sync")
+        # A separate restored copy of Alice's wallet, scanned only through Quick mode.
+        self.wallet("alice-quick","restore",seed_phrase=alice["seed_phrase"])
+        first=self.wallet("alice-quick","sync",**quick)
+        assert first["mode"]=="quick" and first["stale"] is False,first.get("light_sources")
+        assert first["balance_atomic"]==full["balance_atomic"] and first["height"]==full["height"]
+        assert first["light_sources"][0]["status"]=="used",first["light_sources"]
+        assert all(host==QUICK_ONION for host in proxy.requests),"only the onion source was contacted"
+        height=self.get("a","info")["height"]
+        before=int(self.wallet("carol","sync")["balance_atomic"])
+        sent=self.wallet("alice-quick","send",to=carol["address"],amount_atomic="50000000000",fee_atomic="10000000",**quick)
+        assert sent["acknowledged"] is True,sent
+        self.wait(lambda:self.get("a","info")["mempool_count"]==1,description="quick payment gossip to the miner")
+        self.mine("a",alice["address"],1);self.sync("abc",height+1)
+        again=self.wallet("alice-quick","sync",**quick)
+        stats=again["sync_stats"]
+        assert stats["replayed_local_blocks"]==height and stats["fork_height"]==height,stats
+        assert [e["status"] for e in again["outbox"] if e["txid"]==sent["txid"]]==["Confirmed"]
+        assert int(self.wallet("carol","sync")["balance_atomic"])-before==50000000000
+        switched=self.wallet("alice-quick","sync")
+        assert switched["balance_atomic"]==again["balance_atomic"],"Full and Quick agree after switching"
+        assert switched["balance_atomic"]==self.wallet("alice","sync")["balance_atomic"]
+        proxy.server.close()
+        dead=self.wallet("alice-quick","sync",**quick)
+        assert dead["stale"] is True and dead["balance_atomic"]==again["balance_atomic"],"stale, never zero"
+        self.record("quick_mode_validates_locally_sends_and_syncs_incrementally",replay_ms=stats["replay_ms"],total_ms=stats["total_ms"])
     def reorg(self,address):
         # Snapshot a stopped peer, mine different genuine-work branches, reconnect.
         import sqlite3
@@ -145,13 +268,22 @@ class Lab:
         (self.root/"d").mkdir(exist_ok=True)
         with closing(sqlite3.connect(self.root/"c"/"chain.sqlite"))as source,closing(sqlite3.connect(self.root/"d"/"chain.sqlite"))as target:source.backup(target)
         self.start("d")
-        self.mine("a",address,1);self.sync("ab",10)
-        self.mine("d",address,3);assert self.get("d","info")["height"]==12
+        base=self.get("a","info")["height"]
+        self.mine("a",address,1);self.sync("ab",base+1)
+        seen=self.wallet("alice","sync")
+        replaced_hash=[r for r in seen["mined"] if r["height"]==base+1][0]["block_hash"]
+        self.mine("d",address,3);assert self.get("d","info")["height"]==base+3
         branch_tip=self.get("d","info")["best_hash"]
         self.stop("d");self.start("d",["a"])
         self.wait(lambda:self.get("a","info")["best_hash"]==branch_tip,timeout=360,description="heavier fork reorganization")
-        self.start("c",["a"]);self.sync("abc",12)
-        self.record("real_competing_chain_reorganization",height=12)
+        self.start("c",["a"]);self.sync("abc",base+3)
+        after=self.wallet("alice","sync")
+        at=[r for r in after["mined"] if r["height"]==base+1]
+        statuses={r["block_hash"]:r["status"] for r in at}
+        assert statuses.get(replaced_hash)=="Replaced",statuses
+        assert len(at)==2,"the replaced reward is kept beside the new canonical one"
+        assert sum(1 for r in after["mined"] if r["status"]=="Replaced")==1
+        self.record("real_competing_chain_reorganization_keeps_replaced_reward",height=base+3)
     def finish(self):
         for n in list(self.nodes):self.stop(n)
         propagation=[]
