@@ -33,17 +33,17 @@ fn main() -> Result<()> {
         pow::randomx(block.header.pow_seed, &block.header.bytes()?)?;
     }
     let randomx_warm_ms = start.elapsed().as_secs_f64() * 1000.0 / 10.0;
-    let treasury = block
-        .body
-        .treasury
-        .as_ref()
-        .expect("fixture treasury")
-        .bundle
-        .to_bundle()?;
+    // The fixture's coinbase pays the public devnet test address, so its viewing key
+    // decrypts the output exactly as a wallet scanning its own notes would.
+    let coinbase = block.body.miner.bundle.to_bundle()?;
     let ivk = FullViewingKey::from(&privacy::treasury_key(Network::Devnet)).to_ivk(Scope::External);
+    anyhow::ensure!(
+        coinbase.decrypt_output_with_key(0, &ivk).is_some(),
+        "fixture output must be decryptable by the test key"
+    );
     let start = Instant::now();
     for _ in 0..1000 {
-        std::hint::black_box(treasury.decrypt_output_with_key(0, &ivk));
+        std::hint::black_box(coinbase.decrypt_output_with_key(0, &ivk));
     }
     let scan_us = start.elapsed().as_secs_f64() * 1e6 / 1000.0;
     let start = Instant::now();
