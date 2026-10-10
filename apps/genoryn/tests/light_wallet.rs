@@ -170,6 +170,22 @@ async fn a_source_serving_invalid_data_is_rejected_and_never_followed() {
 }
 
 #[tokio::test]
+async fn a_sync_no_source_confirmed_is_stale_never_a_verified_zero() {
+    let network = Network::Devnet;
+    // Answers its status, then fails every block download.
+    let broken = Remote {
+        info: info(network, 2, &"11".repeat(32)),
+        garbage: Some(json!({"error": "unavailable"})),
+        ..honest(network)
+    };
+    let s = setup(vec![broken]).await;
+    let verified = sync_from(network, &s, Vec::new(), ChainState::new(network)).await;
+    assert_eq!(verified.reachable, 1, "the source did answer its status");
+    assert!(verified.is_stale(), "{:?}", verified.reports);
+    assert_eq!(verified.used, None);
+}
+
+#[tokio::test]
 async fn sources_on_another_network_or_a_forged_genesis_tip_are_reported() {
     let network = Network::Devnet;
     let other_network = Remote {
@@ -344,6 +360,7 @@ async fn fork_choice_follows_cumulative_work_not_height() {
         "{:?}",
         verified.reports
     );
+    assert!(verified.is_stale(), "no source confirmed the chain");
 
     // Every source down: the last verified chain, flagged stale.
     let s = setup(vec![serving(network, slow.clone())]).await;

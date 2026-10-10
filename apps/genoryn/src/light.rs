@@ -33,8 +33,10 @@ use serde_json::Value;
 use std::{collections::BTreeMap, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use zeroize::Zeroizing;
 
-/// Blocks requested from one source at a time while downloading.
-const PARALLEL_REQUESTS: usize = 8;
+/// Blocks requested from one source at a time while downloading. Every new Tor
+/// connection builds its own circuit to the onion service, so few connections
+/// that are kept and reused are faster and far more reliable than many.
+const PARALLEL_REQUESTS: usize = 2;
 /// How far back a fork point is searched block by block before the source's
 /// whole chain is downloaded instead.
 const MAX_FORK_SEARCH: u64 = 256;
@@ -128,9 +130,18 @@ pub struct Verified {
     pub reachable: usize,
 }
 impl Verified {
-    /// No source answered: the result is the last verified chain, possibly stale.
+    /// No source confirmed the followed chain (it agrees with it, served it, is
+    /// behind it or has less or equal work): the result is the last verified
+    /// chain and may be out of date, for example when every download failed.
     pub fn is_stale(&self) -> bool {
-        self.reachable == 0
+        !self.reports.iter().any(|report| {
+            let status = report.status.as_str();
+            status == "agrees"
+                || status == "behind"
+                || status.starts_with("used")
+                || status.starts_with("less work")
+                || status.starts_with("equal work")
+        })
     }
 }
 
@@ -156,10 +167,27 @@ async fn block_at(client: &RpcClient, height: u64) -> Result<Block> {
     );
     Ok(block)
 }
+/// Attempts per block before a source is given up; Tor circuits fail now and then.
+const BLOCK_ATTEMPTS: u32 = 6;
+/// One block, retried after transport errors (never after a wrong answer).
+async fn block_with_retry(client: &RpcClient, height: u64) -> Result<Block> {
+    let mut attempt = 1;
+    loop {
+        match block_at(client, height).await {
+            Err(error)
+                if attempt < BLOCK_ATTEMPTS && error.downcast_ref::<reqwest::Error>().is_some() =>
+            {
+                tokio::time::sleep(Duration::from_millis(500 << attempt)).await;
+                attempt += 1;
+            }
+            result => return result,
+        }
+    }
+}
 /// Blocks `from..=to` in order, several requests in flight.
 async fn download(client: &RpcClient, from: u64, to: u64) -> Result<Vec<Block>> {
     stream::iter(from..=to)
-        .map(|height| block_at(client, height))
+        .map(|height| block_with_retry(client, height))
         .buffered(PARALLEL_REQUESTS)
         .collect::<Vec<_>>()
         .await

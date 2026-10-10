@@ -43,6 +43,8 @@ use zeroize::Zeroizing;
 pub const ONION_KEY_FILE: &str = "onion_v3_private_key";
 /// Onion-service streams waiting for the P2P layer.
 const ONION_QUEUE: usize = 16;
+/// How long the built-in onion service may stay unreachable before a relaunch.
+const ONION_RELAUNCH_AFTER: Duration = Duration::from_secs(600);
 const MAX_REPLY_LINE: u64 = 8_192;
 const MAX_REPLY_LINES: usize = 128;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -729,9 +731,22 @@ impl TorState {
         };
         spawn_bootstrap(self.clone(), engine.clone(), booting.clone());
         let mut onion: Option<OnionHost> = None;
+        let mut onion_failed_since: Option<std::time::Instant> = None;
         let mut events = engine.events();
         let mut was_ready = false;
         loop {
+            // A service stuck unreachable is relaunched; its key stays in the
+            // keystore, so the onion address does not change.
+            let failed = onion
+                .as_ref()
+                .is_some_and(|host| host.state().0 == "failed");
+            onion_failed_since =
+                failed.then(|| onion_failed_since.unwrap_or_else(std::time::Instant::now));
+            if onion_failed_since.is_some_and(|since| since.elapsed() >= ONION_RELAUNCH_AFTER) {
+                tracing::warn!("onion service unreachable for 10 minutes; relaunching it");
+                onion = None;
+                onion_failed_since = None;
+            }
             let ready = engine.ready();
             let (progress, summary) = engine.progress();
             if self.config.onion_service && onion.is_none() && ready {
