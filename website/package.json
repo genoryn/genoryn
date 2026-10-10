@@ -1,0 +1,23 @@
+{
+  "name": "genoryn-io",
+  "private": true,
+  "version": "1.0.0",
+  "description": "genoryn.io — GENORYN network site, live explorer, API and node dashboard",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w apps/web && npm run build -w apps/server",
+    "test": "npm run test -w packages/shared && npm run test -w apps/server",
+    "start": "node apps/server/dist/index.js",
+    "dev:server": "npm run dev -w apps/server",
+    "dev:web": "npm run dev -w apps/web",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w apps/server && npm run typecheck -w apps/web"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

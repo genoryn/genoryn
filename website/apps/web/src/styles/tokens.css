@@ -1,0 +1,78 @@
+/* GENORYN design tokens — strictly monochrome, taken from branding/README.md and the wallet's egui visuals. */
+:root {
+  --tile-black: #0b0b0b;
+  --ink-white: #f2f2f2;
+  --brand-gray: #9a9a9a;
+  --border-dark: #2a2a2a;
+  --border-light: #d6d6d6;
+  --error: #e57373;
+
+  --font-display: 'Unbounded', 'Inter Variable', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --container: 1280px;
+  --header-h: 68px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #050505;
+  --bg-2: #080808;
+  --panel: #0d0d0d;
+  --panel-2: #111111;
+  --panel-3: #181818;
+  --hover: #262626;
+  --active: #303030;
+  --border: #232323;
+  --border-strong: #3d3d3d;
+  --text: #e8e8e8;
+  --text-strong: #f5f5f5;
+  --muted: #a8a8a8;
+  --faint: #767676;
+  --invert-bg: #f2f2f2;
+  --invert-text: #0b0b0b;
+  --glow: rgba(242, 242, 242, 0.04);
+  --glow-strong: rgba(242, 242, 242, 0.08);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 60px -20px rgba(0, 0, 0, 0.9);
+  --grid-line: rgba(242, 242, 242, 0.03);
+  --noise-opacity: 0.035;
+  --header-bg: rgba(5, 5, 5, 0.8);
+  --code-bg: #0a0a0a;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #fafafa;
+  --bg-2: #f2f2f2;        /* ink white as light tile */
+  --panel: #ffffff;       /* gray 255 */
+  --panel-2: #f5f5f5;     /* gray 245 */
+  --panel-3: #ebebeb;     /* gray 235 */
+  --hover: #e1e1e1;       /* gray 225 */
+  --active: #c8c8c8;      /* gray 200 */
+  --border: #d6d6d6;
+  --border-strong: #afafaf; /* gray 175 */
+  --text: #1e1e1e;        /* gray 30 */
+  --text-strong: #0b0b0b;
+  --muted: #4a4a4a;
+  --faint: #8a8a8a;
+  --invert-bg: #0b0b0b;
+  --invert-text: #f2f2f2;
+  --glow: rgba(11, 11, 11, 0.05);
+  --glow-strong: rgba(11, 11, 11, 0.1);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 20px 50px -24px rgba(0, 0, 0, 0.18);
+  --grid-line: rgba(11, 11, 11, 0.06);
+  --noise-opacity: 0.035;
+  --header-bg: rgba(250, 250, 250, 0.78);
+  --code-bg: #f3f3f3;
+}

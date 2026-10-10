@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 470" role="img" aria-label="How GENORYN protects you: your device holds the keys, your own full node validates everything, and the network only sees shielded notes.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6A6A6A"/>
+    </marker>
+    <style>
+      .title { font: 600 26px Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #F2F2F2; letter-spacing: 1px; }
+      .kicker { font: 500 13px 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace; fill: #8A8A8A; letter-spacing: 3px; }
+      .line { font: 400 17px Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #BDBDBD; }
+      .card { fill: #0E0E0E; stroke: #2A2A2A; stroke-width: 1.5; }
+      .ink { fill: none; stroke: #F2F2F2; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1280" height="470" rx="24" fill="#050505"/>
+  <text x="64" y="70" class="kicker">HOW GENORYN PROTECTS YOU</text>
+
+  <rect x="64" y="100" width="352" height="320" rx="18" class="card"/>
+  <g transform="translate(96 132)">
+    <rect x="0" y="16" width="40" height="30" rx="5" class="ink"/>
+    <path d="M8 16 V8 a12 12 0 0 1 24 0 V16" class="ink"/>
+  </g>
+  <text x="96" y="224" class="kicker">01 · YOUR DEVICE</text>
+  <text x="96" y="260" class="title">Keys never leave it</text>
+  <text x="96" y="300" class="line">Argon2id + XChaCha20-Poly1305</text>
+  <text x="96" y="326" class="line">encrypted wallet file.</text>
+  <text x="96" y="358" class="line">Your notes are found by a local</text>
+  <text x="96" y="384" class="line">scan, never by asking a server.</text>
+
+  <path d="M424 260 H456" stroke="#6A6A6A" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="464" y="100" width="352" height="320" rx="18" class="card"/>
+  <g transform="translate(496 132)">
+    <rect x="0" y="4" width="44" height="18" rx="4" class="ink"/>
+    <rect x="0" y="30" width="44" height="18" rx="4" class="ink"/>
+    <circle cx="34" cy="13" r="2.5" fill="#F2F2F2"/>
+    <circle cx="34" cy="39" r="2.5" fill="#F2F2F2"/>
+  </g>
+  <text x="496" y="224" class="kicker">02 · YOUR FULL NODE</text>
+  <text x="496" y="260" class="title">Trusts no one</text>
+  <text x="496" y="300" class="line">Validates every block, proof and</text>
+  <text x="496" y="326" class="line">nullifier itself. RandomX proof of</text>
+  <text x="496" y="358" class="line">work; the heaviest valid chain wins.</text>
+  <text x="496" y="384" class="line">Seeds only introduce peers.</text>
+
+  <path d="M824 260 H856" stroke="#6A6A6A" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="864" y="100" width="352" height="320" rx="18" class="card"/>
+  <g transform="translate(896 132)">
+    <circle cx="22" cy="26" r="22" class="ink"/>
+    <ellipse cx="22" cy="26" rx="9" ry="22" class="ink"/>
+    <path d="M0 26 H44" class="ink"/>
+  </g>
+  <text x="896" y="224" class="kicker">03 · THE NETWORK</text>
+  <text x="896" y="260" class="title">Sees shielded notes</text>
+  <text x="896" y="300" class="line">Halo 2 proofs hide amounts and</text>
+  <text x="896" y="326" class="line">receiving identities from observers.</text>
+  <text x="896" y="358" class="line">Issuance and fees stay public, so</text>
+  <text x="896" y="384" class="line">the 21,000,000 GNR cap is checkable.</text>
+</svg>

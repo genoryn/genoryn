@@ -1,0 +1,14 @@
+{
+  "name": "GENORYN",
+  "short_name": "GENORYN",
+  "description": "Private by design. Finite by protocol.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0B0B",
+  "theme_color": "#0B0B0B",
+  "icons": [
+    { "src": "/brand/genoryn-mark-dark-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "/brand/genoryn-mark-dark-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/brand/genoryn-mark-dark-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
