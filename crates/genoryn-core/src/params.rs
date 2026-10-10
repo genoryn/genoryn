@@ -128,8 +128,16 @@ impl Network {
     pub fn maturity(self) -> u64 {
         if self == Self::Devnet { 2 } else { 60 }
     }
+    /// Difficulty of the first blocks, before the retarget window fills. Mainnet
+    /// 1.0 starts near 60 seconds of the launch miner's measured RandomX speed
+    /// (about 3,100 hashes per second), so its first blocks cannot be mined in
+    /// moments; the LWMA retarget follows the real hashrate from block 12 on.
     pub fn initial_difficulty(self) -> u64 {
-        if self == Self::Devnet { 1 } else { 100 }
+        match self {
+            Self::Devnet => 1,
+            Self::Testnet => 100,
+            Self::Mainnet => 150_000,
+        }
     }
 }
 
@@ -153,6 +161,7 @@ mod tests {
         );
         assert_eq!(Network::Mainnet.chain_id(), "genoryn-mainnet-1.0");
         assert_eq!(Network::Mainnet.maturity(), 60);
+        assert_eq!(Network::Mainnet.initial_difficulty(), 150_000);
         assert_eq!(Network::Mainnet.data_dir_name(), "mainnet-1.0");
     }
 
