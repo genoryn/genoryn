@@ -36,6 +36,18 @@ pub(super) struct Preferences {
     /// `light_sources` (remote nodes' public RPC, onion or HTTPS) over Tor.
     pub light_wallet: bool,
     pub light_sources: Vec<String>,
+    /// Wallets whose owner stated they backed up the recovery phrase, by path
+    /// key, with the time of that statement. A statement, not a verification.
+    pub backup_confirmed: std::collections::BTreeMap<String, u64>,
+    /// The user agreed that the node this wallet starts keeps running after
+    /// the wallet window closes.
+    pub node_keep_running: bool,
+    /// `solo` or `pool`.
+    pub mining_mode: String,
+    /// `tcp://host:port` or `tls://host:port` of the chosen pool.
+    pub pool_url: String,
+    /// Optional `socks5h://` proxy (Tor) for the pool connection.
+    pub pool_proxy: String,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -50,6 +62,11 @@ impl Default for Preferences {
             onion_service: false,
             light_wallet: false,
             light_sources: Vec::new(),
+            backup_confirmed: Default::default(),
+            node_keep_running: false,
+            mining_mode: "solo".into(),
+            pool_url: String::new(),
+            pool_proxy: String::new(),
         }
     }
 }

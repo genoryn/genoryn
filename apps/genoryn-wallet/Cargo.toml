@@ -17,6 +17,7 @@ tokio.workspace = true
 reqwest.workspace = true
 hex.workspace = true
 qrcode = { version = "0.14", default-features = false }
+fs2 = "0.4"
 png = "0.18"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

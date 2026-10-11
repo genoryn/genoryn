@@ -47,20 +47,36 @@ fn plaintext_is_private(host: &str) -> bool {
     }
 }
 
+/// The pool's proxy: `--pool-proxy`, else `GENORYN_POOL_PROXY` (how the wallet
+/// passes its node's built-in Tor bridge, whose credentials stay out of argv).
+fn proxy(args: &Args) -> Option<String> {
+    args.pool_proxy
+        .clone()
+        .or_else(|| std::env::var("GENORYN_POOL_PROXY").ok())
+        .filter(|proxy| !proxy.trim().is_empty())
+}
+
 async fn connect(args: &Args, target: &Endpoint) -> Result<Box<dyn Stream>> {
-    let tcp: Box<dyn Stream> = match &args.pool_proxy {
+    let tcp: Box<dyn Stream> = match proxy(args) {
         Some(proxy) => {
-            let address = proxy.strip_prefix("socks5h://").context(
+            let rest = proxy.strip_prefix("socks5h://").context(
                 "the pool proxy must be socks5h://host:port, so the proxy resolves names",
             )?;
-            Box::new(
-                tokio_socks::tcp::Socks5Stream::connect(
-                    address,
-                    (target.host.as_str(), target.port),
-                )
-                .await
-                .context("the SOCKS proxy could not reach the pool")?,
-            )
+            let destination = (target.host.as_str(), target.port);
+            let stream = match rest.rsplit_once('@') {
+                Some((credentials, address)) => {
+                    let (user, password) = credentials.split_once(':').unwrap_or((credentials, ""));
+                    tokio_socks::tcp::Socks5Stream::connect_with_password(
+                        address,
+                        destination,
+                        user,
+                        password,
+                    )
+                    .await
+                }
+                None => tokio_socks::tcp::Socks5Stream::connect(rest, destination).await,
+            };
+            Box::new(stream.context("the SOCKS proxy could not reach the pool")?)
         }
         None => {
             ensure!(
@@ -174,7 +190,7 @@ struct Counters {
 pub async fn run(args: &Args) -> Result<()> {
     let target = endpoint(args.pool.as_deref().unwrap_or_default()).context(Failure::Setup)?;
     if !target.tls
-        && args.pool_proxy.is_none()
+        && proxy(args).is_none()
         && !plaintext_is_private(&target.host)
         && !args.allow_plaintext
     {

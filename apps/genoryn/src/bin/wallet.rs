@@ -771,8 +771,28 @@ fn proof_op(
                 (prove(&entry.transaction()?)?, None)
             }
         };
+        // Whether this payment carries a sender-verification key (Payment Proof 2.0).
+        let sender_auth = match find(txid) {
+            Some((_, tx)) => wallet.sent_output(tx, proof.action as usize)?,
+            None => outbox::load(wallet, &outbox::outbox_path(path))?
+                .entries
+                .iter()
+                .find(|entry| hex::encode(entry.txid) == txid)
+                .map(|entry| entry.transaction())
+                .transpose()?
+                .and_then(|tx| {
+                    wallet
+                        .sent_output(&tx, proof.action as usize)
+                        .ok()
+                        .flatten()
+                }),
+        }
+        .is_some_and(|output| {
+            genoryn_wallet_core::sender_auth::MemoTrailer::read(&output.memo).is_some()
+        });
         let mut value = serde_json::to_value(&proof)?;
         value["mined_at"] = json!(mined_at);
+        value["sender_auth_available"] = json!(sender_auth);
         return Ok(value);
     }
     match op {

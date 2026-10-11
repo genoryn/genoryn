@@ -118,6 +118,21 @@ pub(super) struct ProofUi {
     file_path: String,
     pub(super) verified: Option<SecretJson>,
     pub(super) verify_error: Option<String>,
+    /// Optional amount the payment should have, in GNR as typed.
+    pub(super) expected_amount: String,
+    /// The verifier's fresh challenge for the verified payment.
+    pub(super) challenge: Option<String>,
+    pub(super) challenge_error: Option<String>,
+    pub(super) response_input: String,
+    pub(super) sender_result: Option<Result<SecretJson, String>>,
+    /// The payer's side: a challenge received and the signed answer.
+    pub(super) answer_input: String,
+    pub(super) answer_result: Option<Result<String, String>>,
+    /// Payments this session saw confirmed, by txid: a later check that no
+    /// longer finds one reports a reorganization, not a pending payment.
+    pub(super) confirmed: std::collections::BTreeMap<String, u64>,
+    /// Whether the prepared proof's payment carries a sender-verification key.
+    pub(super) sender_auth_available: Option<bool>,
 }
 pub(super) enum FileResult {
     Loaded(Zeroizing<String>),
@@ -231,7 +246,7 @@ fn pick_proof_file() -> Option<PathBuf> {
 }
 
 /// A check mark or a cross in a circle, then the text; monochrome like the app.
-fn verdict(ui: &mut egui::Ui, ok: bool, text: impl Into<RichText>) {
+pub(super) fn verdict(ui: &mut egui::Ui, ok: bool, text: impl Into<RichText>) {
     ui.horizontal(|ui| {
         let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
         let ink = if ok {
@@ -255,7 +270,7 @@ fn verdict(ui: &mut egui::Ui, ok: bool, text: impl Into<RichText>) {
     });
 }
 /// Long identifiers wrap instead of widening the page.
-fn mono(ui: &mut egui::Ui, text: &str) {
+pub(super) fn mono(ui: &mut egui::Ui, text: &str) {
     ui.add(egui::Label::new(RichText::new(text).monospace().size(12.5)).wrap());
 }
 
@@ -289,6 +304,10 @@ impl WalletApp {
                 .as_object_mut()
                 .and_then(|object| object.remove("mined_at"))
                 .is_some_and(|height| !height.is_null());
+            self.proofs.sender_auth_available = value
+                .as_object_mut()
+                .and_then(|object| object.remove("sender_auth_available"))
+                .and_then(|available| available.as_bool());
             let text = Zeroizing::new(serde_json::to_string(&value)?);
             protocol::wipe_json(&mut value);
             let proof = Proof::parse(&text)?;
@@ -320,6 +339,17 @@ impl WalletApp {
     pub(super) fn accept_verified_proof(&mut self, value: &Value) {
         let result = (|| -> Result<SecretJson> {
             let proof = Proof::from_any(self.proofs.input.as_bytes())?;
+            if let Some(outcome) = value["outcome"].as_str()
+                && outcome != "payment_verified"
+            {
+                ensure!(
+                    matches!(outcome, "not_on_chain" | "reorganized" | "unavailable"),
+                    "Unknown verification outcome."
+                );
+                let mut result = value.clone();
+                result["txid"] = json!(proof.0.txid);
+                return Ok(SecretJson(result));
+            }
             ensure!(
                 value["recipient"].as_str() == Some(proof.0.recipient.as_str())
                     && value["amount_atomic"].as_str() == Some(proof.0.amount.to_string().as_str()),
@@ -335,8 +365,15 @@ impl WalletApp {
         })();
         match result {
             Ok(result) => {
+                if let (Some(txid), Some(height)) =
+                    (result.0["txid"].as_str(), result.0["block_height"].as_u64())
+                {
+                    self.proofs.confirmed.insert(txid.to_owned(), height);
+                }
                 self.proofs.verified = Some(result);
                 self.proofs.verify_error = None;
+                self.proofs.challenge = None;
+                self.proofs.sender_result = None;
                 self.status = "Payment proof checked against the chain.".into();
             }
             Err(error) => {
@@ -382,10 +419,26 @@ impl WalletApp {
                 Some("The address to check is not a valid GENORYN mainnet address.".into());
             return;
         }
-        match Proof::from_any(self.proofs.input.as_bytes()).and_then(|proof| proof.value()) {
-            Ok(value) => self.request(
+        let amount = self.proofs.expected_amount.trim().to_owned();
+        let expected_amount = if amount.is_empty() {
+            String::new()
+        } else {
+            match parse_amount(&amount) {
+                Ok(atomic) => atomic.to_string(),
+                Err(_) => {
+                    self.proofs.verify_error =
+                        Some("The amount to check is not a valid GNR amount.".into());
+                    return;
+                }
+            }
+        };
+        match Proof::from_any(self.proofs.input.as_bytes()).and_then(|proof| {
+            let seen = self.proofs.confirmed.get(&proof.0.txid).copied();
+            proof.value().map(|value| (value, seen))
+        }) {
+            Ok((value, seen)) => self.request(
                 "verify_proof",
-                json!({"proof": value, "expected_recipient": expected}),
+                json!({"proof": value, "expected_recipient": expected, "expected_amount_atomic": expected_amount, "structured_outcomes": true, "previously_confirmed_at": seen}),
             ),
             Err(error) => self.proofs.verify_error = Some(error.to_string()),
         }
@@ -495,12 +548,32 @@ impl WalletApp {
                 self.proofs.verified = None;
             }
             ui.add_space(14.0);
+            ui.label(
+                RichText::new("3 · AMOUNT TO CHECK (OPTIONAL)")
+                    .small()
+                    .color(GRAY),
+            );
             if ui
                 .add_enabled(
+                    idle,
+                    field(&mut self.proofs.expected_amount)
+                        .desired_width(220.0)
+                        .char_limit(40)
+                        .hint_text("10"),
+                )
+                .changed()
+            {
+                self.proofs.verified = None;
+            }
+            ui.add_space(14.0);
+            if layout_probe::tag(
+                "verify:submit",
+                ui.add_enabled(
                     idle && !self.proofs.input.trim().is_empty(),
                     primary(ui, "Verify payment").min_size(egui::vec2(200.0, 44.0)),
-                )
-                .clicked()
+                ),
+            )
+            .clicked()
             {
                 self.verify_input();
             }
@@ -520,15 +593,39 @@ impl WalletApp {
                 ui.label(error.as_str());
             });
         }
-        if let Some(result) = &self.proofs.verified {
+        if self.proofs.verified.as_ref().is_some_and(|result| {
+            result.0["outcome"]
+                .as_str()
+                .is_some_and(|o| o != "payment_verified")
+        }) {
+            self.unconfirmed_outcome(ui);
+        } else if let Some(result) = &self.proofs.verified {
             let result = &result.0;
+            let mismatch = if result["recipient_matches"] == false {
+                Some("Recipient mismatch")
+            } else if result["amount_matches"] == false {
+                Some("Amount mismatch")
+            } else {
+                None
+            };
             card(ui, |ui| {
-                verdict(
-                    ui,
-                    true,
-                    RichText::new("Real payment, found on the chain")
-                        .size(20.0)
-                        .strong(),
+                match mismatch {
+                    Some(headline) => {
+                        verdict(ui, false, RichText::new(headline).size(20.0).strong())
+                    }
+                    None => verdict(
+                        ui,
+                        true,
+                        RichText::new("Payment verified").size(20.0).strong(),
+                    ),
+                }
+                ui.label(
+                    RichText::new(if mismatch.is_some() {
+                        "A real payment was found on the chain, but it does not match what you entered."
+                    } else {
+                        "A real transaction on the GENORYN Mainnet 1.0 chain this wallet verified."
+                    })
+                    .color(GRAY),
                 );
                 ui.add_space(10.0);
                 gnr_amount(ui, result["amount_atomic"].as_str(), 30.0, None);
@@ -545,6 +642,24 @@ impl WalletApp {
                     ))
                     .color(GRAY),
                 );
+                if let Some(risk) = result["reorg_risk"].as_str() {
+                    ui.label(
+                        RichText::new(format!("Reorganization risk: {risk}"))
+                            .small()
+                            .color(GRAY),
+                    );
+                }
+                match result["amount_matches"].as_bool() {
+                    Some(true) => {
+                        verdict(ui, true, "The amount is exactly the amount you entered.")
+                    }
+                    Some(false) => verdict(
+                        ui,
+                        false,
+                        "The proven amount differs from the amount you entered.",
+                    ),
+                    None => {}
+                }
                 if let Some(memo) = result["memo"].as_str().filter(|memo| !memo.is_empty()) {
                     ui.add_space(6.0);
                     ui.label(RichText::new("MEMO").small().color(GRAY));
@@ -587,7 +702,12 @@ impl WalletApp {
                     verdict(
                         ui,
                         true,
-                        "Made by the sender: the proof contains a key only the paying wallet has.",
+                        "Sender-origin evidence: this proof was made with the paying wallet's key for this payment.",
+                    );
+                    ui.label(
+                        RichText::new("A forwarded proof keeps this mark, so it does not show who is presenting it now. Use a sender challenge for that.")
+                            .small()
+                            .color(GRAY),
                     );
                 } else {
                     ui.label(
@@ -598,6 +718,18 @@ impl WalletApp {
                     );
                 }
                 ui.add_space(8.0);
+                egui::CollapsingHeader::new("Advanced details")
+                    .id_salt("proof_advanced")
+                    .show(ui, |ui| {
+                        diagnostic(ui, "Sender evidence", result["sender_evidence"].as_str().unwrap_or("not reported"));
+                        diagnostic(ui, "Chain tip checked", result["chain_tip"].clone());
+                        if let Some(key) = result["sender_auth_key"].as_str() {
+                            ui.label(RichText::new("Payment-bound sender key (committed in the payment's encrypted memo)").small().color(GRAY));
+                            mono(ui, key);
+                        }
+                        ui.label(RichText::new("The proof opens one output of a shielded Orchard action: its note commitment, the recipient, the amount and, with the sender's outgoing cipher key, the memo. No spending key, viewing key or other output is disclosed.").small().color(GRAY));
+                    });
+                ui.add_space(8.0);
                 ui.label(
                     RichText::new(
                         "Payments are private: the sender's address is never shown. A very recent block can still be replaced; more confirmations mean more certainty.",
@@ -606,7 +738,10 @@ impl WalletApp {
                     .color(GRAY),
                 );
             });
+            self.sender_verification_card(ui);
         }
+        ui.add_space(16.0);
+        self.answer_challenge_card(ui);
     }
     /// The window that turns a payment into a proof to share.
     pub(super) fn proof_export_window(&mut self, ctx: &egui::Context) {
@@ -654,6 +789,12 @@ impl WalletApp {
                         } else {
                             ui.label("This proof comes from the receiving side.");
                         }
+                        match self.proofs.sender_auth_available {
+                            Some(true) => ui.label("This payment supports sender verification: if the recipient sends you a challenge, answer it on the Verify payment page (or below)."),
+                            Some(false) => ui.label(RichText::new("This payment has no sender-verification key (made before GENORYN 1.1, or with a memo longer than 471 bytes). The proof still proves the payment.").color(GRAY)),
+                            None => ui.label(""),
+                        };
+                        ui.label(RichText::new("PROVE I SENT THIS PAYMENT").small().color(GRAY));
                         if !self.proofs.mined {
                             ui.label(
                                 RichText::new("The payment is still waiting for a block. The recipient can verify the proof once it is mined.")
@@ -701,6 +842,9 @@ impl WalletApp {
                     }
                 }
                 ui.add_space(8.0);
+                egui::CollapsingHeader::new("Answer a verification challenge")
+                    .id_salt("export_answer")
+                    .show(ui, |ui| self.answer_challenge_controls(ui));
                 egui::CollapsingHeader::new("Advanced: prove another output of this transaction")
                     .default_open(false)
                     .show(ui, |ui| {

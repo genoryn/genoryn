@@ -15,12 +15,14 @@ mod notifications;
 mod payment_proof;
 mod payment_uri;
 mod preferences;
+mod proof_challenge;
 mod proof_formats;
 mod protocol;
 mod reference_value;
 mod sessions;
 mod updates;
 mod views_node;
+mod views_security;
 mod views_status;
 mod views_wallet;
 mod views_wallets;
@@ -46,21 +48,36 @@ use std::{
 use zeroize::{Zeroize, Zeroizing};
 
 /// Page indices are stable; `NAV_ORDER` is the order in the menu.
-const SECTIONS: [&str; 10] = [
+const SECTIONS: [&str; 11] = [
     "Overview",
     "Send",
     "Receive",
     "Transactions",
     "Mining",
-    "Node",
+    "My Full Node",
     "Network",
     "Settings",
     "Wallets",
     "Verify payment",
+    "Privacy & Security",
 ];
+const NODE_PAGE: usize = 5;
 const WALLETS_PAGE: usize = 8;
 const VERIFY_PAGE: usize = 9;
-const NAV_ORDER: [usize; 10] = [0, WALLETS_PAGE, 1, 2, 3, VERIFY_PAGE, 4, 5, 6, 7];
+const SECURITY_PAGE: usize = 10;
+const NAV_ORDER: [usize; 11] = [
+    0,
+    WALLETS_PAGE,
+    1,
+    2,
+    3,
+    VERIFY_PAGE,
+    4,
+    NODE_PAGE,
+    6,
+    SECURITY_PAGE,
+    7,
+];
 /// The network this wallet runs. Mainnet since 0.4.0.
 const NETWORK: Network = Network::Mainnet;
 const GRAY: Color32 = Color32::from_gray(150);
@@ -174,6 +191,8 @@ enum Event {
         owner: String,
         result: Result<Value, String>,
     },
+    Security(Box<views_security::Diagnostics>),
+    Preflight(Box<views_node::Preflight>),
 }
 #[derive(Clone)]
 struct PaymentPreview {
@@ -293,6 +312,8 @@ struct WalletApp {
     explorer_confirm: bool,
     /// One-time notices about received, outgoing and mined payments.
     notifier: notifications::Notifier,
+    security: views_security::SecurityUi,
+    node_view: views_node::NodeView,
 }
 impl WalletApp {
     fn new(cc: &eframe::CreationContext<'_>, settings: Settings) -> Self {
@@ -438,6 +459,8 @@ impl WalletApp {
             names: names_ui::NamesUi::default(),
             explorer_confirm: false,
             notifier: notifications::Notifier::default(),
+            security: Default::default(),
+            node_view: Default::default(),
         };
         app.prepare_wallet_form(wallet_mode);
         app
@@ -738,24 +761,34 @@ impl eframe::App for WalletApp {
                 brand_header(ui, !self.light, self.settings.lite);
                 ui.add_space(20.0);
                 let unlocked = self.unlocked;
-                // Ten entries, 42 points apart, leave room for the links below.
+                // Entries 42 points apart; a short window scrolls them and keeps
+                // the lock button below.
                 ui.spacing_mut().item_spacing.y = 0.0;
-                for index in NAV_ORDER {
-                    if self.settings.lite && index == MINING_PAGE {
-                        continue;
-                    }
-                    let response = nav_item(
-                        ui,
-                        icons::SECTION_ICONS[index],
-                        SECTIONS[index],
-                        self.page == index,
-                        unlocked,
-                    );
-                    layout_probe::record(&format!("nav:{}", SECTIONS[index]), response.rect);
-                    if response.clicked() {
-                        self.page = index;
-                    }
-                }
+                egui::ScrollArea::vertical()
+                    .id_salt("navigation_entries")
+                    .max_height((ui.available_height() - 110.0).max(42.0 * 3.0))
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        for index in NAV_ORDER {
+                            if self.settings.lite && index == MINING_PAGE {
+                                continue;
+                            }
+                            let response = nav_item(
+                                ui,
+                                icons::SECTION_ICONS[index],
+                                SECTIONS[index],
+                                self.page == index,
+                                unlocked,
+                            );
+                            layout_probe::record(
+                                &format!("nav:{}", SECTIONS[index]),
+                                response.rect,
+                            );
+                            if response.clicked() {
+                                self.page = index;
+                            }
+                        }
+                    });
                 ui.spacing_mut().item_spacing.y = 12.0;
                 // A short window keeps the menu and the lock button; the link waits.
                 if ui.available_height() > 190.0 {
@@ -956,8 +989,9 @@ impl eframe::App for WalletApp {
                             2 => self.receive(ui),
                             3 => self.transactions(ui),
                             MINING_PAGE if !self.settings.lite => self.mining(ui),
-                            5 => self.node_page(ui),
+                            NODE_PAGE => self.node_page(ui),
                             6 => self.network(ui),
+                            SECURITY_PAGE => self.security_page(ui),
                             _ => self.settings_page(ui),
                         }
                     });
@@ -1013,7 +1047,12 @@ impl Drop for WalletApp {
             let _ = protocol::stop_owned_child(child);
         }
         if let Some(child) = self.node.take() {
-            let _ = protocol::stop_owned_child(child);
+            if self.preferences.node_keep_running {
+                // The user agreed: the node keeps validating after the window closes.
+                views_node::leave_running(&self.settings.data_dir, child);
+            } else {
+                let _ = protocol::stop_owned_child(child);
+            }
         }
     }
 }
@@ -1529,10 +1568,11 @@ mod ui_tests {
                             2 => app.receive(ui),
                             3 => app.transactions(ui),
                             4 => app.mining(ui),
-                            5 => app.node_page(ui),
+                            NODE_PAGE => app.node_page(ui),
                             6 => app.network(ui),
                             WALLETS_PAGE => app.wallets_page(ui),
                             VERIFY_PAGE => app.verify_page(ui),
+                            SECURITY_PAGE => app.security_page(ui),
                             _ => app.settings_page(ui),
                         });
                     },

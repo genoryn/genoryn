@@ -189,6 +189,11 @@ impl OwnedChild {
     pub fn try_wait(&mut self) -> std::io::Result<Option<ExitStatus>> {
         self.0.as_mut().expect("owned child present").try_wait()
     }
+    /// Lets the process keep running after this application exits (the user
+    /// chose that); returns its process id. It is no longer reaped here.
+    pub fn release(mut self) -> Option<u32> {
+        self.0.take().map(|child| child.id())
+    }
     pub fn stop(&mut self) -> Result<()> {
         if let Some(mut child) = self.0.take() {
             if child.try_wait()?.is_none() {
