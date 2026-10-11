@@ -252,7 +252,7 @@ pub(super) const DEFAULT_QUICK_SOURCES: &[&str] = &[
     "http://2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion:29712",
 ];
 /// Operations that never contact a node.
-const OFFLINE_OPS: [&str; 7] = [
+const OFFLINE_OPS: [&str; 10] = [
     "create",
     "restore",
     "open",
@@ -260,6 +260,9 @@ const OFFLINE_OPS: [&str; 7] = [
     "derive_account",
     "estimate_fee",
     "create_payment_challenge",
+    "reveal_phrase",
+    "change_password",
+    "wallet_protection",
 ];
 /// Request fields that make the wallet CLI a light wallet for `op`, `None`
 /// when this wallet uses its own node or `op` needs no node.

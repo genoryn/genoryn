@@ -18,6 +18,7 @@ mod preferences;
 mod proof_challenge;
 mod proof_formats;
 mod protocol;
+mod recovery;
 mod reference_value;
 mod sessions;
 mod updates;
@@ -82,7 +83,7 @@ const NAV_ORDER: [usize; 11] = [
 const NETWORK: Network = Network::Mainnet;
 const GRAY: Color32 = Color32::from_gray(150);
 const ERROR: Color32 = Color32::from_rgb(229, 115, 115);
-const MIN_NEW_PASSWORD_CHARS: usize = 10;
+const MIN_NEW_PASSWORD_CHARS: usize = 12;
 const RECOVERY_WORDS: usize = 24;
 const MINING_PAGE: usize = 4;
 const AUTO_SCAN_INTERVAL: Duration = Duration::from_secs(5);
@@ -314,6 +315,9 @@ struct WalletApp {
     notifier: notifications::Notifier,
     security: views_security::SecurityUi,
     node_view: views_node::NodeView,
+    recovery: recovery::RecoveryUi,
+    /// Screen-capture protection while recovery words are on screen.
+    capture_guard: Option<genoryn_screen_guard::Protection>,
 }
 impl WalletApp {
     fn new(cc: &eframe::CreationContext<'_>, settings: Settings) -> Self {
@@ -461,6 +465,8 @@ impl WalletApp {
             notifier: notifications::Notifier::default(),
             security: Default::default(),
             node_view: Default::default(),
+            recovery: Default::default(),
+            capture_guard: None,
         };
         app.prepare_wallet_form(wallet_mode);
         app
@@ -711,7 +717,7 @@ impl eframe::App for WalletApp {
         let gray = if self.light { 246 } else { 7 };
         egui::Rgba::from(Color32::from_gray(gray)).to_array()
     }
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.poll();
         if ctx.input(|i| !i.events.is_empty()) {
             self.last_input = Instant::now();
@@ -999,6 +1005,20 @@ impl eframe::App for WalletApp {
         self.proof_export_window(ctx);
         self.update_notice(ctx);
         self.node_log_window(ctx);
+        self.recovery_windows(ctx);
+        // Recovery words on screen (a new wallet's, revealed ones, or ones being
+        // typed to restore) keep the window out of screen captures.
+        let secret_on_screen = !self.seed_backup.is_empty()
+            || self.recovery.words_on_screen()
+            || (!self.unlocked && self.wallet_mode == 2 && !self.seed_input.is_empty());
+        if secret_on_screen != self.capture_guard.is_some() {
+            self.capture_guard = if secret_on_screen {
+                Some(genoryn_screen_guard::protect(frame))
+            } else {
+                genoryn_screen_guard::release(frame);
+                None
+            };
+        }
         self.name_confirm_window(ctx);
         self.explorer_confirm_window(ctx);
         self.toasts_overlay(ctx);

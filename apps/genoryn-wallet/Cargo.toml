@@ -9,6 +9,7 @@ license.workspace = true
 genoryn-core = { path = "../../crates/genoryn-core" }
 genoryn-wallet-core = { path = "../../crates/genoryn-wallet-core" }
 genoryn-connect = { path = "../../crates/genoryn-connect" }
+genoryn-screen-guard = { path = "../../crates/genoryn-screen-guard" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

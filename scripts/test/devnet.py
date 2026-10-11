@@ -226,6 +226,7 @@ class Lab:
         restored=self.wallet("recovered","restore",seed_phrase=alice["seed_phrase"]);assert restored["address"]==alice["address"]
         old=self.wallet("alice","sync");new=self.wallet("recovered","sync");assert old["balance_atomic"]==new["balance_atomic"]
         self.record("seed_recovery_restores_private_balance")
+        self.wallet_security(alice)
         self.stop("c");self.mine("a",alice["address"],2);self.sync("ab",9);self.start("c",["a"]);self.sync("abc",9)
         self.record("offline_node_catches_up_after_restart")
         self.lost_acknowledgement(alice,carol)
@@ -245,6 +246,28 @@ class Lab:
             (self.root/"lab-public.json").write_text(json.dumps({"ports":self.ports,"alice_address":alice["address"],"height":height},indent=2))
             # The devnet test payment's proofs, for checking verifiers such as genoryn.io/verify.
             for kind,proof in self.proofs.items():(self.root/f"proof-{kind}.json").write_text(json.dumps(proof))
+    def wallet_security(self,alice):
+        """The recovery phrase only for the wallet's password; a password change
+        re-encrypts the file (version 2, Argon2id 256 MiB) and keeps the wallet."""
+        password,new="GENORYN-local-test-only-7!","GENORYN-new-test-only-8?"
+        revealed=self.wallet("alice","reveal_phrase")
+        assert revealed["seed_phrase"]==alice["seed_phrase"] and revealed["words"]==24 and revealed["address"]==alice["address"]
+        for wrong in ("not-the-password-42",""):
+            try:self.wallet("alice","reveal_phrase",password=wrong);raise RuntimeError("phrase revealed with a wrong password")
+            except AssertionError as error:assert "wrong password" in str(error),error
+        protection=self.wallet("alice","wallet_protection",password="")
+        assert protection["version"]==2 and protection["kdf_memory_mib"]==256 and protection["current"] is True,protection
+        before=self.wallet("recovered","sync")["balance_atomic"]
+        try:self.wallet("recovered","change_password",password="not-the-password-42",new_password=new);raise RuntimeError("password changed without the old one")
+        except AssertionError as error:assert "wrong password" in str(error),error
+        self.wallet("recovered","change_password",new_password=new)
+        try:self.wallet("recovered","sync");raise RuntimeError("old password still opens the wallet")
+        except AssertionError as error:assert "wrong password" in str(error),error
+        assert self.wallet("recovered","sync",password=new)["balance_atomic"]==before
+        assert self.wallet("recovered","reveal_phrase",password=new)["seed_phrase"]==alice["seed_phrase"]
+        self.wallet("recovered","change_password",password=new,new_password=password)
+        assert not list(self.root.glob(".*.rekey")),"temporary re-encryption files left behind"
+        self.record("recovery_phrase_only_with_password_and_checked_password_change")
     def sender_challenge(self,proof,sent,bob_address):
         """Payment Proof 2.0 through the real CLI: Bob checks the payment, sends a
         fresh challenge, and only Alice's wallet can answer it. Bob's and Carol's

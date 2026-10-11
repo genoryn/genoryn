@@ -43,6 +43,7 @@ impl WalletApp {
         self.confirm_password.zeroize();
         self.seed_input.zeroize();
         self.seed_backup.zeroize();
+        self.recovery.clear();
         self.unlocked = false;
         self.wallet_mode = initial_wallet_mode(&self.settings.wallet_path);
         self.seed_ack = false;
@@ -301,6 +302,10 @@ impl WalletApp {
                                 "answer_payment_challenge" => {
                                     self.proofs.answer_result = Some(Err(error.clone()))
                                 }
+                                "reveal_phrase" | "change_password" => {
+                                    self.recovery_failed(&op, &error);
+                                    continue;
+                                }
                                 _ => {}
                             }
                             if !self.batch_failed(&op, &error) {
@@ -312,6 +317,8 @@ impl WalletApp {
                         Ok(response) => {
                             let result = &response.0;
                             match op.as_str() {
+                                "reveal_phrase" => self.accept_phrase(result),
+                                "change_password" => self.accept_password_change(result),
                                 "create" => {
                                     self.address =
                                         result["address"].as_str().unwrap_or_default().into();

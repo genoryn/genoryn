@@ -100,6 +100,13 @@ enum Command {
     VerifyProof {
         file: PathBuf,
     },
+    /// Shows the 24-word recovery phrase after the wallet password is entered.
+    RecoveryPhrase,
+    /// Re-encrypts the wallet file under a new password with the current
+    /// key-derivation cost (enter the same password to only strengthen it).
+    ChangePassword,
+    /// Shows how the wallet file is protected; needs no password.
+    Protection,
 }
 fn field<'a>(v: &'a Value, k: &str) -> Result<&'a str> {
     v.get(k)
@@ -536,7 +543,31 @@ async fn dispatch(request: &Value) -> Result<Value> {
         return proofs::create_challenge(request, network);
     }
     let path = Path::new(request["wallet_path"].as_str().unwrap_or("wallet.wallet"));
+    if op == "wallet_protection" {
+        let info = genoryn_wallet_core::keys::storage_info(path)?;
+        return Ok(json!({
+            "version": info.version,
+            "network": info.network.name(),
+            "kdf": "Argon2id",
+            "kdf_memory_mib": info.kdf.memory_kib / 1024,
+            "kdf_passes": info.kdf.passes,
+            "cipher": "XChaCha20-Poly1305",
+            "current": info.is_current(),
+        }));
+    }
     let password = Zeroizing::new(request["password"].as_str().unwrap_or("").to_owned());
+    if op == "change_password" {
+        let new_password = Zeroizing::new(field(request, "new_password")?.to_owned());
+        let wallet = Wallet::change_password(path, &password, &new_password)?;
+        ensure!(wallet.network == network, "wallet network mismatch");
+        let info = genoryn_wallet_core::keys::storage_info(path)?;
+        return Ok(json!({
+            "address": wallet.receiving_identity()?,
+            "version": info.version,
+            "kdf_memory_mib": info.kdf.memory_kib / 1024,
+            "kdf_passes": info.kdf.passes,
+        }));
+    }
     if op == "create" {
         let wallet = Wallet::create(network)?.for_account(account_field(request)?)?;
         wallet.save_new(path, &password)?;
@@ -610,6 +641,17 @@ async fn dispatch(request: &Value) -> Result<Value> {
         return Ok(
             json!({"address":genoryn_wallet_core::keys::encode_address(network,wallet.address(index)?)?,"network":network.name(),"account":wallet.account,"address_index":index}),
         );
+    }
+    if op == "reveal_phrase" {
+        // Only ever answered to a request that carried the wallet's password.
+        let wallet = wallet.as_ref().context("wallet required")?;
+        let phrase = wallet.phrase()?;
+        return Ok(json!({
+            "seed_phrase": phrase.as_str(),
+            "words": phrase.split_whitespace().count(),
+            "account": wallet.account,
+            "address": wallet.receiving_identity()?,
+        }));
     }
     if op == "derive_account" {
         let account = wallet
@@ -1201,7 +1243,10 @@ async fn main() -> Result<()> {
     let command = args.command.context("choose a command or --json-stdio")?;
     let needs_password = !matches!(
         command,
-        Command::ResolveUsername { .. } | Command::VerifyProof { .. } | Command::EstimateFee { .. }
+        Command::ResolveUsername { .. }
+            | Command::VerifyProof { .. }
+            | Command::EstimateFee { .. }
+            | Command::Protection
     );
     if needs_password {
         let password = Zeroizing::new(rpassword::prompt_password("Wallet password: ")?);
@@ -1268,6 +1313,38 @@ async fn main() -> Result<()> {
                 "Payment proof saved. Share only with your chosen verifier; it discloses one output."
             );
             return Ok(());
+        }
+        Command::Protection => request["op"] = json!("wallet_protection"),
+        Command::RecoveryPhrase => {
+            request["op"] = json!("reveal_phrase");
+            let result = dispatch(&request).await;
+            zeroize_value(&mut request);
+            let mut result = result?;
+            println!(
+                "Recovery phrase (account {}). Anyone who sees these words can spend this wallet's funds.\nWrite them on paper; never photograph, copy or type them anywhere else.\n",
+                result["account"]
+            );
+            if let Some(words) = result["seed_phrase"].as_str() {
+                for (index, word) in words.split_whitespace().enumerate() {
+                    print!(
+                        "{:>2}. {word:<10}{}",
+                        index + 1,
+                        if index % 4 == 3 { "\n" } else { "  " }
+                    );
+                }
+            }
+            zeroize_value(&mut result);
+            return Ok(());
+        }
+        Command::ChangePassword => {
+            request["op"] = json!("change_password");
+            let new = Zeroizing::new(rpassword::prompt_password("New wallet password: ")?);
+            let again = Zeroizing::new(rpassword::prompt_password("Repeat the new password: ")?);
+            ensure!(
+                *new == *again,
+                "the two new passwords differ; nothing was changed"
+            );
+            request["new_password"] = json!(new.as_str());
         }
         Command::VerifyProof { file } => {
             request["op"] = json!("verify_proof");

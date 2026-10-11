@@ -5,6 +5,9 @@ import { Icon } from '~/components/Icon';
 import { Callout, Feature, PageHero, SectionHead } from '~/components/ui';
 
 const FEATURES: Array<[string, string, string]> = [
+  ['key', 'Recovery phrase — only with your password', 'New in 1.2. Settings → Wallet security shows the 24 words only after the wallet password is typed again: masked until you ask, as text that cannot be selected or copied, and wiped after 60 seconds, when the window loses focus, on lock and on close. After three wrong passwords each try waits longer. Check my backup asks for three random words from your paper.'],
+  ['eyeOff', 'Kept out of screen capture', 'New in 1.2. While recovery words are on screen — a new wallet’s, revealed ones or ones typed to restore — Windows 10 2004+ leaves the window out of screenshots, recordings, screen sharing and remote desktop. Linux has no such switch, and the wallet says so.'],
+  ['lock', 'Stronger wallet files', 'New in 1.2. New files derive their key with Argon2id at 256 MiB (four times before) with authenticated parameters; a copied file without the password can only be attacked one expensive guess at a time. Existing files open unchanged; Strengthen file re-encrypts one only when you ask, checking the new file before it replaces the old one. New passwords need 12+ characters and a strength check.'],
   ['node', 'My Full Node — one click', 'New in 1.1. Start My Full Node checks disk space, memory, the node program, the data folder and the RPC port first, then starts your own validating node. No open ports, no firewall change, no service; keeping it running after the wallet closes is your choice.'],
   ['fingerprint', 'Payment Proof 2.0', 'New in 1.1. Prove a payment with a code, PDF or JSON — and, for new payments, answer the recipient’s fresh challenge so they know you control the payment’s key. Nothing else about your wallet is disclosed. Anyone can also check a proof at genoryn.io/verify.'],
   ['shield', 'Privacy & Security', 'New in 1.1. Every check says Verified, Warning, Failed or Not tested, and what it is based on: Tor bootstrap, direct connections, fail-closed proxies, wallet encryption, storage hygiene and updates. No anonymity score.'],
@@ -31,6 +34,7 @@ const FEATURES: Array<[string, string, string]> = [
 
 const SHOTS = [
   { id: 'overview', label: 'Overview', caption: 'Overview — balance from your own local scan, your @username, and immature mining rewards shown separately.', fresh: false },
+  { id: 'recovery', label: 'Recovery phrase', caption: 'Recovery phrase — only after the password is typed again; masked, not copyable, hidden from screen capture and gone after 60 seconds.', fresh: true },
   { id: 'node', label: 'My Full Node', caption: 'My Full Node — one-click start after real checks of this computer, honest status, logs and diagnostics.', fresh: true },
   { id: 'verify', label: 'Verify payment', caption: 'Verify payment — check a proof against your own validated chain, the address and the exact amount, then challenge the sender.', fresh: true },
   { id: 'security', label: 'Privacy & Security', caption: 'Privacy & Security — what this computer can actually observe, check by check, with what each result is based on.', fresh: true },
@@ -63,7 +67,7 @@ function WalletShowcase() {
           <Show when={true}>{shot().caption}</Show>{' '}
           <span class="faint mono" style={{ 'font-size': '11.5px' }}>
             {shot().fresh
-              ? '· real screenshot of GENORYN 1.1 on Mainnet 1.0, with a new empty wallet'
+              ? '· real screenshot of GENORYN 1.1 or 1.2 on Mainnet 1.0, with a new empty wallet'
               : '· real screenshot from the official repository, taken with a pre-1.0 wallet on the retired network'}
           </span>
         </figcaption>

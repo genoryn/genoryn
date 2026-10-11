@@ -66,6 +66,27 @@ phrase does not carry any balance over.
 | Addresses | `gnr1…` |
 | Explorer | [genoryn.io](https://genoryn.io/) |
 
+### What is new in 1.2
+
+GENORYN 1.2 protects the two things that give access to your coins: the **24-word recovery
+phrase** and the **wallet file**. No consensus rule changes; every existing wallet opens as
+before.
+
+| | |
+|---|---|
+| **Recovery phrase, only with your password** | Settings → Wallet security → *Show recovery phrase* asks for the wallet password again every time (never the one the open session holds). The 24 words appear masked, as non-selectable text that cannot be copied, and disappear after 60 seconds, when the window loses focus or is minimized, on lock and on close. After 3 wrong passwords every attempt waits longer (30 s up to 10 min). *Check my backup* asks for three random words from your paper. |
+| **Hidden from screen capture** | While recovery words are on screen (a new wallet's, revealed ones, or ones being typed to restore), the window is excluded from screenshots, screen recording and screen sharing on Windows 10 2004 and later (black on older Windows). Linux offers no such switch; the wallet says so. |
+| **Stronger wallet files** | New wallet files (version 2) derive their key with Argon2id at **256 MiB** (4× version 1), and the cost parameters are authenticated with the file. A stolen file without the password can only be attacked by guessing, at that cost per guess. Existing files open unchanged; *Strengthen file / change password* re-encrypts one only when you ask, writing and checking the new file before it replaces the old one. |
+| **Stronger new passwords** | New and changed passwords need at least 12 characters and pass a strength estimate (repeats, runs and very common words count for little), with a meter as you type. |
+| **CLI** | `genoryn-wallet-cli recovery-phrase`, `change-password` and `protection` (JSON ops `reveal_phrase`, `change_password`, `wallet_protection`). |
+
+Details: [1.2.0 release notes](docs/releases/v1.2.0.md) · [recovery phrase and wallet file](docs/wallet/recovery-and-wallet-file.md).
+
+<p align="center">
+  <img src="docs/images/wallet-1.2/settings.png" alt="Settings → Wallet security: the wallet file's protection, Show recovery phrase, Strengthen file" width="49%">
+  <img src="docs/images/wallet-1.2/recovery-masked.png" alt="Recovery phrase: masked, not copyable, hidden from screen capture, gone after 60 seconds" width="49%">
+</p>
+
 ### What is new in 1.1
 
 GENORYN 1.1 changes **no consensus rule**: the same genesis, chain, supply, emission,
