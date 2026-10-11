@@ -6,7 +6,7 @@ import { Callout, Feature, PageHero, SectionHead } from '~/components/ui';
 
 const FEATURES: Array<[string, string, string]> = [
   ['node', 'My Full Node — one click', 'New in 1.1. Start My Full Node checks disk space, memory, the node program, the data folder and the RPC port first, then starts your own validating node. No open ports, no firewall change, no service; keeping it running after the wallet closes is your choice.'],
-  ['fingerprint', 'Payment Proof 2.0', 'New in 1.1. Prove a payment with a code, PDF or JSON — and, for new payments, answer the recipient’s fresh challenge so they know you control the payment’s key. Nothing else about your wallet is disclosed.'],
+  ['fingerprint', 'Payment Proof 2.0', 'New in 1.1. Prove a payment with a code, PDF or JSON — and, for new payments, answer the recipient’s fresh challenge so they know you control the payment’s key. Nothing else about your wallet is disclosed. Anyone can also check a proof at genoryn.io/verify.'],
   ['shield', 'Privacy & Security', 'New in 1.1. Every check says Verified, Warning, Failed or Not tested, and what it is based on: Tor bootstrap, direct connections, fail-closed proxies, wallet encryption, storage hygiene and updates. No anonymity score.'],
   ['cpu', 'Shared mining', 'New in 1.1. Mine solo or with a pool of your choice. The pool checks every share with real RandomX and pays by verified work (PPLNS), so a slow computer earns in proportion to its speed.'],
   ['zap', 'Faster sync', 'New in 1.1. With your own node, sends and proofs fetch only new blocks (0.4 s instead of 11 s on the real chain); Quick mode validates long downloads in parallel. Every block is still fully validated.'],

@@ -118,6 +118,25 @@ system can rule out that someone else holds them.
   response is a signature only.
 - Verification uses the wallet's own validated chain; no remote verification service is asked.
 
+## Checking a proof on genoryn.io
+
+[genoryn.io/verify](https://genoryn.io/verify) offers the same checks to anyone without a wallet:
+paste the code, the JSON or the PDF, optionally the expected address and amount, and the page
+shows the same outcomes; for proofs made by the paying wallet it also runs the fresh sender
+challenge. The site's server runs this release's `genoryn-wallet-cli` (`verify_proof`,
+`create_payment_challenge`, `verify_payment_challenge`) against the genoryn.io full node, with a
+valueless verifier wallet that only keeps the validated chain.
+
+- The proof is sent to genoryn.io only to be checked, so the server sees that one payment's
+  recipient, amount and memo. It is not stored or logged, and it cannot move coins.
+- The answer is only as trustworthy as genoryn.io and its node. A check that depends on no one is
+  **Verify payment** in your own wallet.
+- Proof text is passed on unchanged: amounts above 2^53 gori would lose precision in JavaScript.
+- `scripts/test/website_proof_verify.py --lab <devnet.py --keep work dir>` checks the site
+  against a real devnet payment: verified proof, mismatches, a forged amount, a receiving-side
+  proof, an unknown payment, a challenge answered by the paying wallet and a replayed answer;
+  with `--screenshots DIR` it also drives the page in Edge.
+
 ## Evidence
 
 - `crates/genoryn-wallet-core/tests/payment_proof_v2.rs`: a real devnet chain (RandomX blocks,

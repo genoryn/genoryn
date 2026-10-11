@@ -296,7 +296,7 @@ const SAFETY = [
 
 const NEW_IN_1_1 = [
   { icon: 'cpu', title: 'Shared mining (PPLNS)', href: '/mining#shared-mining', body: 'Open-source pools pay by verified work: every share is hashed again with real RandomX, so a slow computer earns in proportion to its speed. Exact integer accounting, payouts after 60 confirmations.' },
-  { icon: 'fingerprint', title: 'Payment Proof 2.0', href: '/wallet', body: 'Prove a payment with a code, PDF or JSON. For new payments the recipient can send a fresh challenge that only the paying wallet can answer — without revealing any key or other payment.' },
+  { icon: 'fingerprint', title: 'Payment Proof 2.0', href: '/verify', body: 'Prove a payment with a code, PDF or JSON — and check any proof right here on genoryn.io. For new payments the recipient can send a fresh challenge that only the paying wallet can answer.' },
   { icon: 'node', title: 'My Full Node', href: '/wallet', body: 'One click starts your own validating node after real checks of disk, memory, ports and data folder. No open ports, no firewall changes, no service — unless you choose to.' },
   { icon: 'zap', title: 'Faster, resumable sync', href: '/wallet', body: 'Sends and proofs with your own node: 11.3 s → 0.4 s on the real chain. Quick mode validates long downloads in parallel (49 s → 18 s, identical result). No validation skipped.' },
   { icon: 'shield', title: 'Privacy & Security', href: '/wallet', body: 'Verified, Warning, Failed or Not tested — check by check, with what each result is based on. Settings and your own statements are never shown as verified. No anonymity score.' },
