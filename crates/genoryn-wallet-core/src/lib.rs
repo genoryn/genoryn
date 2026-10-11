@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 pub mod chain_store;
 pub mod fees;
+pub mod hygiene;
 pub mod keys;
 pub mod outbox;
 pub mod registry_store;

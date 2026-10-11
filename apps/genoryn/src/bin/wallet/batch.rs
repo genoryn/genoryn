@@ -402,7 +402,11 @@ async fn light_chain(
         .unwrap_or_else(|| path.with_extension("tor"));
     let store = chain_store::chain_path(path);
     let mut chain = chain_store::load(&primary, &store);
-    let local_state = chain.replay(network);
+    let local_state = chain_store::replay_from_snapshot(&primary, path, network, &chain.blocks)
+        .unwrap_or_else(|_| {
+            chain.blocks.clear();
+            genoryn_core::state::ChainState::new(network)
+        });
     let tor =
         genoryn::light::LightTor::start(&tor_dir, external, std::time::Duration::from_secs(300))
             .await?;
@@ -429,6 +433,7 @@ async fn light_chain(
     chain.blocks = verified.blocks;
     if verified.used.is_some() {
         chain_store::save(&primary, &store, &chain)?;
+        chain_store::save_state(&primary, path, &verified.state)?;
     }
     Ok((chain.blocks, stale, tor, clients, synced_from))
 }

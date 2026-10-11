@@ -102,16 +102,35 @@ pub struct ChainState {
     pub tree: Frontier<MerkleHashOrchard, 32>,
     /// On-chain usernames: derived state that never affects block validity.
     pub names: BTreeMap<String, crate::names::NameEntry>,
+    /// The commitment-tree root for a tree of the given size, computed once
+    /// per block instead of twice (each costs 32 Sinsemilla hashes).
+    root_memo: Option<(u64, Hash)>,
 }
 /// Successfully verified transaction ids. The id commits to every encoded byte,
 /// including proof and signatures. Oldest entries leave first, so a full cache
 /// never forces the whole mempool to be re-proven at once.
+/// Block hashes whose RandomX work was found to meet the header's own
+/// difficulty. The hash commits to the whole header (seed, difficulty and
+/// nonce included), so a hit means exactly the same check already passed.
 #[derive(Clone, Default)]
 pub struct ProofCache {
     verified: BTreeSet<Hash>,
     order: VecDeque<Hash>,
+    work: BTreeSet<Hash>,
+    work_order: VecDeque<Hash>,
 }
 const PROOF_CACHE_ENTRIES: usize = 4096;
+fn remember(set: &mut BTreeSet<Hash>, order: &mut VecDeque<Hash>, id: Hash) {
+    if !set.insert(id) {
+        return;
+    }
+    order.push_back(id);
+    while order.len() > PROOF_CACHE_ENTRIES {
+        if let Some(oldest) = order.pop_front() {
+            set.remove(&oldest);
+        }
+    }
+}
 impl ProofCache {
     pub fn verify(&mut self, tx: &ShieldedTx) -> Result<()> {
         let id = tx.id()?;
@@ -119,17 +138,168 @@ impl ProofCache {
             return Ok(());
         }
         tx.verify_crypto()?;
-        while self.order.len() >= PROOF_CACHE_ENTRIES {
-            if let Some(oldest) = self.order.pop_front() {
-                self.verified.remove(&oldest);
-            }
-        }
-        self.verified.insert(id);
-        self.order.push_back(id);
+        remember(&mut self.verified, &mut self.order, id);
         Ok(())
     }
+    /// The header's RandomX work meets its own difficulty (`pow::verify`).
+    pub fn verify_work(&mut self, header: &Header) -> Result<()> {
+        let id = header.hash()?;
+        if self.work.contains(&id) {
+            return Ok(());
+        }
+        crate::pow::verify(header.pow_seed, &header.bytes()?, header.difficulty)?;
+        remember(&mut self.work, &mut self.work_order, id);
+        Ok(())
+    }
+    /// Checks the RandomX work of every block and the proofs and signatures
+    /// of every transaction in `blocks` on up to `threads` threads, and keeps
+    /// what passed. No rule changes: `apply_block_in_place` still runs every
+    /// consensus check in order and only skips repeating a check that already
+    /// passed here; anything that failed here is checked there again, and
+    /// fails there. Blocks beyond the cache's capacity are not pre-verified.
+    pub fn preverify(&mut self, blocks: &[Block], threads: usize) {
+        let blocks = &blocks[..blocks.len().min(PROOF_CACHE_ENTRIES / 4)];
+        let threads = threads.clamp(1, 64).min(blocks.len().max(1));
+        if threads <= 1 || blocks.is_empty() {
+            return;
+        }
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let results: Vec<(Vec<Hash>, Vec<Hash>)> = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..threads)
+                .map(|_| {
+                    scope.spawn(|| {
+                        let (mut work, mut proofs) = (Vec::new(), Vec::new());
+                        loop {
+                            let index = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let Some(block) = blocks.get(index) else {
+                                return (work, proofs);
+                            };
+                            let header = &block.header;
+                            if let (Ok(id), Ok(bytes)) = (header.hash(), header.bytes())
+                                && crate::pow::verify(header.pow_seed, &bytes, header.difficulty)
+                                    .is_ok()
+                            {
+                                work.push(id);
+                            }
+                            for tx in block.body.all_transactions() {
+                                if let Ok(id) = tx.id()
+                                    && tx.verify_crypto().is_ok()
+                                {
+                                    proofs.push(id);
+                                }
+                            }
+                        }
+                    })
+                })
+                .collect();
+            workers
+                .into_iter()
+                .filter_map(|worker| worker.join().ok())
+                .collect()
+        });
+        for (work, proofs) in results {
+            for id in work {
+                remember(&mut self.work, &mut self.work_order, id);
+            }
+            for id in proofs {
+                remember(&mut self.verified, &mut self.order, id);
+            }
+        }
+    }
 }
+/// A validated state at one block, so a wallet can continue from it instead
+/// of replaying every block again. Restored from local sealed storage only:
+/// it carries the trust of the validation that produced it, nothing more.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct StateSnapshot {
+    pub network: Network,
+    pub height: u64,
+    pub best_hash: Hash,
+    pub work: u128,
+    pub headers: Vec<Header>,
+    pub nullifiers: BTreeSet<Hash>,
+    pub anchors: BTreeMap<Hash, u64>,
+    pub mature: Vec<NoteLocation>,
+    pub pending: BTreeMap<u64, Vec<NoteLocation>>,
+    /// Commitment-tree frontier: position, leaf and ommers.
+    pub tree: Option<(u64, Hash, Vec<Hash>)>,
+    pub names: BTreeMap<String, crate::names::NameEntry>,
+}
+
 impl ChainState {
+    pub fn snapshot(&self) -> StateSnapshot {
+        StateSnapshot {
+            network: self.network,
+            height: self.height,
+            best_hash: self.best_hash,
+            work: self.work,
+            headers: self.headers.clone(),
+            nullifiers: self.nullifiers.clone(),
+            anchors: self.anchors.clone(),
+            mature: self.mature.clone(),
+            pending: self.pending.clone(),
+            tree: self.tree.value().map(|frontier| {
+                (
+                    u64::from(frontier.position()),
+                    frontier.leaf().to_bytes(),
+                    frontier
+                        .ommers()
+                        .iter()
+                        .map(|ommer| ommer.to_bytes())
+                        .collect(),
+                )
+            }),
+            names: self.names.clone(),
+        }
+    }
+    pub fn from_snapshot(snapshot: StateSnapshot) -> Result<Self> {
+        let hash = |bytes: &Hash| {
+            Option::<MerkleHashOrchard>::from(MerkleHashOrchard::from_bytes(bytes))
+                .context("invalid commitment-tree node")
+        };
+        let tree = match &snapshot.tree {
+            None => Frontier::empty(),
+            Some((position, leaf, ommers)) => Frontier::from_parts(
+                (*position).into(),
+                hash(leaf)?,
+                ommers.iter().map(hash).collect::<Result<_>>()?,
+            )
+            .map_err(|_| anyhow::anyhow!("invalid commitment-tree frontier"))?,
+        };
+        ensure!(
+            snapshot.headers.len() as u64 == snapshot.height
+                && snapshot
+                    .headers
+                    .last()
+                    .map(Header::hash)
+                    .transpose()?
+                    .unwrap_or_else(|| snapshot.network.genesis())
+                    == snapshot.best_hash,
+            "snapshot headers do not lead to its tip"
+        );
+        let state = Self {
+            network: snapshot.network,
+            height: snapshot.height,
+            best_hash: snapshot.best_hash,
+            work: snapshot.work,
+            headers: snapshot.headers,
+            nullifiers: snapshot.nullifiers,
+            anchors: snapshot.anchors,
+            mature: snapshot.mature,
+            pending: snapshot.pending,
+            tree,
+            names: snapshot.names,
+            root_memo: None,
+        };
+        ensure!(
+            state
+                .headers
+                .last()
+                .is_none_or(|h| h.notes_root == state.notes_root()),
+            "snapshot commitment tree does not match its tip"
+        );
+        Ok(state)
+    }
     pub fn new(network: Network) -> Self {
         let tree = Frontier::empty();
         let mut anchors = BTreeMap::new();
@@ -146,10 +316,20 @@ impl ChainState {
             pending: BTreeMap::new(),
             tree,
             names: BTreeMap::new(),
+            root_memo: None,
         }
     }
     pub fn notes_root(&self) -> Hash {
-        Anchor::from(self.tree.root()).to_bytes()
+        match self.root_memo {
+            Some((size, root)) if size == self.tree.tree_size() => root,
+            _ => Anchor::from(self.tree.root()).to_bytes(),
+        }
+    }
+    /// Computes the root once for the current tree and keeps it.
+    fn memoize_root(&mut self) -> Hash {
+        let root = self.notes_root();
+        self.root_memo = Some((self.tree.tree_size(), root));
+        root
     }
     /// Streams `codec::hash(domain, concat(sorted nullifiers))` without copying the set.
     pub fn nullifiers_root(&self) -> Hash {
@@ -327,7 +507,8 @@ impl ChainState {
             "supply cap exceeded"
         );
         self.mature_at(height)?;
-        self.anchors.insert(self.notes_root(), height);
+        let root = self.memoize_root();
+        self.anchors.insert(root, height);
         self.anchors.retain(|_, h| height.saturating_sub(*h) <= 120);
         // Names apply only once the whole block is valid, in transaction order.
         for tx in &body.transactions {
@@ -400,7 +581,7 @@ impl ChainState {
         check_header_context(self.network, &self.headers, seed_ancestor, h, now)?;
         let full = verification == Verification::Full;
         if full {
-            crate::pow::verify(h.pow_seed, &h.bytes()?, h.difficulty)?;
+            cache.verify_work(h)?;
         }
         self.apply_body_with(h.height, h.previous, &block.body, full.then_some(cache))?;
         // The nullifier root hashes the whole set; replaying stored blocks skips only it.

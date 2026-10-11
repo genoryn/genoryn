@@ -138,6 +138,12 @@ impl RpcClient {
         decode_answer(response).await
     }
     pub async fn chain(&self, network: Network) -> Result<Vec<Block>> {
+        self.chain_from(network, Vec::new()).await
+    }
+    /// The node's chain, reusing `known` (blocks 1..=n this computer already
+    /// holds) up to the last one the node still has at the same height and
+    /// hash, so only new blocks are downloaded.
+    pub async fn chain_from(&self, network: Network, mut known: Vec<Block>) -> Result<Vec<Block>> {
         let info: serde_json::Value = self.get("v1/info").await?;
         ensure!(
             info["chain_id"] == network.chain_id()
@@ -153,14 +159,19 @@ impl RpcClient {
             height <= 1_000_000,
             "wallet full-rescan size exceeds configured limit"
         );
-        let mut blocks = Vec::new();
-        while blocks.len() < (height as usize) {
-            let page: Vec<Block> = self
-                .get(&format!("v1/blocks?from={}&limit=1", blocks.len() + 1))
-                .await?;
-            ensure!(!page.is_empty(), "node returned incomplete chain");
-            ensure!(page.len() == 1, "node exceeded requested page size");
-            blocks.extend(page);
+        known.truncate(height as usize);
+        // Walk back from the newest known block to one the node still has.
+        while let Some(last) = known.last() {
+            let theirs = self.block_page(last.header.height, 1).await?;
+            if theirs[0].hash()? == last.hash()? {
+                break;
+            }
+            known.pop();
+        }
+        let mut blocks = known;
+        if (blocks.len() as u64) < height {
+            let more = self.blocks_range(blocks.len() as u64 + 1, height).await?;
+            blocks.extend(more);
         }
         ensure!(
             blocks
@@ -173,7 +184,40 @@ impl RpcClient {
         );
         Ok(blocks)
     }
+    /// Up to `limit` consecutive blocks starting at `from`. Nodes before 1.1
+    /// return one block per request; any nonempty consecutive page is valid.
+    pub async fn block_page(&self, from: u64, limit: usize) -> Result<Vec<Block>> {
+        let limit = limit.clamp(1, MAX_PAGE);
+        let page: Vec<Block> = self
+            .get(&format!("v1/blocks?from={from}&limit={limit}"))
+            .await?;
+        ensure!(!page.is_empty(), "node returned no block at height {from}");
+        ensure!(page.len() <= limit, "node exceeded requested page size");
+        for (offset, block) in page.iter().enumerate() {
+            ensure!(
+                block.header.height == from + offset as u64,
+                "node returned the wrong block for height {}",
+                from + offset as u64
+            );
+        }
+        Ok(page)
+    }
+    /// Blocks `from..=to`, in pages.
+    pub async fn blocks_range(&self, from: u64, to: u64) -> Result<Vec<Block>> {
+        let mut blocks = Vec::with_capacity(to.saturating_sub(from) as usize + 1);
+        let mut next = from;
+        while next <= to {
+            let wanted = (to - next + 1).min(MAX_PAGE as u64) as usize;
+            let page = self.block_page(next, wanted).await?;
+            next += page.len() as u64;
+            blocks.extend(page);
+        }
+        Ok(blocks)
+    }
 }
+
+/// Blocks requested per page; nodes since 1.1 serve up to 32.
+pub const MAX_PAGE: usize = 32;
 
 async fn decode_answer<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
     let status = response.status();

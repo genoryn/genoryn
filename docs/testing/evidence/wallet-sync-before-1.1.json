@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "label": "before",
+  "node_height": 1238,
+  "network": "mainnet",
+  "machine": {
+    "os": "Windows-11-10.0.26300-SP0",
+    "cpu": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "logical_cpus": 24
+  },
+  "runs": [
+    {
+      "first_full_sync_seconds": 1.2582048000040231,
+      "incremental_sync_seconds": 0.24566860000049928,
+      "whole_chain_operation_seconds": 11.48204230000556,
+      "whole_chain_operation_again_seconds": 11.329245499997342,
+      "height": 1238
+    },
+    {
+      "first_full_sync_seconds": 1.1988506999987294,
+      "incremental_sync_seconds": 0.25211339999805205,
+      "whole_chain_operation_seconds": 11.361251000002085,
+      "whole_chain_operation_again_seconds": 11.289357899993774,
+      "height": 1238
+    },
+    {
+      "first_full_sync_seconds": 1.2351592000050005,
+      "incremental_sync_seconds": 0.2628075999964494,
+      "whole_chain_operation_seconds": 11.246236600003613,
+      "whole_chain_operation_again_seconds": 11.262406399997417,
+      "height": 1238
+    }
+  ],
+  "median": {
+    "first_full_sync_seconds": 1.2351592000050005,
+    "incremental_sync_seconds": 0.25211339999805205,
+    "whole_chain_operation_seconds": 11.361251000002085,
+    "whole_chain_operation_again_seconds": 11.289357899993774
+  },
+  "scope": "wallet CLI process times including Argon2id unlock and process start; the node is local and already synchronized"
+}

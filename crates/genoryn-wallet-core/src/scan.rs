@@ -95,8 +95,19 @@ pub fn replay_chain(
 ) -> Result<ChainState> {
     let mut state = ChainState::new(network);
     let mut cache = ProofCache::default();
-    for block in blocks {
-        state.apply_block_in_place(block, unix_time(), &mut cache, verification)?;
+    // A full validation checks work and proofs on several threads first; the
+    // blocks are then applied in order with every rule, as before.
+    let threads = match verification {
+        Verification::Full if blocks.len() >= 64 => std::thread::available_parallelism()
+            .map_or(2, usize::from)
+            .min(16),
+        _ => 1,
+    };
+    for chunk in blocks.chunks(1_024) {
+        cache.preverify(chunk, threads);
+        for block in chunk {
+            state.apply_block_in_place(block, unix_time(), &mut cache, verification)?;
+        }
     }
     Ok(state)
 }

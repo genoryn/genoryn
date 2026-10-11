@@ -566,21 +566,38 @@ fn one() -> u64 {
 fn eight() -> usize {
     8
 }
+/// Blocks one `v1/blocks` answer may hold. Nodes before 1.1 answer one block
+/// per request; clients accept any nonempty consecutive page.
+pub const MAX_BLOCK_PAGE: usize = 32;
+/// Encoded JSON a page may reach before it ends (always at least one block),
+/// below the 8 MB clients accept.
+const MAX_PAGE_JSON_BYTES: usize = 4_000_000;
 async fn blocks(
     State(node): State<Node>,
     Query(page): Query<Page>,
 ) -> std::result::Result<Json<Vec<Block>>, (StatusCode, Json<Value>)> {
-    let d = node.data.lock().map_err(fail)?;
-    let from = page.from.max(1).saturating_sub(1) as usize;
-    Ok(Json(
+    let selected: Vec<Block> = {
+        let d = node.data.lock().map_err(fail)?;
+        let from = page.from.max(1).saturating_sub(1) as usize;
         d.chain
             .active
             .iter()
             .skip(from)
-            .take(page.limit.min(1))
+            .take(page.limit.clamp(1, MAX_BLOCK_PAGE))
             .cloned()
-            .collect(),
-    ))
+            .collect()
+    };
+    let mut bytes = 0usize;
+    let mut answer = Vec::with_capacity(selected.len());
+    for block in selected {
+        let size = serde_json::to_vec(&block).map_err(fail)?.len();
+        if !answer.is_empty() && bytes + size > MAX_PAGE_JSON_BYTES {
+            break;
+        }
+        bytes += size;
+        answer.push(block);
+    }
+    Ok(Json(answer))
 }
 async fn peers(State(node): State<Node>) -> ApiResult {
     Ok(Json(
