@@ -452,6 +452,11 @@ mod tests {
             let tampered = dir.path().join("tampered.gnr");
             let _ = fs::remove_file(&tampered);
             fs::write(&tampered, serde_json::to_vec(&value).unwrap()).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&tampered, fs::Permissions::from_mode(0o600)).unwrap();
+            }
             Wallet::open(&tampered, "strong-password-77").map(|_| ())
         };
         // Lowering the cost in the header does not make the file cheaper to open.
