@@ -5,6 +5,7 @@ import Wallet from './pages/Wallet';
 import Download from './pages/Download';
 import Names from './pages/Names';
 import Pay from './pages/Pay';
+import Verify from './pages/Verify';
 import Support from './pages/Support';
 import Learn from './pages/Learn';
 import Status from './pages/Status';
@@ -38,6 +39,7 @@ export default function App(props: { url?: string }) {
       <Route path="/download" component={Download} />
       <Route path="/name" component={Names} />
       <Route path="/pay" component={Pay} />
+      <Route path="/verify" component={Verify} />
       <Route path="/support" component={Support} />
       <Route path="/learn" component={Learn} />
       <Route path="/status" component={Status} />

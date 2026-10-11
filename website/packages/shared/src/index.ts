@@ -6,4 +6,5 @@ export * from './uri';
 export * from './format';
 export * from './routes';
 export * from './faq';
+export * from './proof';
 export type * from './types';

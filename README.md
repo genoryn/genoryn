@@ -314,6 +314,11 @@ wallet, Bob's own keys, another payment, amount, recipient or network all fail. 
 of the payment's credential — not a legal identity. Details:
 [Payment Proof 2.0](docs/wallet/payment-proof-2.md).
 
+No wallet at hand? **[genoryn.io/verify](https://genoryn.io/verify)** runs the same checks — proof,
+exact amount, address, confirmations and the fresh sender challenge — with the wallet's own code
+against the genoryn.io node. The proof is shown to that server only to be checked; for a check
+that depends on nobody, use your own wallet.
+
 ## Explorer and API
 
 [genoryn.io](https://genoryn.io/) shows blocks, transactions, difficulty, estimated hashrate,

@@ -26,6 +26,10 @@ export const config = {
   // Empty or unset means no onion service is published yet.
   seedOnion: env.SEED_ONION?.trim() || null,
   networkMode: env.NETWORK_MODE ?? 'hybrid',
+  // Payment-proof checks: the wallet CLI and a valueless verifier wallet that keeps the validated chain.
+  verifierCli: env.VERIFIER_CLI?.trim() || null,
+  verifierWallet: env.VERIFIER_WALLET ?? '/var/lib/genoryn-io/verifier/verifier.wallet',
+  verifierPasswordFile: env.VERIFIER_PASSWORD_FILE ?? '/etc/genoryn/verifier.pass',
   // name=url pairs of admin RPCs whose peers are counted (local node plus tunnelled seeds).
   peerSources: (env.PEER_SOURCES ?? 'genoryn.io=http://127.0.0.1:29711')
     .split(',')

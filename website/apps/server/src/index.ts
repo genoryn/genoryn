@@ -13,6 +13,7 @@ import { MinerWatcher } from './miner';
 import { NodeTracker } from './nodes';
 import { Crawler } from './crawler';
 import { registerApi } from './api';
+import { ProofVerifier, registerProofApi } from './proofs';
 import { rpc } from './rpc';
 import { headTags, resolveMeta, robots, sitemap } from './seo';
 
@@ -92,6 +93,7 @@ app.addHook('onSend', async (req, reply, payload) => {
 });
 
 registerApi(app, { q, indexer, hub, miner });
+registerProofApi(app, new ProofVerifier());
 
 app.get('/sitemap.xml', async (_req, reply) => reply.type('application/xml; charset=utf-8').send(sitemap(q)));
 app.get('/robots.txt', async (_req, reply) => reply.type('text/plain; charset=utf-8').send(robots()));

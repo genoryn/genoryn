@@ -207,6 +207,7 @@ class Lab:
         received.pop("mined_at")
         assert self.wallet("carol","verify_proof",node="c",proof=received)["created_by_sender"] is False
         self.record("one_step_sender_proof_address_check_and_forgery_rejected")
+        self.proofs={"sender":auto,"received":received}
         self.sender_challenge(auto,sent,bob_payment_address)
         self.wallet("bob","send",to=carol["address"],amount_atomic="200000000000",fee_atomic="10000000")
         self.wallet('alice','send',to=alice['address'],amount_atomic='10000000000',fee_atomic='50000000')
@@ -242,6 +243,8 @@ class Lab:
         if self.args.keep:
             # Test-only public receiver metadata, no seed/password. Useful for native UI QA.
             (self.root/"lab-public.json").write_text(json.dumps({"ports":self.ports,"alice_address":alice["address"],"height":height},indent=2))
+            # The devnet test payment's proofs, for checking verifiers such as genoryn.io/verify.
+            for kind,proof in self.proofs.items():(self.root/f"proof-{kind}.json").write_text(json.dumps(proof))
     def sender_challenge(self,proof,sent,bob_address):
         """Payment Proof 2.0 through the real CLI: Bob checks the payment, sends a
         fresh challenge, and only Alice's wallet can answer it. Bob's and Carol's

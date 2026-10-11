@@ -15,6 +15,7 @@ const SHORT: Record<string, string> = {
   '/download': 'Latest release, verified',
   '/name': 'On-chain @usernames',
   '/pay': 'Payment requests & QR',
+  '/verify': 'Check a payment proof',
   '/support': 'FAQ and help',
   '/learn': 'How private money works',
   '/status': 'Live network health',
@@ -76,6 +77,9 @@ function Header(props: { onMenu: () => void; menuOpen: boolean }) {
           <NavMenu label="Developers" items={dev} />
           <A href="/mining" class="nav-link" activeClass="active">
             Mining
+          </A>
+          <A href="/verify" class="nav-link" activeClass="active">
+            Verify
           </A>
           <A href="/learn" class="nav-link" activeClass="active">
             Learn
