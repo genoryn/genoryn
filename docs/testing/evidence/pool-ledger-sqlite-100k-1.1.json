@@ -1,0 +1,71 @@
+{
+  "balanced": true,
+  "benchmark": "pool ledger at scale",
+  "driver": "sqlite",
+  "machine": {
+    "arch": "x86_64",
+    "logical_cpus": 24,
+    "os": "windows"
+  },
+  "miners": 100000,
+  "rows_per_miner": 2,
+  "scope": "accounting path only (no network, no RandomX); simulated miners",
+  "steps": [
+    {
+      "detail": {
+        "miners": 100000
+      },
+      "seconds": 0.3251052,
+      "step": "register_miners"
+    },
+    {
+      "detail": {
+        "rows": 200000,
+        "rows_per_second": 476439.1320422468
+      },
+      "seconds": 0.4197808,
+      "step": "record_work_batched_4096"
+    },
+    {
+      "detail": {
+        "miners_in_window": 100000,
+        "window_work": 6000060100000
+      },
+      "seconds": 0.0232012,
+      "step": "pplns_window"
+    },
+    {
+      "detail": {
+        "credits": 100000,
+        "dust_fixed": "50000"
+      },
+      "seconds": 0.0011988,
+      "step": "pplns_division"
+    },
+    {
+      "detail": {},
+      "seconds": 0.1199994,
+      "step": "store_immature_credits"
+    },
+    {
+      "detail": {},
+      "seconds": 0.4365361,
+      "step": "mature_and_credit_balances"
+    },
+    {
+      "detail": {
+        "batches": 1000,
+        "payees": 15000
+      },
+      "seconds": 0.1102398,
+      "step": "plan_1000_payout_batches"
+    },
+    {
+      "detail": {
+        "balanced": true
+      },
+      "seconds": 0.0266922,
+      "step": "audit"
+    }
+  ]
+}

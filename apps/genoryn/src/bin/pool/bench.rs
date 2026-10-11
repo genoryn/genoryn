@@ -28,6 +28,9 @@ enum BenchKind {
         threads: usize,
         #[arg(long, default_value_t = 20)]
         seconds: u64,
+        /// Full-memory RandomX (the gateway's --fast-verify).
+        #[arg(long)]
+        fast: bool,
     },
     Ledger {
         #[command(flatten)]
@@ -54,14 +57,21 @@ enum BenchKind {
         /// Submit this many real shares per session during the hold.
         #[arg(long, default_value_t = 0)]
         shares_per_session: u32,
+        /// Bind explicit local ports from here upward on each source address
+        /// (Windows draws every automatic port from one shared range of about
+        /// 16,000, whatever the source address).
+        #[arg(long)]
+        source_port_start: Option<u16>,
     },
 }
 
 pub async fn run(args: BenchArgs) -> Result<()> {
     let report = match args.kind {
-        BenchKind::Verify { threads, seconds } => {
-            tokio::task::spawn_blocking(move || verify(threads, seconds)).await??
-        }
+        BenchKind::Verify {
+            threads,
+            seconds,
+            fast,
+        } => tokio::task::spawn_blocking(move || verify(threads, seconds, fast)).await??,
         BenchKind::Ledger {
             ledger,
             miners,
@@ -77,6 +87,7 @@ pub async fn run(args: BenchArgs) -> Result<()> {
             address,
             source,
             shares_per_session,
+            source_port_start,
         } => {
             connections_bench(
                 target,
@@ -85,6 +96,7 @@ pub async fn run(args: BenchArgs) -> Result<()> {
                 address,
                 source,
                 shares_per_session,
+                source_port_start,
             )
             .await?
         }
@@ -101,24 +113,40 @@ fn machine() -> Value {
     })
 }
 
-/// Real RandomX light-mode verification of share-shaped inputs.
-fn verify(threads: usize, seconds: u64) -> Result<Value> {
+/// Real RandomX verification of share-shaped inputs, light or full-memory.
+fn verify(threads: usize, seconds: u64, fast: bool) -> Result<Value> {
     let threads = threads.clamp(1, 256);
+    let seed = [7u8; 32];
+    let built = Instant::now();
+    let dataset = fast
+        .then(|| genoryn_core::pow::FastDataset::new(seed))
+        .transpose()?;
+    let dataset_seconds = built.elapsed().as_secs_f64();
+    let light_reference = genoryn_core::pow::randomx(seed, &[0x5a; 200])?;
+    if let Some(dataset) = &dataset {
+        ensure!(
+            dataset.vm()?.hash(&[0x5a; 200])? == light_reference,
+            "full-memory and light hashes differ"
+        );
+    }
     let done = Arc::new(AtomicU64::new(0));
     let deadline = Instant::now() + Duration::from_secs(seconds.max(1));
     let started = Instant::now();
     let workers: Vec<_> = (0..threads)
         .map(|index| {
-            let done = done.clone();
+            let (done, dataset) = (done.clone(), dataset.clone());
             std::thread::spawn(move || -> Result<()> {
-                let seed = [7u8; 32];
                 let mut header = vec![0x5a; 200];
+                let vm = dataset.as_ref().map(|d| d.vm()).transpose()?;
                 // Warm the VM (cache construction is not share verification).
                 genoryn_core::pow::randomx(seed, &header)?;
                 let mut nonce = (index as u64) << 40;
                 while Instant::now() < deadline {
                     header[NONCE_OFFSET..NONCE_OFFSET + 8].copy_from_slice(&nonce.to_le_bytes());
-                    std::hint::black_box(genoryn_core::pow::randomx(seed, &header)?);
+                    std::hint::black_box(match &vm {
+                        Some(vm) => vm.hash(&header)?,
+                        None => genoryn_core::pow::randomx(seed, &header)?,
+                    });
                     done.fetch_add(1, Ordering::Relaxed);
                     nonce += 1;
                 }
@@ -135,14 +163,15 @@ fn verify(threads: usize, seconds: u64) -> Result<Value> {
     let total = done.load(Ordering::Relaxed);
     let per_second = total as f64 / elapsed;
     Ok(json!({
-        "benchmark": "genuine RandomX light-mode share verification",
+        "benchmark": if fast { "genuine RandomX full-memory share verification" } else { "genuine RandomX light-mode share verification" },
+        "dataset_build_seconds": fast.then_some(dataset_seconds),
         "machine": machine(),
         "threads": threads,
         "seconds": elapsed,
         "verified_shares": total,
         "shares_per_second": per_second,
         "per_thread_per_second": per_second / threads as f64,
-        "memory_note": "about 256 MiB of RandomX cache per verification thread",
+        "memory_note": if fast { "one 2 GiB dataset shared by all threads" } else { "about 256 MiB of RandomX cache per verification thread" },
         "miners_supported_at_15s_shares": (per_second * 15.0) as u64,
         "scope": "one machine's verification capacity; add verification threads or gateways to scale",
     }))
@@ -263,8 +292,15 @@ async fn connections_bench(
     address: String,
     sources: Vec<std::net::IpAddr>,
     shares_per_session: u32,
+    source_port_start: Option<u16>,
 ) -> Result<Value> {
     ensure!(!targets.is_empty(), "at least one --target");
+    // Next explicit local port per source address.
+    let next_port: Arc<Vec<std::sync::atomic::AtomicU32>> = Arc::new(
+        (0..sources.len().max(1))
+            .map(|_| std::sync::atomic::AtomicU32::new(u32::from(source_port_start.unwrap_or(0))))
+            .collect(),
+    );
     let connected = Arc::new(AtomicU64::new(0));
     let logged_in = Arc::new(AtomicU64::new(0));
     let failed = Arc::new(AtomicU64::new(0));
@@ -287,18 +323,41 @@ async fn connections_bench(
             address.clone(),
         );
         let (shares_sent, shares_answered) = (shares_sent.clone(), shares_answered.clone());
+        let next_port = next_port.clone();
         tasks.push(tokio::spawn(async move {
             let opened = Instant::now();
             let attempt = async {
                 let permit = gate.acquire().await?;
-                let socket = if target.is_ipv4() {
-                    tokio::net::TcpSocket::new_v4()?
-                } else {
-                    tokio::net::TcpSocket::new_v6()?
+                let new_socket = || {
+                    if target.is_ipv4() {
+                        tokio::net::TcpSocket::new_v4()
+                    } else {
+                        tokio::net::TcpSocket::new_v6()
+                    }
                 };
-                if let Some(source) = source {
-                    socket.bind(SocketAddr::new(source, 0))?;
-                }
+                let socket = match (source, source_port_start) {
+                    (Some(source), Some(_)) => {
+                        let counter = &next_port[index % next_port.len()];
+                        let mut bound = None;
+                        // Ports the system reserves are skipped.
+                        for _ in 0..4_096 {
+                            let port = counter.fetch_add(1, Ordering::Relaxed);
+                            anyhow::ensure!(port <= u32::from(u16::MAX), "local ports exhausted");
+                            let socket = new_socket()?;
+                            if socket.bind(SocketAddr::new(source, port as u16)).is_ok() {
+                                bound = Some(socket);
+                                break;
+                            }
+                        }
+                        bound.context("no free local port")?
+                    }
+                    (Some(source), None) => {
+                        let socket = new_socket()?;
+                        socket.bind(SocketAddr::new(source, 0))?;
+                        socket
+                    }
+                    _ => new_socket()?,
+                };
                 let stream = socket.connect(target).await?;
                 connected.fetch_add(1, Ordering::Relaxed);
                 let (read, mut write) = stream.into_split();

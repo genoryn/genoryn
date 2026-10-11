@@ -294,6 +294,15 @@ const SAFETY = [
   ['A tampered update', 'The wallet only points to the official repository releases and never installs anything; every package carries SHA-256 checksums and a manifest with its source commit.'],
 ];
 
+const NEW_IN_1_1 = [
+  { icon: 'cpu', title: 'Shared mining (PPLNS)', href: '/mining#shared-mining', body: 'Open-source pools pay by verified work: every share is hashed again with real RandomX, so a slow computer earns in proportion to its speed. Exact integer accounting, payouts after 60 confirmations.' },
+  { icon: 'fingerprint', title: 'Payment Proof 2.0', href: '/wallet', body: 'Prove a payment with a code, PDF or JSON. For new payments the recipient can send a fresh challenge that only the paying wallet can answer — without revealing any key or other payment.' },
+  { icon: 'node', title: 'My Full Node', href: '/wallet', body: 'One click starts your own validating node after real checks of disk, memory, ports and data folder. No open ports, no firewall changes, no service — unless you choose to.' },
+  { icon: 'zap', title: 'Faster, resumable sync', href: '/wallet', body: 'Sends and proofs with your own node: 11.3 s → 0.4 s on the real chain. Quick mode validates long downloads in parallel (49 s → 18 s, identical result). No validation skipped.' },
+  { icon: 'shield', title: 'Privacy & Security', href: '/wallet', body: 'Verified, Warning, Failed or Not tested — check by check, with what each result is based on. Settings and your own statements are never shown as verified. No anonymity score.' },
+  { icon: 'lock', title: 'Mainnet unchanged', href: '/mainnet', body: 'Same genesis, chain id, 21,000,000 GNR cap, emission, RandomX and Halo 2 rules. Existing wallets, recovery phrases and balances work exactly as before.' },
+] as const;
+
 export default function Home() {
   return (
     <>
@@ -337,6 +346,27 @@ export default function Home() {
               <div class="n">0</div>
               <div class="t">premine or mint keys — every coin is mined, and the treasury share is burned</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="new-in-1-1">
+        <div class="container">
+          <SectionHead
+            eyebrow="New in GENORYN 1.1"
+            title={<>Fairer mining. Provable payments. Your own node in one click.</>}
+            lead="No consensus change: the same chain, supply and rules. Everything new runs on top of Mainnet 1.0, and every number below was measured, not promised."
+          />
+          <div class="grid cols-3">
+            <For each={NEW_IN_1_1}>
+              {(item) => (
+                <A href={item.href} class="card spot reveal" style={{ display: 'block', color: 'inherit', 'text-decoration': 'none' }}>
+                  <Icon name={item.icon} size={22} />
+                  <h3 class="mt-2">{item.title}</h3>
+                  <p class="muted">{item.body}</p>
+                </A>
+              )}
+            </For>
           </div>
         </div>
       </section>

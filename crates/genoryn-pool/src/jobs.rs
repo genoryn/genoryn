@@ -168,10 +168,23 @@ pub struct CheckedShare {
 /// Verifies one submission with real RandomX. Range and duplicate checks are
 /// the caller's (they need the session); this is the expensive part.
 pub fn verify_share(job: &Job, nonce: u64, share_difficulty: u64) -> Result<CheckedShare, Reject> {
+    verify_share_with(job, nonce, share_difficulty, |seed, bytes| {
+        pow::randomx(seed, bytes)
+    })
+}
+
+/// [`verify_share`] with a given RandomX implementation, such as a
+/// full-memory VM (identical hashes, several times faster).
+pub fn verify_share_with(
+    job: &Job,
+    nonce: u64,
+    share_difficulty: u64,
+    randomx: impl FnOnce(Hash, &[u8]) -> Result<Hash>,
+) -> Result<CheckedShare, Reject> {
     if share_difficulty == 0 {
         return Err(Reject::LowDifficulty);
     }
-    let hash = pow::randomx(job.seed(), &job.header_with(nonce)).map_err(|_| Reject::Busy)?;
+    let hash = randomx(job.seed(), &job.header_with(nonce)).map_err(|_| Reject::Busy)?;
     if !pow::meets_difficulty(hash, share_difficulty) {
         return Err(Reject::LowDifficulty);
     }

@@ -1,0 +1,19 @@
+{
+  "benchmark": "simulated miner connections against one gateway",
+  "connected": 10000,
+  "failed": 0,
+  "logged_in_with_job": 10000,
+  "login_ms_p50": 263.87899999999996,
+  "login_ms_p99": 1037.8183000000001,
+  "machine": {
+    "arch": "x86_64",
+    "logical_cpus": 24,
+    "os": "windows"
+  },
+  "peak_concurrent_sessions": 10000,
+  "requested": 10000,
+  "scope": "simulated sessions from one client machine, not independent miners; shares are real nonces hashed by the gateway",
+  "seconds": 45.3997937,
+  "shares_answered": 0,
+  "shares_sent": 0
+}

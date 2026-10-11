@@ -103,6 +103,44 @@ pub struct BlockFound {
     pub block: genoryn_core::block::Block,
 }
 
+/// The full-memory RandomX dataset for the current seed, built once in the
+/// background and shared by every verification thread. Until it is ready
+/// (about a minute per seed) shares are verified in light mode.
+#[derive(Default)]
+pub struct FastDatasets {
+    ready: Option<genoryn_core::pow::FastDataset>,
+    building: Option<[u8; 32]>,
+    unavailable: bool,
+}
+pub type SharedFast = Arc<Mutex<FastDatasets>>;
+fn fast_vm_for(fast: &SharedFast, seed: [u8; 32]) -> Option<genoryn_core::pow::FastVm> {
+    let mut state = fast.lock().ok()?;
+    if let Some(dataset) = state.ready.as_ref().filter(|d| d.seed() == seed) {
+        return dataset.vm().ok();
+    }
+    if state.unavailable || state.building == Some(seed) {
+        return None;
+    }
+    state.building = Some(seed);
+    let fast = fast.clone();
+    std::thread::spawn(move || {
+        let built = genoryn_core::pow::FastDataset::new(seed);
+        if let Ok(mut state) = fast.lock() {
+            state.building = None;
+            match built {
+                Ok(dataset) => state.ready = Some(dataset),
+                Err(error) => {
+                    eprintln!(
+                        "full-memory RandomX unavailable; shares stay verified in light mode: {error:#}"
+                    );
+                    state.unavailable = true;
+                }
+            }
+        }
+    });
+    None
+}
+
 /// Starts `threads` verification workers and the sink. Returns the queue
 /// sender and a receiver of found blocks for the submitter.
 pub fn start_workers(
@@ -110,6 +148,7 @@ pub fn start_workers(
     gateway: String,
     threads: usize,
     queue: usize,
+    fast: Option<SharedFast>,
 ) -> (
     std_mpsc::SyncSender<VerifyTask>,
     mpsc::UnboundedReceiver<BlockFound>,
@@ -119,16 +158,32 @@ pub fn start_workers(
     let (sink_tx, sink_rx) = std_mpsc::channel::<SinkItem>();
     let (block_tx, block_rx) = mpsc::unbounded_channel();
     for index in 0..threads {
-        let (verify_rx, sink_tx) = (verify_rx.clone(), sink_tx.clone());
+        let (verify_rx, sink_tx, fast) = (verify_rx.clone(), sink_tx.clone(), fast.clone());
         std::thread::Builder::new()
             .name(format!("verify-{index}"))
             .spawn(move || {
+                let mut vm: Option<([u8; 32], genoryn_core::pow::FastVm)> = None;
                 loop {
                     let task = match verify_rx.lock().map(|rx| rx.recv()) {
                         Ok(Ok(task)) => task,
                         _ => return,
                     };
-                    match jobs::verify_share(&task.job, task.nonce, task.difficulty) {
+                    let seed = task.job.seed();
+                    if let Some(fast) = &fast
+                        && vm.as_ref().is_none_or(|(known, _)| *known != seed)
+                    {
+                        vm = fast_vm_for(fast, seed).map(|machine| (seed, machine));
+                    }
+                    let checked = match &vm {
+                        Some((_, machine)) => jobs::verify_share_with(
+                            &task.job,
+                            task.nonce,
+                            task.difficulty,
+                            |_, bytes| machine.hash(bytes),
+                        ),
+                        None => jobs::verify_share(&task.job, task.nonce, task.difficulty),
+                    };
+                    match checked {
                         Ok(checked) => {
                             let _ = sink_tx.send(SinkItem {
                                 task,

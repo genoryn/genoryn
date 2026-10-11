@@ -1,0 +1,16 @@
+{
+  "benchmark": "genuine RandomX light-mode share verification",
+  "machine": {
+    "arch": "x86_64",
+    "logical_cpus": 24,
+    "os": "windows"
+  },
+  "memory_note": "about 256 MiB of RandomX cache per verification thread",
+  "miners_supported_at_15s_shares": 5223,
+  "per_thread_per_second": 21.766146100485646,
+  "scope": "one machine's verification capacity; add verification threads or gateways to scale",
+  "seconds": 20.1373499,
+  "shares_per_second": 348.25833760777033,
+  "threads": 16,
+  "verified_shares": 7013
+}

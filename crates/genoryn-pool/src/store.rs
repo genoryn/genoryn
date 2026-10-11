@@ -13,7 +13,7 @@
 //! - pending payouts (`balances.pending`, in a planned or submitted batch);
 //! - paid (`balances.paid`, only after the payout transaction is confirmed).
 //!
-//! Block lifecycle: `submitted` → `immature` → `mature`, or `rejected`,
+//! Block lifecycle: `submitted` -> `immature` -> `mature`, or `rejected`,
 //! `orphaned` (left the chain before maturity: its credits never count),
 //! `reversed` (left the chain after maturity: credits are taken back from
 //! unpaid balances; what was already paid is recorded as operator deficit),
@@ -71,10 +71,55 @@ fn t(value: impl ToString) -> Val {
     Val::Text(value.to_string())
 }
 
-/// One SQL transaction; statements use `$1, $2, …` placeholders.
+/// One SQL transaction; statements use `$1, $2, ...` placeholders.
 pub trait Tx {
     fn exec(&mut self, sql: &str, params: &[Val]) -> Result<u64>;
     fn rows(&mut self, sql: &str, params: &[Val]) -> Result<Vec<Vec<Val>>>;
+    fn is_postgres(&self) -> bool {
+        false
+    }
+}
+
+/// Rows inserted per statement: one round trip per chunk instead of per row.
+const INSERT_CHUNK: usize = 1_000;
+
+/// `INSERT INTO head VALUES (...), (...) ... returning` in chunks; `rows` all have
+/// the same width. Returns the `returning` rows of every chunk.
+fn insert_many(
+    tx: &mut dyn Tx,
+    head: &str,
+    rows: &[Vec<Val>],
+    returning: &str,
+) -> Result<Vec<Vec<Val>>> {
+    let mut out = Vec::new();
+    for chunk in rows.chunks(INSERT_CHUNK) {
+        let width = chunk.first().map_or(0, Vec::len);
+        let mut sql = format!("INSERT INTO {head} VALUES ");
+        let mut params = Vec::with_capacity(chunk.len() * width);
+        for (row_index, row) in chunk.iter().enumerate() {
+            ensure!(row.len() == width, "rows of different width");
+            if row_index > 0 {
+                sql.push(',');
+            }
+            sql.push('(');
+            for column in 0..width {
+                if column > 0 {
+                    sql.push(',');
+                }
+                sql.push_str(&format!("${}", row_index * width + column + 1));
+            }
+            sql.push(')');
+            params.extend(row.iter().cloned());
+        }
+        if returning.is_empty() {
+            tx.exec(&sql, &params)?;
+        } else {
+            sql.push(' ');
+            sql.push_str(returning);
+            out.extend(tx.rows(&sql, &params)?);
+        }
+    }
+    Ok(out)
 }
 
 fn sqlite_sql(sql: &str) -> String {
@@ -133,6 +178,9 @@ fn postgres_params(params: &[Val]) -> Vec<Box<dyn postgres::types::ToSql + Sync>
         .collect()
 }
 impl Tx for PostgresTx<'_> {
+    fn is_postgres(&self) -> bool {
+        true
+    }
     fn exec(&mut self, sql: &str, params: &[Val]) -> Result<u64> {
         let owned = postgres_params(params);
         let refs: Vec<&(dyn postgres::types::ToSql + Sync)> =
@@ -250,7 +298,10 @@ pub struct Audit {
 
 pub struct Store {
     backend: Backend,
+    miners: std::collections::HashMap<String, MinerId>,
 }
+/// Miner ids remembered per process before the memo starts over.
+const MINER_CACHE: usize = 2_000_000;
 
 impl Store {
     pub fn open_sqlite(path: &Path) -> Result<Self> {
@@ -260,6 +311,7 @@ impl Store {
         connection.busy_timeout(std::time::Duration::from_secs(30))?;
         let mut store = Self {
             backend: Backend::Sqlite(connection),
+            miners: Default::default(),
         };
         store.create_schema()?;
         Ok(store)
@@ -271,6 +323,7 @@ impl Store {
             .context("cannot connect to the PostgreSQL pool ledger")?;
         let mut store = Self {
             backend: Backend::Postgres(Box::new(client)),
+            miners: Default::default(),
         };
         store.create_schema()?;
         Ok(store)
@@ -389,8 +442,12 @@ impl Store {
         })
     }
     pub fn miner(&mut self, address: &str, now: u64) -> Result<MinerId> {
+        // A miner's id never changes: reconnects need no database round trip.
+        if let Some(id) = self.miners.get(address) {
+            return Ok(*id);
+        }
         let address = address.to_owned();
-        self.tx(|tx| {
+        let id = self.tx(|tx| {
             tx.exec(
                 "INSERT INTO miners(address, created_at) VALUES ($1, $2) ON CONFLICT(address) DO NOTHING",
                 &[t(&address), i(now)],
@@ -399,10 +456,16 @@ impl Store {
                 .first()
                 .context("miner row")?[0]
                 .int()
-        })
+        })?;
+        if self.miners.len() >= MINER_CACHE {
+            self.miners.clear();
+        }
+        self.miners.insert(address, id);
+        Ok(id)
     }
-    /// Records verified work durably; returns the sequence of each row. Shares
-    /// are acknowledged to miners only after this returns.
+    /// Records verified work durably; returns the sequence of each row, in the
+    /// order of `rows` (one row per miner). Shares are acknowledged to miners
+    /// only after this returns.
     pub fn record_work(
         &mut self,
         gateway: &str,
@@ -410,18 +473,26 @@ impl Store {
         now: u64,
     ) -> Result<Vec<i64>> {
         let gateway = gateway.to_owned();
+        let mut values = Vec::with_capacity(rows.len());
+        let mut seen = std::collections::BTreeSet::new();
+        for (miner, work, shares) in rows {
+            ensure!(*work > 0 && *work <= i64::MAX as u64, "work out of range");
+            ensure!(seen.insert(*miner), "one work row per miner per batch");
+            values.push(vec![i(*miner), i(*work), i(*shares), t(&gateway), i(now)]);
+        }
         self.tx(|tx| {
+            let returned = insert_many(
+                tx,
+                "work(miner_id, work, shares, gateway, recorded_at)",
+                &values,
+                "RETURNING miner_id, seq",
+            )?;
+            let by_miner: BTreeMap<MinerId, i64> = returned
+                .iter()
+                .map(|row| Ok((row[0].int()?, row[1].int()?)))
+                .collect::<Result<_>>()?;
             rows.iter()
-                .map(|(miner, work, shares)| {
-                    ensure!(*work > 0 && *work <= i64::MAX as u64, "work out of range");
-                    tx.rows(
-                        "INSERT INTO work(miner_id, work, shares, gateway, recorded_at) VALUES ($1, $2, $3, $4, $5) RETURNING seq",
-                        &[i(*miner), i(*work), i(*shares), t(&gateway), i(now)],
-                    )?
-                    .first()
-                    .context("work sequence")?[0]
-                        .int()
-                })
+                .map(|(miner, _, _)| by_miner.get(miner).copied().context("work sequence"))
                 .collect()
         })
     }
@@ -562,12 +633,12 @@ impl Store {
                     i(block),
                 ],
             )?;
-            for credit in &allocation.credits {
-                tx.exec(
-                    "INSERT INTO credits(block_id, miner_id, work, fixed) VALUES ($1, $2, $3, $4)",
-                    &[i(block), i(credit.miner), i(credit.work), t(credit.fixed)],
-                )?;
-            }
+            let rows: Vec<Vec<Val>> = allocation
+                .credits
+                .iter()
+                .map(|credit| vec![i(block), i(credit.miner), i(credit.work), t(credit.fixed)])
+                .collect();
+            insert_many(tx, "credits(block_id, miner_id, work, fixed)", &rows, "")?;
             Ok(())
         })
     }
@@ -654,9 +725,17 @@ impl Store {
     pub fn mature_block(&mut self, block: i64, now: u64) -> Result<()> {
         self.tx(|tx| {
             Self::set_status(tx, block, &["immature"], "mature", now)?;
-            for (miner, fixed) in Self::credits(tx, block)? {
-                let (matured, pending, paid) = Self::balance(tx, miner)?;
-                Self::set_balance(tx, miner, matured + fixed, pending, paid)?;
+            if tx.is_postgres() {
+                // One set-based statement: exact NUMERIC arithmetic in the server.
+                tx.exec(
+                    "INSERT INTO balances(miner_id, matured, pending, paid) SELECT miner_id, fixed, 0, '0' FROM credits WHERE block_id = $1 ON CONFLICT(miner_id) DO UPDATE SET matured = ((balances.matured)::numeric + (excluded.matured)::numeric)::text",
+                    &[i(block)],
+                )?;
+            } else {
+                for (miner, fixed) in Self::credits(tx, block)? {
+                    let (matured, pending, paid) = Self::balance(tx, miner)?;
+                    Self::set_balance(tx, miner, matured + fixed, pending, paid)?;
+                }
             }
             let (fee, dust) = Self::block_terms(tx, block)?;
             let (fees, old_dust, deficit, network) = Self::operator(tx)?;
@@ -1284,3 +1363,4 @@ mod tests {
         exercise(&mut store);
     }
 }
+

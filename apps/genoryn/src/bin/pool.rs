@@ -130,6 +130,10 @@ struct ServeArgs {
     verify_threads: usize,
     #[arg(long, default_value_t = 4_096)]
     verify_queue: usize,
+    /// Verify shares with full-memory RandomX: one shared 2 GiB dataset per
+    /// seed, identical hashes, several times the light-mode throughput.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set)]
+    fast_verify: bool,
     /// Name of this gateway in the shared ledger.
     #[arg(long, default_value = "gateway-1")]
     gateway: String,
@@ -299,6 +303,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         args.gateway.clone(),
         args.verify_threads.clamp(1, 256),
         args.verify_queue.max(16),
+        args.fast_verify.then(gateway::SharedFast::default),
     );
     let (job_tx, _) = tokio::sync::watch::channel(None);
     let shared = Arc::new(gateway::Shared {

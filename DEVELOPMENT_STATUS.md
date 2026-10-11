@@ -1,5 +1,22 @@
 # Development status
 
+## 1.1.0 (branch `develop/v1.1.0`, not yet released as binaries)
+
+No consensus change; Mainnet 1.0 genesis, chain, supply and rules unchanged. Evidence is
+local (Windows 11, Intel Core Ultra 9 285K) unless a CI run is named.
+
+| Feature | State | Evidence |
+|---|---|---|
+| Payment Proof 2.0 (memo-committed key, challenge/response, outcomes) | Implemented, verified locally | `payment_proof_v2` real-chain test; devnet CLI check; GUI tests |
+| Shared mining: PPLNS, VarDiff, share verification, ledger, payouts | Implemented, verified locally on devnet; **experimental**, custodial | `scripts/test/pool.py` (13 pool blocks, exact payouts, restart); pool unit/property tests on SQLite and real PostgreSQL 17 |
+| Pool capacity | Measured on one machine | `docs/testing/evidence/pool-*-1.1.json` |
+| Mainnet pool activation at 1150 | **Blocked by design**: the height passed before deployment; a future height needs explicit approval | `docs/testing/evidence/pool-activation-mainnet.txt` |
+| My Full Node page | Implemented; Windows lifecycle test updated (CI runs it) | `windows_native_controls.py`, GUI tests, captures |
+| Faster sync (paging, parallel pre-verification, snapshot) | Implemented, measured on the real mainnet chain | `wallet-sync-*-1.1.json`, `replay_bench` |
+| Privacy & Security Center | Implemented, verified locally | `views_security` tests |
+| Node IBD parallel validation | Not done (P2P path unchanged) | — |
+| Native P2Pool, TLS inside `genoryn-pool`, signed releases | Not done | — |
+
 ## Mainnet 1.0 (release 1.0.0)
 
 - **New network.** `genoryn-mainnet-1.0`, genesis `2b27dda9…6b2e`, magic `0x474e5213`,
