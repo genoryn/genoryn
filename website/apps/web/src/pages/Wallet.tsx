@@ -5,6 +5,11 @@ import { Icon } from '~/components/Icon';
 import { Callout, Feature, PageHero, SectionHead } from '~/components/ui';
 
 const FEATURES: Array<[string, string, string]> = [
+  ['node', 'My Full Node — one click', 'New in 1.1. Start My Full Node checks disk space, memory, the node program, the data folder and the RPC port first, then starts your own validating node. No open ports, no firewall change, no service; keeping it running after the wallet closes is your choice.'],
+  ['fingerprint', 'Payment Proof 2.0', 'New in 1.1. Prove a payment with a code, PDF or JSON — and, for new payments, answer the recipient’s fresh challenge so they know you control the payment’s key. Nothing else about your wallet is disclosed.'],
+  ['shield', 'Privacy & Security', 'New in 1.1. Every check says Verified, Warning, Failed or Not tested, and what it is based on: Tor bootstrap, direct connections, fail-closed proxies, wallet encryption, storage hygiene and updates. No anonymity score.'],
+  ['cpu', 'Shared mining', 'New in 1.1. Mine solo or with a pool of your choice. The pool checks every share with real RandomX and pays by verified work (PPLNS), so a slow computer earns in proportion to its speed.'],
+  ['zap', 'Faster sync', 'New in 1.1. With your own node, sends and proofs fetch only new blocks (0.4 s instead of 11 s on the real chain); Quick mode validates long downloads in parallel. Every block is still fully validated.'],
   ['globe', 'Quick mode', 'No local node: blocks come from remote nodes over Tor and every one is validated on your computer. Keys, signing and balance stay local, and the verified chain is cached so later syncs download only new blocks.'],
   ['node', 'Full mode', 'Your own node validates the chain independently and shows its height, peers, difficulty and readable logs. Switching modes keeps keys, scan progress, pending payments and mining history.'],
   ['shield', 'Durable outbox', 'A payment is signed and its exact bytes are stored encrypted on your computer before sending, then retried with the same bytes. A node acknowledgement is not a confirmation — only a block is.'],
@@ -25,14 +30,16 @@ const FEATURES: Array<[string, string, string]> = [
 ];
 
 const SHOTS = [
-  { id: 'overview', label: 'Overview', caption: 'Overview — balance from your own local scan, your @username, and immature mining rewards shown separately.' },
-  { id: 'send', label: 'Send', caption: 'Send — to a gnr1 address or @username; disabled until the matured balance covers amount plus fee.' },
-  { id: 'receive', label: 'Receive & @name', caption: 'Receive — address, monochrome QR, payment requests and on-chain username registration.' },
-  { id: 'transactions', label: 'Transactions', caption: 'Transactions — transfers and mined rewards, search, filters and payment proofs.' },
-  { id: 'mining', label: 'Mining', caption: 'Mining — threads up to the logical CPU count, live hashrate and how often this computer finds a block.' },
-  { id: 'node', label: 'Node', caption: 'Node — diagnostics of the full node your wallet validates with.' },
-  { id: 'network', label: 'Network', caption: 'Network — pinned chain identity, public supply, and network privacy: Direct, Hybrid or Tor only.' },
-  { id: 'lite', label: 'Lite edition', caption: 'GENORYN Lite — the same wallet, Quick and Full mode, without the Mining page.' },
+  { id: 'overview', label: 'Overview', caption: 'Overview — balance from your own local scan, your @username, and immature mining rewards shown separately.', fresh: false },
+  { id: 'node', label: 'My Full Node', caption: 'My Full Node — one-click start after real checks of this computer, honest status, logs and diagnostics.', fresh: true },
+  { id: 'verify', label: 'Verify payment', caption: 'Verify payment — check a proof against your own validated chain, the address and the exact amount, then challenge the sender.', fresh: true },
+  { id: 'security', label: 'Privacy & Security', caption: 'Privacy & Security — what this computer can actually observe, check by check, with what each result is based on.', fresh: true },
+  { id: 'mining', label: 'Mining', caption: 'Mining — solo or shared (PPLNS) mining, threads up to the logical CPU count and the five stages of a pool reward.', fresh: true },
+  { id: 'send', label: 'Send', caption: 'Send — to a gnr1 address or @username; disabled until the matured balance covers amount plus fee.', fresh: false },
+  { id: 'receive', label: 'Receive & @name', caption: 'Receive — address, monochrome QR, payment requests and on-chain username registration.', fresh: false },
+  { id: 'transactions', label: 'Transactions', caption: 'Transactions — transfers and mined rewards, search, filters and payment proofs.', fresh: false },
+  { id: 'network', label: 'Network', caption: 'Network — pinned chain identity, public supply, and network privacy: Direct, Hybrid or Tor only.', fresh: true },
+  { id: 'lite', label: 'Lite edition', caption: 'GENORYN Lite — the same wallet, Quick and Full mode, without the Mining page.', fresh: false },
 ] as const;
 
 function WalletShowcase() {
@@ -53,7 +60,12 @@ function WalletShowcase() {
       <figure class="shot" style={{ margin: 0 }}>
         <img src={src()} alt={shot().caption} width="1180" height="820" loading="eager" />
         <figcaption>
-          <Show when={true}>{shot().caption}</Show> <span class="faint mono" style={{ 'font-size': '11.5px' }}>· real screenshot from the official repository, taken with a pre-1.0 wallet on the retired network</span>
+          <Show when={true}>{shot().caption}</Show>{' '}
+          <span class="faint mono" style={{ 'font-size': '11.5px' }}>
+            {shot().fresh
+              ? '· real screenshot of GENORYN 1.1 on Mainnet 1.0, with a new empty wallet'
+              : '· real screenshot from the official repository, taken with a pre-1.0 wallet on the retired network'}
+          </span>
         </figcaption>
       </figure>
     </div>

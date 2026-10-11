@@ -13,15 +13,29 @@ class OnionProxy:
     """Stand-in for Tor's SOCKS port: forwards one onion name to a local node and
     refuses everything else, so Quick mode is exercised without the Tor network."""
     def __init__(self, target_port):
-        self.target_port = target_port; self.requests = []
+        self.target_port = target_port; self.requests = []; self.closed = False
         self.server = socket.socket(); self.server.bind(("127.0.0.1", 0)); self.server.listen(32)
         self.address = "127.0.0.1:%d" % self.server.getsockname()[1]
-        threading.Thread(target=self.accept, daemon=True).start()
+        self.acceptor = threading.Thread(target=self.accept, daemon=True); self.acceptor.start()
     def accept(self):
         while True:
             try: client, _ = self.server.accept()
             except OSError: return
+            if self.closed: client.close(); return
             threading.Thread(target=self.serve, args=(client,), daemon=True).start()
+    def close(self):
+        """Stops listening for real. On Linux, close() alone does not stop a socket
+        that another thread is blocked accepting on: the listener stays open until
+        accept() returns. shutdown() wakes it first."""
+        self.closed = True
+        try: self.server.shutdown(socket.SHUT_RDWR)
+        except OSError: pass
+        self.server.close(); self.acceptor.join(timeout=10)
+        assert not self.acceptor.is_alive(), "the SOCKS stand-in kept listening"
+        probe = socket.socket()
+        try: refused = probe.connect_ex(("127.0.0.1", int(self.address.rsplit(":", 1)[1]))) != 0
+        finally: probe.close()
+        assert refused, "the SOCKS stand-in still accepts connections"
     @staticmethod
     def read(sock, n):
         data = b""
@@ -193,6 +207,7 @@ class Lab:
         received.pop("mined_at")
         assert self.wallet("carol","verify_proof",node="c",proof=received)["created_by_sender"] is False
         self.record("one_step_sender_proof_address_check_and_forgery_rejected")
+        self.sender_challenge(auto,sent,bob_payment_address)
         self.wallet("bob","send",to=carol["address"],amount_atomic="200000000000",fee_atomic="10000000")
         self.wallet('alice','send',to=alice['address'],amount_atomic='10000000000',fee_atomic='50000000')
         self.mine("a",alice["address"],1);self.sync("abc",6)
@@ -227,6 +242,31 @@ class Lab:
         if self.args.keep:
             # Test-only public receiver metadata, no seed/password. Useful for native UI QA.
             (self.root/"lab-public.json").write_text(json.dumps({"ports":self.ports,"alice_address":alice["address"],"height":height},indent=2))
+    def sender_challenge(self,proof,sent,bob_address):
+        """Payment Proof 2.0 through the real CLI: Bob checks the payment, sends a
+        fresh challenge, and only Alice's wallet can answer it. Bob's and Carol's
+        wallets cannot, and a copied answer does not satisfy a new challenge."""
+        amount="1000000000000"
+        checked=self.wallet("bob","verify_proof",node="b",proof=proof,expected_recipient=bob_address,expected_amount_atomic=amount,structured_outcomes=True)
+        assert checked["outcome"]=="payment_verified" and checked["sender_evidence"]=="fresh_authentication_available",checked
+        assert checked["amount_matches"] is True and checked["recipient_matches"] is True,checked
+        ask=lambda:self.wallet("bob","create_payment_challenge",txid=sent["txid"],action=proof["action"],recipient=bob_address,amount_atomic=amount)["challenge"]
+        challenge=ask();assert challenge.startswith("GNRCHAL1-"),challenge
+        for impostor,node in [("bob","b"),("carol","c")]:
+            try:self.wallet(impostor,"answer_payment_challenge",node=node,challenge=challenge);raise RuntimeError(impostor+" answered for the sender")
+            except AssertionError as error:assert "did not make this payment" in str(error),error
+        answer=self.wallet("alice","answer_payment_challenge",challenge=challenge)
+        assert answer["response"].startswith("GNRRESP1-") and answer["txid"]==sent["txid"] and answer["amount_atomic"]==amount,answer
+        with_proof=self.wallet("bob","verify_payment_challenge",node="b",challenge=challenge,response=answer["response"],proof=proof)
+        assert with_proof["outcome"]=="sender_verified" and with_proof["confirmations"]>=1,with_proof
+        from_own_note=self.wallet("bob","verify_payment_challenge",node="b",challenge=challenge,response=answer["response"])
+        assert from_own_note["outcome"]=="sender_verified",from_own_note
+        try:self.wallet("bob","verify_payment_challenge",node="b",challenge=ask(),response=answer["response"],proof=proof);raise RuntimeError("a copied answer was accepted")
+        except AssertionError as error:assert "different challenge" in str(error),error
+        missing=dict(proof);missing["txid"]="00"*32
+        absent=self.wallet("bob","verify_proof",node="b",proof=missing,structured_outcomes=True)
+        assert absent["outcome"]=="not_on_chain",absent
+        self.record("payment_proof_2_fresh_sender_challenge_impostors_and_replay_rejected")
     def lost_acknowledgement(self,alice,carol):
         """The node refuses the first relay (as if its answer were lost); the
         payment stays stored and reserved, and the same signed bytes are relayed
@@ -278,7 +318,7 @@ class Lab:
         switched=self.wallet("alice-quick","sync")
         assert switched["balance_atomic"]==again["balance_atomic"],"Full and Quick agree after switching"
         assert switched["balance_atomic"]==self.wallet("alice","sync")["balance_atomic"]
-        proxy.server.close()
+        proxy.close()
         dead=self.wallet("alice-quick","sync",**quick)
         assert dead["stale"] is True and dead["balance_atomic"]==again["balance_atomic"],"stale, never zero"
         self.record("quick_mode_validates_locally_sends_and_syncs_incrementally",replay_ms=stats["replay_ms"],total_ms=stats["total_ms"])

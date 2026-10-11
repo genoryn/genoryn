@@ -42,6 +42,20 @@ const PARALLEL_REQUESTS: usize = 2;
 const MAX_FORK_SEARCH: u64 = 256;
 /// Upper bound on a chain this wallet downloads and keeps.
 pub const MAX_CHAIN_BLOCKS: u64 = 1_000_000;
+/// Blocks whose work and proofs are checked in parallel before being applied.
+pub const PREVERIFY_CHUNK: usize = 1_024;
+/// Parallel checking pays for its per-thread RandomX setup (about a second)
+/// only on longer downloads; short incremental syncs stay sequential.
+pub fn preverify_threads(blocks: usize) -> usize {
+    if blocks < 64 {
+        return 1;
+    }
+    std::thread::available_parallelism()
+        .map_or(2, usize::from)
+        .min(16)
+        .min(blocks / 16)
+        .max(1)
+}
 
 /// The Tor a light wallet uses: its own built-in client, or an external Tor.
 pub struct LightTor {
@@ -169,30 +183,46 @@ async fn block_at(client: &RpcClient, height: u64) -> Result<Block> {
 }
 /// Attempts per block before a source is given up; Tor circuits fail now and then.
 const BLOCK_ATTEMPTS: u32 = 6;
-/// One block, retried after transport errors (never after a wrong answer).
-async fn block_with_retry(client: &RpcClient, height: u64) -> Result<Block> {
+/// Blocks a page asks for over Tor; a 1.1 node answers up to this many at
+/// once, an older one a single block (the rest is asked for again).
+const PAGE: u64 = 16;
+/// Blocks `from..=to`, retried after transport errors (never after a wrong answer).
+async fn range_with_retry(client: &RpcClient, from: u64, to: u64) -> Result<Vec<Block>> {
+    let mut blocks = Vec::with_capacity((to - from + 1) as usize);
+    let mut next = from;
     let mut attempt = 1;
-    loop {
-        match block_at(client, height).await {
+    while next <= to {
+        match client.block_page(next, (to - next + 1) as usize).await {
+            Ok(page) => {
+                next += page.len() as u64;
+                blocks.extend(page);
+                attempt = 1;
+            }
             Err(error)
                 if attempt < BLOCK_ATTEMPTS && error.downcast_ref::<reqwest::Error>().is_some() =>
             {
                 tokio::time::sleep(Duration::from_millis(500 << attempt)).await;
                 attempt += 1;
             }
-            result => return result,
+            Err(error) => return Err(error),
         }
     }
+    Ok(blocks)
 }
-/// Blocks `from..=to` in order, several requests in flight.
+/// Blocks `from..=to` in order: pages of `PAGE` blocks, several in flight.
 async fn download(client: &RpcClient, from: u64, to: u64) -> Result<Vec<Block>> {
-    stream::iter(from..=to)
-        .map(|height| block_with_retry(client, height))
-        .buffered(PARALLEL_REQUESTS)
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect()
+    let pages: Vec<(u64, u64)> = (from..=to)
+        .step_by(PAGE as usize)
+        .map(|start| (start, (start + PAGE - 1).min(to)))
+        .collect();
+    let mut blocks = Vec::with_capacity((to + 1).saturating_sub(from) as usize);
+    let mut fetched = stream::iter(pages)
+        .map(|(start, end)| range_with_retry(client, start, end))
+        .buffered(PARALLEL_REQUESTS);
+    while let Some(page) = fetched.next().await {
+        blocks.extend(page?);
+    }
+    Ok(blocks)
 }
 /// The highest height at which `client`'s chain and `local` share a block.
 async fn fork_point(client: &RpcClient, local: &[Block], their_height: u64) -> Result<u64> {
@@ -319,16 +349,29 @@ pub async fn sync_verified(
         let mut cache = ProofCache::default();
         let mut valid = Vec::with_capacity(blocks.len());
         let mut failure = None;
-        for block in blocks {
-            match state.apply_block_in_place(&block, unix_time(), &mut cache, Verification::Full) {
-                Ok(()) => valid.push(block),
-                Err(error) => {
-                    failure = Some(format!(
-                        "invalid block at height {}: {}",
-                        block.header.height,
-                        short(&error)
-                    ));
-                    break;
+        let threads = preverify_threads(blocks.len());
+        let mut blocks = blocks.into_iter().peekable();
+        'chunks: while blocks.peek().is_some() {
+            let chunk: Vec<Block> = blocks.by_ref().take(PREVERIFY_CHUNK).collect();
+            // Work and proofs checked in parallel first; every rule is then
+            // applied in order below exactly as before.
+            cache.preverify(&chunk, threads);
+            for block in chunk {
+                match state.apply_block_in_place(
+                    &block,
+                    unix_time(),
+                    &mut cache,
+                    Verification::Full,
+                ) {
+                    Ok(()) => valid.push(block),
+                    Err(error) => {
+                        failure = Some(format!(
+                            "invalid block at height {}: {}",
+                            block.header.height,
+                            short(&error)
+                        ));
+                        break 'chunks;
+                    }
                 }
             }
         }

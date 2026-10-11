@@ -158,7 +158,7 @@ export default function Mining() {
             <div class="card"><h3>RandomX, one version</h3><p class="muted">A single explicit algorithm version with GENORYN epoch keys. No alternate easy verifier or mock proof of work exists in production consensus.</p></div>
             <div class="card"><h3>Explicit start only</h3><p class="muted">Mining is never enabled at wallet or daemon startup. You start it from the Mining page or with genoryn-miner, and stop it any time.</p></div>
             <div class="card"><h3>Pays an address, holds no keys</h3><p class="muted">A miner needs a node and a receiving address — never a wallet file or recovery phrase. Nothing is silently redirected to a developer.</p></div>
-            <div class="card"><h3>Up to 16 workers</h3><p class="muted">One thread per logical CPU, up to 16, each with an independent light-mode RandomX VM and about 256 MiB cache.</p></div>
+            <div class="card"><h3>One thread per CPU</h3><p class="muted">Fast mode shares one 2 GiB RandomX dataset between all threads; until it is ready (about a minute), or if it cannot be allocated, light mode uses 256 MiB per thread, at most 16 threads.</p></div>
             <div class="card"><h3>60-second target</h3><p class="muted">Difficulty retargets every block over up to 60 weighted intervals. Each adjustment is limited to 75–125% of the previous difficulty.</p></div>
             <div class="card"><h3>Maturity</h3><p class="muted">Mining outputs become spendable after 60 blocks — about an hour. On mainnet the treasury share is burned, never paid to anyone.</p></div>
           </div>
@@ -249,6 +249,49 @@ export default function Mining() {
         </div>
       </section>
 
+      <section class="section" id="shared-mining">
+        <div class="container">
+          <SectionHead
+            eyebrow="New in 1.1 · Shared mining"
+            title={<>Every hash counts — even from a slow computer.</>}
+            lead="A pool hands out work, checks every share you find with real RandomX and, when the pool finds a block, divides its reward by verified work over the last N shares (PPLNS). No consensus change: the block pays the pool like a solo block, and the pool pays you with an ordinary private transfer."
+          />
+          <div class="grid cols-2">
+            <div class="stack">
+              <MathTex block tex={'\\text{credit}_i = \\left\\lfloor \\frac{(R - \\text{fee}) \\cdot w_i \\cdot 2^{32}}{\\sum_j w_j} \\right\\rfloor \\ \\text{(units of } 2^{-32}\\text{ gori)}'} caption="w is verified work: each share counts exactly its difficulty. Integer arithmetic only; credits plus rounding dust equal the reward exactly." />
+              <div class="grid cols-2">
+                <div class="card"><h3>Fair by work</h3><p class="muted">A 10 H/s computer earns in proportion to its 10 H/s. Extra addresses earn nothing extra; VarDiff never changes what equivalent work is worth.</p></div>
+                <div class="card"><h3>Paid only when earned</h3><p class="muted">Shares are not money. A pool block is credited after 60 confirmations, reversed correctly after a reorganization, and paid in batches.</p></div>
+                <div class="card"><h3>Open source</h3><p class="muted">genoryn-pool and genoryn-miner --pool: anyone can run a pool; miners choose and switch freely. Solo mining stays.</p></div>
+                <div class="card"><h3>Custodial — said plainly</h3><p class="muted">A pool keeps mined rewards in its wallet until it pays them. GENORYN runs no pool and does not call any pool trustless.</p></div>
+              </div>
+            </div>
+            <div class="stack">
+              <CodeBlock
+                title="Mine with a pool"
+                code={`# Any computer: rewards go to YOUR address
+$ genoryn-miner --pool tls://pool.example.org:29790 \\
+    --wallet gnr1YOUR_RECEIVER --threads 2
+# An onion pool, through Tor
+$ genoryn-miner --pool tcp://abc…xyz.onion:29790 \\
+    --pool-proxy socks5h://127.0.0.1:9050 --wallet gnr1…`}
+              />
+              <div class="card">
+                <h3>A pool reward, step by step</h3>
+                <ol class="muted" style={{ 'padding-left': '20px', 'line-height': 1.8 }}>
+                  <li><b class="strong">Accepted shares</b> — verified work, recorded durably.</li>
+                  <li><b class="strong">Immature</b> — the pool found a block; 60 blocks to go.</li>
+                  <li><b class="strong">Matured credit</b> — your exact share, fractions below one gori too.</li>
+                  <li><b class="strong">Pending payout</b> — in a private payout transaction.</li>
+                  <li><b class="strong">Received</b> — confirmed on the chain, in your balance.</li>
+                </ol>
+              </div>
+              <p class="hint">Measured on one machine: about 2,000 RandomX share verifications per second (≈30,000 miners at 15-second shares) and 100,000 simulated sessions on one gateway. Capacity grows with more gateways and verifiers; it is measured, not promised. The requested mainnet accounting start (block 1150) has passed, so a mainnet pool needs an explicitly confirmed future start height — nothing is backdated.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="section">
         <div class="container">
           <SectionHead eyebrow="Start mining" title={<>Two ways to mine.</>} />
@@ -276,7 +319,7 @@ $ genoryn-miner --node http://127.0.0.1:${mainnet.adminRpcPort} \\
             </div>
           </div>
           <Callout class="mt-3">
-            Pooling, P2Pool-style protocols and fast-memory (dataset) mining are roadmap work. CPU-friendly does not prove ASIC or GPU resistance; GENORYN makes no such claim.
+            Shared (PPLNS) mining is available since 1.1 through open-source, independently run pools; a non-custodial P2Pool would need a consensus change and is not part of 1.1. CPU-friendly does not prove ASIC or GPU resistance; GENORYN makes no such claim.
           </Callout>
         </div>
       </section>

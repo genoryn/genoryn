@@ -1,0 +1,4 @@
+Recorded 2026-10-11T15:47:32Z on a local genorynd synchronized with GENORYN Mainnet 1.0 over Tor/hybrid (node tip 1293).
+$ genoryn-pool serve --network mainnet --ledger pool.sqlite --node http://127.0.0.1:39711 --token-file admin.token --pool-address gnr1...
+genoryn-pool: pool activation height 1150 has already passed (the verified tip is 1293); no earlier block is shared retroactively. Choose a future height and confirm it explicitly (--activation-height H --confirm-activation-height)
+{"event":"error","reason":"pool activation height 1150 has already passed (the verified tip is 1293); no earlier block is shared retroactively. Choose a future height and confirm it explicitly (--activation-height H --confirm-activation-height)"}

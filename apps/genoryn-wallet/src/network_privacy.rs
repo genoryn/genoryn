@@ -252,13 +252,14 @@ pub(super) const DEFAULT_QUICK_SOURCES: &[&str] = &[
     "http://2a6gncfqgp56dgd73vbbicav4552lepqzk6rakltyuuz7hqmttq2diad.onion:29712",
 ];
 /// Operations that never contact a node.
-const OFFLINE_OPS: [&str; 6] = [
+const OFFLINE_OPS: [&str; 7] = [
     "create",
     "restore",
     "open",
     "address",
     "derive_account",
     "estimate_fee",
+    "create_payment_challenge",
 ];
 /// Request fields that make the wallet CLI a light wallet for `op`, `None`
 /// when this wallet uses its own node or `op` needs no node.
@@ -273,7 +274,14 @@ pub(super) fn light_fields(
     ensure!(
         matches!(
             op,
-            "sync" | "sync_batch" | "send" | "export_proof" | "verify_proof" | "combine_notes"
+            "sync"
+                | "sync_batch"
+                | "send"
+                | "export_proof"
+                | "verify_proof"
+                | "combine_notes"
+                | "answer_payment_challenge"
+                | "verify_payment_challenge"
         ),
         "Not available in light wallet mode yet: it needs a node of your own."
     );

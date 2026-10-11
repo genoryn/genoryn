@@ -31,6 +31,30 @@ jobs:
           name: genoryn-dependency-audit-${{ github.sha }}
           path: evidence/dependency-audit.json
           if-no-files-found: warn
+  pool-ledger-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: pooltest
+          POSTGRES_DB: genoryn_pool
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Pinned Rust
+        run: rustup toolchain install 1.92.0 --profile minimal
+      - name: Pool ledger on a real PostgreSQL and SQLite
+        env:
+          GENORYN_POOL_POSTGRES: postgresql://postgres:pooltest@127.0.0.1:5432/genoryn_pool
+        run: cargo test --locked -p genoryn-pool -- --nocapture
   parser-fuzz:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -66,7 +90,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-2022]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Linux native prerequisites
@@ -87,6 +111,25 @@ jobs:
             target
           key: genoryn-${{ runner.os }}-rust1.92-${{ hashFiles('Cargo.lock') }}
           restore-keys: genoryn-${{ runner.os }}-rust1.92-
+      # Compile once and keep the result even when a later stage fails, so a
+      # failing suite does not force every following run to start cold.
+      - name: Compile workspace, tests and lints
+        timeout-minutes: 75
+        run: |
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo test --locked --workspace --no-run
+          cargo build --locked --workspace
+      - name: Save compiled dependencies early
+        if: steps.rust_cache.outputs.cache-hit != 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: genoryn-${{ runner.os }}-rust1.92-${{ hashFiles('Cargo.lock') }}
       - name: Complete portable practical suite
         run: python scripts/test/all.py --output evidence/practical
       - name: Preserve practical diagnostics before optional cache work
@@ -99,17 +142,6 @@ jobs:
             evidence/practical/*.json
             evidence/practical/*.png
             evidence/practical/*.txt
-      - name: Save compiled dependencies before slow capacity checks
-        if: success() && steps.rust_cache.outputs.cache-hit != 'true'
-        timeout-minutes: 5
-        continue-on-error: true
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: genoryn-${{ runner.os }}-rust1.92-${{ hashFiles('Cargo.lock') }}
       - name: Actual default-policy peer rotation and reconnection
         if: runner.os == 'Linux'
         timeout-minutes: 35

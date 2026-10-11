@@ -1,0 +1,17 @@
+{
+  "benchmark": "genuine RandomX full-memory share verification",
+  "dataset_build_seconds": 51.9117008,
+  "machine": {
+    "arch": "x86_64",
+    "logical_cpus": 24,
+    "os": "windows"
+  },
+  "memory_note": "one 2 GiB dataset shared by all threads",
+  "miners_supported_at_15s_shares": 29728,
+  "per_thread_per_second": 123.86860668616174,
+  "scope": "one machine's verification capacity; add verification threads or gateways to scale",
+  "seconds": 20.1256603,
+  "shares_per_second": 1981.8977069785878,
+  "threads": 16,
+  "verified_shares": 39887
+}

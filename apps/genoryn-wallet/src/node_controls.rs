@@ -103,6 +103,7 @@ impl WalletApp {
         let path = PathBuf::from(&self.settings.data_dir).join("genorynd.log");
         let mut open = true;
         let mut refresh = false;
+        let mut close = false;
         egui::Window::new("Node log")
             .open(&mut open)
             .collapsible(false)
@@ -148,9 +149,12 @@ impl WalletApp {
                                 &self.settings.data_dir,
                             ))));
                     }
+                    if crate::layout_probe::tag("log:close", ui.button("Close")).clicked() {
+                        close = true;
+                    }
                 });
             });
-        if !open {
+        if !open || close {
             self.close_node_log();
         } else if refresh {
             self.load_node_log();

@@ -1,4 +1,5 @@
 use crate::keys::{Wallet, encode_address};
+use crate::sender_auth;
 use anyhow::{Context, Result, ensure};
 use genoryn_core::{
     block::Block,
@@ -31,6 +32,16 @@ fn format_gnr(amount: u128) -> String {
         .trim_end_matches('0')
         .trim_end_matches('.')
         .to_owned()
+}
+
+/// One output of a transfer this wallet builds.
+#[derive(Clone, Copy)]
+pub struct PaymentOutput {
+    pub recipient: Address,
+    pub amount: u64,
+    pub memo: [u8; 512],
+    /// Commit a payment-specific sender-verification key in the memo.
+    pub sender_auth: bool,
 }
 
 pub struct OwnedNote {
@@ -84,8 +95,19 @@ pub fn replay_chain(
 ) -> Result<ChainState> {
     let mut state = ChainState::new(network);
     let mut cache = ProofCache::default();
-    for block in blocks {
-        state.apply_block_in_place(block, unix_time(), &mut cache, verification)?;
+    // A full validation checks work and proofs on several threads first; the
+    // blocks are then applied in order with every rule, as before.
+    let threads = match verification {
+        Verification::Full if blocks.len() >= 64 => std::thread::available_parallelism()
+            .map_or(2, usize::from)
+            .min(16),
+        _ => 1,
+    };
+    for chunk in blocks.chunks(1_024) {
+        cache.preverify(chunk, threads);
+        for block in chunk {
+            state.apply_block_in_place(block, unix_time(), &mut cache, verification)?;
+        }
     }
     Ok(state)
 }
@@ -277,6 +299,9 @@ impl Wallet {
                 .collect(),
         })
     }
+    /// One payment with change. With `sender_auth`, a memo of at most
+    /// `sender_auth::MAX_MEMO_WITH_AUTH` bytes also carries this payment's
+    /// sender-verification key; a longer memo is sent without one.
     pub fn send(
         &self,
         scan: &ScannedWallet,
@@ -284,6 +309,7 @@ impl Wallet {
         amount: u64,
         fee: u64,
         memo: &str,
+        sender_auth: bool,
     ) -> Result<ShieldedTx> {
         ensure!(amount > 0, "amount must be positive");
         ensure!(memo.len() <= 480, "memo exceeds 480 UTF-8 bytes");
@@ -293,7 +319,16 @@ impl Wallet {
         );
         let mut encoded_memo = [0u8; 512];
         encoded_memo[..memo.len()].copy_from_slice(memo.as_bytes());
-        self.send_outputs(scan, &[(recipient, amount, encoded_memo)], fee)
+        self.send_payments(
+            scan,
+            &[PaymentOutput {
+                recipient,
+                amount,
+                memo: encoded_memo,
+                sender_auth: sender_auth && memo.len() <= sender_auth::MAX_MEMO_WITH_AUTH,
+            }],
+            fee,
+        )
     }
     /// The receiving address a username points to: separate from address 0, so
     /// publishing a name does not publish the wallet's main receiving identity.
@@ -343,15 +378,39 @@ impl Wallet {
         outputs: &[(Address, u64, [u8; 512])],
         fee: u64,
     ) -> Result<ShieldedTx> {
+        let outputs: Vec<PaymentOutput> = outputs
+            .iter()
+            .map(|(recipient, amount, memo)| PaymentOutput {
+                recipient: *recipient,
+                amount: *amount,
+                memo: *memo,
+                sender_auth: false,
+            })
+            .collect();
+        self.send_payments(scan, &outputs, fee)
+    }
+    /// One private transfer paying every output, with change. Outputs with
+    /// `sender_auth` get this payment's sender-verification key in their memo.
+    pub fn send_payments(
+        &self,
+        scan: &ScannedWallet,
+        outputs: &[PaymentOutput],
+        fee: u64,
+    ) -> Result<ShieldedTx> {
         ensure!(!outputs.is_empty(), "a transfer needs an output");
         ensure!(
-            outputs.iter().all(|(_, amount, _)| *amount > 0),
+            outputs.len() < genoryn_core::codec::MAX_ACTIONS,
+            "a transfer pays at most {} recipients besides its change",
+            genoryn_core::codec::MAX_ACTIONS - 1
+        );
+        ensure!(
+            outputs.iter().all(|output| output.amount > 0),
             "amount must be positive"
         );
         ensure!(fee >= MIN_FEE, "fee below consensus minimum");
         let total = outputs
             .iter()
-            .try_fold(fee, |sum, (_, amount, _)| sum.checked_add(*amount))
+            .try_fold(fee, |sum, output| sum.checked_add(output.amount))
             .context("amount overflow")?;
         ensure!(
             total <= i64::MAX as u64,
@@ -383,6 +442,7 @@ impl Wallet {
             format_gnr(spendable.into())
         );
         let mut selected = 0u64;
+        let mut anchor_nullifier: Option<[u8; 32]> = None;
         for owned in candidates.iter().take(MAX_INPUTS) {
             builder.add_spend(
                 fvk.clone(),
@@ -390,6 +450,8 @@ impl Wallet {
                 scan.state
                     .witness(owned.position.context("immature note")?)?,
             )?;
+            let nullifier = owned.note.nullifier(&fvk).to_bytes();
+            anchor_nullifier = Some(anchor_nullifier.map_or(nullifier, |n| n.min(nullifier)));
             selected = selected
                 .checked_add(owned.note.value().inner())
                 .context("input sum overflow")?;
@@ -401,12 +463,25 @@ impl Wallet {
             selected >= total,
             "this payment needs more than {MAX_INPUTS} of your notes: send yourself a smaller amount first to combine them, then retry"
         );
-        for (recipient, amount, memo) in outputs {
+        for (ordinal, output) in outputs.iter().enumerate() {
+            let mut memo = output.memo;
+            if output.sender_auth {
+                sender_auth::commitment(
+                    self,
+                    &sender_auth::PaymentBinding {
+                        anchor_nullifier: anchor_nullifier.context("a payment spends a note")?,
+                        recipient: &output.recipient,
+                        amount: output.amount,
+                        ordinal: ordinal as u16,
+                    },
+                )?
+                .write(&mut memo)?;
+            }
             builder.add_output(
                 Some(fvk.to_ovk(Scope::External)),
-                *recipient,
-                NoteValue::from_raw(*amount),
-                *memo,
+                output.recipient,
+                NoteValue::from_raw(output.amount),
+                memo,
             )?;
         }
         if selected > total {
@@ -546,8 +621,19 @@ pub struct ProvenPayment {
     pub amount_atomic: String,
     pub memo: String,
     /// The proof carries this output's outgoing cipher key, which only the
-    /// paying wallet can derive: the sender made this proof.
+    /// paying wallet can derive: the sender made this proof. It can be
+    /// forwarded, so it is sender-origin evidence, not fresh authentication.
     pub created_by_sender: bool,
+    /// The payment-specific sender-verification key committed in this
+    /// output's memo (hex), when the proof opens the memo and it carries one.
+    pub sender_auth_key: Option<String>,
+}
+
+/// What a wallet that made or received a payment can read about one output.
+pub struct OutputView {
+    pub note: Note,
+    pub recipient: Address,
+    pub memo: [u8; 512],
 }
 
 impl Wallet {
@@ -672,6 +758,7 @@ pub fn verify_payment_proof(proof: &NoteProof, tx: &ShieldedTx) -> Result<Proven
     let cmx = orchard::note::ExtractedNoteCommitment::from(note.commitment()).to_bytes();
     ensure!(cmx == proof.cmx, "invalid payment proof opening");
     let mut memo = String::new();
+    let mut sender_auth_key = None;
     if let Some(ock) = proof.sender_key {
         let bundle = tx.bundle.to_bundle()?;
         let output = bundle
@@ -693,11 +780,56 @@ pub fn verify_payment_proof(proof: &NoteProof, tx: &ShieldedTx) -> Result<Proven
             "the sender part of this payment proof does not match the payment"
         );
         memo = decode_memo(&sent_memo);
+        sender_auth_key = sender_auth::MemoTrailer::read(&sent_memo).map(|t| hex::encode(t.key));
     }
     Ok(ProvenPayment {
         recipient: proof.recipient.clone(),
         amount_atomic: proof.amount.to_string(),
         memo,
         created_by_sender: proof.sender_key.is_some(),
+        sender_auth_key,
     })
+}
+
+impl Wallet {
+    /// Output `action` of `tx` as its sender sees it (through the outgoing
+    /// viewing key): only outputs this wallet paid.
+    pub fn sent_output(&self, tx: &ShieldedTx, action: usize) -> Result<Option<OutputView>> {
+        let bundle = tx.bundle.to_bundle()?;
+        let ovk = self.viewing_key()?.to_ovk(Scope::External);
+        Ok(bundle
+            .recover_output_with_ovk(action, &ovk)
+            .map(|(note, recipient, memo)| OutputView {
+                note,
+                recipient,
+                memo,
+            }))
+    }
+    /// Output `action` of `tx` as its recipient sees it: only outputs paid to
+    /// this wallet.
+    pub fn received_output(&self, tx: &ShieldedTx, action: usize) -> Result<Option<OutputView>> {
+        let bundle = tx.bundle.to_bundle()?;
+        let fvk = self.viewing_key()?;
+        Ok(bundle
+            .decrypt_output_with_key(action, &fvk.to_ivk(Scope::External))
+            .or_else(|| bundle.decrypt_output_with_key(action, &fvk.to_ivk(Scope::Internal)))
+            .map(|(note, recipient, memo)| OutputView {
+                note,
+                recipient,
+                memo,
+            }))
+    }
+    /// The smallest nullifier among this wallet's own spends in `tx`, given
+    /// the nullifiers of every note the wallet holds or held.
+    pub fn anchor_nullifier(
+        tx: &ShieldedTx,
+        own_nullifiers: &std::collections::BTreeSet<[u8; 32]>,
+    ) -> Option<[u8; 32]> {
+        tx.bundle
+            .actions
+            .iter()
+            .map(|action| action.nullifier)
+            .filter(|nullifier| own_nullifiers.contains(nullifier))
+            .min()
+    }
 }

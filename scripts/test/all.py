@@ -44,6 +44,7 @@ def main():
         run('network privacy and Tor transport policy',['cargo','test','--locked','-p','genoryn','--test','network_privacy'],output=root/('network-privacy-'+platform_name+'.txt'))
         for script in ['launchers','package_licenses','package_archive','randomx_vendor']:run(script,[python,f'scripts/test/{script}.py'])
         run('real proof and tamper fixtures',['cargo','test','--locked','-p','genoryn-core','--','--ignored'])
+        run('real Payment Proof 2.0 sender challenge on a mined chain',['cargo','test','--locked','-p','genoryn-wallet-core','--test','payment_proof_v2','--','--ignored'])
         run('build native programs',['cargo','build','--locked','--workspace'])
         native('native wallet rendered frames',binary/('genoryn-wallet'+suffix))
         if os.name=='nt':
@@ -51,6 +52,7 @@ def main():
         for script in ['peer_cache','policy_limits']:
             run(script,[python,f'scripts/test/{script}.py','--bin-dir',binary,'--work-dir',root/script,'--report',root/(script.replace('_','-')+'-'+platform_name+'.json')])
         run('real mining payment recovery reorg restart',[python,'scripts/test/devnet.py','--bin-dir',binary,'--work-dir',root/'payment-lab','--report',root/('devnet-'+platform_name+'.json')])
+        run('real shared mining: PPLNS credits, maturity, payouts, restart',[python,'scripts/test/pool.py','--bin-dir',binary,'--work-dir',root/'pool-lab','--report',root/('pool-'+platform_name+'.json'),'--mining-seconds','150'],2400)
         run('cryptographic and database benchmark',['cargo','run','--locked','-p','genoryn-core','--example','benchmark'],output=root/('benchmark-'+platform_name+'.json'))
         testnet_seconds=900 if os.name=='nt' else 300
         run('isolated real testnet block',[python,'scripts/test/testnet.py','--bin-dir',binary,'--work-dir',root/'testnet','--report',root/('testnet-'+platform_name+'.json'),'--max-seconds',str(testnet_seconds)],testnet_seconds+120)

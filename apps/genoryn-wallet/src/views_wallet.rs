@@ -389,15 +389,31 @@ impl WalletApp {
             } else {
                 "Password (at least 10 characters)"
             });
-            let mut submitted = protocol::sensitive_edit(
-                ui,
-                self.busy.is_none(),
-                field(&mut *self.password)
-                    .password(true)
-                    .desired_width(480.0),
-            )
-            .lost_focus()
-                && ui.input(|input| input.key_pressed(egui::Key::Enter));
+            let password = layout_probe::tag(
+                "unlock:password",
+                protocol::sensitive_edit(
+                    ui,
+                    self.busy.is_none(),
+                    field(&mut *self.password)
+                        .password(true)
+                        .desired_width(480.0),
+                ),
+            );
+            // Once per locked session, an existing wallet gets the cursor in its
+            // password field, so typing and Enter unlock it.
+            let focus_once = egui::Id::new(("unlock-focus", self.lock_epoch));
+            if self.wallet_mode == 0
+                && wallet_exists
+                && self.busy.is_none()
+                && !ui.data(|data| data.get_temp::<bool>(focus_once).unwrap_or(false))
+                && ui.memory(|memory| memory.focused().is_none())
+            {
+                ui.data_mut(|data| data.insert_temp(focus_once, true));
+                password.request_focus();
+                password.scroll_to_me(Some(egui::Align::Center));
+            }
+            let mut submitted =
+                password.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
             let others = self
                 .remembered_locked()
                 .into_iter()
@@ -455,12 +471,14 @@ impl WalletApp {
             let valid = problem.is_none();
             let label =
                 ["Unlock wallet", "Create encrypted wallet", "Restore wallet"][self.wallet_mode];
-            if ui
-                .add_enabled(
+            if layout_probe::tag(
+                "unlock:submit",
+                ui.add_enabled(
                     valid && self.busy.is_none(),
                     primary(ui, label).min_size(egui::vec2(220.0, 44.0)),
-                )
-                .clicked()
+                ),
+            )
+            .clicked()
                 || (submitted && valid && self.busy.is_none())
             {
                 match self.wallet_mode {

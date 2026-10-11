@@ -22,6 +22,8 @@
   <a href="#quick-mode-and-full-mode">Wallet modes</a> ·
   <a href="#private-network-built-in-tor">Tor</a> ·
   <a href="#run-an-independent-full-node">Run a node</a> ·
+  <a href="#shared-mining-pplns">Shared mining</a> ·
+  <a href="#verified-payment-proof-20">Payment Proof 2.0</a> ·
   <a href="docs/protocol/emission.md">Monetary Policy &amp; Emission Schedule</a> ·
   <a href="docs/security/threat-model.md">Threat model</a>
 </p>
@@ -63,6 +65,30 @@ phrase does not carry any balance over.
 | Data directory | `~/.genoryn/mainnet-1.0` (Windows: `%USERPROFILE%\.genoryn\mainnet-1.0`) |
 | Addresses | `gnr1…` |
 | Explorer | [genoryn.io](https://genoryn.io/) |
+
+### What is new in 1.1
+
+GENORYN 1.1 changes **no consensus rule**: the same genesis, chain, supply, emission,
+RandomX, difficulty, Orchard/Halo 2 validity, serialization and P2P protocol. Existing
+wallets, recovery phrases, scan caches, outboxes and balances are used unchanged.
+
+| | |
+|---|---|
+| **Shared mining (PPLNS)** | An open-source pool anyone can run (`genoryn-pool`) and `genoryn-miner --pool`. Every share is hashed again with real RandomX and credited exactly its difficulty, so a 10 H/s computer earns in proportion to its 10 H/s and extra addresses earn nothing extra. Exact integer accounting down to 2^-32 gori, rewards only after 60 confirmations, payouts as ordinary private transfers, SQLite or PostgreSQL ledger. Custodial, and labelled as such. |
+| **Verified Payment Proof 2.0** | New payments commit a payment-specific key in their encrypted memo. The recipient can send a fresh challenge (`GNRCHAL1-…`) and only the paying wallet can answer it (`GNRRESP1-…`), without revealing any key, balance or other payment. `GNRPROOF1` proofs keep working. |
+| **My Full Node** | One click starts your own validating node after real checks (disk, memory, program, data folder, port, an already running node), with an honest status page, logs and diagnostics. Optional, with your consent: keep it running after the wallet closes, or start it when you sign in. |
+| **Faster sync** | Sends and proofs with your own node fetch only new blocks (11.3 s → 0.4 s on the real chain); a first Quick-mode validation checks RandomX work and Halo 2 proofs in parallel (49 s → 18 s, identical result); crash-safe checkpoints. No validation is skipped. |
+| **Privacy & Security** | A page that reports what this computer can actually observe — Tor bootstrap, direct connections, fail-closed proxies, wallet encryption, storage hygiene, update status — as Verified, Warning, Failed or Not tested, never as an anonymity score. |
+
+Details: [1.1.0 release notes](docs/releases/v1.1.0.md) · [shared mining](docs/mining/shared-mining.md) · [Payment Proof 2.0](docs/wallet/payment-proof-2.md) · [My Full Node, sync and Privacy & Security](docs/wallet/full-node-sync-and-privacy.md).
+
+<p align="center">
+  <img src="docs/images/wallet-1.1/node.png" alt="My Full Node: one-click start after real checks of this computer" width="49%">
+  <img src="docs/images/wallet-1.1/security.png" alt="Privacy & Security: what this computer can actually observe" width="49%">
+  <img src="docs/images/wallet-1.1/verify.png" alt="Verify payment: proof, address and exact amount, then a sender challenge" width="49%">
+  <img src="docs/images/wallet-1.1/mining.png" alt="Mining: solo or shared (PPLNS)" width="49%">
+</p>
+<p align="center"><sub>Real screenshots of GENORYN 1.1 on Mainnet 1.0, taken with a new, empty wallet.</sub></p>
 
 ### What is new in 1.0
 
@@ -203,6 +229,10 @@ introduce peers and are never trusted for consensus.
 
 ## Run an independent full node
 
+The easiest way: open **My Full Node** in the wallet and press **Start My Full Node**. The
+wallet checks this computer first, starts the node without opening ports or installing a
+service, and shows what it is doing. Everything below is for servers and the command line.
+
 A full node needs about 1 GB of RAM (plus 2.5 GB if it also mines in fast mode), a few GB of
 disk and an outbound internet connection. Opening TCP port 29710 lets others connect to you.
 
@@ -244,6 +274,45 @@ minute after start; light mode until then). On Linux, reserving 2 MiB pages
 (`sysctl vm.nr_hugepages=1280`) and setting `GENORYN_RANDOMX_LARGE_PAGES=1` makes it about
 15 % faster. CPU detection selects hardware AES and the JIT automatically; set
 `GENORYN_RANDOMX_PORTABLE=1` only for a CPU that cannot run them.
+
+## Shared mining (PPLNS)
+
+A weak computer rarely finds a whole block alone. In a pool it earns its exact share of every
+block the pool finds, in proportion to the work it really did:
+
+```
+credit = (block reward − pool fee) × your verified work / work in the last N shares
+```
+
+```sh
+# A miner (any computer): rewards go to your address, never a wallet file on the miner
+genoryn-miner --pool tls://pool.example.org:29790 --wallet YOUR_GNR1_ADDRESS --threads 2
+genoryn-miner --pool tcp://abc…xyz.onion:29790 --pool-proxy socks5h://127.0.0.1:9050 --wallet …   # over Tor
+
+# An operator: your own node, a pool wallet, the gateway and the payout service
+genoryn-pool serve  --network mainnet --ledger pool.sqlite --token-file ~/.genoryn/mainnet-1.0/admin.token \
+                    --pool-address gnr1… --activation-height H --confirm-activation-height --fast-verify true
+genoryn-pool payout --network mainnet --ledger pool.sqlite --token-file … --wallet pool.gnr --password-file pool.pw
+```
+
+Shares are verified with real RandomX and acknowledged only after they are committed; blocks are
+credited only after 60 confirmations and reversed correctly after a reorganization; sub-gori
+amounts accumulate; payouts are idempotent batches of up to 15 recipients. The pool is
+**custodial** — rewards sit in its wallet until paid — and GENORYN operates none. The requested
+mainnet accounting activation height 1150 has already passed, so a mainnet pool refuses to start
+until an operator confirms a new, future height (nothing is ever backdated). Measured capacity,
+load tests and the protocol: [shared mining](docs/mining/shared-mining.md).
+
+## Verified Payment Proof 2.0
+
+Alice paid Bob 10 GNR. Bob pastes Alice's proof on **Verify payment** and sees, from the chain
+his own wallet validated: the transaction, that it paid *his* address, the exact amount and the
+confirmations. To check that the person he is talking to controls the payment, he presses
+**Request sender verification** and sends the challenge; Alice pastes it into **Answer payment
+challenge** and returns the signed response; Bob verifies it. A copied old response, another
+wallet, Bob's own keys, another payment, amount, recipient or network all fail. It proves control
+of the payment's credential — not a legal identity. Details:
+[Payment Proof 2.0](docs/wallet/payment-proof-2.md).
 
 ## Explorer and API
 
@@ -294,8 +363,10 @@ own genorynd ◄── P2P ──► genorynd seeds ◄── public RPC over To
 ```
 
 Crates: `genoryn-core` (consensus, emission, RandomX, Orchard/Halo 2), `genoryn-wallet-core`
-(keys, scanning, encrypted local storage, outbox), `genoryn` (node, miner, CLI tools,
-networking, Tor), `genoryn-wallet` (desktop wallet), `genoryn-connect` (node discovery SDK).
+(keys, scanning, encrypted local storage, outbox, sender verification), `genoryn-pool`
+(PPLNS accounting, VarDiff, share verification, durable pool ledger), `genoryn` (node, miner,
+pool, CLI tools, networking, Tor), `genoryn-wallet` (desktop wallet), `genoryn-connect` (node
+discovery SDK).
 
 ## Build from source
 
@@ -309,13 +380,15 @@ cargo build --release --locked --workspace
 ./target/release/genoryn-wallet
 ```
 
-Programs: `genorynd`, `genoryn-miner`, `genoryn-wallet-cli`, `genoryn-cli`,
+Programs: `genorynd`, `genoryn-miner`, `genoryn-pool`, `genoryn-wallet-cli`, `genoryn-cli`,
 `genoryn-emission` and the desktop application `genoryn-wallet`. Tests:
 
 ```sh
 cargo test --locked --workspace                        # unit, property and integration tests
 cargo test --locked -p genoryn-core -- --ignored       # real proofs, RandomX and mined fixtures
+cargo test --locked -p genoryn-wallet-core --test payment_proof_v2 -- --ignored   # Alice → Bob 10 GNR, real chain
 python scripts/test/devnet.py --bin-dir target/debug   # three real nodes: mining, payments, Quick mode, reorg
+python scripts/test/pool.py --bin-dir target/debug --work-dir .devnet/pool --report pool.json   # real shared mining
 python scripts/test/all.py                             # the complete practical suite
 ```
 
@@ -327,15 +400,20 @@ python scripts/test/all.py                             # the complete practical 
   Wait for more confirmations than you would on a large network.
 - **Quick mode downloads full blocks** (no compact filters yet) and trusts remote nodes not
   to withhold data; it detects but cannot prevent withholding.
-- **Usernames and names need Full mode.** Payment proofs work in both modes.
-- **Payment proofs show the recipient, never the sender's address.** A proof from the paying
-  wallet shows that the sender made it, but shielded payments do not reveal who sent them.
+- **Usernames and names need Full mode.** Payment proofs and sender challenges work in both modes.
+- **Payment proofs show the recipient, never the sender's address.** A sender challenge proves
+  control of one payment's credential, not who a person is; payments made before 1.1 support
+  only the older sender-origin evidence.
+- **Pools are custodial.** A pool holds mined rewards until it pays them; native P2Pool would
+  need a consensus change and is not part of 1.1. Verification capacity per machine is measured
+  (about 30,000 miners per machine at 15-second shares with full-memory RandomX), not promised.
 - **No code signing** for Windows packages, and no reproducible-build attestation yet.
 - **No macOS build.**
 
 ## Documentation
 
-- [Monetary Policy & Emission Schedule](docs/protocol/emission.md) · [release notes](docs/releases/v1.0.0.md) · [quickstart](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md)
+- [Monetary Policy & Emission Schedule](docs/protocol/emission.md) · [1.1.0 release notes](docs/releases/v1.1.0.md) · [1.0.0 release notes](docs/releases/v1.0.0.md) · [quickstart](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md)
+- [Shared mining (PPLNS)](docs/mining/shared-mining.md) · [Payment Proof 2.0](docs/wallet/payment-proof-2.md) · [My Full Node, sync and Privacy & Security](docs/wallet/full-node-sync-and-privacy.md)
 - [Consensus](docs/protocol/consensus.md) · [networking](docs/protocol/networking.md) · [network privacy and Tor](docs/network-privacy.md) · [privacy](docs/protocol/privacy.md) · [mining](docs/protocol/mining.md) · [usernames](docs/protocol/usernames.md)
 - [RPC reference](docs/rpc/api.md) · [node discovery SDK](crates/genoryn-connect/README.md) · [architecture decisions](docs/adr/) · [development lab](docs/testing/devnet.md)
 - [Release verification](docs/security/releases.md) · [security policy](SECURITY.md) · [threat model](docs/security/threat-model.md) · [third-party notices](THIRD_PARTY.md)

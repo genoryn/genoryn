@@ -84,7 +84,11 @@ impl WalletApp {
     }
     pub(super) fn request(&mut self, op: &str, extra: Value) {
         // Verifying needs no wallet; an unlocked one also learns whether it was paid.
-        let credentials = (op != "verify_proof" || self.unlocked)
+        let optional = matches!(
+            op,
+            "verify_proof" | "verify_payment_challenge" | "create_payment_challenge"
+        );
+        let credentials = (!optional || self.unlocked)
             .then(|| (self.settings.wallet_path.clone(), self.password.clone()));
         self.dispatch(op, op.to_owned(), credentials, extra);
     }
@@ -286,8 +290,18 @@ impl WalletApp {
                             if matches!(op.as_str(), "send" | "register_name" | "combine_notes") {
                                 self.action_error = Some((op.clone(), error.clone()));
                             }
-                            if op == "verify_proof" {
-                                self.proofs.verify_error = Some(error.clone());
+                            match op.as_str() {
+                                "verify_proof" => self.proofs.verify_error = Some(error.clone()),
+                                "create_payment_challenge" => {
+                                    self.proofs.challenge_error = Some(error.clone())
+                                }
+                                "verify_payment_challenge" => {
+                                    self.proofs.sender_result = Some(Err(error.clone()))
+                                }
+                                "answer_payment_challenge" => {
+                                    self.proofs.answer_result = Some(Err(error.clone()))
+                                }
+                                _ => {}
                             }
                             if !self.batch_failed(&op, &error) {
                                 self.status = error;
@@ -407,6 +421,13 @@ impl WalletApp {
                                 }
                                 "export_proof" => self.accept_exported_proof(result),
                                 "verify_proof" => self.accept_verified_proof(result),
+                                "create_payment_challenge" => self.accept_challenge(result),
+                                "answer_payment_challenge" => self.accept_answer(result),
+                                "verify_payment_challenge" => {
+                                    self.proofs.sender_result =
+                                        Some(Ok(SecretJson(result.clone())));
+                                    self.status = "Sender response checked.".into();
+                                }
                                 _ => self.status = "Wallet operation finished.".into(),
                             }
                         }
@@ -482,6 +503,8 @@ impl WalletApp {
                         Ok(child) => {
                             if kind == "node" {
                                 self.node = Some(child);
+                                self.node_view.started = Some(Instant::now());
+                                self.node_view.heights.clear();
                             } else {
                                 self.miner = Some(child);
                                 self.mining_stats = None;
@@ -520,6 +543,17 @@ impl WalletApp {
                 Event::Mining(value) => self.mining_stats = Some(value),
                 event @ (Event::NameStatus { .. } | Event::MyNames { .. }) => {
                     self.names_event(event)
+                }
+                Event::Security(diagnostics) => {
+                    self.security.running = false;
+                    self.security.diagnostics = Some(*diagnostics);
+                    self.status =
+                        "Security check finished. Results are on the Privacy & Security page."
+                            .into();
+                }
+                Event::Preflight(preflight) => {
+                    self.node_view.preflight_running = false;
+                    self.node_view.preflight = Some(*preflight);
                 }
                 Event::Update(result) => {
                     self.update_status = match result {
@@ -692,6 +726,31 @@ impl WalletApp {
         } else {
             Vec::new()
         };
+        let pool = (kind == "miner" && self.preferences.mining_mode == "pool")
+            .then(|| self.preferences.pool_url.trim().to_owned());
+        if pool.as_deref() == Some("") {
+            self.status = "Enter your pool's address first (tcp://… or tls://…).".into();
+            return;
+        }
+        // In Tor-only mode the pool connection goes through Tor too: the
+        // proxy chosen for the pool, else the node's built-in Tor.
+        let pool_route = match pool {
+            Some(_) if !self.preferences.pool_proxy.trim().is_empty() => {
+                Some(self.preferences.pool_proxy.trim().to_owned())
+            }
+            Some(_) if network_privacy::active() == network_privacy::Mode::TorOnly => {
+                match network_privacy::auxiliary_route(&self.preferences, &self.settings)
+                    .and_then(|route| network_privacy::auxiliary_proxy(&route))
+                {
+                    Ok(Some(proxy)) => Some(proxy.to_string()),
+                    Ok(None) | Err(_) => {
+                        self.status = "Tor-only mode: the pool connection needs Tor, which is not ready yet. Start your node first, or enter a Tor SOCKS proxy for the pool.".into();
+                        return;
+                    }
+                }
+            }
+            _ => None,
+        };
         self.process_busy = true;
         let settings = self.settings.clone();
         // Automatic restarts keep paying the wallet chosen when mining started.
@@ -759,22 +818,34 @@ impl WalletApp {
                         !address.is_empty(),
                         "unlock a wallet and confirm a mining destination first"
                     );
-                    let token = PathBuf::from(&settings.data_dir).join("admin.token");
-                    ensure!(token.is_file(), "local node admin token is missing");
-                    command
-                        .args([
-                            "--network",
-                            NETWORK.name(),
-                            "--node",
-                            &settings.rpc_url,
-                            "--token-file",
-                            &token.display().to_string(),
-                            "--wallet",
-                            &address,
-                            "--threads",
-                            &attempt.threads.to_string(),
-                        ])
-                        .stdout(Stdio::piped());
+                    command.args([
+                        "--network",
+                        NETWORK.name(),
+                        "--wallet",
+                        &address,
+                        "--threads",
+                        &attempt.threads.to_string(),
+                    ]);
+                    match &pool {
+                        Some(url) => {
+                            command.args(["--pool", url]);
+                            if let Some(proxy) = &pool_route {
+                                // Proxy credentials stay out of the process list.
+                                command.env("GENORYN_POOL_PROXY", proxy);
+                            }
+                        }
+                        None => {
+                            let token = PathBuf::from(&settings.data_dir).join("admin.token");
+                            ensure!(token.is_file(), "local node admin token is missing");
+                            command.args([
+                                "--node",
+                                &settings.rpc_url,
+                                "--token-file",
+                                &token.display().to_string(),
+                            ]);
+                        }
+                    }
+                    command.stdout(Stdio::piped());
                     if attempt.portable {
                         command.env("GENORYN_RANDOMX_PORTABLE", "1");
                     }
@@ -795,7 +866,10 @@ impl WalletApp {
                                 Ok(_) if line.len() > 16_384 => break,
                                 Ok(_) => {
                                     if let Ok(value) = serde_json::from_str::<Value>(&line)
-                                        && value["event"].as_str() == Some("mining")
+                                        && matches!(
+                                            value["event"].as_str(),
+                                            Some("mining" | "pool_mining")
+                                        )
                                     {
                                         let _ = tx.send(Event::Mining(value));
                                     }

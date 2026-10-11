@@ -20,6 +20,18 @@ use zeroize::{Zeroize, Zeroizing};
 
 #[path = "wallet/batch.rs"]
 mod batch;
+#[path = "wallet/payments.rs"]
+mod payments;
+#[path = "wallet/proofs.rs"]
+mod proofs;
+
+/// Operations that read a payment on the verified chain.
+const PROOF_OPS: [&str; 4] = [
+    "export_proof",
+    "verify_proof",
+    "answer_payment_challenge",
+    "verify_payment_challenge",
+];
 
 /// A batch request carries up to 10,000 wallet paths with their passwords.
 const MAX_REQUEST_BYTES: u64 = 16 * 1024 * 1024;
@@ -191,6 +203,7 @@ async fn advance_cache_from_node(
     network: Network,
     cache: &mut sync::ScanCache,
     keys: &sync::ScanKeys,
+    checkpoint: &mut dyn FnMut(&sync::ScanCache) -> Result<()>,
 ) -> Result<()> {
     let info: Value = rpc.get("v1/info").await?;
     ensure!(
@@ -214,12 +227,23 @@ async fn advance_cache_from_node(
             _ => *cache = cache.restart(),
         }
     }
+    let mut since_checkpoint = 0;
     while cache.height < tip {
-        let block = block_at(rpc, cache.height + 1).await?;
-        cache.apply_block(keys, &block)?;
+        let wanted = (tip - cache.height).min(genoryn::client::MAX_PAGE as u64) as usize;
+        for block in rpc.block_page(cache.height + 1, wanted).await? {
+            cache.apply_block(keys, &block)?;
+            since_checkpoint += 1;
+        }
+        // A long first scan keeps its progress if the wallet stops midway.
+        if since_checkpoint >= CHECKPOINT_BLOCKS {
+            since_checkpoint = 0;
+            checkpoint(cache)?;
+        }
     }
     Ok(())
 }
+/// Blocks scanned between two saves of the encrypted scan cache.
+const CHECKPOINT_BLOCKS: u64 = 2_000;
 /// How a payment reaches the network.
 enum Relayer<'a> {
     /// The wallet's own or configured node.
@@ -358,6 +382,41 @@ fn wallet_summary(
     summary["birthday"] = json!(cache.birthday);
     with_name_identity(summary, wallet)
 }
+/// The validated chain behind a payment or proof. From the user's own node,
+/// the blocks this wallet already keeps (sealed in `wallet.chain`) are reused
+/// up to the last one the node still has at the same height and hash, and
+/// only newer blocks are downloaded; the node validated all of them. A remote
+/// node's chain is downloaded whole and validated here in full, as before.
+async fn node_chain(
+    rpc: &RpcClient,
+    network: Network,
+    wallet: Option<&Wallet>,
+    path: &Path,
+    own_node: bool,
+) -> Result<(Vec<Block>, genoryn_core::state::ChainState)> {
+    use genoryn_core::state::Verification;
+    let (Some(wallet), true) = (wallet, own_node) else {
+        let blocks = rpc.chain(network).await?;
+        let verification = if own_node {
+            Verification::Stored
+        } else {
+            Verification::Full
+        };
+        let state = genoryn_wallet_core::scan::replay_chain(network, &blocks, verification)?;
+        return Ok((blocks, state));
+    };
+    let store = chain_store::chain_path(path);
+    let known = chain_store::load(wallet, &store).blocks;
+    let known_tip = genoryn::light::tip_hash(network, &known)?;
+    let blocks = rpc.chain_from(network, known).await?;
+    let state = chain_store::replay_from_snapshot(wallet, path, network, &blocks)?;
+    let chain = chain_store::VerifiedChain { blocks };
+    if genoryn::light::tip_hash(network, &chain.blocks)? != known_tip {
+        chain_store::save(wallet, &store, &chain)?;
+        chain_store::save_state(wallet, path, &state)?;
+    }
+    Ok((chain.blocks, state))
+}
 /// Full mode: updates the scan cache from the configured node, settles the
 /// outbox against the chain and relays what is due. Returns the validated
 /// chain too when `need_chain` (for building a payment).
@@ -383,17 +442,13 @@ async fn refresh_from_node(
     let mut cache = open_cache(wallet, path, request);
     let mut chain = None;
     let progress = if own_node && !need_chain {
-        advance_cache_from_node(rpc, network, &mut cache, &keys).await
+        let cache_file = sync::cache_path(path);
+        advance_cache_from_node(rpc, network, &mut cache, &keys, &mut |progress| {
+            sync::save_cache(wallet, &cache_file, progress)
+        })
+        .await
     } else {
-        // A remote node's blocks are validated here in full; the wallet's own
-        // node already validated them.
-        let blocks = rpc.chain(network).await?;
-        let verification = if own_node {
-            genoryn_core::state::Verification::Stored
-        } else {
-            genoryn_core::state::Verification::Full
-        };
-        let state = genoryn_wallet_core::scan::replay_chain(network, &blocks, verification)?;
+        let (blocks, state) = node_chain(rpc, network, Some(wallet), path, own_node).await?;
         let advanced = advance_cache(&mut cache, &keys, &blocks);
         chain = Some((blocks, state));
         advanced
@@ -477,6 +532,9 @@ async fn dispatch(request: &Value) -> Result<Value> {
     if op == "sync_batch" {
         return batch::sync_batch(request, network).await;
     }
+    if op == "create_payment_challenge" {
+        return proofs::create_challenge(request, network);
+    }
     let path = Path::new(request["wallet_path"].as_str().unwrap_or("wallet.wallet"));
     let password = Zeroizing::new(request["password"].as_str().unwrap_or("").to_owned());
     if op == "create" {
@@ -527,7 +585,7 @@ async fn dispatch(request: &Value) -> Result<Value> {
     }
     let wallet = if ["resolve_username", "name_status"].contains(&op) {
         None
-    } else if op == "verify_proof" {
+    } else if op == "verify_proof" || op == "verify_payment_challenge" {
         // Optional: with a wallet, the result also tells whether it was paid to it.
         (!password.is_empty() && path.is_file())
             .then(|| Wallet::open(path, &password).ok())
@@ -642,9 +700,12 @@ async fn dispatch(request: &Value) -> Result<Value> {
     }
     if matches!(
         op,
-        "send" | "register_name" | "update_name" | "combine_notes"
+        "send" | "send_many" | "register_name" | "update_name" | "combine_notes"
     ) {
         let wallet = wallet.as_ref().context("wallet required")?;
+        if let Some(existing) = payments::already_sent(wallet, path, request)? {
+            return Ok(existing);
+        }
         let (_, mut outbox, chain) =
             refresh_from_node(&rpc, network, wallet, path, request, true).await?;
         let (blocks, state) = chain.context("validated chain required")?;
@@ -664,22 +725,14 @@ async fn dispatch(request: &Value) -> Result<Value> {
         )
         .await;
     }
-    if matches!(op, "verify_proof" | "export_proof") {
-        let blocks = rpc.chain(network).await?;
-        // The user's own node already validated its blocks; a remote node's are
-        // validated here in full.
+    if PROOF_OPS.contains(&op) {
         let own_node = request["full_validation"].as_bool() != Some(true)
             && is_loopback_url(
                 request["rpc_url"]
                     .as_str()
                     .unwrap_or("http://127.0.0.1:29711"),
             );
-        let verification = if own_node {
-            genoryn_core::state::Verification::Stored
-        } else {
-            genoryn_core::state::Verification::Full
-        };
-        genoryn_wallet_core::scan::replay_chain(network, &blocks, verification)?;
+        let (blocks, _) = node_chain(&rpc, network, wallet.as_ref(), path, own_node).await?;
         return proof_op(op, request, network, wallet.as_ref(), path, &blocks);
     }
     anyhow::bail!("unsupported wallet operation")
@@ -695,16 +748,7 @@ fn proof_op(
     path: &Path,
     blocks: &[Block],
 ) -> Result<Value> {
-    let tip = blocks.last().map_or(0, |block| block.header.height);
-    let find = |txid: &str| {
-        blocks.iter().find_map(|block| {
-            block
-                .body
-                .all_transactions()
-                .find(|tx| tx.id().map(hex::encode).ok().as_deref() == Some(txid))
-                .map(|tx| (block.header.height, tx))
-        })
-    };
+    let find = |txid: &str| proofs::find_on_chain(blocks, txid);
     if op == "export_proof" {
         let wallet = wallet.context("wallet required")?;
         let txid = field(request, "txid")?;
@@ -727,39 +771,41 @@ fn proof_op(
                 (prove(&entry.transaction()?)?, None)
             }
         };
+        // Whether this payment carries a sender-verification key (Payment Proof 2.0).
+        let sender_auth = match find(txid) {
+            Some((_, tx)) => wallet.sent_output(tx, proof.action as usize)?,
+            None => outbox::load(wallet, &outbox::outbox_path(path))?
+                .entries
+                .iter()
+                .find(|entry| hex::encode(entry.txid) == txid)
+                .map(|entry| entry.transaction())
+                .transpose()?
+                .and_then(|tx| {
+                    wallet
+                        .sent_output(&tx, proof.action as usize)
+                        .ok()
+                        .flatten()
+                }),
+        }
+        .is_some_and(|output| {
+            genoryn_wallet_core::sender_auth::MemoTrailer::read(&output.memo).is_some()
+        });
         let mut value = serde_json::to_value(&proof)?;
         value["mined_at"] = json!(mined_at);
+        value["sender_auth_available"] = json!(sender_auth);
         return Ok(value);
     }
-    let proof: NoteProof =
-        serde_json::from_value(request["proof"].clone()).context("not a payment proof")?;
-    ensure!(
-        proof.network == network,
-        "this payment proof is for another network"
-    );
-    let (height, tx) = find(&proof.txid).context(
-        "this payment is not in a block yet (or not on this chain): verify again after it is mined",
-    )?;
-    let paid = decode_address(network, &proof.recipient)?;
-    let mut result = serde_json::to_value(verify_payment_proof(&proof, tx)?)?;
-    result["txid"] = json!(proof.txid);
-    result["action"] = json!(proof.action);
-    result["block_height"] = json!(height);
-    result["confirmations"] = json!(tip.saturating_sub(height) + 1);
-    if let Some(expected) = request["expected_recipient"]
-        .as_str()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-    {
-        let expected = decode_address(network, expected)
-            .context("the address to check is not a valid GENORYN address")?;
-        result["recipient_matches"] =
-            json!(expected.to_raw_address_bytes() == paid.to_raw_address_bytes());
+    match op {
+        "answer_payment_challenge" => proofs::answer_challenge(
+            request,
+            network,
+            wallet.context("open the wallet that made the payment")?,
+            path,
+            blocks,
+        ),
+        "verify_payment_challenge" => proofs::verify_challenge(request, network, wallet, blocks),
+        _ => proofs::verify_proof(request, network, wallet, blocks),
     }
-    if let Some(wallet) = wallet {
-        result["belongs_to_wallet"] = json!(wallet.owns_address(&paid)?);
-    }
-    Ok(result)
 }
 /// Builds the payment or name transaction from `scanned` (reserved and
 /// mempool-spent notes already excluded) and submits it through the outbox.
@@ -844,6 +890,9 @@ async fn build_and_submit(
         )?);
         return Ok(submitted);
     }
+    if op == "send_many" {
+        return payments::send_many(request, network, wallet, path, scanned, outbox, relayer).await;
+    }
     let to = field(request, "to")?.trim();
     let named = names_a_username(network, to);
     let address = if !named {
@@ -854,12 +903,14 @@ async fn build_and_submit(
         resolve_username(names_rpc_client, network, path, to).await?
     };
     let amount = field(request, "amount_atomic")?.parse::<u64>()?;
+    // New payments carry a sender-verification key unless switched off.
     let tx = wallet.send(
         scanned,
         address,
         amount,
         fee,
         request["memo"].as_str().unwrap_or(""),
+        request["sender_auth"].as_bool() != Some(false),
     )?;
     let payee = Payee {
         recipient: to.to_owned(),
@@ -924,10 +975,7 @@ async fn light_dispatch(
     path: &Path,
 ) -> Result<Value> {
     ensure!(
-        matches!(
-            op,
-            "sync" | "send" | "export_proof" | "verify_proof" | "combine_notes"
-        ),
+        matches!(op, "sync" | "send" | "combine_notes") || PROOF_OPS.contains(&op),
         "{op} is not available in Quick mode yet"
     );
     let wallet = wallet.context("wallet required")?;
@@ -956,7 +1004,12 @@ async fn light_dispatch(
     let started = std::time::Instant::now();
     let store = chain_store::chain_path(path);
     let mut chain = chain_store::load(&wallet, &store);
-    let local_state = chain.replay(network);
+    // A kept chain that no longer replays is discarded and fetched again.
+    let local_state = chain_store::replay_from_snapshot(&wallet, path, network, &chain.blocks)
+        .unwrap_or_else(|_| {
+            chain.blocks.clear();
+            genoryn_core::state::ChainState::new(network)
+        });
     let replayed_ms = started.elapsed().as_millis() as u64;
     let keys = sync::ScanKeys::new(&wallet)?;
     let mut cache = open_cache(&wallet, path, request);
@@ -1002,6 +1055,7 @@ async fn light_dispatch(
     chain.blocks = verified.blocks;
     if verified.used.is_some() {
         chain_store::save(&wallet, &store, &chain)?;
+        chain_store::save_state(&wallet, path, &verified.state)?;
     }
     advance_cache(&mut cache, &keys, &chain.blocks)?;
     sync::save_cache(&wallet, &sync::cache_path(path), &cache)?;
@@ -1038,9 +1092,24 @@ async fn light_dispatch(
         });
         return Ok(summary);
     }
-    if matches!(op, "export_proof" | "verify_proof") {
+    if PROOF_OPS.contains(&op) {
+        // A check against a chain no source confirmed now may miss a newer
+        // block or a reorganization; it is reported as unavailable.
+        if stale
+            && op.starts_with("verify")
+            && request["structured_outcomes"].as_bool() == Some(true)
+        {
+            return Ok(json!({
+                "outcome": "unavailable",
+                "last_verified_height": chain.blocks.len(),
+                "offline_reason": offline,
+                "light_sources": reports,
+            }));
+        }
         // Every block of this chain was validated on this computer.
-        return proof_op(op, request, network, Some(&wallet), path, &chain.blocks);
+        let mut result = proof_op(op, request, network, Some(&wallet), path, &chain.blocks)?;
+        result["chain_stale"] = json!(stale);
+        return Ok(result);
     }
     let Some((_tor, clients)) = clients else {
         anyhow::bail!(
