@@ -23,7 +23,9 @@ def main():
         with tempfile.TemporaryDirectory(prefix='genoryn-packaged-ui-') as directory:
             root = pathlib.Path(directory)
             with (root / 'stdout.txt').open('w') as stdout, (root / 'stderr.txt').open('w') as stderr:
-                process = subprocess.Popen([str(executable), '--wallet', 'wallet.gnr', '--data-dir', 'node', '--bin-dir', str(package), '--smoke-test-frames', '50'], cwd=root, stdout=stdout, stderr=stderr)
+                # The launch animation repaints at full frame rate, so a small frame
+                # budget can end before the capture; 200 frames last about 25 s.
+                process = subprocess.Popen([str(executable), '--wallet', 'wallet.gnr', '--data-dir', 'node', '--bin-dir', str(package), '--smoke-test-frames', '200'], cwd=root, stdout=stdout, stderr=stderr)
                 if os.name == 'nt':
                     from windows_native_controls import Desktop
                     from ctypes import wintypes
@@ -64,7 +66,7 @@ try {{
                 assert data.startswith(b'\x89PNG\r\n\x1a\n') and len(data) > 8000, 'Missing or nearly blank native capture'
                 report['screenshot_dimensions'] = [int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big')]
                 report['screenshot_sha256'] = hashlib.sha256(data).hexdigest()
-                process.wait(timeout=45)
+                process.wait(timeout=90)
                 assert process.returncode == 0, 'Packaged native wallet did not exit cleanly'
                 assert not (root / 'wallet.gnr').exists(), 'Capture unexpectedly created a wallet'
             report.update(passed=True, native_exit_code=process.returncode, screenshot_file=output.name)

@@ -209,6 +209,8 @@ def main():
             wait(info,'RPC after restart');record('restart_reaps_original_and_starts_new_owned_node')
             click_control('node:logs','log button');time.sleep(.5)
             assert (root/'node'/'genorynd.log').stat().st_size>0
+            # The log window is drawn over the page; close it before using the controls beneath.
+            click_control('log:close','log close button');wait(lambda:(current:=layout())is not None and 'log:close' not in current['controls'],'log view closed')
             record('log_view_click_keeps_native_window_responsive')
             click_control('node:stop','stop button')
             wait(lambda:not info()and not capture_owned(),'owned node stopped');record('stop_releases_node_process_and_listener')
