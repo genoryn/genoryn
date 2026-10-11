@@ -1363,4 +1363,3 @@ mod tests {
         exercise(&mut store);
     }
 }
-
