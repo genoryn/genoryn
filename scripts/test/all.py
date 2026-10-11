@@ -52,6 +52,7 @@ def main():
         for script in ['peer_cache','policy_limits']:
             run(script,[python,f'scripts/test/{script}.py','--bin-dir',binary,'--work-dir',root/script,'--report',root/(script.replace('_','-')+'-'+platform_name+'.json')])
         run('real mining payment recovery reorg restart',[python,'scripts/test/devnet.py','--bin-dir',binary,'--work-dir',root/'payment-lab','--report',root/('devnet-'+platform_name+'.json')])
+        run('real shared mining: PPLNS credits, maturity, payouts, restart',[python,'scripts/test/pool.py','--bin-dir',binary,'--work-dir',root/'pool-lab','--report',root/('pool-'+platform_name+'.json'),'--mining-seconds','150'],2400)
         run('cryptographic and database benchmark',['cargo','run','--locked','-p','genoryn-core','--example','benchmark'],output=root/('benchmark-'+platform_name+'.json'))
         testnet_seconds=900 if os.name=='nt' else 300
         run('isolated real testnet block',[python,'scripts/test/testnet.py','--bin-dir',binary,'--work-dir',root/'testnet','--report',root/('testnet-'+platform_name+'.json'),'--max-seconds',str(testnet_seconds)],testnet_seconds+120)

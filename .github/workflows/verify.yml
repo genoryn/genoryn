@@ -31,6 +31,30 @@ jobs:
           name: genoryn-dependency-audit-${{ github.sha }}
           path: evidence/dependency-audit.json
           if-no-files-found: warn
+  pool-ledger-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: pooltest
+          POSTGRES_DB: genoryn_pool
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Pinned Rust
+        run: rustup toolchain install 1.92.0 --profile minimal
+      - name: Pool ledger on a real PostgreSQL and SQLite
+        env:
+          GENORYN_POOL_POSTGRES: postgresql://postgres:pooltest@127.0.0.1:5432/genoryn_pool
+        run: cargo test --locked -p genoryn-pool -- --nocapture
   parser-fuzz:
     runs-on: ubuntu-24.04
     timeout-minutes: 35

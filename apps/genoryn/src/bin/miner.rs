@@ -10,6 +10,9 @@ use std::{
     },
     time::{Duration, Instant},
 };
+#[path = "miner/pool.rs"]
+mod pool;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum RandomXMode {
     /// One ~2 GiB dataset shared by all threads, several times faster. Mining
@@ -29,10 +32,23 @@ struct Args {
     network: String,
     #[arg(long, default_value = "http://127.0.0.1:29711")]
     node: String,
+    /// The local node's admin token (solo mining).
     #[arg(long)]
-    token_file: PathBuf,
+    token_file: Option<PathBuf>,
     #[arg(long)]
     wallet: String,
+    /// Shared mining instead of solo: `tcp://host:port` (loopback, private
+    /// network or onion) or `tls://host:port`. Rewards follow verified work.
+    #[arg(long)]
+    pool: Option<String>,
+    /// SOCKS proxy for the pool connection, e.g. `socks5h://127.0.0.1:9050` (Tor).
+    #[arg(long)]
+    pool_proxy: Option<String>,
+    /// Allow an unencrypted pool connection over the public internet.
+    #[arg(long)]
+    allow_plaintext: bool,
+    #[arg(long, default_value = "")]
+    worker: String,
     #[arg(long, default_value_t = 1)]
     threads: usize,
     #[arg(long, default_value_t = 0)]
@@ -223,8 +239,16 @@ async fn run(args: Args) -> Result<()> {
         }));
     }
     genoryn_wallet_core::keys::decode_address(network, &args.wallet).context(Failure::Setup)?;
-    let client = genoryn::client::RpcClient::new(&args.node, Some(&args.token_file))
+    if args.pool.is_some() {
+        return pool::run(&args).await;
+    }
+    let token_file = args
+        .token_file
+        .as_ref()
+        .context("solo mining needs --token-file (or use --pool)")
         .context(Failure::Setup)?;
+    let client =
+        genoryn::client::RpcClient::new(&args.node, Some(token_file)).context(Failure::Setup)?;
     let waiting = Instant::now();
     let mut retry = TEMPLATE_RETRY_START;
     let info: Value = loop {

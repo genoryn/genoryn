@@ -20,6 +20,8 @@ use zeroize::{Zeroize, Zeroizing};
 
 #[path = "wallet/batch.rs"]
 mod batch;
+#[path = "wallet/payments.rs"]
+mod payments;
 #[path = "wallet/proofs.rs"]
 mod proofs;
 
@@ -655,9 +657,12 @@ async fn dispatch(request: &Value) -> Result<Value> {
     }
     if matches!(
         op,
-        "send" | "register_name" | "update_name" | "combine_notes"
+        "send" | "send_many" | "register_name" | "update_name" | "combine_notes"
     ) {
         let wallet = wallet.as_ref().context("wallet required")?;
+        if let Some(existing) = payments::already_sent(wallet, path, request)? {
+            return Ok(existing);
+        }
         let (_, mut outbox, chain) =
             refresh_from_node(&rpc, network, wallet, path, request, true).await?;
         let (blocks, state) = chain.context("validated chain required")?;
@@ -829,6 +834,9 @@ async fn build_and_submit(
             wallet.name_receiver()?
         )?);
         return Ok(submitted);
+    }
+    if op == "send_many" {
+        return payments::send_many(request, network, wallet, path, scanned, outbox, relayer).await;
     }
     let to = field(request, "to")?.trim();
     let named = names_a_username(network, to);

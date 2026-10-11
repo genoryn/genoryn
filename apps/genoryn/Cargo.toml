@@ -9,6 +9,7 @@ license.workspace = true
 genoryn-core = { path = "../../crates/genoryn-core" }
 genoryn-wallet-core = { path = "../../crates/genoryn-wallet-core" }
 genoryn-connect = { path = "../../crates/genoryn-connect" }
+genoryn-pool = { path = "../../crates/genoryn-pool" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -38,6 +39,8 @@ tor-cell = "0.47"
 tor-proto = { version = "0.47", default-features = false, features = ["tokio", "hs-service"] }
 safelog = "0.10"
 futures = "0.3"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+webpki-roots = "1.0"
 
 [dev-dependencies]
 tempfile = "3.23"
@@ -69,3 +72,7 @@ path = "src/bin/vectors.rs"
 [[bin]]
 name = "genoryn-identity-bench"
 path = "src/bin/identity_bench.rs"
+
+[[bin]]
+name = "genoryn-pool"
+path = "src/bin/pool.rs"

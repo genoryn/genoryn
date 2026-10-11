@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/genoryn-core", "crates/genoryn-wallet-core", "crates/genoryn-connect", "apps/genoryn", "apps/genoryn-wallet"]
+members = ["crates/genoryn-core", "crates/genoryn-wallet-core", "crates/genoryn-connect", "crates/genoryn-pool", "apps/genoryn", "apps/genoryn-wallet"]
 resolver = "2"
 exclude = ["third-party/randomx-rs"]
 
