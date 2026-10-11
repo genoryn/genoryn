@@ -196,15 +196,73 @@ impl WalletApp {
             || (self.unlocked && path_key(&self.settings.wallet_path) == key)
     }
     /// Total of every open wallet's last scan, and how many are not scanned yet.
+    /// A wallet is counted once even if it were open under two file names.
     pub(super) fn combined_balance(&self) -> (u128, usize) {
-        let active = self.unlocked.then_some(self.balance.as_deref());
+        let mut seen = HashSet::new();
+        let active = self
+            .unlocked
+            .then_some((self.address.as_str(), self.balance.as_deref()));
         sum_balances(
-            active.into_iter().chain(
+            active
+                .into_iter()
+                .chain(
+                    self.sessions
+                        .iter()
+                        .map(|session| (session.address.as_str(), session.balance.as_deref())),
+                )
+                .filter(|(address, _)| address.is_empty() || seen.insert(*address))
+                .map(|(_, balance)| balance),
+        )
+    }
+    /// Receiving addresses of the open wallets. The same recovery phrase and
+    /// account always give the same address, so it identifies a wallet.
+    pub(super) fn open_addresses(&self) -> Vec<String> {
+        self.unlocked
+            .then(|| self.address.clone())
+            .into_iter()
+            .chain(self.sessions.iter().map(|session| session.address.clone()))
+            .filter(|address| !address.is_empty())
+            .collect()
+    }
+    /// The name of an open wallet, at another path, that is the same wallet as
+    /// the one with `address`.
+    pub(super) fn duplicate_of(&self, address: &str, path: &str) -> Option<String> {
+        if address.is_empty() {
+            return None;
+        }
+        let key = path_key(path);
+        let active = self
+            .unlocked
+            .then_some((&self.settings.wallet_path, &self.address));
+        active
+            .into_iter()
+            .chain(
                 self.sessions
                     .iter()
-                    .map(|session| session.balance.as_deref()),
-            ),
-        )
+                    .map(|session| (&session.path, &session.address)),
+            )
+            .find(|(other, other_address)| *other_address == address && path_key(other) != key)
+            .map(|(other, _)| wallet_name(other))
+    }
+    /// The wallet just opened in the add-wallet flow is one that is already open:
+    /// it is locked again and the previous wallet comes back.
+    pub(super) fn reject_duplicate_wallet(&mut self) -> bool {
+        let path = self.settings.wallet_path.clone();
+        let Some(name) = self.duplicate_of(&self.address.clone(), &path) else {
+            return false;
+        };
+        self.address.zeroize();
+        self.password.zeroize();
+        self.unlocked = false;
+        self.preferences.forget(&path);
+        self.save_preferences();
+        self.adding_wallet = true;
+        self.cancel_add_wallet();
+        self.status = format!(
+            "{} is the same wallet as {name}, which is already open (same recovery phrase). It was not added a second time.",
+            wallet_name(&path)
+        );
+        true
     }
     /// Indices of the `count` richest background wallets, richest first. Only
     /// those are fully sorted, so a short list from 10,000 stays cheap per frame.
@@ -505,6 +563,18 @@ impl WalletApp {
             .map(|(i, session)| (path_key(&session.path), i))
             .collect();
         let active = self.unlocked.then(|| path_key(&self.settings.wallet_path));
+        // The same recovery phrase under another file name is the same wallet.
+        let mut identities: HashMap<String, String> = self
+            .unlocked
+            .then(|| (self.address.clone(), self.settings.wallet_path.clone()))
+            .into_iter()
+            .chain(
+                self.sessions
+                    .iter()
+                    .map(|session| (session.address.clone(), session.path.clone())),
+            )
+            .filter(|(address, _)| !address.is_empty())
+            .collect();
         let (mut opened, mut failed, mut gained, mut gained_wallets) = (0, 0, 0u128, Vec::new());
         for entry in result["wallets"].as_array().into_iter().flatten() {
             let path = entry["wallet_path"].as_str().unwrap_or_default();
@@ -540,6 +610,16 @@ impl WalletApp {
                     if self.sessions.len() + usize::from(self.unlocked) >= MAX_OPEN_WALLETS {
                         continue;
                     }
+                    let address = entry["address"].as_str().unwrap_or_default();
+                    if let Some(same) = identities.get(address) {
+                        failed += 1;
+                        self.unlock_failures
+                            .insert(key, format!("Same wallet as {}", wallet_name(same)));
+                        continue;
+                    }
+                    if !address.is_empty() {
+                        identities.insert(address.to_owned(), original.clone());
+                    }
                     self.unlock_failures.remove(&key);
                     self.sessions.push(WalletSession::from_batch(
                         original.clone(),
@@ -566,7 +646,7 @@ impl WalletApp {
                     grouped_count(self.open_wallet_count())
                 ),
                 (_, failed, 0) => format!(
-                    "{} wallets are open; {} could not be opened with this password — see the Wallets page.",
+                    "{} wallets are open; {} were not opened (another password, or the same wallet under a second file name) — see the Wallets page.",
                     grouped_count(self.open_wallet_count()),
                     grouped_count(failed)
                 ),
@@ -1006,7 +1086,7 @@ mod tests {
                 .iter()
                 .enumerate()
                 .map(|(i, path)| {
-                    json!({"wallet_path": path, "ok": true, "address": "a",
+                    json!({"wallet_path": path, "ok": true, "address": format!("addr-{path}"),
                            "balance_atomic": (i as u64 * 3).to_string(), "height": 1})
                 })
                 .collect();
@@ -1051,6 +1131,69 @@ mod tests {
         );
         assert_eq!(app.notifier.toasts.len(), 1);
         assert!(app.notifier.toasts[0].text.contains("balance up 1 GNR"));
+    }
+
+    #[test]
+    fn the_same_wallet_never_opens_twice_or_counts_twice() {
+        let ctx = egui::Context::default();
+        let mut app = unlocked_app(&ctx, "one.gnr", "5");
+        app.sessions.push(session("two.gnr", Some("7")));
+        // A copy of two.gnr under another name, unlocked through "Open another wallet".
+        app.begin_add_wallet();
+        app.settings.wallet_path = "two-copy.gnr".into();
+        app.address = "gnrd-two.gnr".into();
+        *app.password = "correct-horse".into();
+        app.unlocked = true;
+        assert!(app.reject_duplicate_wallet());
+        assert!(app.unlocked && !app.adding_wallet);
+        assert_eq!(
+            app.settings.wallet_path, "one.gnr",
+            "the previous wallet is back"
+        );
+        assert_eq!(app.open_wallet_count(), 2);
+        assert!(app.status.contains("same wallet as two"), "{}", app.status);
+        assert!(!app.preferences.wallets.iter().any(|w| w == "two-copy.gnr"));
+        assert!(
+            !app.reject_duplicate_wallet(),
+            "a wallet is not its own duplicate"
+        );
+
+        // In a batch, a copy is marked instead of opened, and nothing counts twice.
+        app.pending_password = Some(Zeroizing::new("correct-horse".into()));
+        app.unlock_inflight = vec![
+            "three.gnr".into(),
+            "two-again.gnr".into(),
+            "four.gnr".into(),
+        ];
+        let result = json!({"wallets": [
+            {"wallet_path": "three.gnr", "ok": true, "address": "gnrd-three", "balance_atomic": "1"},
+            {"wallet_path": "two-again.gnr", "ok": true, "address": "gnrd-two.gnr", "balance_atomic": "7"},
+            {"wallet_path": "four.gnr", "ok": true, "address": "gnrd-three", "balance_atomic": "1"},
+        ]});
+        assert!(app.apply_batch(BATCH_UNLOCK, &result));
+        assert!(app.is_wallet_open("three.gnr"));
+        assert!(!app.is_wallet_open("two-again.gnr") && !app.is_wallet_open("four.gnr"));
+        assert_eq!(
+            app.unlock_failures
+                .get(&path_key("two-again.gnr"))
+                .map(String::as_str),
+            Some("Same wallet as two")
+        );
+        assert_eq!(
+            app.unlock_failures
+                .get(&path_key("four.gnr"))
+                .map(String::as_str),
+            Some("Same wallet as three")
+        );
+        assert_eq!(app.combined_balance(), (13, 0));
+        let mut copy = session("two-copy.gnr", Some("7"));
+        copy.address = "gnrd-two.gnr".into();
+        app.sessions.push(copy);
+        assert_eq!(
+            app.combined_balance(),
+            (13, 0),
+            "a copy that slipped in is not added"
+        );
     }
 
     #[test]

@@ -339,6 +339,20 @@ fn wallet_summary(
         .unwrap_or(0);
     summary["spendable_atomic"] = json!(spendable.saturating_sub(held(true)).to_string());
     summary["reserved_atomic"] = json!(held(false).to_string());
+    // One payment spends at most 16 notes; above this a "combine notes" step is needed.
+    let notes: Vec<u64> = cache
+        .notes
+        .iter()
+        .filter(|note| {
+            note.spent_height.is_none()
+                && note.unlock_height <= cache.height
+                && !reserved.contains(&note.nullifier)
+        })
+        .map(|note| note.value)
+        .collect();
+    summary["spendable_notes"] = json!(notes.len());
+    summary["max_single_payment_atomic"] =
+        json!(genoryn_wallet_core::scan::max_single_payment(notes).to_string());
     summary["mined"] = serde_json::to_value(cache.mined_summary())?;
     summary["outbox"] = serde_json::to_value(outbox.summary())?;
     summary["birthday"] = json!(cache.birthday);
@@ -487,6 +501,14 @@ async fn dispatch(request: &Value) -> Result<Value> {
     if op == "restore" {
         let wallet = Wallet::restore(network, field(request, "seed_phrase")?)?
             .for_account(account_field(request)?)?;
+        // The GUI lists the wallets already open; the same one is never written twice.
+        let address = wallet.receiving_identity()?;
+        ensure!(
+            !request["refuse_addresses"]
+                .as_array()
+                .is_some_and(|open| open.iter().any(|known| known.as_str() == Some(&address))),
+            "this recovery phrase belongs to a wallet that is already open; it was not added a second time"
+        );
         wallet.save_new(path, &password)?;
         set_aside_foreign_files(&wallet, path);
         // A restored seed scans its whole history unless told where it began.
@@ -503,8 +525,14 @@ async fn dispatch(request: &Value) -> Result<Value> {
             json!({"address":wallet.receiving_identity()?,"network":network.name(),"account":wallet.account,"birthday":birthday}),
         );
     }
-    let wallet = if ["resolve_username", "verify_proof", "name_status"].contains(&op) {
+    let wallet = if ["resolve_username", "name_status"].contains(&op) {
         None
+    } else if op == "verify_proof" {
+        // Optional: with a wallet, the result also tells whether it was paid to it.
+        (!password.is_empty() && path.is_file())
+            .then(|| Wallet::open(path, &password).ok())
+            .flatten()
+            .filter(|wallet| wallet.network == network)
     } else {
         let w = Wallet::open(path, &password)?;
         ensure!(w.network == network, "wallet network mismatch");
@@ -612,7 +640,10 @@ async fn dispatch(request: &Value) -> Result<Value> {
         });
         return Ok(summary);
     }
-    if matches!(op, "send" | "register_name" | "update_name") {
+    if matches!(
+        op,
+        "send" | "register_name" | "update_name" | "combine_notes"
+    ) {
         let wallet = wallet.as_ref().context("wallet required")?;
         let (_, mut outbox, chain) =
             refresh_from_node(&rpc, network, wallet, path, request, true).await?;
@@ -633,31 +664,102 @@ async fn dispatch(request: &Value) -> Result<Value> {
         )
         .await;
     }
-    let blocks = rpc.chain(network).await?;
     if matches!(op, "verify_proof" | "export_proof") {
-        genoryn_wallet_core::scan::validate_chain(network, &blocks)?;
-    }
-    if op == "verify_proof" {
-        let proof: NoteProof = serde_json::from_value(request["proof"].clone())?;
-        let tx = blocks
-            .iter()
-            .flat_map(|b| b.body.all_transactions())
-            .find(|t| t.id().map(hex::encode).ok() == Some(proof.txid.clone()))
-            .context("payment transaction not in selected chain")?;
-        return Ok(serde_json::to_value(verify_payment_proof(&proof, tx)?)?);
-    }
-    let wallet = wallet.context("wallet required")?;
-    if op == "export_proof" {
-        let txid = field(request, "txid")?;
-        let index = request["action"].as_u64().unwrap_or(0) as usize;
-        let tx = blocks
-            .iter()
-            .flat_map(|b| b.body.all_transactions())
-            .find(|t| t.id().map(hex::encode).ok().as_deref() == Some(txid))
-            .context("transaction not found")?;
-        return Ok(serde_json::to_value(wallet.payment_proof(tx, index)?)?);
+        let blocks = rpc.chain(network).await?;
+        // The user's own node already validated its blocks; a remote node's are
+        // validated here in full.
+        let own_node = request["full_validation"].as_bool() != Some(true)
+            && is_loopback_url(
+                request["rpc_url"]
+                    .as_str()
+                    .unwrap_or("http://127.0.0.1:29711"),
+            );
+        let verification = if own_node {
+            genoryn_core::state::Verification::Stored
+        } else {
+            genoryn_core::state::Verification::Full
+        };
+        genoryn_wallet_core::scan::replay_chain(network, &blocks, verification)?;
+        return proof_op(op, request, network, wallet.as_ref(), path, &blocks);
     }
     anyhow::bail!("unsupported wallet operation")
+}
+/// What an outbox entry for merging notes shows as its recipient.
+const COMBINE_RECIPIENT: &str = "yourself (combining notes)";
+/// Payment-proof operations against an already validated chain.
+fn proof_op(
+    op: &str,
+    request: &Value,
+    network: Network,
+    wallet: Option<&Wallet>,
+    path: &Path,
+    blocks: &[Block],
+) -> Result<Value> {
+    let tip = blocks.last().map_or(0, |block| block.header.height);
+    let find = |txid: &str| {
+        blocks.iter().find_map(|block| {
+            block
+                .body
+                .all_transactions()
+                .find(|tx| tx.id().map(hex::encode).ok().as_deref() == Some(txid))
+                .map(|tx| (block.header.height, tx))
+        })
+    };
+    if op == "export_proof" {
+        let wallet = wallet.context("wallet required")?;
+        let txid = field(request, "txid")?;
+        let prove = |tx: &genoryn_core::privacy::ShieldedTx| match request["action"].as_u64() {
+            Some(action) => wallet.payment_proof(tx, action as usize),
+            None => wallet.payment_proof_auto(tx),
+        };
+        let (proof, mined_at) = match find(txid) {
+            Some((height, tx)) => (prove(tx)?, Some(height)),
+            None => {
+                // Not mined yet: the exact signed bytes are in the outbox.
+                let outbox = outbox::load(wallet, &outbox::outbox_path(path))?;
+                let entry = outbox
+                    .entries
+                    .iter()
+                    .find(|entry| hex::encode(entry.txid) == txid)
+                    .context(
+                        "this transaction is neither in the chain nor among this wallet's payments",
+                    )?;
+                (prove(&entry.transaction()?)?, None)
+            }
+        };
+        let mut value = serde_json::to_value(&proof)?;
+        value["mined_at"] = json!(mined_at);
+        return Ok(value);
+    }
+    let proof: NoteProof =
+        serde_json::from_value(request["proof"].clone()).context("not a payment proof")?;
+    ensure!(
+        proof.network == network,
+        "this payment proof is for another network"
+    );
+    let (height, tx) = find(&proof.txid).context(
+        "this payment is not in a block yet (or not on this chain): verify again after it is mined",
+    )?;
+    let paid = decode_address(network, &proof.recipient)?;
+    let mut result = serde_json::to_value(verify_payment_proof(&proof, tx)?)?;
+    result["txid"] = json!(proof.txid);
+    result["action"] = json!(proof.action);
+    result["block_height"] = json!(height);
+    result["confirmations"] = json!(tip.saturating_sub(height) + 1);
+    if let Some(expected) = request["expected_recipient"]
+        .as_str()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+    {
+        let expected = decode_address(network, expected)
+            .context("the address to check is not a valid GENORYN address")?;
+        result["recipient_matches"] =
+            json!(expected.to_raw_address_bytes() == paid.to_raw_address_bytes());
+    }
+    if let Some(wallet) = wallet {
+        result["belongs_to_wallet"] = json!(wallet.owns_address(&paid)?);
+    }
+    Ok(result)
 }
 /// Builds the payment or name transaction from `scanned` (reserved and
 /// mempool-spent notes already excluded) and submits it through the outbox.
@@ -677,6 +779,30 @@ async fn build_and_submit(
         .as_str()
         .unwrap_or("10000000")
         .parse::<u64>()?;
+    if op == "combine_notes" {
+        let max = request["max_transactions"]
+            .as_u64()
+            .unwrap_or(8)
+            .clamp(1, 16) as usize;
+        let mut txids = Vec::new();
+        let mut combined = 0;
+        for (tx, merged, kept) in wallet.combine_notes(scanned, fee, max)? {
+            let payee = Payee {
+                recipient: COMBINE_RECIPIENT.into(),
+                amount: kept,
+                fee,
+            };
+            let submitted = submit_durably(wallet, path, outbox, &tx, payee, relayer).await?;
+            txids.push(submitted["txid"].clone());
+            combined += merged;
+        }
+        return Ok(json!({
+            "transactions": txids.len(),
+            "notes_combined": combined,
+            "txids": txids,
+            "note": "Each transfer to yourself merges up to 16 notes into one. After the next block, larger payments need fewer notes.",
+        }));
+    }
     if op == "register_name" || op == "update_name" {
         let status = chain_name_status(names_rpc_client, field(request, "name")?).await?;
         let name = status["name"]
@@ -798,7 +924,10 @@ async fn light_dispatch(
     path: &Path,
 ) -> Result<Value> {
     ensure!(
-        matches!(op, "sync" | "send"),
+        matches!(
+            op,
+            "sync" | "send" | "export_proof" | "verify_proof" | "combine_notes"
+        ),
         "{op} is not available in Quick mode yet"
     );
     let wallet = wallet.context("wallet required")?;
@@ -908,6 +1037,10 @@ async fn light_dispatch(
             "total_ms": started.elapsed().as_millis() as u64,
         });
         return Ok(summary);
+    }
+    if matches!(op, "export_proof" | "verify_proof") {
+        // Every block of this chain was validated on this computer.
+        return proof_op(op, request, network, Some(&wallet), path, &chain.blocks);
     }
     let Some((_tor, clients)) = clients else {
         anyhow::bail!(

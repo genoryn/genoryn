@@ -9,6 +9,7 @@ use genoryn_core::{
     privacy::{self, BUNDLE_VERSION, ShieldedTx, TxContext},
     state::{ChainState, ProofCache, Verification},
 };
+use orchard::note_encryption::IronwoodDomain;
 use orchard::{
     Address, Note,
     builder::{Builder, BundleType},
@@ -18,6 +19,9 @@ use orchard::{
 use rand08::RngCore;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use zcash_note_encryption::{
+    Domain, EphemeralKeyBytes, OutgoingCipherKey, try_output_recovery_with_ock,
+};
 
 /// Spends per transfer; each costs a Halo 2 action, bounding proof time and size.
 pub const MAX_INPUTS: usize = 16;
@@ -429,6 +433,92 @@ impl Wallet {
             &[SpendAuthorizingKey::from(&self.spending_key()?)],
         )
     }
+    /// Self-transfers that each merge up to `MAX_INPUTS` spendable notes into one,
+    /// smallest notes first, so a later payment needs fewer inputs. Their inputs
+    /// are disjoint, so all of them can enter the same block. Returns each
+    /// transaction with the number of notes it merges and the value it keeps.
+    pub fn combine_notes(
+        &self,
+        scan: &ScannedWallet,
+        fee: u64,
+        max_transactions: usize,
+    ) -> Result<Vec<(ShieldedTx, usize, u64)>> {
+        ensure!(fee >= MIN_FEE, "fee below consensus minimum");
+        let mut candidates: Vec<_> = scan
+            .notes
+            .iter()
+            .filter(|n| !n.spent && n.position.is_some())
+            .collect();
+        ensure!(
+            candidates.len() > 1,
+            "there is nothing to combine: this wallet has {} spendable note(s)",
+            candidates.len()
+        );
+        candidates.sort_by_key(|n| n.note.value().inner());
+        let fvk = self.viewing_key()?;
+        let anchor = orchard::Anchor::from(scan.state.tree.root());
+        let mut built = Vec::new();
+        for group in candidates.chunks(MAX_INPUTS).take(max_transactions) {
+            let total = group
+                .iter()
+                .try_fold(0u64, |sum, n| sum.checked_add(n.note.value().inner()))
+                .context("input sum overflow")?;
+            if group.len() < 2 || total <= fee {
+                continue;
+            }
+            let mut builder = Builder::new(
+                BundleType::DEFAULT,
+                BUNDLE_VERSION,
+                BUNDLE_VERSION.default_flags(),
+                anchor,
+            )?;
+            for owned in group {
+                builder.add_spend(
+                    fvk.clone(),
+                    owned.note,
+                    scan.state
+                        .witness(owned.position.context("immature note")?)?,
+                )?;
+            }
+            builder.add_output(
+                Some(fvk.to_ovk(Scope::External)),
+                fvk.address_at(0u32, Scope::Internal),
+                NoteValue::from_raw(total - fee),
+                [0; 512],
+            )?;
+            let mut nonce = [0; 32];
+            rand08::rngs::OsRng.fill_bytes(&mut nonce);
+            let context = TxContext {
+                protocol: 1,
+                network: self.network,
+                kind: 0,
+                height: 0,
+                expires: scan.state.height + 120,
+                nonce,
+            };
+            let tx = privacy::build_bundle(
+                context,
+                builder,
+                &[SpendAuthorizingKey::from(&self.spending_key()?)],
+            )?;
+            built.push((tx, group.len(), total - fee));
+        }
+        ensure!(!built.is_empty(), "these notes are too small to combine");
+        Ok(built)
+    }
+    /// Whether `address` is one of this wallet's own addresses (any index,
+    /// receiving or change).
+    pub fn owns_address(&self, address: &Address) -> Result<bool> {
+        Ok(self.viewing_key()?.scope_for_address(address).is_some())
+    }
+}
+/// The most one payment can spend: its `MAX_INPUTS` largest notes.
+pub fn max_single_payment(mut values: Vec<u64>) -> u64 {
+    values.sort_unstable_by(|a, b| b.cmp(a));
+    values
+        .into_iter()
+        .take(MAX_INPUTS)
+        .fold(0u64, u64::saturating_add)
 }
 fn confirmation_status(confirmations: u64) -> String {
     if confirmations < 10 {
@@ -455,18 +545,41 @@ pub struct ProvenPayment {
     pub recipient: String,
     pub amount_atomic: String,
     pub memo: String,
+    /// The proof carries this output's outgoing cipher key, which only the
+    /// paying wallet can derive: the sender made this proof.
+    pub created_by_sender: bool,
 }
 
 impl Wallet {
     // A selective proof is built by recovering a note, exposing only its opening.
+    // The paying wallet also adds the output's outgoing cipher key (`ock`): it
+    // opens only this output's sender ciphertext and is derived from the
+    // sender's outgoing viewing key, so a recipient cannot produce it.
     pub fn payment_proof(&self, tx: &ShieldedTx, action: usize) -> Result<NoteProof> {
         let bundle = tx.bundle.to_bundle()?;
         let fvk = self.viewing_key()?;
-        let recovered = bundle
-            .recover_output_with_ovk(action, &fvk.to_ovk(Scope::External))
-            .or_else(|| bundle.decrypt_output_with_key(action, &fvk.to_ivk(Scope::External)))
-            .or_else(|| bundle.decrypt_output_with_key(action, &fvk.to_ivk(Scope::Internal)))
-            .context("wallet cannot disclose this output")?;
+        let ovk = fvk.to_ovk(Scope::External);
+        let (recovered, sender_key) = match bundle.recover_output_with_ovk(action, &ovk) {
+            Some(recovered) => {
+                let output = bundle.actions().get(action).context("action index")?;
+                let ock = <IronwoodDomain as Domain>::derive_ock(
+                    &ovk,
+                    output.cv_net(),
+                    &output.cmx().to_bytes(),
+                    &EphemeralKeyBytes(output.encrypted_note().epk_bytes),
+                );
+                (recovered, Some(ock.0))
+            }
+            None => (
+                bundle
+                    .decrypt_output_with_key(action, &fvk.to_ivk(Scope::External))
+                    .or_else(|| {
+                        bundle.decrypt_output_with_key(action, &fvk.to_ivk(Scope::Internal))
+                    })
+                    .context("wallet cannot disclose this output")?,
+                None,
+            ),
+        };
         Ok(NoteProof {
             version: 1,
             network: self.network,
@@ -477,7 +590,35 @@ impl Wallet {
             rho: recovered.0.rho().to_bytes(),
             rseed: *recovered.0.rseed().as_bytes(),
             cmx: tx.bundle.actions.get(action).context("action index")?.cmx,
+            sender_key,
         })
+    }
+    /// The proof of the payment itself in `tx`: the first output this wallet
+    /// sent to someone else (never its own change). Without one, an output it
+    /// sent to itself, else an output it received.
+    pub fn payment_proof_auto(&self, tx: &ShieldedTx) -> Result<NoteProof> {
+        let bundle = tx.bundle.to_bundle()?;
+        let fvk = self.viewing_key()?;
+        let ovk = fvk.to_ovk(Scope::External);
+        let count = bundle.actions().len();
+        let mut own_external = None;
+        for action in 0..count {
+            if let Some((_, address, _)) = bundle.recover_output_with_ovk(action, &ovk) {
+                match fvk.scope_for_address(&address) {
+                    None => return self.payment_proof(tx, action),
+                    Some(Scope::External) => {
+                        own_external.get_or_insert(action);
+                    }
+                    Some(Scope::Internal) => {}
+                }
+            }
+        }
+        if let Some(action) = own_external {
+            return self.payment_proof(tx, action);
+        }
+        (0..count)
+            .find_map(|action| self.payment_proof(tx, action).ok())
+            .context("this transaction has no output this wallet can prove")
     }
 }
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -491,6 +632,9 @@ pub struct NoteProof {
     pub rho: Hash,
     pub rseed: Hash,
     pub cmx: Hash,
+    /// Outgoing cipher key of this output, present when the sender made the proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_key: Option<Hash>,
 }
 pub fn verify_payment_proof(proof: &NoteProof, tx: &ShieldedTx) -> Result<ProvenPayment> {
     ensure!(
@@ -527,9 +671,33 @@ pub fn verify_payment_proof(proof: &NoteProof, tx: &ShieldedTx) -> Result<Proven
     .context("invalid note opening")?;
     let cmx = orchard::note::ExtractedNoteCommitment::from(note.commitment()).to_bytes();
     ensure!(cmx == proof.cmx, "invalid payment proof opening");
+    let mut memo = String::new();
+    if let Some(ock) = proof.sender_key {
+        let bundle = tx.bundle.to_bundle()?;
+        let output = bundle
+            .actions()
+            .get(proof.action as usize)
+            .context("payment proof action")?;
+        let (sent, recipient, sent_memo) = try_output_recovery_with_ock(
+            &IronwoodDomain::for_action(output),
+            &OutgoingCipherKey(ock),
+            output,
+            &output.encrypted_note().out_ciphertext,
+        )
+        .context("the sender part of this payment proof is not valid")?;
+        ensure!(
+            recipient == address
+                && sent.value().inner() == proof.amount
+                && sent.rho().to_bytes() == proof.rho
+                && *sent.rseed().as_bytes() == proof.rseed,
+            "the sender part of this payment proof does not match the payment"
+        );
+        memo = decode_memo(&sent_memo);
+    }
     Ok(ProvenPayment {
         recipient: proof.recipient.clone(),
         amount_atomic: proof.amount.to_string(),
-        memo: String::new(),
+        memo,
+        created_by_sender: proof.sender_key.is_some(),
     })
 }

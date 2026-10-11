@@ -472,7 +472,10 @@ impl WalletApp {
                         self.request("create", json!({"birthday_height": birthday}))
                     }
                     _ => {
-                        let extra = SecretJson(json!({"seed_phrase":self.seed_input.trim()}));
+                        let extra = SecretJson(json!({
+                            "seed_phrase": self.seed_input.trim(),
+                            "refuse_addresses": self.open_addresses(),
+                        }));
                         self.request("restore", extra.0.clone());
                     }
                 }
@@ -822,6 +825,27 @@ impl WalletApp {
             return;
         }
         ui.add_space(20.0);
+        if let Some(txid) = self.last_submission.clone() {
+            let (mut prove, mut dismiss) = (false, false);
+            card(ui, |ui| {
+                ui.label(RichText::new("PAYMENT SENT").small().color(GRAY));
+                ui.add(egui::Label::new(RichText::new(&txid).monospace().size(12.5)).wrap());
+                ui.label("It is confirmed once a block includes it. To show the recipient (or anyone) that you paid, create a payment proof: a code to paste, or a PDF or JSON file.");
+                ui.add_space(8.0);
+                ui.horizontal_wrapped(|ui| {
+                    prove = ui
+                        .add_enabled(self.busy.is_none(), primary(ui, "Create payment proof"))
+                        .clicked();
+                    dismiss = ui.button("Dismiss").clicked();
+                });
+            });
+            ui.add_space(14.0);
+            if prove {
+                self.select_proof(&txid);
+            } else if dismiss {
+                self.last_submission = None;
+            }
+        }
         card(ui, |ui| {
             ui.label("Recipient address or @username");
             protocol::sensitive_edit(
@@ -896,13 +920,26 @@ impl WalletApp {
                 .zip(parse_amount(&self.fee).ok())
                 .and_then(|(amount, fee)| amount.checked_add(fee));
             let short = needed.and_then(|needed| self.shortfall(needed));
-            if let Some(reason) = short.as_deref().or(self.action_error_for("send")) {
+            let max_single = self.max_single_payment();
+            let too_many_notes = short.is_none()
+                && (needed
+                    .zip(max_single)
+                    .is_some_and(|(needed, max)| needed > max)
+                    || self
+                        .action_error_for("send")
+                        .is_some_and(|error| error.contains("more than 16")));
+            if too_many_notes {
+                self.combine_notes_card(ui, max_single);
+            } else if let Some(reason) = short.as_deref().or(self.action_error_for("send")) {
                 ui.label(RichText::new(reason).color(ERROR));
                 ui.add_space(8.0);
             }
             if ui
                 .add_enabled(
-                    self.busy.is_none() && self.node_info.is_some() && short.is_none(),
+                    self.busy.is_none()
+                        && self.node_info.is_some()
+                        && short.is_none()
+                        && !too_many_notes,
                     primary(ui, "Review payment").min_size(egui::vec2(200.0, 44.0)),
                 )
                 .clicked()
@@ -934,6 +971,55 @@ impl WalletApp {
                 }
             }
         });
+    }
+    /// The most one payment can send now: its 16 largest spendable notes.
+    fn max_single_payment(&self) -> Option<u64> {
+        self.sync_detail.as_ref()?["max_single_payment_atomic"]
+            .as_str()?
+            .parse()
+            .ok()
+    }
+    /// Why a large payment cannot go out yet, and the one-click way forward.
+    fn combine_notes_card(&mut self, ui: &mut egui::Ui, max_single: Option<u64>) {
+        let notes = self
+            .sync_detail
+            .as_ref()
+            .and_then(|detail| detail["spendable_notes"].as_u64());
+        egui::Frame::new()
+            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+            .corner_radius(10.0)
+            .inner_margin(14.0)
+            .show(ui, |ui| {
+                ui.label(RichText::new("This amount needs more than 16 of your coins").strong());
+                ui.add_space(4.0);
+                ui.label(format!(
+                    "Your balance is made of separate coins (notes){} — every block reward is one. A single payment can spend at most 16 of them{}.",
+                    notes.map(|n| format!(", {n} spendable now")).unwrap_or_default(),
+                    max_single
+                        .map(|max| format!(", so right now you can send up to {} GNR at once", grouped_amount(&max.to_string())))
+                        .unwrap_or_default()
+                ));
+                ui.label("Combine them first: the wallet sends your coins to yourself, 16 at a time, and only the network fee is spent. After the next block, send this payment again.");
+                ui.add_space(8.0);
+                let fee = parse_amount(&self.fee)
+                    .ok()
+                    .filter(|fee| *fee >= genoryn_core::params::MIN_FEE)
+                    .unwrap_or(10_000_000);
+                if ui
+                    .add_enabled(
+                        self.busy.is_none() && self.node_info.is_some(),
+                        primary(ui, "Combine notes now"),
+                    )
+                    .clicked()
+                {
+                    self.action_error = None;
+                    self.request("combine_notes", json!({"fee_atomic": fee.to_string()}));
+                }
+                if let Some(error) = self.action_error_for("combine_notes") {
+                    ui.label(RichText::new(error).color(ERROR));
+                }
+            });
+        ui.add_space(8.0);
     }
     pub(super) fn receive(&mut self, ui: &mut egui::Ui) {
         heading(
@@ -1017,7 +1103,6 @@ impl WalletApp {
             "Your own locally reconstructed private history.",
         );
         ui.add_space(12.0);
-        self.proof_verifier(ui);
         if !self.wallet_gate(ui) {
             return;
         }

@@ -83,7 +83,10 @@ impl Notifier {
         }
         for entry in result["outbox"].as_array().into_iter().flatten() {
             let status = entry["status"].as_str().unwrap_or_default();
-            if !matches!(status, "Pending" | "Submitted") {
+            // Combining notes moves coins to the same wallet; nothing is "on the way".
+            if !matches!(status, "Pending" | "Submitted")
+                || entry["recipient"] == "yourself (combining notes)"
+            {
                 continue;
             }
             // Announced once per payment, not again when it moves to Submitted.

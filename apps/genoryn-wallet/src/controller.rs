@@ -24,6 +24,8 @@ pub(super) fn sync_detail(result: &Value) -> Value {
         "light_sources",
         "sync_stats",
         "birthday",
+        "spendable_notes",
+        "max_single_payment_atomic",
     ] {
         if let Some(value) = result.get(key) {
             detail.insert(key.into(), value.clone());
@@ -81,7 +83,8 @@ impl WalletApp {
                 .into();
     }
     pub(super) fn request(&mut self, op: &str, extra: Value) {
-        let credentials = (op != "verify_proof")
+        // Verifying needs no wallet; an unlocked one also learns whether it was paid.
+        let credentials = (op != "verify_proof" || self.unlocked)
             .then(|| (self.settings.wallet_path.clone(), self.password.clone()));
         self.dispatch(op, op.to_owned(), credentials, extra);
     }
@@ -280,8 +283,11 @@ impl WalletApp {
                     }
                     match result {
                         Err(error) => {
-                            if matches!(op.as_str(), "send" | "register_name") {
+                            if matches!(op.as_str(), "send" | "register_name" | "combine_notes") {
                                 self.action_error = Some((op.clone(), error.clone()));
+                            }
+                            if op == "verify_proof" {
+                                self.proofs.verify_error = Some(error.clone());
                             }
                             if !self.batch_failed(&op, &error) {
                                 self.status = error;
@@ -312,7 +318,7 @@ impl WalletApp {
                                     self.seed_input.zeroize();
                                     self.confirm_password.zeroize();
                                     self.status=if self.unlocked {"Wallet unlocked. Scan the chain to reconstruct your balance."}else{"CLI returned no receiving address; wallet remains locked."}.into();
-                                    if self.unlocked {
+                                    if self.unlocked && !self.reject_duplicate_wallet() {
                                         self.after_unlock(op == "open");
                                         self.request("sync", json!({}));
                                     }
@@ -391,6 +397,14 @@ impl WalletApp {
                                                 .into();
                                     }
                                 }
+                                "combine_notes" => {
+                                    self.action_error = None;
+                                    self.status = format!(
+                                        "Combining {} notes in {} transfer(s) to yourself. After the next block, larger payments work; send again then.",
+                                        result["notes_combined"], result["transactions"]
+                                    );
+                                    self.request("sync", json!({}));
+                                }
                                 "export_proof" => self.accept_exported_proof(result),
                                 "verify_proof" => self.accept_verified_proof(result),
                                 _ => self.status = "Wallet operation finished.".into(),
@@ -407,18 +421,21 @@ impl WalletApp {
                         Ok(payment_proof::FileResult::Loaded(text)) => {
                             self.proofs.input = text;
                             self.proofs.verified = None;
+                            self.proofs.verify_error = None;
                             self.status =
-                                "Proof file loaded locally. Verify it against the selected chain."
+                                "Proof file loaded. Press Verify payment to check it against the chain."
                                     .into();
                         }
                         Ok(payment_proof::FileResult::Saved(path)) => {
-                            self.proofs.saved = true;
-                            self.status = format!(
-                                "Proof saved locally to {}. Keep it private unless you intend to disclose this output.",
-                                path.display()
-                            );
+                            self.status = format!("Proof saved to {}.", path.display());
+                            self.proofs.saved = Some(path);
                         }
-                        Err(error) => self.status = error,
+                        Err(error) => {
+                            if self.page == VERIFY_PAGE {
+                                self.proofs.verify_error = Some(error.clone());
+                            }
+                            self.status = error;
+                        }
                     }
                 }
                 Event::Reconnect(result) => {

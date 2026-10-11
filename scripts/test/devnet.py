@@ -174,6 +174,25 @@ class Lab:
         assert proof is not None
         verified=self.wallet("alice","verify_proof",proof=proof);assert verified["amount_atomic"]=="1000000000000"
         self.record("voluntary_payment_proof_verified")
+        # One-step proof: the payment's own output is found automatically and the
+        # sender's outgoing cipher key shows the paying wallet made it.
+        auto=self.wallet("alice","export_proof",txid=sent["txid"])
+        assert auto["recipient"]==bob_payment_address and auto.get("sender_key") and auto["mined_at"]==5,auto
+        auto.pop("mined_at")
+        checked=self.wallet("bob","verify_proof",node="b",proof=auto,expected_recipient=bob_payment_address)
+        assert checked["created_by_sender"] is True and checked["recipient_matches"] is True and checked["belongs_to_wallet"] is True,checked
+        assert checked["memo"]=="private devnet invoice" and checked["block_height"]==5 and checked["confirmations"]>=1,checked
+        other=self.wallet("carol","verify_proof",node="c",proof=auto,expected_recipient=carol["address"])
+        assert other["recipient_matches"] is False and other["belongs_to_wallet"] is False,other
+        forged=dict(auto);forged["sender_key"]=[7]*32
+        try:
+            self.wallet("carol","verify_proof",node="c",proof=forged);raise RuntimeError("forged sender key accepted")
+        except AssertionError as error:assert "sender part" in str(error),error
+        received=self.wallet("bob","export_proof",node="b",txid=sent["txid"])
+        assert received["recipient"]==bob_payment_address and "sender_key" not in received,received
+        received.pop("mined_at")
+        assert self.wallet("carol","verify_proof",node="c",proof=received)["created_by_sender"] is False
+        self.record("one_step_sender_proof_address_check_and_forgery_rejected")
         self.wallet("bob","send",to=carol["address"],amount_atomic="200000000000",fee_atomic="10000000")
         self.wallet('alice','send',to=alice['address'],amount_atomic='10000000000',fee_atomic='50000000')
         self.mine("a",alice["address"],1);self.sync("abc",6)
@@ -196,6 +215,7 @@ class Lab:
         self.lost_acknowledgement(alice,carol)
         self.quick_mode(alice,carol)
         self.batch_sync()
+        self.combine_notes(alice)
         if not self.args.quick:self.reorg(alice["address"])
         height=self.get("a","info")["height"];tip=self.get("a","info")["best_hash"]
         for n in "abc":self.stop(n)
@@ -262,6 +282,29 @@ class Lab:
         dead=self.wallet("alice-quick","sync",**quick)
         assert dead["stale"] is True and dead["balance_atomic"]==again["balance_atomic"],"stale, never zero"
         self.record("quick_mode_validates_locally_sends_and_syncs_incrementally",replay_ms=stats["replay_ms"],total_ms=stats["total_ms"])
+    def combine_notes(self,alice):
+        """Self-transfers merge up to 16 notes each; only the fee is spent. A
+        proof can be made before mining from the stored payment. A recovery
+        phrase that is already open is never written to a second file."""
+        before=self.wallet("alice","sync");notes=before["spendable_notes"]
+        assert notes>=2 and int(before["max_single_payment_atomic"])>0,before
+        combined=self.wallet("alice","combine_notes")
+        assert combined["transactions"]>=1 and combined["notes_combined"]>=2,combined
+        pending=self.wallet("alice","export_proof",txid=combined["txids"][0])
+        assert pending["mined_at"] is None and pending.get("sender_key"),"proof from the outbox before mining"
+        height=self.get("a","info")["height"]
+        self.wait(lambda:self.get("a","info")["mempool_count"]==combined["transactions"],description="combine transfers reach the miner")
+        self.mine("a",alice["address"],1);self.sync("abc",height+1)
+        after=self.wallet("alice","sync")
+        # Alice mined the block, so the fees come back in its reward: exactly +1,000 GNR.
+        assert int(after["balance_atomic"])==int(before["balance_atomic"])+1000*10**12,(before["balance_atomic"],after["balance_atomic"])
+        assert after["spendable_notes"]<=notes-combined["notes_combined"]+combined["transactions"]+2,(notes,after["spendable_notes"])
+        assert all(e["status"]=="Confirmed" for e in after["outbox"] if e["txid"] in combined["txids"])
+        try:
+            self.wallet("alice-twice","restore",seed_phrase=alice["seed_phrase"],refuse_addresses=[alice["address"]]);raise RuntimeError("duplicate wallet written")
+        except AssertionError as error:assert "already open" in str(error),error
+        assert not (self.root/"alice-twice.wallet").exists()
+        self.record("combine_notes_and_duplicate_wallets_refused",notes_before=notes,notes_after=after["spendable_notes"])
     def batch_sync(self):
         """One sync_batch call scans several wallets from the node's blocks once;
         each result equals that wallet's own scan, and a wrong password or a

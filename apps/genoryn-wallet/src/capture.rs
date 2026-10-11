@@ -38,6 +38,7 @@ fn steps(lite: bool) -> Vec<(usize, bool, &'static str)> {
         (1, false, "wallet-send"),
         (2, false, "wallet-receive"),
         (3, false, "wallet-transactions"),
+        (VERIFY_PAGE, false, "wallet-verify"),
         (MINING_PAGE, false, "wallet-mining"),
         (5, false, "wallet-node"),
         (6, false, "wallet-network"),

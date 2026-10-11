@@ -6,8 +6,16 @@ use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 const PAGE_SIZE: usize = 100;
-/// Below this width each wallet takes two lines.
-const COMPACT_WIDTH: f32 = 860.0;
+/// Table columns: rank, wallet, balance, spendable, block, status.
+const COLUMNS: [f32; 6] = [36.0, 200.0, 210.0, 140.0, 80.0, 120.0];
+/// Room for the Switch, Lock and Scan buttons after the columns.
+const ACTIONS_WIDTH: f32 = 210.0;
+
+/// Below this width each wallet takes two lines, so no column or button is
+/// ever cut off.
+fn compact_below(item_spacing: f32) -> f32 {
+    COLUMNS.iter().sum::<f32>() + item_spacing * COLUMNS.len() as f32 + ACTIONS_WIDTH + 40.0
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub(super) enum SortBy {
@@ -64,6 +72,8 @@ impl State {
 #[derive(Clone, Debug)]
 pub(super) struct Row {
     pub path: String,
+    /// Receiving address of an open wallet; empty while locked.
+    pub address: String,
     pub name: String,
     pub balance: Option<u128>,
     pub spendable: Option<u128>,
@@ -134,8 +144,12 @@ pub(super) fn arrange(mut rows: Vec<Row>, search: &str, sort: SortBy, filter: Fi
 }
 fn totals(rows: &[Row]) -> Totals {
     let mut totals = Totals::default();
+    let mut seen = HashSet::new();
     for row in rows {
         match &row.state {
+            // The same wallet is never counted twice.
+            State::Active | State::Open
+                if !row.address.is_empty() && !seen.insert(row.address.as_str()) => {}
             State::Active | State::Open => {
                 totals.open += 1;
                 match row.balance {
@@ -191,6 +205,7 @@ impl WalletApp {
         if self.unlocked {
             rows.push(Row {
                 path: self.settings.wallet_path.clone(),
+                address: self.address.clone(),
                 name: sessions::wallet_name(&self.settings.wallet_path),
                 balance: sessions::balance_value(self.balance.as_deref()),
                 spendable: sessions::balance_value(self.spendable.as_deref()),
@@ -202,6 +217,7 @@ impl WalletApp {
         for (index, session) in self.sessions.iter().enumerate() {
             rows.push(Row {
                 path: session.path.clone(),
+                address: session.address.clone(),
                 name: sessions::wallet_name(&session.path),
                 balance: sessions::balance_value(session.balance.as_deref()),
                 spendable: sessions::balance_value(session.spendable.as_deref()),
@@ -231,6 +247,7 @@ impl WalletApp {
             };
             rows.push(Row {
                 path: path.clone(),
+                address: String::new(),
                 name: sessions::wallet_name(path),
                 balance: None,
                 spendable: None,
@@ -425,18 +442,19 @@ impl WalletApp {
     }
     fn wallets_toolbar(&mut self, ui: &mut egui::Ui) {
         let view = &mut self.wallets_view;
+        let search_width = (ui.available_width() - 280.0).clamp(160.0, 360.0);
         ui.horizontal_wrapped(|ui| {
             let searched = ui
                 .add(
                     field(&mut view.search)
                         .hint_text("Search by name or folder")
-                        .desired_width(280.0),
+                        .desired_width(search_width),
                 )
                 .changed();
             let before = view.sort;
             egui::ComboBox::from_id_salt("wallets_sort")
                 .selected_text(view.sort.label())
-                .width(220.0)
+                .width(200.0)
                 .show_ui(ui, |ui| {
                     for sort in SortBy::ALL {
                         ui.selectable_value(&mut view.sort, sort, sort.label());
@@ -445,12 +463,22 @@ impl WalletApp {
             if searched || view.sort != before {
                 view.page = 0;
             }
-            ui.add_space(8.0);
+        });
+        ui.add_space(4.0);
+        let totals = view.totals;
+        ui.horizontal_wrapped(|ui| {
             for filter in Filter::ALL {
-                if ui
-                    .selectable_label(view.filter == filter, filter.label())
-                    .clicked()
-                {
+                let count = match filter {
+                    Filter::All => totals.open + totals.locked,
+                    Filter::Open => totals.open,
+                    Filter::Locked => totals.locked - totals.attention,
+                    Filter::Attention => totals.attention,
+                };
+                if filter == Filter::Attention && count == 0 {
+                    continue;
+                }
+                let label = format!("{} · {}", filter.label(), grouped_count(count));
+                if ui.selectable_label(view.filter == filter, label).clicked() {
                     view.filter = filter;
                     view.page = 0;
                 }
@@ -476,7 +504,7 @@ impl WalletApp {
         let page = view.page.min(pages - 1);
         let first = page * PAGE_SIZE;
         let last = (first + PAGE_SIZE).min(count);
-        let compact = ui.available_width() < COMPACT_WIDTH;
+        let compact = ui.available_width() < compact_below(ui.spacing().item_spacing.x);
         let confirm = view.confirm_forget.clone();
         card(ui, |ui| {
             if !compact {
@@ -487,12 +515,16 @@ impl WalletApp {
                             egui::Label::new(RichText::new(text).small().color(GRAY)),
                         );
                     };
-                    header(ui, 44.0, "#");
-                    header(ui, 210.0, "WALLET");
-                    header(ui, 230.0, "BALANCE");
-                    header(ui, 150.0, "SPENDABLE");
-                    header(ui, 96.0, "BLOCK");
-                    header(ui, 130.0, "STATUS");
+                    for (width, text) in COLUMNS.iter().zip([
+                        "#",
+                        "WALLET",
+                        "BALANCE",
+                        "SPENDABLE",
+                        "BLOCK",
+                        "STATUS",
+                    ]) {
+                        header(ui, *width, text);
+                    }
                 });
             }
             for (offset, row) in self.wallets_view.rows[first..last].iter().enumerate() {
@@ -725,12 +757,12 @@ fn wallet_row(
     }
     ui.horizontal(|ui| {
         ui.add_sized(
-            [44.0, 26.0],
+            [COLUMNS[0], 26.0],
             egui::Label::new(RichText::new(format!("{rank}")).color(GRAY)),
         );
-        ui.add_sized([210.0, 26.0], egui::Label::new(name).truncate())
+        ui.add_sized([COLUMNS[1], 26.0], egui::Label::new(name).truncate())
             .on_hover_text(&row.path);
-        ui.add_sized([230.0, 26.0], |ui: &mut egui::Ui| {
+        ui.add_sized([COLUMNS[2], 26.0], |ui: &mut egui::Ui| {
             ui.horizontal(|ui| {
                 if row.state.is_open() {
                     gnr_amount(ui, balance.as_deref(), 15.0, None);
@@ -745,14 +777,14 @@ fn wallet_row(
             _ => "—".into(),
         };
         ui.add_sized(
-            [150.0, 26.0],
+            [COLUMNS[3], 26.0],
             egui::Label::new(RichText::new(spendable).color(GRAY)).truncate(),
         );
         ui.add_sized(
-            [96.0, 26.0],
+            [COLUMNS[4], 26.0],
             egui::Label::new(RichText::new(block).monospace().color(GRAY)),
         );
-        ui.add_sized([130.0, 26.0], egui::Label::new(status).truncate());
+        ui.add_sized([COLUMNS[5], 26.0], egui::Label::new(status).truncate());
         actions(ui, action);
     });
 }
@@ -764,6 +796,7 @@ mod tests {
     fn row(name: &str, balance: Option<u128>, state: State) -> Row {
         Row {
             path: format!("C:/w/{name}.gnr"),
+            address: format!("addr-{name}"),
             name: name.into(),
             balance,
             spendable: balance,
@@ -804,6 +837,14 @@ mod tests {
         assert_eq!(names(&search), ["Medium"]);
         let by_folder = arrange(rows, "c:/w/s", SortBy::BalanceHigh, Filter::All);
         assert_eq!(names(&by_folder), ["small"]);
+    }
+
+    #[test]
+    fn the_same_wallet_is_counted_once_in_totals() {
+        let mut copy = row("a", Some(10), State::Open);
+        copy.path = "C:/w/a-copy.gnr".into();
+        let totals = totals(&[row("a", Some(10), State::Active), copy]);
+        assert_eq!((totals.open, totals.balance), (1, 10));
     }
 
     #[test]

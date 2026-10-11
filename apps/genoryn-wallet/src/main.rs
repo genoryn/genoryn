@@ -14,6 +14,7 @@ mod notifications;
 mod payment_proof;
 mod payment_uri;
 mod preferences;
+mod proof_formats;
 mod protocol;
 mod reference_value;
 mod sessions;
@@ -44,7 +45,7 @@ use std::{
 use zeroize::{Zeroize, Zeroizing};
 
 /// Page indices are stable; `NAV_ORDER` is the order in the menu.
-const SECTIONS: [&str; 9] = [
+const SECTIONS: [&str; 10] = [
     "Overview",
     "Send",
     "Receive",
@@ -54,9 +55,11 @@ const SECTIONS: [&str; 9] = [
     "Network",
     "Settings",
     "Wallets",
+    "Verify payment",
 ];
 const WALLETS_PAGE: usize = 8;
-const NAV_ORDER: [usize; 9] = [0, WALLETS_PAGE, 1, 2, 3, 4, 5, 6, 7];
+const VERIFY_PAGE: usize = 9;
+const NAV_ORDER: [usize; 10] = [0, WALLETS_PAGE, 1, 2, 3, VERIFY_PAGE, 4, 5, 6, 7];
 /// The network this wallet runs. Mainnet since 0.4.0.
 const NETWORK: Network = Network::Mainnet;
 const GRAY: Color32 = Color32::from_gray(150);
@@ -726,10 +729,10 @@ impl eframe::App for WalletApp {
             .show(ctx, |ui| {
                 ui.add_space(14.0);
                 brand_header(ui, !self.light, self.settings.lite);
-                ui.add_space(34.0);
+                ui.add_space(20.0);
                 let unlocked = self.unlocked;
-                // Nine entries fit the smallest window with a 46-point step.
-                ui.spacing_mut().item_spacing.y = 4.0;
+                // Ten entries, 42 points apart, leave room for the links below.
+                ui.spacing_mut().item_spacing.y = 0.0;
                 for index in NAV_ORDER {
                     if self.settings.lite && index == MINING_PAGE {
                         continue;
@@ -746,10 +749,13 @@ impl eframe::App for WalletApp {
                     }
                 }
                 ui.spacing_mut().item_spacing.y = 12.0;
-                ui.add_space(14.0);
-                ui.separator();
-                ui.add_space(6.0);
-                self.explorer_link(ui);
+                // A short window keeps the menu and the lock button; the link waits.
+                if ui.available_height() > 190.0 {
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(4.0);
+                    self.explorer_link(ui);
+                }
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.label(
                         RichText::new("EXPERIMENTAL · NOT AUDITED")
@@ -852,36 +858,54 @@ impl eframe::App for WalletApp {
                     .inner_margin(egui::Margin::symmetric(28, 12)),
             )
             .show(ctx, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    if let Some(op) = &self.busy {
-                        motion::loader(ui, 16.0);
-                        ui.label(format!("{op} in progress…"));
-                    } else if self.process_busy {
-                        motion::loader(ui, 16.0);
-                        ui.label("Process operation in progress…");
-                    } else {
-                        ui.label(RichText::new(&self.status).small().color(GRAY));
-                    }
-                    if self.clipboard_warning.is_some() {
-                        ui.label(
-                            RichText::new("Copied. Other applications may read your clipboard.")
-                                .small(),
-                        );
-                    }
+                // The scan indicator takes its place on the right first; the
+                // status uses the rest and is cut short rather than overlapping.
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if let Some(label) = &self.scan_busy {
-                        let target = label
-                            .strip_prefix("sync@")
-                            .map(sessions::wallet_name)
-                            .unwrap_or_else(|| sessions::wallet_name(&self.settings.wallet_path));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(
-                                RichText::new(format!("Scanning {target} in the background"))
-                                    .small()
-                                    .color(GRAY),
-                            );
-                            motion::loader(ui, 13.0);
-                        });
+                        let target = if controller::is_batch_label(label) {
+                            "other wallets".to_owned()
+                        } else {
+                            label
+                                .strip_prefix("sync@")
+                                .map(sessions::wallet_name)
+                                .unwrap_or_else(|| {
+                                    sessions::wallet_name(&self.settings.wallet_path)
+                                })
+                        };
+                        ui.label(
+                            RichText::new(format!("Scanning {target} in the background"))
+                                .small()
+                                .color(GRAY),
+                        );
+                        motion::loader(ui, 13.0);
+                        ui.add_space(12.0);
                     }
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        if let Some(op) = &self.busy {
+                            motion::loader(ui, 16.0);
+                            ui.label(format!("{op} in progress…"));
+                        } else if self.process_busy {
+                            motion::loader(ui, 16.0);
+                            ui.label("Process operation in progress…");
+                        } else {
+                            ui.add(
+                                egui::Label::new(RichText::new(&self.status).small().color(GRAY))
+                                    .truncate(),
+                            )
+                            .on_hover_text(&self.status);
+                        }
+                        if self.clipboard_warning.is_some() {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(
+                                        "Copied. Other applications may read your clipboard.",
+                                    )
+                                    .small(),
+                                )
+                                .truncate(),
+                            );
+                        }
+                    });
                 });
             });
         egui::CentralPanel::default()
@@ -914,6 +938,7 @@ impl eframe::App for WalletApp {
                         match self.page {
                             0 => self.overview(ui),
                             WALLETS_PAGE => self.wallets_page(ui),
+                            VERIFY_PAGE => self.verify_page(ui),
                             1 => self.send(ui),
                             2 => self.receive(ui),
                             3 => self.transactions(ui),
@@ -1489,6 +1514,7 @@ mod ui_tests {
                             5 => app.node_page(ui),
                             6 => app.network(ui),
                             WALLETS_PAGE => app.wallets_page(ui),
+                            VERIFY_PAGE => app.verify_page(ui),
                             _ => app.settings_page(ui),
                         });
                     },
