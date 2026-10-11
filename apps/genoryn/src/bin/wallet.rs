@@ -20,6 +20,16 @@ use zeroize::{Zeroize, Zeroizing};
 
 #[path = "wallet/batch.rs"]
 mod batch;
+#[path = "wallet/proofs.rs"]
+mod proofs;
+
+/// Operations that read a payment on the verified chain.
+const PROOF_OPS: [&str; 4] = [
+    "export_proof",
+    "verify_proof",
+    "answer_payment_challenge",
+    "verify_payment_challenge",
+];
 
 /// A batch request carries up to 10,000 wallet paths with their passwords.
 const MAX_REQUEST_BYTES: u64 = 16 * 1024 * 1024;
@@ -477,6 +487,9 @@ async fn dispatch(request: &Value) -> Result<Value> {
     if op == "sync_batch" {
         return batch::sync_batch(request, network).await;
     }
+    if op == "create_payment_challenge" {
+        return proofs::create_challenge(request, network);
+    }
     let path = Path::new(request["wallet_path"].as_str().unwrap_or("wallet.wallet"));
     let password = Zeroizing::new(request["password"].as_str().unwrap_or("").to_owned());
     if op == "create" {
@@ -527,7 +540,7 @@ async fn dispatch(request: &Value) -> Result<Value> {
     }
     let wallet = if ["resolve_username", "name_status"].contains(&op) {
         None
-    } else if op == "verify_proof" {
+    } else if op == "verify_proof" || op == "verify_payment_challenge" {
         // Optional: with a wallet, the result also tells whether it was paid to it.
         (!password.is_empty() && path.is_file())
             .then(|| Wallet::open(path, &password).ok())
@@ -664,7 +677,7 @@ async fn dispatch(request: &Value) -> Result<Value> {
         )
         .await;
     }
-    if matches!(op, "verify_proof" | "export_proof") {
+    if PROOF_OPS.contains(&op) {
         let blocks = rpc.chain(network).await?;
         // The user's own node already validated its blocks; a remote node's are
         // validated here in full.
@@ -695,16 +708,7 @@ fn proof_op(
     path: &Path,
     blocks: &[Block],
 ) -> Result<Value> {
-    let tip = blocks.last().map_or(0, |block| block.header.height);
-    let find = |txid: &str| {
-        blocks.iter().find_map(|block| {
-            block
-                .body
-                .all_transactions()
-                .find(|tx| tx.id().map(hex::encode).ok().as_deref() == Some(txid))
-                .map(|tx| (block.header.height, tx))
-        })
-    };
+    let find = |txid: &str| proofs::find_on_chain(blocks, txid);
     if op == "export_proof" {
         let wallet = wallet.context("wallet required")?;
         let txid = field(request, "txid")?;
@@ -731,35 +735,17 @@ fn proof_op(
         value["mined_at"] = json!(mined_at);
         return Ok(value);
     }
-    let proof: NoteProof =
-        serde_json::from_value(request["proof"].clone()).context("not a payment proof")?;
-    ensure!(
-        proof.network == network,
-        "this payment proof is for another network"
-    );
-    let (height, tx) = find(&proof.txid).context(
-        "this payment is not in a block yet (or not on this chain): verify again after it is mined",
-    )?;
-    let paid = decode_address(network, &proof.recipient)?;
-    let mut result = serde_json::to_value(verify_payment_proof(&proof, tx)?)?;
-    result["txid"] = json!(proof.txid);
-    result["action"] = json!(proof.action);
-    result["block_height"] = json!(height);
-    result["confirmations"] = json!(tip.saturating_sub(height) + 1);
-    if let Some(expected) = request["expected_recipient"]
-        .as_str()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-    {
-        let expected = decode_address(network, expected)
-            .context("the address to check is not a valid GENORYN address")?;
-        result["recipient_matches"] =
-            json!(expected.to_raw_address_bytes() == paid.to_raw_address_bytes());
+    match op {
+        "answer_payment_challenge" => proofs::answer_challenge(
+            request,
+            network,
+            wallet.context("open the wallet that made the payment")?,
+            path,
+            blocks,
+        ),
+        "verify_payment_challenge" => proofs::verify_challenge(request, network, wallet, blocks),
+        _ => proofs::verify_proof(request, network, wallet, blocks),
     }
-    if let Some(wallet) = wallet {
-        result["belongs_to_wallet"] = json!(wallet.owns_address(&paid)?);
-    }
-    Ok(result)
 }
 /// Builds the payment or name transaction from `scanned` (reserved and
 /// mempool-spent notes already excluded) and submits it through the outbox.
@@ -854,12 +840,14 @@ async fn build_and_submit(
         resolve_username(names_rpc_client, network, path, to).await?
     };
     let amount = field(request, "amount_atomic")?.parse::<u64>()?;
+    // New payments carry a sender-verification key unless switched off.
     let tx = wallet.send(
         scanned,
         address,
         amount,
         fee,
         request["memo"].as_str().unwrap_or(""),
+        request["sender_auth"].as_bool() != Some(false),
     )?;
     let payee = Payee {
         recipient: to.to_owned(),
@@ -924,10 +912,7 @@ async fn light_dispatch(
     path: &Path,
 ) -> Result<Value> {
     ensure!(
-        matches!(
-            op,
-            "sync" | "send" | "export_proof" | "verify_proof" | "combine_notes"
-        ),
+        matches!(op, "sync" | "send" | "combine_notes") || PROOF_OPS.contains(&op),
         "{op} is not available in Quick mode yet"
     );
     let wallet = wallet.context("wallet required")?;
@@ -1038,9 +1023,24 @@ async fn light_dispatch(
         });
         return Ok(summary);
     }
-    if matches!(op, "export_proof" | "verify_proof") {
+    if PROOF_OPS.contains(&op) {
+        // A check against a chain no source confirmed now may miss a newer
+        // block or a reorganization; it is reported as unavailable.
+        if stale
+            && op.starts_with("verify")
+            && request["structured_outcomes"].as_bool() == Some(true)
+        {
+            return Ok(json!({
+                "outcome": "unavailable",
+                "last_verified_height": chain.blocks.len(),
+                "offline_reason": offline,
+                "light_sources": reports,
+            }));
+        }
         // Every block of this chain was validated on this computer.
-        return proof_op(op, request, network, Some(&wallet), path, &chain.blocks);
+        let mut result = proof_op(op, request, network, Some(&wallet), path, &chain.blocks)?;
+        result["chain_stale"] = json!(stale);
+        return Ok(result);
     }
     let Some((_tor, clients)) = clients else {
         anyhow::bail!(

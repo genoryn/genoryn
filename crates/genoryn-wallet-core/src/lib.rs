@@ -7,5 +7,6 @@ pub mod registry_store;
 pub mod release;
 pub mod scan;
 pub mod sealed;
+pub mod sender_auth;
 pub mod sync;
 pub mod username;

@@ -44,6 +44,7 @@ def main():
         run('network privacy and Tor transport policy',['cargo','test','--locked','-p','genoryn','--test','network_privacy'],output=root/('network-privacy-'+platform_name+'.txt'))
         for script in ['launchers','package_licenses','package_archive','randomx_vendor']:run(script,[python,f'scripts/test/{script}.py'])
         run('real proof and tamper fixtures',['cargo','test','--locked','-p','genoryn-core','--','--ignored'])
+        run('real Payment Proof 2.0 sender challenge on a mined chain',['cargo','test','--locked','-p','genoryn-wallet-core','--test','payment_proof_v2','--','--ignored'])
         run('build native programs',['cargo','build','--locked','--workspace'])
         native('native wallet rendered frames',binary/('genoryn-wallet'+suffix))
         if os.name=='nt':
