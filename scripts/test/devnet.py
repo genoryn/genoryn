@@ -13,15 +13,29 @@ class OnionProxy:
     """Stand-in for Tor's SOCKS port: forwards one onion name to a local node and
     refuses everything else, so Quick mode is exercised without the Tor network."""
     def __init__(self, target_port):
-        self.target_port = target_port; self.requests = []
+        self.target_port = target_port; self.requests = []; self.closed = False
         self.server = socket.socket(); self.server.bind(("127.0.0.1", 0)); self.server.listen(32)
         self.address = "127.0.0.1:%d" % self.server.getsockname()[1]
-        threading.Thread(target=self.accept, daemon=True).start()
+        self.acceptor = threading.Thread(target=self.accept, daemon=True); self.acceptor.start()
     def accept(self):
         while True:
             try: client, _ = self.server.accept()
             except OSError: return
+            if self.closed: client.close(); return
             threading.Thread(target=self.serve, args=(client,), daemon=True).start()
+    def close(self):
+        """Stops listening for real. On Linux, close() alone does not stop a socket
+        that another thread is blocked accepting on: the listener stays open until
+        accept() returns. shutdown() wakes it first."""
+        self.closed = True
+        try: self.server.shutdown(socket.SHUT_RDWR)
+        except OSError: pass
+        self.server.close(); self.acceptor.join(timeout=10)
+        assert not self.acceptor.is_alive(), "the SOCKS stand-in kept listening"
+        probe = socket.socket()
+        try: refused = probe.connect_ex(("127.0.0.1", int(self.address.rsplit(":", 1)[1]))) != 0
+        finally: probe.close()
+        assert refused, "the SOCKS stand-in still accepts connections"
     @staticmethod
     def read(sock, n):
         data = b""
@@ -278,7 +292,7 @@ class Lab:
         switched=self.wallet("alice-quick","sync")
         assert switched["balance_atomic"]==again["balance_atomic"],"Full and Quick agree after switching"
         assert switched["balance_atomic"]==self.wallet("alice","sync")["balance_atomic"]
-        proxy.server.close()
+        proxy.close()
         dead=self.wallet("alice-quick","sync",**quick)
         assert dead["stale"] is True and dead["balance_atomic"]==again["balance_atomic"],"stale, never zero"
         self.record("quick_mode_validates_locally_sends_and_syncs_incrementally",replay_ms=stats["replay_ms"],total_ms=stats["total_ms"])

@@ -195,21 +195,25 @@ impl WalletApp {
             ui.label(RichText::new(title).size(22.0));
             ui.add_space(16.0);
             ui.horizontal(|ui| {
-                if ui
-                    .add_enabled(
+                if layout_probe::tag(
+                    "node:start",
+                    ui.add_enabled(
                         self.node.is_none() && self.node_info.is_none() && !self.process_busy,
                         primary(ui, "Start local node").min_size(egui::vec2(180.0, 44.0)),
-                    )
-                    .clicked()
+                    ),
+                )
+                .clicked()
                 {
                     self.start_process("node");
                 }
-                if ui
-                    .add_enabled(
+                if layout_probe::tag(
+                    "node:stop",
+                    ui.add_enabled(
                         self.node.is_some() && !self.process_busy && self.miner.is_none(),
                         egui::Button::new("Stop owned node"),
-                    )
-                    .clicked()
+                    ),
+                )
+                .clicked()
                 {
                     self.stop_process("node");
                 }
@@ -218,18 +222,22 @@ impl WalletApp {
                 }
             });
             ui.horizontal_wrapped(|ui| {
-                if ui
-                    .add_enabled(
+                if layout_probe::tag(
+                    "node:restart",
+                    ui.add_enabled(
                         self.node.is_some() && self.miner.is_none() && !self.process_busy,
                         egui::Button::new("Restart owned node"),
-                    )
-                    .clicked()
+                    ),
+                )
+                .clicked()
                 {
                     self.restart_owned_node();
                 }
-                if ui
-                    .add_enabled(!self.log_busy, egui::Button::new("Open recent logs"))
-                    .clicked()
+                if layout_probe::tag(
+                    "node:logs",
+                    ui.add_enabled(!self.log_busy, egui::Button::new("Open recent logs")),
+                )
+                .clicked()
                 {
                     self.load_node_log();
                 }

@@ -4,6 +4,7 @@
 mod capture;
 mod controller;
 mod icons;
+mod layout_probe;
 mod miner_recovery;
 mod motion;
 mod names_ui;
@@ -100,6 +101,8 @@ struct Settings {
     capture_dir: Option<String>,
     /// Read the unlock password from standard input, as the wallet CLI does.
     password_stdin: bool,
+    /// Control positions for the native UI test (`layout_probe`).
+    layout_report: Option<String>,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -125,6 +128,7 @@ impl Default for Settings {
             smoke_test_frames: None,
             capture_dir: None,
             password_stdin: false,
+            layout_report: None,
         }
     }
 }
@@ -313,6 +317,9 @@ impl WalletApp {
         }
         if let Some(dir) = app.settings.capture_dir.clone() {
             app.capture = Some(capture::Capture::new(&dir));
+        }
+        if let Some(report) = &app.settings.layout_report {
+            layout_probe::enable(PathBuf::from(report));
         }
         if app.settings.password_stdin {
             let mut line = Zeroizing::new(String::new());
@@ -744,6 +751,7 @@ impl eframe::App for WalletApp {
                         self.page == index,
                         unlocked,
                     );
+                    layout_probe::record(&format!("nav:{}", SECTIONS[index]), response.rect);
                     if response.clicked() {
                         self.page = index;
                     }
@@ -935,6 +943,11 @@ impl eframe::App for WalletApp {
                             _ => 1040.0,
                         };
                         ui.set_max_width(ui.available_width().min(limit));
+                        layout_probe::page(if self.unlocked {
+                            SECTIONS[self.page]
+                        } else {
+                            "Locked"
+                        });
                         match self.page {
                             0 => self.overview(ui),
                             WALLETS_PAGE => self.wallets_page(ui),
@@ -971,6 +984,7 @@ impl eframe::App for WalletApp {
             self.request("open", json!({}));
         }
         self.capture_tick(ctx);
+        layout_probe::end_frame(ctx.pixels_per_point());
         if let Some(frames) = &mut self.settings.smoke_test_frames {
             *frames = frames.saturating_sub(1);
             if *frames == 0 {
@@ -1260,6 +1274,7 @@ fn parse_settings(args: impl IntoIterator<Item = String>) -> Result<Option<Setti
                     | "--auto-node"
                     | "--smoke-test-frames"
                     | "--capture-pages"
+                    | "--layout-report"
             ),
             "Unknown wallet argument. Use --help."
         );
@@ -1305,6 +1320,9 @@ fn parse_settings(args: impl IntoIterator<Item = String>) -> Result<Option<Setti
             "--capture-pages" => {
                 settings.capture_dir = Some(value);
             }
+            "--layout-report" => {
+                settings.layout_report = Some(value);
+            }
             _ => unreachable!("options are checked before consuming a value"),
         }
     }
@@ -1325,7 +1343,7 @@ fn main() -> eframe::Result<()> {
         }
         Ok(None) => {
             println!(
-                "GENORYN wallet (mainnet)\n--data-dir PATH --wallet PATH --rpc-url URL --bin-dir PATH --node-config PATH --auto-node on|off --smoke-test-frames N\nDocumentation screenshots: --capture-pages DIR --password-stdin\nNever pass a seed or password on the command line."
+                "GENORYN wallet (mainnet)\n--data-dir PATH --wallet PATH --rpc-url URL --bin-dir PATH --node-config PATH --auto-node on|off --smoke-test-frames N\nDocumentation screenshots: --capture-pages DIR --password-stdin\nUI test control positions: --layout-report FILE\nNever pass a seed or password on the command line."
             );
             return Ok(());
         }

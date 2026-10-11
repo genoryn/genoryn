@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "genoryn-core"
-version = "0.6.2"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "genoryn-wallet-core"
-version = "0.6.2"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "argon2",
@@ -654,6 +654,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "zcash_note_encryption",
  "zeroize",
 ]
 

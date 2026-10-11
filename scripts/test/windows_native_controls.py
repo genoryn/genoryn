@@ -2,7 +2,9 @@
 """Actual Windows wallet/node lifecycle through its own native window.
 
 Uses documented Win32 mouse/keyboard input and close messages, real binaries and
-fresh loopback ports. Navigation requires an unlocked wallet, so a fresh valueless
+fresh loopback ports. Controls are clicked where the wallet reports drawing them
+(`--layout-report`), not at guessed pixels, and each step waits for the page the
+wallet reports showing. Navigation requires an unlocked wallet, so a fresh valueless
 test wallet is created and unlocked first. No miner, payment, remote peer or test
 replacement RPC is created. Only direct genorynd children of the spawned GUI are
 eligible for cleanup.
@@ -65,8 +67,8 @@ class Desktop:
         return found[0] if found else None
     def post(self,window,message,word=0,parameter=0):
         if not self.user.PostMessageW(window,message,word,parameter):raise ctypes.WinError(ctypes.get_last_error())
-    def click(self,window,x,y):
-        scale=self.user.GetDpiForWindow(window)/96
+    def click(self,window,x,y,scale=None):
+        scale=scale or self.user.GetDpiForWindow(window)/96
         assert .5<=scale<=4,'unsupported display scale'
         self.user.SetForegroundWindow(window);time.sleep(.15)
         if self.user.GetForegroundWindow()!=window:raise RuntimeError('Windows did not permit focusing the owned test window; no input sent')
@@ -90,6 +92,14 @@ class Desktop:
                 event=INPUT();event.type=1;event.data.ki.wScan=ord(character);event.data.ki.dwFlags=flags
                 if self.user.SendInput(1,ctypes.byref(event),ctypes.sizeof(INPUT))!=1:raise RuntimeError('Windows rejected ordinary keyboard input to the owned test window')
                 time.sleep(.01)
+        time.sleep(.3)
+    def press_enter(self,window):
+        self.user.SetForegroundWindow(window);time.sleep(.15)
+        if self.user.GetForegroundWindow()!=window:raise RuntimeError('Windows did not permit focusing the owned test window; no input sent')
+        for flags in [0,0x0002]:
+            event=INPUT();event.type=1;event.data.ki.wVk=0x0D;event.data.ki.dwFlags=flags
+            if self.user.SendInput(1,ctypes.byref(event),ctypes.sizeof(INPUT))!=1:raise RuntimeError('Windows rejected ordinary keyboard input to the owned test window')
+            time.sleep(.05)
         time.sleep(.3)
     def screenshot(self,window,path):
         rectangle=w.RECT()
@@ -153,37 +163,57 @@ def main():
                 handles[pid]=handle
         return pids
     def record(check):report['checks'].append({'check':check,'passed':True});print(json.dumps(report['checks'][-1]),flush=True)
+    layout_file=root/'layout.json'
+    def layout():
+        try:return json.loads(layout_file.read_text())
+        except (OSError,ValueError):return None
+    def control(name):
+        """A control's rectangle as the wallet drew it in this frame, if visible."""
+        current=layout()
+        return current and current['controls'].get(name)
+    def page(name):
+        current=layout();return current is not None and current['page']==name
+    def click_control(name,label):
+        x,y,width,height=wait(lambda:control(name),label+' drawn')
+        desktop.click(window,x+width/2,y+height/2,layout()['pixels_per_point'])
+    def node_menu():
+        current=layout() or {'controls':{}}
+        return next((name for name in ('nav:My Full Node','nav:Node') if name in current['controls']),None)
     try:
         with open(root/'wallet.stdout.txt','w')as out,open(root/'wallet.stderr.txt','w')as err:
-            gui=subprocess.Popen([str(binary/'genoryn-wallet.exe'),'--data-dir','node','--wallet',str(wallet),'--node-config','node.toml','--auto-node','off','--rpc-url',f'http://127.0.0.1:{rpc}','--bin-dir',str(binary)],cwd=root,stdout=out,stderr=err)
+            gui=subprocess.Popen([str(binary/'genoryn-wallet.exe'),'--data-dir','node','--wallet',str(wallet),'--node-config','node.toml','--auto-node','off','--rpc-url',f'http://127.0.0.1:{rpc}','--bin-dir',str(binary),'--layout-report',str(layout_file)],cwd=root,stdout=out,stderr=err)
             window=wait(lambda:desktop.window(gui.pid),'wallet native window')
             rectangle=w.RECT();assert desktop.user.GetClientRect(window,ctypes.byref(rectangle))
             report['window_dpi']=desktop.user.GetDpiForWindow(window)
             report['client_pixels']=[rectangle.right-rectangle.left,rectangle.bottom-rectangle.top]
-            time.sleep(1);desktop.click(window,461,531);desktop.type_text(window,password);desktop.click(window,356,587)
+            # The unlock form puts the cursor in the password field of an existing wallet.
+            wait(lambda:page('Locked') and control('unlock:password'),'unlock form drawn')
+            time.sleep(1);desktop.type_text(window,password);desktop.press_enter(window)
             # Unlocking runs the CLI's Argon2id key derivation before navigation opens.
-            time.sleep(5);desktop.screenshot(window,report_path.with_name('windows-native-unlocked.png'))
+            wait(lambda:page('Overview'),'wallet unlocked',timeout=90)
+            desktop.screenshot(window,report_path.with_name('windows-native-unlocked.png'))
             record('test_wallet_unlocked_before_navigation')
-            desktop.click(window,100,465)  # Node: 8th menu entry, 42 px apart
+            menu=wait(node_menu,'node menu entry');click_control(menu,'node menu entry')
+            wait(lambda:page(menu.split(':',1)[1]),'node page opened')
             desktop.screenshot(window,report_path.with_name('windows-native-node-before-start.png'))
-            desktop.click(window,343,279)
+            click_control('node:start','start button')
             first=wait(info,'owned node started');assert first['network']=='mainnet'and first['height']==0
             assert desktop.user.GetForegroundWindow()==window,'owned backend obscured the wallet with another window'
             desktop.screenshot(window,report_path.with_name('windows-native-node-after-start.png'))
             original=wait(capture_owned,'owned node process');assert len(original)==1
-            desktop.click(window,343,279);assert capture_owned()==original
+            click_control('node:start','start button');time.sleep(1);assert capture_owned()==original
             record('explicit_start_and_repeat_start_have_one_owned_node')
-            desktop.click(window,333,327)
+            click_control('node:restart','restart button')
             new=wait(lambda:(pids if (pids:=capture_owned())and pids!=original else None),'owned node restart')
             assert len(new)==1;assert desktop.kernel.WaitForSingleObject(handles[original[0]],0)==0
             wait(info,'RPC after restart');record('restart_reaps_original_and_starts_new_owned_node')
-            desktop.click(window,481,327);time.sleep(.5)
+            click_control('node:logs','log button');time.sleep(.5)
             assert (root/'node'/'genorynd.log').stat().st_size>0
             record('log_view_click_keeps_native_window_responsive')
-            desktop.click(window,494,279)
+            click_control('node:stop','stop button')
             wait(lambda:not info()and not capture_owned(),'owned node stopped');record('stop_releases_node_process_and_listener')
             # Allow the periodic health check to clear the stale endpoint indicator.
-            time.sleep(6);desktop.click(window,343,279);wait(info,'node start again');wait(capture_owned,'new owned child')
+            time.sleep(6);click_control('node:start','start button');wait(info,'node start again');wait(capture_owned,'new owned child')
             desktop.post(window,0x0010);gui.wait(timeout=20);assert gui.returncode==0
             assert not info();assert all(desktop.kernel.WaitForSingleObject(handle,0)==0 for handle in handles.values())
             record('normal_window_close_exits_zero_and_reaps_owned_nodes')
