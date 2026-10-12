@@ -148,9 +148,9 @@ each with a `.sha256` checksum. They share your wallets, so you can switch at an
 
 | | **GENORYN** | **GENORYN Lite** |
 |---|---|---|
-| Windows installer | `GENORYN-Setup-1.0.5.exe` | `GENORYN-Lite-Setup-1.0.5.exe` |
-| Windows portable | `genoryn-1.0.5-mainnet-windows-amd64.zip` | `genoryn-1.0.5-mainnet-lite-windows-amd64.zip` |
-| Linux (desktop wallet, full node, miner, CLI tools) | `genoryn-1.0.5-mainnet-linux-x86_64.zip` | `genoryn-1.0.5-mainnet-lite-linux-x86_64.zip` |
+| Windows installer | `GENORYN-Setup-1.2.0.exe` | `GENORYN-Lite-Setup-1.2.0.exe` |
+| Windows portable | `genoryn-1.2.0-mainnet-windows-amd64.zip` | `genoryn-1.2.0-mainnet-lite-windows-amd64.zip` |
+| Linux (desktop wallet, full node, miner, CLI tools) | `genoryn-1.2.0-mainnet-linux-x86_64.zip` | `genoryn-1.2.0-mainnet-lite-linux-x86_64.zip` |
 | Send, receive, usernames, payment proofs | ✓ | ✓ |
 | Quick mode and Full mode | ✓ | ✓ |
 | CPU mining | ✓ | — |
@@ -160,8 +160,8 @@ SHA-256 of every file) and `SHA256SUMS`. [Verify the checksum](docs/security/rel
 before running:
 
 ```sh
-sha256sum -c genoryn-1.0.5-mainnet-linux-x86_64.zip.sha256          # Linux
-Get-FileHash .\GENORYN-Setup-1.0.5.exe -Algorithm SHA256             # Windows PowerShell
+sha256sum -c genoryn-1.2.0-mainnet-linux-x86_64.zip.sha256          # Linux
+Get-FileHash .\GENORYN-Setup-1.2.0.exe -Algorithm SHA256             # Windows PowerShell
 ```
 
 > [!NOTE]
@@ -172,14 +172,14 @@ Get-FileHash .\GENORYN-Setup-1.0.5.exe -Algorithm SHA256             # Windows P
 
 ## Get started
 
-**Windows:** run `GENORYN-Setup-1.0.5.exe` (no administrator rights needed), or unzip the
+**Windows:** run `GENORYN-Setup-1.2.0.exe` (no administrator rights needed), or unzip the
 portable package and run `Start-Wallet.cmd`.
 
 **Linux:**
 
 ```sh
-unzip genoryn-1.0.5-mainnet-linux-x86_64.zip
-cd genoryn-1.0.5-mainnet-linux-x86_64 && sha256sum -c SHA256SUMS --quiet
+unzip genoryn-1.2.0-mainnet-linux-x86_64.zip
+cd genoryn-1.2.0-mainnet-linux-x86_64 && sha256sum -c SHA256SUMS --quiet
 ./start-wallet
 ```
 
@@ -259,7 +259,7 @@ disk and an outbound internet connection. Opening TCP port 29710 lets others con
 
 ```sh
 # Linux, from the release package
-unzip genoryn-1.0.5-mainnet-linux-x86_64.zip && cd genoryn-1.0.5-mainnet-linux-x86_64
+unzip genoryn-1.2.0-mainnet-linux-x86_64.zip && cd genoryn-1.2.0-mainnet-linux-x86_64
 ./genorynd --data-dir ~/.genoryn/mainnet-1.0                  # Direct mode, joins the mainnet
 ./genorynd --data-dir ~/.genoryn/mainnet-1.0 --network-mode hybrid --onion-service
 ./genoryn-cli get-network-info
@@ -438,7 +438,7 @@ python scripts/test/all.py                             # the complete practical 
 
 ## Documentation
 
-- [Monetary Policy & Emission Schedule](docs/protocol/emission.md) · [1.1.0 release notes](docs/releases/v1.1.0.md) · [1.0.0 release notes](docs/releases/v1.0.0.md) · [quickstart](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md)
+- [Monetary Policy & Emission Schedule](docs/protocol/emission.md) · [1.2.0 release notes](docs/releases/v1.2.0.md) · [1.1.0 release notes](docs/releases/v1.1.0.md) · [1.0.0 release notes](docs/releases/v1.0.0.md) · [quickstart](docs/quickstart.md) · [wallet GUI](docs/wallet/gui.md)
 - [Shared mining (PPLNS)](docs/mining/shared-mining.md) · [Payment Proof 2.0](docs/wallet/payment-proof-2.md) · [My Full Node, sync and Privacy & Security](docs/wallet/full-node-sync-and-privacy.md)
 - [Consensus](docs/protocol/consensus.md) · [networking](docs/protocol/networking.md) · [network privacy and Tor](docs/network-privacy.md) · [privacy](docs/protocol/privacy.md) · [mining](docs/protocol/mining.md) · [usernames](docs/protocol/usernames.md)
 - [RPC reference](docs/rpc/api.md) · [node discovery SDK](crates/genoryn-connect/README.md) · [architecture decisions](docs/adr/) · [development lab](docs/testing/devnet.md)
