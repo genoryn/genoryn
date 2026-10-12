@@ -58,8 +58,22 @@ class Lab:
               "--fee-bps","100","--payout-threshold","100000000","--initial-share-difficulty","200","--min-share-difficulty","20","--share-seconds","4"]
         return args
     def serve(self):
-        self.spawn("pool",self.pool_args("serve")+["--pool-address",self.pool_address,"--listen",f"127.0.0.1:{self.pool_port}","--api",f"127.0.0.1:{self.api_port}","--verify-threads","2"])
-        self.wait(lambda:self.api("status")["open"],120,"pool open")
+        """Starts the pool and waits until it is open. A pool that exits at once
+        (a port taken between choosing and binding it) starts again on fresh ports."""
+        tail=""
+        for _ in range(3):
+            self.spawn("pool",self.pool_args("serve")+["--pool-address",self.pool_address,"--listen",f"127.0.0.1:{self.pool_port}","--api",f"127.0.0.1:{self.api_port}","--verify-threads","2"])
+            process=self.processes["pool"][0];until=time.monotonic()+180;last=None
+            while time.monotonic()<until and process.poll() is None:
+                try:
+                    if self.api("status")["open"]:return
+                except Exception as error:last=repr(error)[:200]
+                time.sleep(0.5)
+            tail=(self.root/"pool.log").read_text(errors="replace")[-1500:]
+            if process.poll() is None:raise AssertionError(f"Timed out: pool open ({last})\n{tail}")
+            self.stop("pool");self.pool_port,self.api_port=free_port(),free_port()
+            print(json.dumps({"note":"the pool exited at start; starting it again on new ports","log":tail[-300:]}),flush=True)
+        raise AssertionError("the pool exited at start three times:\n"+tail)
     def raw_client(self):
         """A hand-written client sending hostile shares."""
         sock=socket.create_connection(("127.0.0.1",self.pool_port),timeout=30);reader=sock.makefile("r")
