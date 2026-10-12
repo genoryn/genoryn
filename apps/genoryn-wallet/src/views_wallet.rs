@@ -307,12 +307,16 @@ impl WalletApp {
             ui.add_space(18.0);
             if !self.seed_backup.is_empty() {
                 ui.label(RichText::new("SAVE YOUR RECOVERY PHRASE").strong());
-                ui.label("Anyone with this phrase can spend your funds. Write it offline. Do not share it.");
+                ui.label("Anyone with this phrase can spend your funds. Write it on paper, in order. Do not photograph, copy or share it.");
+                ui.add_space(8.0);
+                recovery::capture_note(ui, self.capture_guard);
                 ui.add_space(12.0);
+                recovery::words_grid(ui, &self.seed_backup, true);
+                ui.add_space(8.0);
                 ui.label(
-                    RichText::new(self.seed_backup.as_str())
-                        .monospace()
-                        .size(19.0),
+                    RichText::new("You can show these words again later in Settings → Wallet security, with your password.")
+                        .small()
+                        .color(GRAY),
                 );
                 ui.add_space(16.0);
                 ui.checkbox(
@@ -384,11 +388,13 @@ impl WalletApp {
             let wallet_exists = PathBuf::from(&self.settings.wallet_path).is_file();
             let already_open = self.is_wallet_open(&self.settings.wallet_path);
             ui.add_space(10.0);
-            ui.label(if self.wallet_mode == 0 {
-                "Password"
+            if self.wallet_mode == 0 {
+                ui.label("Password");
             } else {
-                "Password (at least 10 characters)"
-            });
+                ui.label(format!(
+                    "Password (at least {MIN_NEW_PASSWORD_CHARS} characters; it alone protects the wallet file)"
+                ));
+            }
             let password = layout_probe::tag(
                 "unlock:password",
                 protocol::sensitive_edit(
@@ -429,6 +435,7 @@ impl WalletApp {
                 );
             }
             if self.wallet_mode != 0 {
+                recovery::strength_meter(ui, &self.password);
                 ui.label("Confirm password");
                 submitted |= protocol::sensitive_edit(
                     ui,
@@ -1517,16 +1524,13 @@ pub(super) fn gate_problem(
             "A wallet file already exists at this path. Use Unlock, or enter a different file name for the new wallet.",
         );
     }
-    let length = password.chars().count();
-    if length == 0 {
+    if password.is_empty() {
         return hint(format!(
             "Choose a password of at least {MIN_NEW_PASSWORD_CHARS} characters."
         ));
     }
-    if length < MIN_NEW_PASSWORD_CHARS {
-        return error(format!(
-            "Password is too short: {length} of at least {MIN_NEW_PASSWORD_CHARS} characters."
-        ));
+    if let Some(problem) = recovery::new_password_problem(password) {
+        return error(problem);
     }
     if confirm.is_empty() {
         return hint("Repeat the same password in Confirm password.");
@@ -1586,7 +1590,9 @@ mod tests {
             Some(true)
         );
         let problem = gate_problem(1, false, "123456789", "123456789", "").unwrap();
-        assert!(problem.message.contains("9 of at least 10"));
+        assert!(problem.message.contains("9 of at least 12"));
+        let easy = gate_problem(1, false, "aaaaaaaaaaaaaa", "aaaaaaaaaaaaaa", "").unwrap();
+        assert!(easy.blocking && easy.message.contains("easy to guess"));
     }
 
     #[test]

@@ -24,13 +24,103 @@ pub struct Wallet {
     entropy: Zeroizing<Vec<u8>>,
     pub account: u32,
 }
+/// Argon2id cost of one wallet file. Guessing a password costs an attacker
+/// this much memory and time per guess, on any hardware.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KdfParams {
+    pub memory_kib: u32,
+    pub passes: u32,
+    pub lanes: u32,
+}
+impl KdfParams {
+    /// Wallet files of version 1 (GENORYN 0.x to 1.1).
+    pub const V1: Self = Self {
+        memory_kib: 65_536,
+        passes: 3,
+        lanes: 1,
+    };
+    /// Wallet files written since 1.2: four times the memory of version 1.
+    pub const CURRENT: Self = Self {
+        memory_kib: 262_144,
+        passes: 3,
+        lanes: 1,
+    };
+    /// Bounds a file may ask for, so a crafted file cannot exhaust memory.
+    fn check(self) -> Result<()> {
+        ensure!(
+            (Self::V1.memory_kib..=1_048_576).contains(&self.memory_kib)
+                && (1..=10).contains(&self.passes)
+                && (1..=4).contains(&self.lanes),
+            "unsupported wallet key-derivation parameters"
+        );
+        Ok(())
+    }
+}
+/// What a wallet file's unencrypted header says about its protection.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct StorageInfo {
+    pub version: u16,
+    pub network: Network,
+    pub kdf: KdfParams,
+}
+impl StorageInfo {
+    /// Whether the file already uses at least the current key-derivation cost.
+    pub fn is_current(&self) -> bool {
+        self.kdf.memory_kib >= KdfParams::CURRENT.memory_kib
+            && self.kdf.passes >= KdfParams::CURRENT.passes
+    }
+}
 #[derive(Serialize, Deserialize)]
 struct Envelope {
     version: u16,
     network: Network,
+    /// Present from version 2; version 1 implies `KdfParams::V1`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    kdf: Option<KdfParams>,
     salt: [u8; 16],
     nonce: [u8; 24],
     ciphertext: Vec<u8>,
+}
+impl Envelope {
+    fn read(path: &Path) -> Result<Self> {
+        ensure!(fs::metadata(path)?.len() <= 16_384, "wallet file too large");
+        let envelope: Self =
+            serde_json::from_slice(&fs::read(path)?).context("not a GENORYN wallet file")?;
+        match (envelope.version, envelope.kdf) {
+            (1, None) => {}
+            (2, Some(kdf)) => kdf.check()?,
+            _ => anyhow::bail!("unsupported wallet storage version"),
+        }
+        Ok(envelope)
+    }
+    fn kdf(&self) -> KdfParams {
+        self.kdf.unwrap_or(KdfParams::V1)
+    }
+    /// Authenticated header: changing the version, network, salt, nonce or
+    /// cost parameters makes decryption fail.
+    fn aad(&self) -> Result<Vec<u8>> {
+        Ok(match self.kdf {
+            None => codec::encode(&(self.version, self.network, self.salt, self.nonce))?,
+            Some(kdf) => codec::encode(&(
+                self.version,
+                self.network,
+                self.salt,
+                self.nonce,
+                kdf.memory_kib,
+                kdf.passes,
+                kdf.lanes,
+            ))?,
+        })
+    }
+}
+/// The protection of the wallet file at `path`, read without its password.
+pub fn storage_info(path: &Path) -> Result<StorageInfo> {
+    let envelope = Envelope::read(path)?;
+    Ok(StorageInfo {
+        version: envelope.version,
+        network: envelope.network,
+        kdf: envelope.kdf(),
+    })
 }
 
 impl Wallet {
@@ -129,20 +219,34 @@ impl Wallet {
         Ok(key)
     }
     pub fn save_new(&self, path: &Path, password: &str) -> Result<()> {
+        self.save_new_with(path, password, KdfParams::CURRENT)
+    }
+    /// Writes a new wallet file; `kdf` other than `CURRENT` is for tests and
+    /// for reproducing older files.
+    pub fn save_new_with(&self, path: &Path, password: &str, kdf: KdfParams) -> Result<()> {
         ensure!(
             password.chars().count() >= 8,
             "use a wallet password of at least eight characters"
         );
+        kdf.check()?;
         let mut salt = [0u8; 16];
         let mut nonce = [0u8; 24];
         rand08::rngs::OsRng.fill_bytes(&mut salt);
         rand08::rngs::OsRng.fill_bytes(&mut nonce);
-        let key = derive_key(password, &salt)?;
+        let mut envelope = Envelope {
+            version: if kdf == KdfParams::V1 { 1 } else { 2 },
+            network: self.network,
+            kdf: (kdf != KdfParams::V1).then_some(kdf),
+            salt,
+            nonce,
+            ciphertext: Vec::new(),
+        };
+        let key = derive_key(password, &salt, kdf)?;
         let plaintext = Zeroizing::new(codec::encode(&(self.entropy.as_slice(), self.account))?);
-        let aad = codec::encode(&(1u16, self.network, salt, nonce))?;
+        let aad = envelope.aad()?;
         let cipher =
             XChaCha20Poly1305::new_from_slice(&*key).map_err(|_| anyhow::anyhow!("cipher init"))?;
-        let ciphertext = cipher
+        envelope.ciphertext = cipher
             .encrypt(
                 (&nonce).into(),
                 Payload {
@@ -151,13 +255,6 @@ impl Wallet {
                 },
             )
             .map_err(|_| anyhow::anyhow!("wallet encryption failed"))?;
-        let envelope = Envelope {
-            version: 1,
-            network: self.network,
-            salt,
-            nonce,
-            ciphertext,
-        };
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             fs::create_dir_all(parent)?;
         }
@@ -176,7 +273,6 @@ impl Wallet {
         Ok(())
     }
     pub fn open(path: &Path, password: &str) -> Result<Self> {
-        ensure!(fs::metadata(path)?.len() <= 16_384, "wallet file too large");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -185,16 +281,10 @@ impl Wallet {
                 "wallet file permissions are too broad; chmod 600 before opening"
             );
         }
-        let envelope: Envelope = serde_json::from_slice(&fs::read(path)?)?;
-        ensure!(envelope.version == 1, "unsupported wallet storage version");
+        let envelope = Envelope::read(path)?;
         envelope.network.ensure_runnable()?;
-        let key = derive_key(password, &envelope.salt)?;
-        let aad = codec::encode(&(
-            envelope.version,
-            envelope.network,
-            envelope.salt,
-            envelope.nonce,
-        ))?;
+        let key = derive_key(password, &envelope.salt, envelope.kdf())?;
+        let aad = envelope.aad()?;
         let cipher =
             XChaCha20Poly1305::new_from_slice(&*key).map_err(|_| anyhow::anyhow!("cipher init"))?;
         let plaintext = Zeroizing::new(
@@ -217,10 +307,45 @@ impl Wallet {
             account,
         })
     }
+    /// Re-encrypts the wallet file at `path` under `new_password` with the
+    /// current key-derivation cost (the same password strengthens the file).
+    /// The new file is written beside the old one and opened again with the
+    /// new password; only when it holds the same keys does it replace the
+    /// original, so a failure at any step leaves the original untouched.
+    pub fn change_password(path: &Path, old_password: &str, new_password: &str) -> Result<Self> {
+        let wallet = Self::open(path, old_password)?;
+        let mut tag = [0u8; 8];
+        rand08::rngs::OsRng.fill_bytes(&mut tag);
+        let file_name = path
+            .file_name()
+            .context("wallet path has no file name")?
+            .to_string_lossy();
+        let temporary = path.with_file_name(format!(".{file_name}.{}.rekey", hex::encode(tag)));
+        let replaced = (|| -> Result<()> {
+            wallet.save_new_with(&temporary, new_password, KdfParams::CURRENT)?;
+            let check = Self::open(&temporary, new_password)?;
+            ensure!(
+                check.network == wallet.network
+                    && check.account == wallet.account
+                    && *check.entropy == *wallet.entropy,
+                "the re-encrypted wallet did not match; the original file was kept"
+            );
+            fs::rename(&temporary, path).context("could not replace the wallet file")?;
+            #[cfg(unix)]
+            if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+                fs::File::open(parent)?.sync_all()?;
+            }
+            Ok(())
+        })();
+        if replaced.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        replaced.map(|()| wallet)
+    }
 }
-fn derive_key(password: &str, salt: &[u8; 16]) -> Result<Zeroizing<[u8; 32]>> {
-    let params =
-        Params::new(65_536, 3, 1, Some(32)).map_err(|_| anyhow::anyhow!("KDF parameters"))?;
+fn derive_key(password: &str, salt: &[u8; 16], kdf: KdfParams) -> Result<Zeroizing<[u8; 32]>> {
+    let params = Params::new(kdf.memory_kib, kdf.passes, kdf.lanes, Some(32))
+        .map_err(|_| anyhow::anyhow!("KDF parameters"))?;
     let mut out = Zeroizing::new([0u8; 32]);
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
         .hash_password_into(password.as_bytes(), salt, &mut *out)
@@ -276,6 +401,82 @@ mod tests {
         );
         assert!(decode_address(Network::Testnet, &wallet.receiving_identity().unwrap()).is_err());
         assert!(wallet.save_new(&path, "test-password-only").is_err());
+    }
+    #[test]
+    fn version_1_files_open_and_upgrade_only_through_a_checked_password_change() {
+        let wallet = Wallet::create(Network::Devnet)
+            .unwrap()
+            .for_account(3)
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.gnr");
+        wallet
+            .save_new_with(&path, "old-password-1", KdfParams::V1)
+            .unwrap();
+        let info = storage_info(&path).unwrap();
+        assert_eq!((info.version, info.kdf), (1, KdfParams::V1));
+        assert!(!info.is_current());
+        let before = fs::read(&path).unwrap();
+        // A wrong current password changes nothing on disk.
+        assert!(Wallet::change_password(&path, "not-the-password", "new-password-22").is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        let changed = Wallet::change_password(&path, "old-password-1", "new-password-22").unwrap();
+        assert_eq!(
+            changed.receiving_identity().unwrap(),
+            wallet.receiving_identity().unwrap()
+        );
+        let info = storage_info(&path).unwrap();
+        assert_eq!((info.version, info.kdf), (2, KdfParams::CURRENT));
+        assert!(info.is_current());
+        assert!(Wallet::open(&path, "old-password-1").is_err());
+        let reopened = Wallet::open(&path, "new-password-22").unwrap();
+        assert_eq!(reopened.account, 3);
+        assert_eq!(reopened.phrase().unwrap(), wallet.phrase().unwrap());
+        let leftovers: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(leftovers, vec![std::ffi::OsString::from("old.gnr")]);
+    }
+    #[test]
+    fn cost_parameters_are_authenticated_and_bounded() {
+        let wallet = Wallet::create(Network::Devnet).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("w.gnr");
+        wallet.save_new(&path, "strong-password-77").unwrap();
+        let original: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let rewrite = |change: &dyn Fn(&mut serde_json::Value)| {
+            let mut value = original.clone();
+            change(&mut value);
+            let tampered = dir.path().join("tampered.gnr");
+            let _ = fs::remove_file(&tampered);
+            fs::write(&tampered, serde_json::to_vec(&value).unwrap()).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&tampered, fs::Permissions::from_mode(0o600)).unwrap();
+            }
+            Wallet::open(&tampered, "strong-password-77").map(|_| ())
+        };
+        // Lowering the cost in the header does not make the file cheaper to open.
+        let weaker = rewrite(&|v| v["kdf"]["memory_kib"] = 131_072.into()).unwrap_err();
+        assert!(
+            weaker.to_string().contains("wrong password or corrupted"),
+            "{weaker}"
+        );
+        assert!(rewrite(&|v| v["kdf"]["memory_kib"] = 1u64.into()).is_err());
+        let huge = rewrite(&|v| v["kdf"]["memory_kib"] = 4_000_000_000u64.into()).unwrap_err();
+        assert!(huge.to_string().contains("unsupported"), "{huge}");
+        // A version 2 file without its parameters, or a version 1 file with some, is refused.
+        assert!(
+            rewrite(&|v| {
+                v.as_object_mut().unwrap().remove("kdf");
+            })
+            .is_err()
+        );
+        assert!(rewrite(&|v| v["version"] = 1.into()).is_err());
+        assert!(rewrite(&|_| {}).is_ok());
     }
     #[test]
     fn account_and_diversified_receivers_recover_from_seed_and_indices() {

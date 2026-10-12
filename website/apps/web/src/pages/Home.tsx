@@ -295,6 +295,9 @@ const SAFETY = [
 ];
 
 const NEW_IN_1_1 = [
+  { icon: 'key', title: 'Recovery phrase, only with your password', href: '/wallet', body: 'New in 1.2. The 24 words appear only after the wallet password is typed again — masked, impossible to copy, and gone after 60 seconds, on focus loss or on lock. Wrong passwords make the next try wait longer.' },
+  { icon: 'eyeOff', title: 'Hidden from screen capture', href: '/wallet', body: 'New in 1.2. While recovery words are on screen, Windows leaves the wallet window out of screenshots, recordings and screen sharing. Where a system cannot, the wallet says so instead of pretending.' },
+  { icon: 'lock', title: 'Wallet files 4× harder to crack', href: '/wallet', body: 'New in 1.2. New wallet files use Argon2id with 256 MiB per password guess, with authenticated parameters. Existing files open unchanged and are strengthened only when you ask.' },
   { icon: 'cpu', title: 'Shared mining (PPLNS)', href: '/mining#shared-mining', body: 'Open-source pools pay by verified work: every share is hashed again with real RandomX, so a slow computer earns in proportion to its speed. Exact integer accounting, payouts after 60 confirmations.' },
   { icon: 'fingerprint', title: 'Payment Proof 2.0', href: '/verify', body: 'Prove a payment with a code, PDF or JSON — and check any proof right here on genoryn.io. For new payments the recipient can send a fresh challenge that only the paying wallet can answer.' },
   { icon: 'node', title: 'My Full Node', href: '/wallet', body: 'One click starts your own validating node after real checks of disk, memory, ports and data folder. No open ports, no firewall changes, no service — unless you choose to.' },
@@ -353,8 +356,8 @@ export default function Home() {
       <section class="section" id="new-in-1-1">
         <div class="container">
           <SectionHead
-            eyebrow="New in GENORYN 1.1"
-            title={<>Fairer mining. Provable payments. Your own node in one click.</>}
+            eyebrow="New in GENORYN 1.2 and 1.1"
+            title={<>Your keys, guarded. Fairer mining. Provable payments.</>}
             lead="No consensus change: the same chain, supply and rules. Everything new runs on top of Mainnet 1.0, and every number below was measured, not promised."
           />
           <div class="grid cols-3">

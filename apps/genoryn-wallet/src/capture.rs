@@ -44,6 +44,8 @@ fn steps(lite: bool) -> Vec<(usize, bool, &'static str)> {
         (6, false, "wallet-network"),
         (SECURITY_PAGE, false, "wallet-security"),
         (7, false, "wallet-settings"),
+        (7, false, "wallet-recovery"),
+        (7, false, "wallet-recovery-masked"),
         (0, true, "wallet-light"),
     ]
 }
@@ -102,7 +104,20 @@ impl WalletApp {
             self.capture = Some(capture);
             return;
         }
-        let (page, light, _) = plan[capture.step];
+        let (page, light, stem) = plan[capture.step];
+        let window_ready = match stem {
+            "wallet-recovery" => self.capture_recovery(false),
+            "wallet-recovery-masked" => self.capture_recovery(true),
+            _ => {
+                if self.recovery.open {
+                    self.recovery.clear();
+                }
+                true
+            }
+        };
+        if !window_ready {
+            capture.since = Instant::now();
+        }
         if self.page != page {
             self.page = page;
             capture.since = Instant::now();

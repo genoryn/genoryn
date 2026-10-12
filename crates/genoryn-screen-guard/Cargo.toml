@@ -1,0 +1,13 @@
+[package]
+name = "genoryn-screen-guard"
+description = "Keeps a window that shows secrets out of screenshots, recordings and screen sharing where the system allows it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+raw-window-handle = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

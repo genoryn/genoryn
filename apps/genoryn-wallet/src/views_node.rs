@@ -1288,6 +1288,7 @@ impl WalletApp {
     pub(super) fn settings_page(&mut self, ui: &mut egui::Ui) {
         heading(ui, "Settings", "Explicit connections. No telemetry.");
         ui.add_space(20.0);
+        self.wallet_security_card(ui);
         card(ui, |ui| {
             ui.add_enabled_ui(
                 self.busy.is_none()

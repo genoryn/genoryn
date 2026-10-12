@@ -52,6 +52,7 @@ pub(super) struct Diagnostics {
     pub remote_rpc_refused_in_tor_only: bool,
     pub storage: Option<hygiene::StorageReport>,
     pub wallet_file_sealed: Option<bool>,
+    pub wallet_file: Option<genoryn_wallet_core::keys::StorageInfo>,
 }
 
 #[derive(Default)]
@@ -108,13 +109,13 @@ pub(super) fn run_diagnostics(wallet_path: &str, data_dir: &str) -> Diagnostics 
         folders.push(parent.to_owned());
     }
     let storage = Some(hygiene::check_storage(&folders));
+    let wallet_file = genoryn_wallet_core::keys::storage_info(&wallet).ok();
     let wallet_file_sealed = std::fs::read(&wallet).ok().map(|bytes| {
-        bytes.len() <= 16_384
+        wallet_file.is_some()
             && serde_json::from_slice::<Value>(&bytes).is_ok_and(|envelope| {
-                envelope["version"] == 1
-                    && envelope["ciphertext"]
-                        .as_array()
-                        .is_some_and(|c| c.len() >= 48)
+                envelope["ciphertext"]
+                    .as_array()
+                    .is_some_and(|c| c.len() >= 48)
                     && envelope["salt"].as_array().is_some_and(|s| s.len() == 16)
             })
             && !hygiene::contains_recovery_phrase(&String::from_utf8_lossy(&bytes))
@@ -126,6 +127,7 @@ pub(super) fn run_diagnostics(wallet_path: &str, data_dir: &str) -> Diagnostics 
         remote_rpc_refused_in_tor_only,
         storage,
         wallet_file_sealed,
+        wallet_file,
     }
 }
 
@@ -369,18 +371,28 @@ impl WalletApp {
             checks.push(Check {
                 group: "Wallet",
                 name: "Wallet file encryption",
-                level: match diagnostics.wallet_file_sealed {
-                    Some(true) => Level::Verified,
-                    Some(false) => Level::Failed,
-                    None => Level::Unknown,
+                level: match (diagnostics.wallet_file_sealed, diagnostics.wallet_file) {
+                    (Some(true), Some(info)) if info.is_current() => Level::Verified,
+                    (Some(true), _) => Level::Warning,
+                    (Some(false), _) => Level::Failed,
+                    (None, _) => Level::Unknown,
                 },
-                finding: match diagnostics.wallet_file_sealed {
-                    Some(true) => "The open wallet file is an encrypted envelope (Argon2id key, XChaCha20-Poly1305) and holds no readable recovery words.".into(),
-                    Some(false) => "The wallet file is not in the expected encrypted format.".into(),
-                    None => "The wallet file could not be read.".into(),
+                finding: match (diagnostics.wallet_file_sealed, diagnostics.wallet_file) {
+                    (Some(true), Some(info)) => format!(
+                        "The open wallet file is encrypted (Argon2id {} MiB × {} passes, XChaCha20-Poly1305) and holds no readable recovery words.{}",
+                        info.kdf.memory_kib / 1024,
+                        info.kdf.passes,
+                        if info.is_current() { "" } else { " It uses the lighter key derivation of earlier versions, which makes password guessing cheaper." }
+                    ),
+                    (Some(true), None) => "The open wallet file is encrypted and holds no readable recovery words.".into(),
+                    (Some(false), _) => "The wallet file is not in the expected encrypted format.".into(),
+                    (None, _) => "The wallet file could not be read.".into(),
                 },
                 basis: "format check of the wallet file on disk (nothing is decrypted)",
-                action: None,
+                action: diagnostics
+                    .wallet_file
+                    .is_some_and(|info| !info.is_current())
+                    .then_some("Settings → Wallet security → Strengthen file (you may keep the same password)."),
             });
             if let Some(storage) = &diagnostics.storage {
                 checks.push(Check {
@@ -609,10 +621,20 @@ impl WalletApp {
             self.save_preferences();
         }
         ui.label(
-            RichText::new("This records your statement only. The phrase is never shown, exported or checked here.")
+            RichText::new("This records your statement only. To compare your paper with the wallet, use Check my backup: it asks for the password, then for three random words.")
                 .small()
                 .color(GRAY),
         );
+        if ui
+            .add_enabled(
+                self.unlocked && self.busy.is_none(),
+                egui::Button::new("Show recovery phrase / check my backup"),
+            )
+            .clicked()
+        {
+            self.recovery.clear();
+            self.recovery.open = true;
+        }
     }
 }
 

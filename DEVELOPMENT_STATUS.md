@@ -1,6 +1,17 @@
 # Development status
 
-## 1.1.0 (branch `develop/v1.1.0`, not yet released as binaries)
+## 1.2.0 (merged to `main`, not yet released as binaries)
+
+Wallet security; no consensus change. Evidence is local (Windows 11) unless a CI run is named.
+
+| Feature | State | Evidence |
+|---|---|---|
+| Recovery phrase shown only after the password is typed again; masked, non-copyable, wiped after 60 s / focus loss / lock; waiting after wrong passwords; backup quiz | Implemented, verified locally | `recovery` GUI tests; devnet check `recovery_phrase_only_with_password_and_checked_password_change`; captures in `docs/images/wallet-1.2/` |
+| Window kept out of screen capture while words are shown | Windows: implemented (`WDA_EXCLUDEFROMCAPTURE`, black on older Windows), the system call succeeds in local runs; Linux: not available, stated in the UI | `genoryn-screen-guard`; capture shows the reported state |
+| Wallet file version 2 (Argon2id 256 MiB, authenticated parameters), checked password change | Implemented, verified locally | `keys` unit tests; devnet check |
+| Stronger new passwords (12+ characters, strength estimate) | Implemented | `recovery` and `views_wallet` tests |
+
+## 1.1.0 (merged to `main`, not yet released as binaries)
 
 No consensus change; Mainnet 1.0 genesis, chain, supply and rules unchanged. Evidence is
 local (Windows 11, Intel Core Ultra 9 285K) unless a CI run is named.
