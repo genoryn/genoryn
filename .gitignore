@@ -1,0 +1,15 @@
+/target
+**/node_modules
+**/dist
+*.wallet
+*.key
+*.secret
+.env
+.env.*
+/data
+/.krypton*
+Cargo.toml.full
+*.log
+/website/dist
+__pycache__/
+*.krypton

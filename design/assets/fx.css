@@ -1,0 +1,101 @@
+/* Glass, ambient background, neon and motion. Shared by the website and the wallet.
+   Uses only semantic tokens from tokens.css. */
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg-app); -webkit-text-size-adjust: 100%; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+body { margin: 0; color: var(--text-primary); font: 15px/1.55 var(--font-sans); min-height: 100vh; overflow-x: hidden; background: transparent; }
+img, svg { max-width: 100%; }
+a { color: inherit; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 8px; }
+.num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mono { font-size: 12.5px; overflow-wrap: anywhere; color: var(--text-secondary); }
+
+/* Ambient background: fixed, never interactive, cross-fades by opacity only. */
+.fx-bg { position: fixed; inset: 0; height: 100lvh; z-index: -1; pointer-events: none; overflow: hidden; background: var(--bg-app); }
+.fx-bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 2.4s ease; }
+.fx-bg img.on { opacity: 1; }
+.fx-bg::before { content: ""; position: absolute; inset: 0; background: var(--veil); z-index: 1; }
+.fx-bg::after { content: ""; position: absolute; inset: 0; z-index: 2; background: radial-gradient(120% 90% at 50% 40%, transparent 55%, var(--bg-app) 100%); }
+.fx-bg .grain { position: absolute; inset: 0; z-index: 3; background: url("noise.webp") repeat; background-size: 128px 128px; opacity: .03; mix-blend-mode: overlay; }
+[data-theme="light"] .fx-bg .grain { opacity: .04; mix-blend-mode: multiply; }
+
+/* Glass surfaces: in-flow cards never use backdrop-filter (the background is already blurred). */
+.glass { background: var(--glass-sheen), var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--glass-rim), var(--shadow-card); min-width: 0; }
+.inset { background: var(--bg-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+/* Floating layers over moving content: the only place with backdrop-filter. */
+.float { background: var(--bg-float); border: 1px solid var(--line); box-shadow: var(--glass-rim), var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur)); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+
+/* Fields: dark wells. Native options stay opaque. */
+input, select, textarea { width: 100%; background: var(--bg-field); border: 1px solid var(--line); color: var(--text-primary);
+  padding: 12px 13px; border-radius: var(--radius-sm); font: inherit; min-height: 44px; transition: border-color .2s; }
+input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
+input[type="radio"], input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--text-primary); }
+input[type="range"] { padding: 0; accent-color: var(--text-primary); background: transparent; border: 0; }
+select option { background: var(--bg-solid); color: var(--text-primary); }
+textarea { resize: vertical; font-family: var(--font-mono); font-size: 13px; }
+::placeholder { color: var(--text-tertiary); }
+
+/* Buttons. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px;
+  border-radius: var(--radius-sm); font: 600 15px/1 var(--font-sans); cursor: pointer; text-decoration: none;
+  border: 1px solid var(--line-strong); background: var(--bg-raised); color: var(--text-primary);
+  transition: box-shadow .25s var(--ease), background .25s, border-color .25s; }
+.btn:hover { background: var(--bg-hover); border-color: var(--line-strong); }
+.btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: transparent; }
+.btn-primary:hover { background: var(--btn-primary-bg); box-shadow: 0 0 0 1px var(--neon), 0 0 24px var(--neon-soft); }
+.btn:disabled { opacity: .55; cursor: wait; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring) !important; }
+
+/* Neon, used sparingly. */
+.glow { text-shadow: var(--text-glow); }
+.rail { position: relative; }
+.rail.on::before { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px;
+  background: var(--text-primary); box-shadow: 0 0 12px var(--neon), 0 0 26px var(--neon-soft); }
+[data-theme="light"] .rail.on::before { box-shadow: none; }
+
+/* Preserved status colours (exact hues). On light glass they get a dark backing pill. */
+.ok { color: var(--status-success) !important; }
+.warn { color: var(--status-warning) !important; }
+.bad { color: var(--status-error) !important; }
+.err-site { color: var(--status-error-site) !important; }
+[data-theme="light"] .ok, [data-theme="light"] .warn, [data-theme="light"] .bad, [data-theme="light"] .err-site {
+  background: var(--status-backing); padding: 1px 7px; border-radius: 6px; }
+.btn-danger { background: var(--danger-bg); color: var(--danger-text); border-color: transparent; }
+/* Status dots glow in their own preserved colour (currentColor). */
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: currentColor; box-shadow: 0 0 8px currentColor; flex: none; }
+.dot.off { color: var(--text-tertiary); box-shadow: none; }
+.dot.live { animation: pulse 2.4s ease-in-out infinite; }
+[data-theme="light"] .dot { box-shadow: none; }
+@keyframes pulse { 50% { opacity: .45; } }
+/* Floating hero cards: drift a few px, transform only; paused off-screen by fx.js. */
+.drift { animation: drift 9s ease-in-out infinite; }
+.drift.slow { animation-duration: 11s; animation-delay: -3s; }
+@keyframes drift { 50% { transform: translate3d(0, -6px, 0); } }
+
+/* Reveal on scroll (once). */
+.reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* Weak devices and reduced motion/transparency: no blur, no cross-fades. */
+html[data-fx="low"] .float { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg-float-low); }
+html[data-fx="low"] .modal-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(0, 0, 0, .75); }
+html[data-fx="low"] .fx-bg img { transition: none; }
+html[data-fx="low"] .drift { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .dot.live, .drift { animation: none !important; }
+  .fx-bg img { transition: none; }
+}
+
+/* Layout helpers. */
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 22px; }
+.row-flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row-flex > *, .grid > * { min-width: 0; }
+.hidden { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.chip-scroll { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.chip-scroll::-webkit-scrollbar { display: none; }

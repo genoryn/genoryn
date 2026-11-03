@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mine Genoryn Krypton (GNR) — GPU &amp; CPU Mining Guide · KryptoHash · Fair Launch</title>
+<meta name="description" content="Mine Genoryn Krypton (GNR) with an NVIDIA or AMD GPU or with CPU threads. KryptoHash is memory-hard and GPU-first.">
+<!--SEO:mining-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="mining">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head"><span class="eyebrow">KryptoHash v1</span><h1 class="h2 glow">Mine GNR on your GPU or CPU</h1>
+    <p class="lead">Every miner is paid in proportion to its work: 1 % of the hashrate earns about 1 % of the rewards. No pool or permission needed: point the miner at a node and your address.</p></div>
+  <div class="stats" style="margin-bottom:26px">
+    <div class="glass stat"><b>74 MH/s</b><span>RTX 5090 (CUDA)</span></div>
+    <div class="glass stat"><b>1.4 MH/s</b><span>Core Ultra 9 285K, 24 threads</span></div>
+    <div class="glass stat"><b>2 GiB</b><span>Dataset at launch (+4 MiB per epoch)</span></div>
+    <div class="glass stat"><b>~1 ms</b><span>Light verification per block</span></div>
+  </div>
+  <div class="prose">
+    <h2>Easiest: from the wallet</h2>
+    <p>Open the wallet, go to <b>Mining</b>, choose <b>Automatic</b>, <b>NVIDIA</b>, <b>AMD / Intel</b> or <b>CPU</b>, set a CPU limit and press <b>Start mining</b>. The wallet shows your share of the network, the GNR per day it implies, the shares you found and the rewards accruing to you.</p>
+    <h2>Paid by your share of the work</h2>
+    <p>Each block adds its 5 GNR and fees to a reward pool held by consensus. Every hash your miner computes is checked against a <b>share target</b> 32 times easier than the block target, so the network finds about 32 shares per block. Each share earns its miner an equal slice of the pool, whoever finds the block. A miner with 88 % of the hashrate earns about 88 %, one with 1 % about 1 %, and nobody needs a pool.</p>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Your hashrate (of the network)</th><th class="num">Shares per hour</th><th class="num">Expected GNR per day</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Hashrate">88 %</td><td data-label="Shares/hour" class="num">≈ 1,690</td><td data-label="GNR/day" class="num">≈ 6,336</td></tr>
+        <tr><td data-label="Hashrate">10 %</td><td data-label="Shares/hour" class="num">≈ 192</td><td data-label="GNR/day" class="num">≈ 720</td></tr>
+        <tr><td data-label="Hashrate">1 %</td><td data-label="Shares/hour" class="num">≈ 19</td><td data-label="GNR/day" class="num">≈ 72</td></tr>
+        <tr><td data-label="Hashrate">0.1 %</td><td data-label="Shares/hour" class="num">≈ 2</td><td data-label="GNR/day" class="num">≈ 7.2</td></tr>
+      </tbody>
+    </table></div>
+    <p>Earnings accrue and are paid as one note every 360 blocks (about 6 hours), spendable 100 blocks later. Shares only count once they reach the network, so keep the miner online. The full rules are in <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/rewards.md">docs/spec/rewards.md</a>.</p>
+    <h2>Command line</h2>
+    <pre class="code">krypton-miner --list-devices
+krypton-miner --node http://127.0.0.1:30334 --address-file address.txt --backend auto
+krypton-miner --node http://127.0.0.1:30334 --address-file address.txt --backend cpu --max-cpu 50</pre>
+    <p>The miner asks a node for work, searches nonces against the share target and submits every share; the node relays it to the network and turns a solution into a block when it also meets the block target. GPU results are re-verified on the CPU before submission. Its status line shows your share of the network and expected GNR per day.</p>
+    <h2>Why GPUs are faster</h2>
+    <p>Each hash reads 64 random 128-byte pairs from the dataset, so speed follows memory bandwidth. A desktop GPU has hundreds of GB/s, a CPU tens. CPUs remain useful on cloud servers and spare machines. The dataset grows slowly so that memory, not specialised logic, stays the bottleneck.</p>
+    <h2>Fair from block one</h2>
+    <p>There is no premine and no early bonus. The mainnet genesis commits to the hash of Bitcoin block 974,438, the newest Bitcoin block at launch, so no Genoryn Krypton block could be mined before it. Difficulty retargets every block (LWMA, 90-block window) to keep 60-second blocks.</p>
+  </div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

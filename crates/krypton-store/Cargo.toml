@@ -1,0 +1,23 @@
+[package]
+name = "krypton-store"
+description = "Chain storage and fork choice for Genoryn Krypton"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krypton-crypto.workspace = true
+krypton-core.workspace = true
+krypton-pow.workspace = true
+krypton-zk.workspace = true
+krypton-light.workspace = true
+redb.workspace = true
+anyhow.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "krypton-sdk"
+description = "Integration SDK for Genoryn Krypton: Rust API and C library (libkrypton)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+name = "krypton"
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[dependencies]
+krypton-core.workspace = true
+krypton-crypto.workspace = true
+krypton-light = { workspace = true, features = ["client"] }
+krypton-wallet-core.workspace = true

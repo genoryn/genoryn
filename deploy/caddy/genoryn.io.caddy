@@ -1,0 +1,22 @@
+genoryn.io, www.genoryn.io {
+	encode zstd gzip
+	# Public node API for light wallets, explorers and miners.
+	@api path /v1/* /rpc
+	handle @api {
+		reverse_proxy 127.0.0.1:31334 {
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		root * /var/www/genoryn-krypton
+		header /assets/* Cache-Control "public, max-age=604800"
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		}
+		try_files {path} {path}.html /index.html
+		file_server
+	}
+}

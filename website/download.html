@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download Genoryn Krypton Wallet — Windows Installer &amp; Linux · Quantum-Safe GNR Wallet</title>
+<meta name="description" content="Download the Genoryn Krypton wallet, full node and miner for Windows and Linux, or build from source.">
+<!--SEO:download-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="download">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head"><span class="eyebrow">Releases</span><h1 class="h2 glow">Download Genoryn Krypton</h1>
+    <p class="lead">One package contains the wallet (<code>krypton-wallet</code>), the full node (<code>kryptond</code>), the miner (<code>krypton-miner</code>) and the command-line wallet.</p></div>
+  <div class="plans" style="margin-bottom:30px">
+    <article class="glass plan rec"><span class="pill">Recommended</span><h3>Windows</h3><p class="muted">Windows 10 and 11, x64. Animated installer, desktop and Start-menu shortcuts, own app window. GPU mining via CUDA and OpenCL.</p><ul><li>No administrator rights needed</li><li>Uninstall from Windows Settings</li><li>Your wallets are never touched by updates</li></ul><a class="btn btn-primary" href="https://github.com/genoryn/genoryn/releases/latest/download/GenorynKrypton-1.0.0-Windows-x64-Setup.exe">Download installer (.exe)</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.0-windows-x64-portable.zip">Portable .zip</a></article>
+    <article class="glass plan"><h3>Linux</h3><p class="muted">x86-64, Ubuntu 24.04 / Debian 13 or newer (glibc 2.39+). Ideal for servers and nodes.</p><ul><li><code>sudo apt install ./genoryn-krypton_1.0.0_amd64.deb</code></li><li>Desktop entry and systemd units included</li></ul><a class="btn" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton_1.0.0_amd64.deb">Download .deb</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.0-linux-x64.tar.gz">Download .tar.gz</a></article>
+    <article class="glass plan"><h3>From source</h3><p class="muted">Rust 1.88+. Reproducible and auditable.</p><ul><li><code>cargo build --release</code></li><li>All releases: GitHub</li></ul><a class="btn" href="https://github.com/genoryn/genoryn">Source code</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases">All releases</a></article>
+  </div>
+  <div class="prose">
+    <h2 id="verify">Verify what you download</h2>
+    <p>Every release publishes <code>SHA256SUMS</code> and <code>SHA256SUMS.sig</code>, a hybrid ML-DSA-87 + SLH-DSA-SHAKE-256s signature (key fingerprint <code>e4567fb116258bdd</code>, public key in <a href="https://github.com/genoryn/genoryn/blob/main/docs/release-key.pub">docs/release-key.pub</a>). Compare the hash of your file before running it.</p>
+    <pre class="code">certutil -hashfile genoryn-krypton-windows-x64.zip SHA256   # Windows
+sha256sum -c SHA256SUMS                                     # Linux
+krypton-release verify release-key.pub SHA256SUMS SHA256SUMS.sig   # post-quantum signature</pre>
+    <h2 id="node">Run a full node</h2>
+    <pre class="code">kryptond
+# API: http://127.0.0.1:30334/v1/info · P2P port 30333</pre>
+    <p>Light wallets need no node at all. A full node validates every block, every STARK proof and every rule itself, and can serve light wallets.</p>
+  </div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

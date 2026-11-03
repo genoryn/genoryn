@@ -1,0 +1,21 @@
+[package]
+name = "krypton-setup"
+description = "Genoryn Krypton installer for Windows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+eframe = { version = "0.29", default-features = false, features = ["glow", "default_fonts"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+png = "0.17"
+anyhow.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+mslnk = "0.1.8"
+winreg = "0.52"
+
+[build-dependencies]
+winresource = "0.1"

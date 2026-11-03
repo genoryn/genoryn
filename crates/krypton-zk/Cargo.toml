@@ -1,0 +1,22 @@
+[package]
+name = "krypton-zk"
+description = "Post-quantum zk-STARK shielded spend proofs for Genoryn Krypton"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krypton-crypto.workspace = true
+winterfell.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[[bench]]
+name = "spend"
+harness = false

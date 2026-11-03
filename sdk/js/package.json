@@ -1,0 +1,13 @@
+{
+  "name": "@genoryn/krypton",
+  "version": "1.0.0",
+  "description": "TypeScript client for the Genoryn Krypton node API",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "dist/krypton.js",
+  "types": "dist/krypton.d.ts",
+  "files": ["dist", "krypton.ts"],
+  "scripts": { "build": "tsc krypton.ts --target es2020 --module es2020 --declaration --outDir dist" },
+  "repository": "https://github.com/genoryn/genoryn",
+  "devDependencies": { "typescript": "^5.6.0" }
+}

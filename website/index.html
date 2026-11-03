@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genoryn Krypton (GNR) — Quantum-Resistant Private Cryptocurrency | Mine on GPU &amp; CPU</title>
+<meta name="description" content="Genoryn Krypton (GNR) is a quantum-resistant, private-by-default cryptocurrency: zk-STARK shielded transfers, ML-KEM encryption, fair launch, 21 million cap, mine on GPU or CPU.">
+<!--SEO:home-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/space-grotesk-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="home">
+<!--NAV-->
+<main id="top">
+  <section class="hero">
+    <div class="pool" aria-hidden="true"></div>
+    <div class="wrap">
+      <div>
+        <span class="eyebrow"><span class="dot live ok" id="liveDot"></span><span id="liveText">Mainnet is live</span></span>
+        <h1 class="display glow" style="margin-top:18px">Money that outlives quantum computers.</h1>
+        <p class="lead" style="margin-top:20px">Genoryn Krypton is private by default and secured only by hashes and NIST post-quantum cryptography. No premine, no owner, built for a hundred years.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="/download.html">Get the wallet</a>
+          <a class="btn" href="/mining.html">Start mining</a>
+        </div>
+        <div class="trust chip-scroll">
+          <span class="chip">zk-STARK shielded</span><span class="chip">ML-KEM-1024 · FIPS 203</span><span class="chip">Fair launch · 21M cap</span>
+        </div>
+      </div>
+      <div style="position:relative">
+        <figure class="mockup glass" style="margin:0">
+          <img src="/assets/shots/wallet-720.webp" srcset="/assets/shots/wallet-720.webp 720w, /assets/shots/wallet-1440.webp 1440w" sizes="(max-width: 980px) 94vw, 560px" width="1440" height="923" alt="The Genoryn Krypton desktop wallet showing balance, receive address and a private send form" fetchpriority="low">
+        </figure>
+        <div class="floaty float f1 drift"><span class="muted">Block reward</span><b>5.00000000 GNR</b></div>
+        <div class="floaty float f2 drift slow"><span class="muted">Spend proof</span><b>zk-STARK · 92 KB</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="stats-h">
+    <div class="wrap">
+      <h2 id="stats-h" class="sr-only">Network statistics</h2>
+      <div class="stats">
+        <div class="glass stat reveal"><b id="sHeight">—</b><span>Block height</span></div>
+        <div class="glass stat reveal"><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
+        <div class="glass stat reveal"><b id="sRate">—</b><span>Network hashrate</span></div>
+        <div class="glass stat reveal"><b>60 s</b><span>Target block time</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="feat-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Why Krypton</span><h2 id="feat-h" class="h2 glow">Built on assumptions that age well.</h2></div>
+      <div class="features">
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Quantum-resistant end to end</h3><p>Spends are authorized by zk-STARK proofs over hashes, notes are encrypted with hybrid X25519 + ML-KEM-1024, peers talk over X25519 + ML-KEM-768. No elliptic-curve signature guards your coins.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg></div><h3>Private by default</h3><p>Every transfer is shielded: sender, recipient and amount stay hidden. There is no transparent mode to fall back to, so privacy is the same for everyone.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h6"/><circle cx="18" cy="16" r="3"/></svg></div><h3>No full node required</h3><p>Light wallets check the chain with logarithmic MMR proofs and verify every block they read. Billions of blocks later it still takes seconds. Run a full node only if you want to.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V5M12 7V5M17 7V5M7 19v-2M12 19v-2M17 19v-2"/></svg></div><h3>Mine on GPU or CPU</h3><p>KryptoHash is memory-bandwidth bound: an RTX 5090 does about 74 MH/s, a 24-core CPU about 1.4 MH/s. Use CUDA, OpenCL or plain CPU threads, with a usage cap.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8h11a3 3 0 010 6H8a3 3 0 000 6h11"/></svg></div><h3>Bitcoin-style issuance</h3><p>5 GNR per block, halving every 2,100,000 blocks, at most 21,000,000 GNR. The genesis issues nothing; there is no premine, no developer fund and no early bonus.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12"/></svg></div><h3>Easy to integrate</h3><p>REST, JSON-RPC 2.0 and WebSocket APIs, a Rust SDK, C bindings and a TypeScript client. Exchanges and wallets get the same verified light protocol.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="how-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">How it works</span><h2 id="how-h" class="h2 glow">From install to private payment in minutes.</h2></div>
+      <div class="steps">
+        <div class="step reveal"><span class="n">1</span><h3>Install the wallet</h3><p>Create a wallet and write down 24 words with their numbers. Keys never leave your device.</p></div>
+        <div class="step reveal"><span class="n">2</span><h3>Verify, don't trust</h3><p>The wallet samples the chain, checks proofs of work and every block it reads.</p></div>
+        <div class="step reveal"><span class="n">3</span><h3>Receive or mine</h3><p>Share your short address, or mine with your GPU or CPU from the wallet.</p></div>
+        <div class="step reveal"><span class="n">4</span><h3>Send privately</h3><p>A zk-STARK proof is built on your device in under a second. Nobody sees who paid whom.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="shots-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">The wallet</span><h2 id="shots-h" class="h2 glow">One app: wallet, node and miner.</h2></div>
+      <div class="shots">
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/wallet-720.webp" width="1440" height="923" alt="Wallet overview with balance and addresses"><figcaption>Balance, short address and private send</figcaption></figure>
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/mining-720.webp" width="1440" height="923" alt="Mining tab with hashrate, share of the network, expected earnings and accruing rewards"><figcaption>Proportional mining on GPU or CPU</figcaption></figure>
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/proofs-720.webp" width="1440" height="923" alt="History with a payment proof and its verification"><figcaption>Payment proofs, verified on chain</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="plans-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Ways to run it</span><h2 id="plans-h" class="h2 glow">Free, open source, your choice.</h2></div>
+      <div class="plans">
+        <article class="glass plan rec reveal"><span class="pill">Most popular</span><h3>Light wallet</h3><div class="price">0 GNR</div><p class="muted">For everyday use on any computer.</p><ul><li>Verified light sync, no download</li><li>Private sends and receipts</li><li>Cross-checks several nodes</li></ul><a class="btn btn-primary" href="/download.html">Download</a></article>
+        <article class="glass plan reveal"><h3>Full node</h3><div class="price">~60 MB/day</div><p class="muted">Validate every rule yourself.</p><ul><li>Archive or pruned storage</li><li>Serve light wallets</li><li>REST, JSON-RPC, WebSocket</li></ul><a class="btn" href="/download.html#node">Run a node</a></article>
+        <article class="glass plan reveal"><h3>Miner</h3><div class="price">5 GNR / block</div><p class="muted">Secure the network, earn new coins.</p><ul><li>CUDA, OpenCL or CPU</li><li>CPU usage cap for shared machines</li><li>Solo mining against your node</li></ul><a class="btn" href="/mining.html">Mining guide</a></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="pr-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Principles</span><h2 id="pr-h" class="h2 glow">What the protocol promises.</h2></div>
+      <div class="quotes">
+        <blockquote class="glass quote reveal" style="margin:0"><p>"No key, no person and no company can mint, freeze or reverse."</p><span>Consensus rules, enforced by every node</span></blockquote>
+        <blockquote class="glass quote reveal" style="margin:0"><p>"Security that rests on hashes outlives the curves of today."</p><span>Cryptographic design</span></blockquote>
+        <blockquote class="glass quote reveal" style="margin:0"><p>"The author is unknown and will stay unknown. The code is the authority."</p><span>Zarazi Sokani, pseudonymous creator</span></blockquote>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">FAQ</span><h2 id="faq-h" class="h2 glow">Questions, answered honestly.</h2></div>
+      <div class="faq">
+        <details class="glass"><summary>Is Genoryn Krypton really quantum-resistant?</summary><p>Spends rely on zk-STARKs (hash functions only), note encryption uses ML-KEM-1024 (FIPS 203) combined with X25519, peers use ML-KEM-768. Shor's algorithm breaks none of these; Grover's algorithm only halves hash security, and 256-bit hashes keep a 128-bit margin. All algorithms are versioned so they can be upgraded by soft fork. The code has not had an independent audit yet.</p></details>
+        <details class="glass"><summary>Was there a premine or an early bonus?</summary><p>No. The genesis block issues nothing and every block pays the same schedule: 5 GNR halving every 2,100,000 blocks. The mainnet genesis commits to the hash of Bitcoin block 974,438, the newest Bitcoin block at launch, so no Genoryn Krypton block could be mined before it.</p></details>
+        <details class="glass"><summary>Do I need to download the whole blockchain?</summary><p>No. The light wallet verifies the chain with MMR proofs (FlyClient-style sampling) and checks every block it reads against its header. You can switch to a full node at any time.</p></details>
+        <details class="glass"><summary>Should I mine with a GPU or a CPU?</summary><p>A GPU is roughly 40 to 50 times faster per device. CPUs still work, which is useful on cloud servers; the miner can cap CPU usage.</p></details>
+        <details class="glass"><summary>Do small miners earn anything?</summary><p>Yes. Every block's reward is shared among all miners by the work they did: about 32 shares per block each earn an equal slice, so 1 % of the hashrate earns about 1 % of the rewards, without a pool.</p></details>
+        <details class="glass"><summary>Who controls the project?</summary><p>Nobody. It was created by the pseudonymous Zarazi Sokani, whose identity will never be revealed. Anyone may build, market or extend it, but no one can change the rules without the nodes that run them.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="glass cta-band reveal"><div class="pool" aria-hidden="true"></div><h2 class="h2 glow">Own money nobody can switch off.</h2><p class="lead" style="margin:14px auto 26px">Download the wallet and mine your first block today.</p><div class="row-flex" style="justify-content:center"><a class="btn btn-primary" href="/download.html">Get the wallet</a><a class="btn" href="/explorer.html">Open the explorer</a></div></div>
+    </div>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

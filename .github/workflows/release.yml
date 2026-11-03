@@ -1,0 +1,36 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux-x64
+          - os: windows-latest
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p kryptond -p krypton-miner -p krypton-wallet -p krypton-wallet-cli -p krypton-sdk
+      - name: package
+        shell: bash
+        run: |
+          mkdir -p dist/genoryn-krypton
+          cp target/release/kryptond* target/release/krypton-miner* target/release/krypton-wallet* dist/genoryn-krypton/ 2>/dev/null || true
+          rm -f dist/genoryn-krypton/*.d dist/genoryn-krypton/*.pdb
+          cp README.md LICENSE-MIT LICENSE-APACHE dist/genoryn-krypton/
+          cp -r deploy dist/genoryn-krypton/ || true
+          cd dist && (7z a ../genoryn-krypton-${{ matrix.name }}.zip genoryn-krypton >/dev/null 2>&1 || zip -qr ../genoryn-krypton-${{ matrix.name }}.zip genoryn-krypton)
+      # Published release assets are signed offline with the release key (docs/release-key.pub);
+      # CI builds are kept as artifacts for independent comparison and never attached to a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genoryn-krypton-${{ matrix.name }}
+          path: genoryn-krypton-${{ matrix.name }}.zip

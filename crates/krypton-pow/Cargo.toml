@@ -1,0 +1,26 @@
+[package]
+name = "krypton-pow"
+description = "KryptoHash v1: memory-hard GPU-first, CPU-capable proof of work"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+default = []
+cuda = ["dep:cudarc"]
+opencl = ["dep:opencl3"]
+
+[dependencies]
+krypton-crypto.workspace = true
+parking_lot.workspace = true
+rayon.workspace = true
+num_cpus.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "dynamic-loading", "cuda-12000"], optional = true }
+opencl3 = { version = "0.12", optional = true }
+
+[dev-dependencies]
+blake3.workspace = true

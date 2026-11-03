@@ -1,0 +1,118 @@
+/* Genoryn Krypton design tokens: ONE file for the website and the wallet.
+   Surfaces and chrome are true greys (R = G = B) or black/white rgba(). Colours that carry
+   meaning (status) or identity (brand mark) keep their exact original values below.
+   Components use the semantic tokens, never raw colours. */
+
+@font-face { font-family: "Space Grotesk"; src: url("fonts/space-grotesk-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("fonts/space-grotesk-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/inter-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/inter-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+
+:root {
+  /* Preserved meaningful colours (exact original values, never re-hued). */
+  --status-success: #34d399;
+  --status-success-line: #164e3b;
+  --status-warning: #fbbf24;
+  --status-warning-line: #5a4512;
+  --status-error: #f87171;
+  --status-error-site: #e57373;
+  --danger-bg: #3a1520;
+  --danger-text: #fecaca;
+  /* Brand identity (the GENORYN mark). */
+  --brand-tile: #0b0b0b;
+  --brand-ink: #f2f2f2;
+  --brand-tile-line: #2a2a2a;
+  --brand-tile-line-light: #d6d6d6;
+  --brand-gray: #9a9a9a;
+
+  /* Grey ramp. */
+  --g0: #000000; --g1: #0a0a0a; --g2: #141414; --g3: #1f1f1f; --g4: #2b2b2b; --g5: #3d3d3d; --g6: #575757;
+  --g7: #7a7a7a; --g8: #a3a3a3; --g9: #c9c9c9; --g10: #e5e5e5; --g11: #f5f5f5; --g12: #ffffff;
+
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  --radius-sm: 9px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  --blur: 18px;
+}
+
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #000000;
+  --bg-card: rgba(255, 255, 255, .034);
+  --bg-inset: rgba(255, 255, 255, .045);
+  --bg-raised: rgba(255, 255, 255, .07);
+  --bg-hover: rgba(255, 255, 255, .065);
+  --bg-field: rgba(0, 0, 0, .34);
+  --bg-float: rgba(0, 0, 0, .74);
+  --bg-float-low: rgba(10, 10, 10, .97);
+  --bg-solid: #0a0a0a;
+  --line: rgba(255, 255, 255, .085);
+  --line-strong: rgba(255, 255, 255, .17);
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #7a7a7a;
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .05), transparent 46%);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .09);
+  --shadow-card: 0 28px 56px -30px rgba(0, 0, 0, .9);
+  --neon: rgba(255, 255, 255, .6);
+  --neon-soft: rgba(255, 255, 255, .16);
+  --focus-ring: 0 0 0 2px rgba(255, 255, 255, .26), 0 0 16px rgba(255, 255, 255, .14);
+  --text-glow: 0 0 28px rgba(255, 255, 255, .16);
+  --btn-primary-bg: #ffffff;
+  --btn-primary-text: #000000;
+  --veil: rgba(0, 0, 0, .3);
+  --scroll-thumb: rgba(255, 255, 255, .16);
+  /* State, expressed with light and shape instead of hue. */
+  --state-ok: #ffffff;
+  --state-pending: #c9c9c9;
+  --state-muted: #7a7a7a;
+  --state-alert: #ffffff;
+  --state-alert-bg: rgba(255, 255, 255, .1);
+  --pool: rgba(255, 255, 255, .08);
+  --status-backing: transparent;
+  --mark-src: url("genoryn-mark-dark.svg");
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #f5f5f5;
+  --bg-card: rgba(255, 255, 255, .6);
+  --bg-inset: rgba(0, 0, 0, .045);
+  --bg-raised: rgba(255, 255, 255, .85);
+  --bg-hover: rgba(0, 0, 0, .05);
+  --bg-field: rgba(255, 255, 255, .9);
+  --bg-float: rgba(255, 255, 255, .84);
+  --bg-float-low: rgba(255, 255, 255, .98);
+  --bg-solid: #f5f5f5;
+  --line: rgba(0, 0, 0, .1);
+  --line-strong: rgba(0, 0, 0, .2);
+  --text-primary: #000000;
+  --text-secondary: #575757;
+  --text-tertiary: #7a7a7a;
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .7), transparent 46%);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .9);
+  --shadow-card: 0 22px 44px -28px rgba(0, 0, 0, .28);
+  --neon: rgba(0, 0, 0, .85);
+  --neon-soft: rgba(0, 0, 0, .08);
+  --focus-ring: 0 0 0 2px #000000, 0 4px 14px -4px rgba(0, 0, 0, .35);
+  --text-glow: none;
+  --btn-primary-bg: #000000;
+  --btn-primary-text: #ffffff;
+  --veil: rgba(255, 255, 255, .2);
+  --scroll-thumb: rgba(0, 0, 0, .2);
+  --state-ok: #000000;
+  --state-pending: #575757;
+  --state-muted: #7a7a7a;
+  --state-alert: #000000;
+  --state-alert-bg: rgba(0, 0, 0, .07);
+  --pool: rgba(0, 0, 0, .05);
+  /* Status colours keep their hue; on light glass they sit on a dark backing for contrast. */
+  --status-backing: #141414;
+  --mark-src: url("genoryn-mark-light.svg");
+}

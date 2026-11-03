@@ -1,0 +1,27 @@
+[package]
+name = "krypton-wallet-core"
+description = "Wallet engine for Genoryn Krypton (keys, scanning, shielded transfers)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krypton-crypto.workspace = true
+krypton-core.workspace = true
+krypton-zk.workspace = true
+krypton-pow.workspace = true
+krypton-light = { workspace = true, features = ["client"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+zeroize.workspace = true
+bip39.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+krypton-store.workspace = true

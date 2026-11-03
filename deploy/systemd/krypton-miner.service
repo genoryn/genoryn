@@ -1,0 +1,27 @@
+[Unit]
+Description=Genoryn Krypton CPU miner (capped at half of the machine)
+After=kryptond.service
+Requires=kryptond.service
+
+[Service]
+User=krypton
+Group=krypton
+EnvironmentFile=-/etc/krypton/miner.env
+# Threads = half the cores; CPUQuota enforces at most 50% of the machine in total.
+ExecStart=/opt/krypton/bin/krypton-miner --node http://127.0.0.1:${KRYPTON_RPC_PORT} --address-file /etc/krypton/miner-address.txt --backend cpu --threads ${KRYPTON_MINER_THREADS} --json
+CPUQuota=__CPU_QUOTA__
+Nice=10
+CPUSchedulingPolicy=batch
+MemoryMax=6G
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

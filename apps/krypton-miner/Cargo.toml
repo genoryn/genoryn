@@ -1,0 +1,25 @@
+[package]
+name = "krypton-miner"
+description = "Genoryn Krypton miner: CPU or GPU (CUDA / OpenCL), you choose"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+default = ["cuda", "opencl"]
+cuda = ["krypton-pow/cuda"]
+opencl = ["krypton-pow/opencl"]
+
+[dependencies]
+krypton-pow.workspace = true
+krypton-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+clap.workspace = true
+num_cpus.workspace = true
+rand.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }

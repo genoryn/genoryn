@@ -1,0 +1,25 @@
+<a href="#top" class="sr-only">Skip to content</a>
+<header class="nav float" id="nav">
+  <div class="wrap">
+    <a class="logo" href="/"><img src="/assets/genoryn-mark-dark.svg" width="32" height="32" alt="">Genoryn Krypton</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/explorer.html" data-page="explorer">Explorer</a>
+      <a href="/mining.html" data-page="mining">Mining</a>
+      <a href="/download.html" data-page="download">Download</a>
+      <a href="/docs.html" data-page="docs">Docs</a>
+      <a href="https://github.com/genoryn/genoryn" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-cta">
+      <button class="btn icon-btn" type="button" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme">◐</button>
+      <a class="btn hide-sm" href="/download.html">Open wallet</a>
+      <a class="btn btn-primary hide-sm" href="/mining.html">Start mining</a>
+      <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" onclick="siteDrawer(true)">☰</button>
+    </div>
+  </div>
+</header>
+<div id="drawerBackdrop" class="modal-backdrop hidden" onclick="siteDrawer(false)"></div>
+<aside id="drawer" class="drawer float" aria-label="Menu">
+  <button class="btn icon-btn" type="button" aria-label="Close menu" onclick="siteDrawer(false)" style="align-self:flex-end">✕</button>
+  <a href="/">Home</a><a href="/explorer.html">Explorer</a><a href="/mining.html">Mining</a><a href="/download.html">Download</a><a href="/docs.html">Docs</a><a href="https://github.com/genoryn/genoryn" rel="noopener">GitHub</a>
+  <a class="btn btn-primary" href="/download.html" style="margin-top:12px">Get the wallet</a>
+</aside>

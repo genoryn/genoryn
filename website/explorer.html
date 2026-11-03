@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genoryn Krypton Block Explorer — GNR Blocks, Transactions &amp; Network Stats</title>
+<meta name="description" content="Genoryn Krypton block explorer: blocks, transactions, supply and network status. Shielded transfers reveal no amounts or addresses.">
+<!--SEO:explorer-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="explorer">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head">
+    <span class="eyebrow"><span class="dot live ok" id="liveDot"></span> Live explorer</span>
+    <h1 class="h2 glow">Explorer</h1>
+    <p class="lead">Everything public is here. Amounts, senders and recipients of transfers are shielded and appear only as commitments and nullifiers.</p>
+    <form class="search" onsubmit="return exSearch(event)" role="search" style="margin-top:22px">
+      <label for="q" class="sr-only">Search by height, block hash, transaction id or nullifier</label>
+      <input id="q" placeholder="Height, block hash, transaction id or nullifier" autocomplete="off">
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+  </div>
+  <div class="stats" style="margin-bottom:18px">
+    <div class="glass stat"><b id="sHeight">—</b><span>Height</span></div>
+    <div class="glass stat"><b id="sSupply">—</b><span>GNR issued</span></div>
+    <div class="glass stat"><b id="sRate">—</b><span>Hashrate</span></div>
+    <div class="glass stat"><b id="sPool">—</b><span>Pending transactions</span></div>
+  </div>
+  <div id="view"></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+<script src="/explorer.js" defer></script>
+</body>
+</html>

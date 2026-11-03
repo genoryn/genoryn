@@ -1,0 +1,21 @@
+[package]
+name = "krypton-wallet-cli"
+description = "Genoryn Krypton command-line wallet (light by default)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krypton-core.workspace = true
+krypton-pow.workspace = true
+krypton-crypto.workspace = true
+krypton-light = { workspace = true, features = ["client"] }
+krypton-wallet-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+rpassword = "7.4"

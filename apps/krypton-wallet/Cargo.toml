@@ -1,0 +1,34 @@
+[package]
+name = "krypton-wallet"
+description = "Genoryn Krypton desktop wallet: light by default, optional full node and miner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krypton-core.workspace = true
+krypton-pow.workspace = true
+krypton-crypto.workspace = true
+krypton-light = { workspace = true, features = ["client"] }
+krypton-wallet-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+tokio.workspace = true
+axum.workspace = true
+clap.workspace = true
+rand.workspace = true
+zeroize.workspace = true
+parking_lot.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+wry = "0.57"
+tao = "0.37"
+png = "0.17"
+
+[build-dependencies]
+winresource = "0.1"
+

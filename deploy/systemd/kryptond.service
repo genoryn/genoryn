@@ -1,0 +1,31 @@
+[Unit]
+Description=Genoryn Krypton full node (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=krypton
+Group=krypton
+EnvironmentFile=-/etc/krypton/kryptond.env
+ExecStart=/opt/krypton/bin/kryptond --network ${KRYPTON_NETWORK} --data-dir /var/lib/krypton/${KRYPTON_NETWORK} --rpc 127.0.0.1:${KRYPTON_RPC_PORT} $KRYPTON_EXTRA_ARGS
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/krypton
+
+[Install]
+WantedBy=multi-user.target
