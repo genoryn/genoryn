@@ -77,6 +77,7 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/mining/submit", post(mining_submit))
         .route("/v1/miner/{id}", get(miner_account))
         .route("/v1/shares", get(shares_pool))
+        .route("/v1/stats", get(stats))
         .route("/v1/ws", get(ws))
         .route("/rpc", post(json_rpc))
         .with_state(node)
@@ -100,6 +101,8 @@ fn hashrate(node: &Node) -> f64 {
     v
 }
 
+/// Every credited share, the block's own header included, stands for `share_difficulty`
+/// hashes on average.
 fn estimate_hashrate(node: &Node, tip: u64) -> f64 {
     if tip < 2 {
         return 0.0;
@@ -112,7 +115,7 @@ fn estimate_hashrate(node: &Node, tip: u64) -> f64 {
     for h in from + 1..=tip {
         if let Ok(Some(x)) = node.chain.block_at(h) {
             let share_work = reward::share_difficulty(x.header.difficulty) as f64;
-            work += share_work * x.shares.len() as f64 + x.header.difficulty as f64;
+            work += share_work * (x.shares.len() + 1) as f64;
         }
     }
     let dt = b.timestamp.saturating_sub(a.timestamp).max(1);
@@ -143,6 +146,7 @@ fn info_value(node: &Node) -> Value {
         "mempool": node.mempool.lock().txs.len(),
         "hashrate": hashrate(node),
         "reward_pool": node.chain.pool().unwrap_or(0),
+        "stats": node.stats_summary.lock().clone(),
         "shares_pending": node.shares.lock().shares.len(),
         "share_ratio": krypton_core::params::SHARE_RATIO as u64,
         "share_difficulty": reward::share_difficulty(tip.header.difficulty).to_string(),
@@ -719,6 +723,34 @@ async fn miner_account(State(n): S, Path(id): Path<String>) -> R<Json<Value>> {
         "network_shares_per_block": krypton_core::params::SHARE_RATIO as u64,
         "height": tip,
     })))
+}
+
+#[derive(Deserialize)]
+struct StatsQ {
+    range: Option<String>,
+}
+
+/// Time series for charts: `range` = 1h, 6h, 24h, 7d, 30d or all.
+async fn stats(State(n): S, Query(q): Query<StatsQ>) -> R<Json<Value>> {
+    let range = q.range.unwrap_or_else(|| "24h".into());
+    let seconds = match range.as_str() {
+        "1h" => 3_600,
+        "6h" => 21_600,
+        "24h" => 86_400,
+        "7d" => 604_800,
+        "30d" => 2_592_000,
+        "all" => 0,
+        _ => return Err(bad("range must be 1h, 6h, 24h, 7d, 30d or all")),
+    };
+    let (chain, st) = (n.chain.clone(), n.stats.clone());
+    let v = tokio::task::spawn_blocking(move || {
+        let mut s = st.lock();
+        s.refresh(&chain);
+        json!({ "range": range, "summary": s.summary(), "points": s.series(seconds) })
+    })
+    .await
+    .map_err(ise)?;
+    Ok(Json(v))
 }
 
 async fn shares_pool(State(n): S) -> Json<Value> {

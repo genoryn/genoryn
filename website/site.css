@@ -193,3 +193,46 @@ main { overflow-x: clip; }
   table.data td::before { content: attr(data-label); color: var(--text-tertiary); text-align: left; }
   .search { flex-direction: column; }
 }
+
+/* Network dashboard, estimated miners and home teaser */
+.stats.stats-5 { grid-template-columns: repeat(5, 1fr); }
+.stats.stats-5 .stat b { font-size: clamp(20px, 2.1vw, 28px); white-space: nowrap; }
+.stat-sub { display: block; font-style: normal; color: var(--text-tertiary); font-size: 12px; margin-top: 2px; }
+.net-teaser { display: grid; grid-template-columns: 1.7fr 1fr; gap: 26px; align-items: center; margin-top: 14px; padding: 24px; }
+.teaser-disc { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.teaser-disc p { margin: 0; font-size: 13.5px; }
+.teaser-disc b { color: var(--text-primary); font-family: var(--font-mono); font-weight: 400; }
+.dash { margin: 8px 0 34px; }
+.dash-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin: 26px 0 14px; }
+.dash-title { margin: 0; font: 700 22px/1.2 var(--font-display); }
+.dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.chart-card { padding: 18px 18px 10px; min-width: 0; }
+.chart-card.wide { grid-column: span 2; }
+.supply-card { display: flex; flex-direction: column; }
+.supply-card #supplyDisc { margin: 6px auto 4px; }
+.supply-legend { display: grid; gap: 6px; font-size: 13px; color: var(--text-secondary); padding: 6px 2px 10px; }
+.supply-legend div { display: flex; align-items: center; gap: 8px; }
+.supply-legend b { margin-left: auto; font: 400 13px var(--font-mono); color: var(--text-primary); }
+.supply-legend .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--line-strong); flex: none; }
+.supply-legend .sw.on { background: var(--text-primary); box-shadow: 0 0 8px var(--neon-soft); }
+.dash-note { font-size: 12.5px; margin-top: 12px; max-width: 820px; }
+@media (max-width: 1100px) {
+  .stats.stats-5 { grid-template-columns: repeat(3, 1fr); }
+  .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart-card.wide { grid-column: span 2; }
+}
+@media (max-width: 720px) {
+  .stats.stats-5 { grid-template-columns: 1fr 1fr; }
+  .stats.stats-5 .stat:last-child { grid-column: span 2; }
+  .stat { padding: 16px; }
+  .stat b { font-size: 22px; }
+  .net-teaser { grid-template-columns: 1fr; padding: 18px 14px; gap: 18px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .chart-card.wide { grid-column: auto; }
+  .chart-card { padding: 14px 12px 6px; }
+  .dash-head { margin-top: 18px; }
+  .gk-range { width: 100%; justify-content: space-between; }
+  .gk-range button { flex: 1; padding: 8px 6px; }
+  .page-head .lead { font-size: 16px; }
+  .wrap { padding-left: 16px; padding-right: 16px; }
+}

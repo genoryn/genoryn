@@ -3,6 +3,7 @@
 mod mempool;
 mod node;
 mod rpc;
+mod stats;
 
 use anyhow::{Context, Result};
 use clap::Parser;

@@ -46,11 +46,23 @@
   <section class="block" aria-labelledby="stats-h">
     <div class="wrap">
       <h2 id="stats-h" class="sr-only">Network statistics</h2>
-      <div class="stats">
-        <div class="glass stat reveal"><b id="sHeight">—</b><span>Block height</span></div>
-        <div class="glass stat reveal"><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
-        <div class="glass stat reveal"><b id="sRate">—</b><span>Network hashrate</span></div>
-        <div class="glass stat reveal"><b>60 s</b><span>Target block time</span></div>
+      <div class="stats stats-5">
+        <div class="glass stat reveal tilt-card"><b id="sHeight">—</b><span>Block height</span></div>
+        <div class="glass stat reveal tilt-card"><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
+        <div class="glass stat reveal tilt-card"><b id="sRate">—</b><span>Network hashrate</span></div>
+        <div class="glass stat reveal tilt-card"><b id="sMiners">—</b><span>Estimated miners <em id="sGpus" class="stat-sub"></em></span></div>
+        <div class="glass stat reveal tilt-card"><b>60 s</b><span>Target block time</span></div>
+      </div>
+      <div class="glass card net-teaser reveal tilt-card" id="homeNet">
+        <div class="teaser-chart">
+          <div class="gk-card-head"><h3>Network hashrate · last 24 h</h3><b id="homeRate">—</b></div>
+          <div id="homeChart"></div>
+        </div>
+        <div class="teaser-disc">
+          <div id="homeDisc"></div>
+          <p class="muted"><b id="homeIssued">—</b> GNR issued · <b id="homeLeft">—</b> remaining</p>
+          <a class="btn" href="/explorer.html#dash">Network dashboard</a>
+        </div>
       </div>
     </div>
   </section>
@@ -136,6 +148,7 @@
 </main>
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/charts.js" defer></script>
 <script src="/site.js" defer></script>
 </body>
 </html>

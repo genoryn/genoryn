@@ -34,6 +34,9 @@ pub struct NodeInfo {
     pub reward_pool: u64,
     #[serde(default)]
     pub next_subsidy: u64,
+    /// Network summary (estimated miners, GPU equivalents, supply), informational.
+    #[serde(default)]
+    pub stats: Option<serde_json::Value>,
 }
 
 /// Unpaid mining rewards of one miner (informational: payouts themselves are
@@ -88,6 +91,11 @@ impl NodeClient {
 
     pub fn info(&self) -> Result<NodeInfo> {
         Ok(self.get("/v1/info")?.json()?)
+    }
+
+    /// Chart series for `range` (1h, 6h, 24h, 7d, 30d, all); informational.
+    pub fn stats(&self, range: &str) -> Result<serde_json::Value> {
+        Ok(self.get(&format!("/v1/stats?range={range}"))?.json()?)
     }
 
     /// Height of a confirmed transaction (None while pending or unknown).

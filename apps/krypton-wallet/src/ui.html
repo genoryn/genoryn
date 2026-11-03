@@ -32,6 +32,18 @@ nav.tabs button .ic{opacity:.72;transition:opacity .2s}nav.tabs button.on .ic,na
 .links .btn{justify-content:flex-start;text-align:left}
 .about-mark{display:flex;align-items:center;gap:14px;margin-bottom:14px}.about-mark img{width:52px;height:52px;border-radius:14px}
 .about-mark b{display:block;font:700 20px/1.2 var(--font-display)}.about-mark span{color:var(--text-secondary);font-size:13px}
+.net-badge .ic{width:14px;height:14px}
+.update-bar{display:flex;align-items:center;gap:14px;padding:14px 18px;margin-bottom:18px;border-color:var(--line-strong)}
+.update-bar>div{flex:1;min-width:0}.update-bar b{display:block;font:600 14.5px var(--font-sans)}.update-bar span{font-size:13px}
+.netdash-head{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{padding:16px 18px}.kpi b{display:block;font:400 clamp(18px,2.2vw,26px)/1.15 var(--font-mono);white-space:nowrap}.kpi span{color:var(--text-secondary);font-size:13px}
+.kpi em{font-style:normal;color:var(--text-tertiary);font-size:12px;margin-left:4px}
+.netdash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.netdash-grid .card{padding:16px 16px 8px;min-width:0}.netdash-grid .wide{grid-column:span 2}
+#wDisc{margin:4px auto 8px}
+@media (max-width:900px){.kpis{grid-template-columns:1fr 1fr}.netdash-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.netdash-grid{grid-template-columns:1fr}.netdash-grid .wide{grid-column:auto}.update-bar{flex-wrap:wrap}.update-bar .btn{width:100%}.net-badge{display:none}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
 .card{padding:22px}
 .card h2{margin:0 0 14px;font:600 12px/1 var(--font-sans);text-transform:uppercase;letter-spacing:1.4px;color:var(--text-secondary)}
@@ -82,6 +94,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <div class="brand"><img src="/assets/genoryn-mark-dark.svg" alt="Genoryn"><h1>Genoryn Krypton <small>wallet</small></h1></div>
   <span id="net" class="badge"></span>
   <span class="spacer"></span>
+  <span id="netBadge" class="badge net-badge hidden" title="Estimated miners (payout addresses active in ~6 h) · network hashrate"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
   <button class="btn" onclick="openLink('explorer')" title="Open the block explorer on genoryn.io"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg><span class="lbl">Explorer</span></button>
   <button class="btn" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme" title="Theme">◐</button>
@@ -89,6 +102,11 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <button class="btn" onclick="quitApp()" title="Close the wallet, node and miner"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span class="lbl">Quit</span></button>
 </header>
 <main>
+  <div id="updateBar" class="glass update-bar hidden" role="status">
+    <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
+    <div><b id="updTitle"></b><span id="updText" class="muted"></span></div>
+    <button class="btn btn-primary" id="updBtn" onclick="installUpdate()">Install update</button>
+  </div>
   <section id="onboard" class="center hidden">
     <div class="glass card">
       <h2>Welcome</h2>
@@ -192,7 +210,26 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <p class="hero-note">Every miner is paid in proportion to its work: each share (about <span id="shareRatio">32</span> per block network-wide) earns an equal slice of the reward pool, so 1 % of the hashrate earns about 1 % of all rewards. Earnings accrue and are paid as one note every <span id="pInt">360</span> blocks, spendable <span id="mat"></span> blocks later. Keep the miner online: shares only count once they reach the network.</p>
       </div>
     </div>
-    <div id="tab-network" class="grid hidden">
+    <div id="tab-network" class="hidden">
+    <div class="netdash" id="netDash" data-default-range="24h">
+      <div class="netdash-head">
+        <div class="kpis">
+          <div class="glass kpi"><b id="kRate">-</b><span>Network hashrate</span></div>
+          <div class="glass kpi"><b id="kMiners">-</b><span>Estimated miners <em id="kGpus"></em></span></div>
+          <div class="glass kpi"><b id="kIssued">-</b><span>GNR issued</span></div>
+          <div class="glass kpi"><b id="kLeft">-</b><span>GNR remaining</span></div>
+        </div>
+        <div class="gk-range" role="group" aria-label="Time range"><button type="button" data-range="1h">1H</button><button type="button" data-range="6h">6H</button><button type="button" data-range="24h">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button></div>
+      </div>
+      <div class="netdash-grid">
+        <div class="glass card wide"><div class="gk-card-head"><h3>Network hashrate</h3><b id="cRate2">-</b></div><div data-chart="hashrate"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Supply</h3><b>21,000,000 GNR</b></div><div id="wDisc"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Active miners</h3><b id="cMiners2">-</b></div><div data-chart="miners"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Difficulty</h3></div><div data-chart="difficulty"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>GNR issued</h3></div><div data-chart="issued"></div></div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:18px">
       <div class="glass card"><h2>Connection mode</h2>
         <label><input type="radio" name="mode" value="light"> Light (recommended): remote nodes provide data, everything is verified on this device</label>
         <label><input type="radio" name="mode" value="full"> Full node: download and validate the whole chain on this computer</label>
@@ -203,6 +240,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Height<b id="cH">-</b></div><div class="row">Verified locally to<b id="cV">-</b></div><div class="row">Peers of source<b id="cP">-</b></div>
         <div class="row">Network hashrate<b id="cR">-</b></div><div class="row">Issued supply<b id="cS">-</b></div><div class="row">Own node<b id="cN">-</b></div>
       </div>
+    </div>
     </div>
     <div id="tab-security" class="glass card hidden"><h2>Security</h2>
       <p class="muted">Spend proofs: hash-based zk-STARKs (no elliptic curves). Note encryption: X25519 + ML-KEM-1024 (FIPS 203). Wallet file: Argon2id 256 MiB + XChaCha20-Poly1305.</p>
@@ -237,6 +275,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 </main>
 <div id="toast" class="toast float hidden" role="status" aria-live="polite"></div>
 <script src="/assets/fx.js" data-base="/assets/"></script>
+<script src="/assets/charts.js"></script>
 <script>
 const token = location.hash.slice(1) || sessionStorage.getItem('t') || ''; sessionStorage.setItem('t', token); history.replaceState(null,'',location.pathname);
 const $ = id => document.getElementById(id); const show = id => $(id).classList.remove('hidden'); const hide = id => $(id).classList.add('hidden');
@@ -257,16 +296,30 @@ async function saveSettings(){ const mode=[...document.getElementsByName('mode')
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 async function quitApp(){ if(!confirm('Quit Genoryn Krypton? The miner and your own node stop too.')) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); ['wallet','history','mining','network','security','about'].forEach(t=>hide('tab-'+t)); show('tab-'+b.dataset.tab); });
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); ['wallet','history','mining','network','security','about'].forEach(t=>hide('tab-'+t)); show('tab-'+b.dataset.tab); if(b.dataset.tab==='network') initNetDash(); });
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
 async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); box.innerHTML=`<p class="ok"><b>Valid payment proof</b></p><div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':'the recipient above'}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.height} · ${r.confirmations} confirmations</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
+let netDash=null;
+function initNetDash(){ if(netDash||!window.GKCharts) { if(netDash) netDash.reload(); return; }
+  netDash = GKCharts.dashboard($('netDash'), r=>api('/api/stats?range='+r), (s)=>{
+    $('kRate').textContent=rate(s.hashrate); $('cRate2').textContent=rate(s.hashrate);
+    $('kMiners').textContent=s.estimated_miners??'-'; $('cMiners2').textContent=s.estimated_miners??'-';
+    const eq=Number(s.gpu_equivalents||0); $('kGpus').textContent='≈ '+(eq<10?eq.toFixed(1):Math.round(eq))+' GPU'+(eq>=1.05||eq<0.95?'s':'');
+    $('kIssued').textContent=gnr(s.issued).replace(/\.\d+$/,''); $('kLeft').textContent=gnr(s.remaining).replace(/\.\d+$/,'');
+    GKCharts.disc($('wDisc'), Number(s.issued||0), Number(s.max_supply||21e14));
+  });
+}
+setInterval(()=>{ if(netDash && !document.hidden && !$('tab-network').classList.contains('hidden')) netDash.reload(); }, 60000);
+async function installUpdate(){ const u=S.update; if(!u) return; if(u.can_install && !confirm('Install Genoryn Krypton '+u.version+'? The wallet closes for a moment and starts again; a running miner resumes automatically.')) return; try{ const r=await api('/api/update',{}); toast(r.opened?'Opened the release page':'Installing the update…'); }catch(e){ toast(e.message,true) } }
 async function openLink(t){ try{ await api('/api/open',{target:t}); toast('Opened in your browser'); }catch(e){ toast(e.message,true) } }
 function rate(r){ return r>=1e9?(r/1e9).toFixed(2)+' GH/s':r>=1e6?(r/1e6).toFixed(2)+' MH/s':r>=1e3?(r/1e3).toFixed(1)+' kH/s':(r||0).toFixed(0)+' H/s'; }
 let settingsLoaded=false;
 async function refresh(){
   try{ S = await api('/api/state'); }catch(e){ $('sync').textContent='offline'; return; }
   $('net').textContent = S.network;
+  const st=S.tip&&S.tip.stats; if(st){ $('netBadgeText').textContent=(st.estimated_miners??0)+' miners · '+rate(st.hashrate||S.tip.hashrate); show('netBadge'); }
+  if(S.update){ $('updTitle').textContent='Genoryn Krypton '+S.update.version+' is available'; $('updText').textContent=S.update_status||(S.update.can_install?'Checked against the project\'s post-quantum release signature before it installs. A running miner resumes automatically.':'Open the release page to download it.'); $('updBtn').textContent=S.update.can_install?'Install update':'Download'; show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
   if(S.working){ $('busy').textContent = S.busy || 'working…'; return; }
   ['onboard','unlockBox','app'].forEach(hide); if(!S.unlocked) $('proofIn').value=''; $('lockBtn').classList.toggle('hidden', !S.unlocked);

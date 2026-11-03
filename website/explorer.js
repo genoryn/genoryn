@@ -12,7 +12,27 @@
       document.getElementById("sSupply").textContent = gk.gnr(i.supply, 0);
       document.getElementById("sRate").textContent = gk.rate(i.hashrate);
       document.getElementById("sPool").textContent = i.mempool;
+      gk.miners(i.stats);
     }).catch(function () {});
+  }
+
+  var dashEl = document.getElementById("dash"), dash = null;
+  if (dashEl && window.GKCharts) {
+    var kpi = function (k, v) { var e = dashEl.querySelector('[data-kpi="' + k + '"]'); if (e) e.textContent = v; };
+    dash = GKCharts.dashboard(dashEl, function (r) { return gk.api("/v1/stats?range=" + r); }, function (s, pts) {
+      var last = pts[pts.length - 1] || {};
+      var avg = function (k) { return pts.length ? pts.reduce(function (a, p) { return a + Number(p[k] || 0); }, 0) / pts.length : 0; };
+      kpi("hashrate", gk.rate(s.hashrate));
+      kpi("difficulty", GKCharts.fmtNum(last.difficulty || 0));
+      kpi("block_time", avg("block_time").toFixed(0) + " s avg");
+      kpi("shares", avg("shares").toFixed(1) + " avg");
+      kpi("miners", String(s.estimated_miners || 0));
+      kpi("issued", gk.gnr(s.issued, 0) + " GNR");
+      kpi("issued2", gk.gnr(s.issued, 0) + " GNR");
+      kpi("remaining", gk.gnr(s.remaining, 0) + " GNR");
+      GKCharts.disc(document.getElementById("supplyDisc"), Number(s.issued || 0), Number(s.max_supply || 21e14));
+    });
+    GKCharts.tilt(".tilt-card");
   }
 
   function home() {
@@ -94,4 +114,5 @@
   window.addEventListener("hashchange", route);
   stats(); route();
   setInterval(function () { if (!document.hidden) { stats(); if (!location.hash || location.hash === "#/") home(); } }, 20000);
+  setInterval(function () { if (!document.hidden && dash) dash.reload(); }, 60000);
 })();

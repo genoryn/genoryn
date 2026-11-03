@@ -25,16 +25,37 @@
       <button class="btn btn-primary" type="submit">Search</button>
     </form>
   </div>
-  <div class="stats" style="margin-bottom:18px">
-    <div class="glass stat"><b id="sHeight">—</b><span>Height</span></div>
-    <div class="glass stat"><b id="sSupply">—</b><span>GNR issued</span></div>
-    <div class="glass stat"><b id="sRate">—</b><span>Hashrate</span></div>
-    <div class="glass stat"><b id="sPool">—</b><span>Pending transactions</span></div>
+  <div class="stats stats-5" style="margin-bottom:18px">
+    <div class="glass stat tilt-card"><b id="sHeight">—</b><span>Height</span></div>
+    <div class="glass stat tilt-card"><b id="sSupply">—</b><span>GNR issued</span></div>
+    <div class="glass stat tilt-card"><b id="sRate">—</b><span>Hashrate</span></div>
+    <div class="glass stat tilt-card"><b id="sMiners">—</b><span>Estimated miners <em id="sGpus" class="stat-sub"></em></span></div>
+    <div class="glass stat tilt-card"><b id="sPool">—</b><span>Pending transactions</span></div>
   </div>
+  <section class="dash" id="dash" data-default-range="24h" aria-labelledby="dash-h">
+    <div class="dash-head">
+      <h2 id="dash-h" class="dash-title">Network</h2>
+      <div class="gk-range" role="group" aria-label="Time range">
+        <button type="button" data-range="1h">1H</button><button type="button" data-range="6h">6H</button><button type="button" data-range="24h">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button>
+      </div>
+    </div>
+    <div class="dash-grid">
+      <div class="glass card chart-card wide tilt-card"><div class="gk-card-head"><h3>Network hashrate</h3><b data-kpi="hashrate">—</b></div><div data-chart="hashrate"></div></div>
+      <div class="glass card chart-card supply-card tilt-card"><div class="gk-card-head"><h3>Supply</h3><b data-kpi="cap">21,000,000 GNR</b></div><div id="supplyDisc"></div>
+        <div class="supply-legend"><div><i class="sw on"></i>Issued <b data-kpi="issued">—</b></div><div><i class="sw"></i>Remaining <b data-kpi="remaining">—</b></div></div></div>
+      <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Difficulty</h3><b data-kpi="difficulty">—</b></div><div data-chart="difficulty"></div></div>
+      <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Block time</h3><b data-kpi="block_time">—</b></div><div data-chart="block_time"></div></div>
+      <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Shares per block</h3><b data-kpi="shares">—</b></div><div data-chart="shares"></div></div>
+      <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Active miners</h3><b data-kpi="miners">—</b></div><div data-chart="miners"></div></div>
+      <div class="glass card chart-card wide tilt-card"><div class="gk-card-head"><h3>GNR issued over time</h3><b data-kpi="issued2">—</b></div><div data-chart="issued"></div></div>
+    </div>
+    <p class="muted dash-note">Estimated miners counts distinct payout addresses credited with shares in the last 360 blocks (~6 h); one address may run many computers. GPU equivalents divide the network hashrate by one RTX 5090 (~74 MH/s).</p>
+  </section>
   <div id="view"></div>
 </main>
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/charts.js" defer></script>
 <script src="/site.js" defer></script>
 <script src="/explorer.js" defer></script>
 </body>

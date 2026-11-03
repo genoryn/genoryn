@@ -75,6 +75,9 @@ pub struct Node {
     pub mempool: Mutex<Mempool>,
     pub shares: Mutex<SharePool>,
     pub hashrate_cache: Mutex<Option<(Hash32, f64)>>,
+    pub stats: Arc<Mutex<crate::stats::Stats>>,
+    /// Latest `Stats::summary`, readable without waiting for a refresh.
+    pub stats_summary: Arc<Mutex<serde_json::Value>>,
     pub recent_shares: Mutex<Option<RecentShares>>,
     pub events: broadcast::Sender<String>,
     pub jobs: Mutex<HashMap<u64, Job>>,
@@ -98,6 +101,8 @@ impl Node {
             mempool: Mutex::new(Mempool::default()),
             shares: Mutex::new(SharePool::default()),
             hashrate_cache: Mutex::new(None),
+            stats: Arc::new(Mutex::new(crate::stats::Stats::default())),
+            stats_summary: Arc::new(Mutex::new(serde_json::Value::Null)),
             recent_shares: Mutex::new(None),
             events,
             jobs: Mutex::new(HashMap::new()),
@@ -142,9 +147,24 @@ impl Node {
         }
     }
 
+    /// Extends the statistics cache off the async runtime.
+    pub fn refresh_stats(&self) {
+        let (chain, stats, summary) = (
+            self.chain.clone(),
+            self.stats.clone(),
+            self.stats_summary.clone(),
+        );
+        tokio::task::spawn_blocking(move || {
+            let mut s = stats.lock();
+            s.refresh(&chain);
+            *summary.lock() = s.summary();
+        });
+    }
+
     pub async fn run(self: Arc<Self>, mut rx: mpsc::Receiver<Event>) {
         let me = self.clone();
         tokio::spawn(async move { me.housekeeping().await });
+        self.refresh_stats();
         while let Some(ev) = rx.recv().await {
             match ev {
                 Event::Connected(p) => self.net.send(p, &Message::Hello(self.hello())),
@@ -390,6 +410,7 @@ impl Node {
             .await
             .map_err(|e| ChainError::Storage(anyhow::anyhow!("{e}")))??;
         if let Outcome::Connected { reorg_depth } = out {
+            self.refresh_stats();
             let tip = self.chain.tip();
             {
                 let mut mp = self.mempool.lock();

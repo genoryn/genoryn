@@ -15,6 +15,7 @@ const FILES: &[(&str, &[u8])] = &[
     asset!("tokens.css"),
     asset!("fx.css"),
     asset!("fx.js"),
+    asset!("charts.js"),
     asset!("noise.webp"),
     asset!("genoryn-mark-dark.svg"),
     asset!("genoryn-mark-light.svg"),

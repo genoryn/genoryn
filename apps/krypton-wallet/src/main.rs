@@ -27,6 +27,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
 mod assets;
+mod update;
 
 const UI: &str = include_str!("ui.html");
 
@@ -96,6 +97,9 @@ struct App {
     account: Mutex<Option<krypton_light::client::MinerAccount>>,
     last_error: Mutex<String>,
     quit: tokio::sync::Notify,
+    /// A newer signed release, if one was found.
+    update: Mutex<Option<update::Available>>,
+    update_status: Mutex<String>,
 }
 
 impl App {
@@ -279,6 +283,8 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "error": a.last_error.lock().clone(),
             "maturity": a.network.params().coinbase_maturity,
             "version": env!("CARGO_PKG_VERSION"),
+            "update": a.update.lock().clone(),
+            "update_status": a.update_status.lock().clone(),
             "genesis": hex::encode(krypton_core::consensus::genesis_block(&a.network.params()).hash()),
         }))
     })
@@ -476,24 +482,28 @@ async fn node_start(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
+    match spawn_node(&app) {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// Starts our own full node unless it already runs.
+fn spawn_node(app: &App) -> Result<()> {
     let mut n = app.node.lock();
     if n.as_mut()
         .is_some_and(|c| c.try_wait().ok().flatten().is_none())
     {
-        return Json(json!({"ok": true})).into_response();
+        return Ok(());
     }
-    match hidden(&mut Command::new(sibling("kryptond")))
+    let c = hidden(&mut Command::new(sibling("kryptond")))
         .args(["--network", app.network.as_str()])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-    {
-        Ok(c) => {
-            *n = Some(c);
-            Json(json!({"ok": true})).into_response()
-        }
-        Err(e) => err(format!("could not start kryptond: {e}")),
-    }
+        .map_err(|e| anyhow!("could not start kryptond: {e}"))?;
+    *n = Some(c);
+    Ok(())
 }
 
 async fn node_stop(State(app): S, h: HeaderMap) -> Response {
@@ -520,8 +530,16 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
         Some(w) => w.address().encode(),
         None => return err("unlock the wallet first"),
     };
-    if !["auto", "cpu", "cuda", "opencl"].contains(&r.backend.as_str()) {
-        return err("unknown backend");
+    match spawn_miner(&app, &addr, &r.backend, r.max_cpu.unwrap_or(50)) {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// Starts krypton-miner paying `addr` and follows its JSON status lines.
+fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()> {
+    if !["auto", "cpu", "cuda", "opencl"].contains(&backend) {
+        anyhow::bail!("unknown backend");
     }
     let node = {
         let s = app.settings.lock();
@@ -535,9 +553,11 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
         let _ = c.kill();
     }
     let addr_file = app.dir.join("miner-address.txt");
-    if let Err(e) = std::fs::write(&addr_file, &addr) {
-        return err(e);
-    }
+    std::fs::write(&addr_file, addr)?;
+    std::fs::write(
+        app.dir.join("miner-settings.json"),
+        json!({"backend": backend, "max_cpu": max_cpu}).to_string(),
+    )?;
     let mut cmd = Command::new(sibling("krypton-miner"));
     hidden(&mut cmd);
     cmd.arg("--node")
@@ -545,16 +565,15 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
         .arg("--address-file")
         .arg(&addr_file)
         .arg("--backend")
-        .arg(&r.backend)
+        .arg(backend)
         .arg("--json");
-    cmd.arg("--max-cpu")
-        .arg(r.max_cpu.unwrap_or(50).clamp(1, 100).to_string());
+    cmd.arg("--max-cpu").arg(max_cpu.clamp(1, 100).to_string());
     match cmd.stdout(Stdio::piped()).stderr(Stdio::null()).spawn() {
         Ok(mut c) => {
             let out = c.stdout.take();
             *app.miner_stats.lock() = MinerStats {
                 running: true,
-                backend: r.backend.clone(),
+                backend: backend.to_string(),
                 ..Default::default()
             };
             let stats = app.miner_stats.clone();
@@ -590,9 +609,9 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
                 }
             });
             *app.miner.lock() = Some(c);
-            Json(json!({"ok": true})).into_response()
+            Ok(())
         }
-        Err(e) => err(format!("could not start krypton-miner: {e}")),
+        Err(e) => Err(anyhow!("could not start krypton-miner: {e}")),
     }
 }
 
@@ -639,6 +658,97 @@ fn hidden(cmd: &mut Command) -> &mut Command {
         cmd.creation_flags(0x0800_0000);
     }
     cmd
+}
+
+/// Downloads and verifies the newer release, then hands over to its installer, which
+/// replaces the programs and starts the wallet again. A running miner resumes.
+async fn install_update(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let Some(av) = app.update.lock().clone() else {
+        return err("no update available");
+    };
+    if !av.can_install {
+        open_browser(&av.page);
+        return Json(json!({"ok": true, "opened": av.page})).into_response();
+    }
+    *app.update_status.lock() = format!("Downloading {} and checking its signature…", av.version);
+    let a = app.clone();
+    let r = blocking(move || {
+        let dir = std::env::temp_dir().join(format!("genoryn-update-{}", av.version));
+        let installer = update::download_verified(&av, &dir)?;
+        let mining = a
+            .miner
+            .lock()
+            .as_mut()
+            .is_some_and(|c| c.try_wait().ok().flatten().is_none());
+        if mining && let Ok(s) = std::fs::read(a.dir.join("miner-settings.json")) {
+            std::fs::write(a.dir.join("resume-mining.json"), s)?;
+        }
+        let install_dir = std::env::current_exe()?
+            .parent()
+            .context("install directory")?
+            .to_path_buf();
+        hidden(&mut Command::new(&installer))
+            .arg("--silent")
+            .arg("--launch")
+            .arg("--dir")
+            .arg(&install_dir)
+            .spawn()
+            .context("start the installer")?;
+        Ok(())
+    })
+    .await;
+    match r {
+        Ok(()) => {
+            *app.update_status.lock() =
+                "Installing the update; the wallet restarts in a moment".into();
+            let q = app.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                q.quit.notify_one();
+            });
+            Json(json!({"ok": true})).into_response()
+        }
+        Err(e) => {
+            *app.update_status.lock() = format!("Update failed: {e}");
+            err(e)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct RangeQ {
+    range: Option<String>,
+}
+
+async fn net_stats(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<RangeQ>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let range = q.range.unwrap_or_else(|| "24h".into());
+    if !["1h", "6h", "24h", "7d", "30d", "all"].contains(&range.as_str()) {
+        return err("unknown range");
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let src = a
+            .sources()?
+            .into_iter()
+            .next()
+            .context("no node configured")?;
+        src.stats(&range)
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
 }
 
 async fn payment_proof(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Response {
@@ -780,6 +890,39 @@ async fn serve(
         account: Mutex::new(None),
         last_error: Mutex::new(String::new()),
         quit: tokio::sync::Notify::new(),
+        update: Mutex::new(None),
+        update_status: Mutex::new(String::new()),
+    });
+
+    // Full-node mode: our node starts with the wallet.
+    if app.settings.lock().mode == "full" {
+        let _ = spawn_node(&app);
+    }
+    // After an in-app update, resume the miner that was running before it.
+    let resume = app.dir.join("resume-mining.json");
+    if let Ok(b) = std::fs::read(&resume) {
+        let _ = std::fs::remove_file(&resume);
+        let a = app.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+            let v: Value = serde_json::from_slice(&b).unwrap_or_default();
+            if let Ok(addr) = std::fs::read_to_string(a.dir.join("miner-address.txt")) {
+                let backend = v["backend"].as_str().unwrap_or("auto").to_string();
+                let max_cpu = v["max_cpu"].as_u64().unwrap_or(50) as u32;
+                let _ = spawn_miner(&a, addr.trim(), &backend, max_cpu);
+            }
+        });
+    }
+    // Look for a newer signed release now and every six hours.
+    let up = app.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        loop {
+            if let Ok(Ok(found)) = tokio::task::spawn_blocking(update::check).await {
+                *up.update.lock() = found;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(6 * 3600)).await;
+        }
     });
 
     // Background sync while unlocked.
@@ -837,6 +980,8 @@ async fn serve(
         .route("/api/quit", post(quit))
         .route("/api/open", post(open_link))
         .route("/api/proof", post(payment_proof))
+        .route("/api/stats", get(net_stats))
+        .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))
         .with_state(app.clone());
     let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {

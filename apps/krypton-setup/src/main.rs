@@ -667,7 +667,8 @@ impl eframe::App for App {
 
 fn main() -> eframe::Result<()> {
     let uninstall = std::env::args().any(|a| a == "--uninstall");
-    // Unattended mode for automation: --silent [--dir PATH] [--no-shortcuts]
+    // Unattended mode for automation and in-app updates:
+    // --silent [--dir PATH] [--no-shortcuts] [--launch]
     if std::env::args().any(|a| a == "--silent") {
         let args: Vec<String> = std::env::args().collect();
         let dir = args
@@ -698,6 +699,9 @@ fn main() -> eframe::Result<()> {
                 Err(e) => format!("error {e:#}\n"),
             },
         );
+        if r.is_ok() && !uninstall && args.iter().any(|a| a == "--launch") {
+            install::launch(&dir);
+        }
         std::process::exit(if r.is_ok() { 0 } else { 1 });
     }
     let dir = if uninstall {
