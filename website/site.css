@@ -15,6 +15,13 @@
 .drawer.open { transform: none; }
 .drawer a { color: var(--text-primary); text-decoration: none; padding: 12px; border-radius: 10px; min-height: 44px; font-weight: 600; }
 .drawer a:hover { background: var(--bg-raised); }
+.drawer a:not(.btn) { display: flex; align-items: center; }
+.ni { width: 17px; height: 17px; flex: none; margin-right: 8px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .72; transition: opacity .2s; }
+.nav-links a:hover .ni, .nav-links a.on .ni, .btn .ni, .drawer a:hover .ni { opacity: 1; }
+.nav-links .ni { width: 16px; height: 16px; margin-right: 7px; }
+.manifesto { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 22px 0 0; padding-left: 14px; border-left: 2px solid var(--text-primary); font: 700 clamp(13px, 1.25vw, 15.5px)/1.35 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-primary); }
+.manifesto span + span { color: var(--text-secondary); }
+.foot-motto { font: 700 12px/1.4 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-secondary); margin: 10px 0 0; }
 #drawerBackdrop { z-index: 35; }
 
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--font-sans); letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-secondary); }
