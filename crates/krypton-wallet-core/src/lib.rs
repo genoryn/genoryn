@@ -110,6 +110,9 @@ pub struct HistoryEntry {
     /// For our own payments: what a payment proof discloses (never shared unless asked).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<Disclosure>,
+    /// For our own sends: the last height at which the transaction may be mined.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -295,12 +298,7 @@ impl Wallet {
             "proof is for {}",
             p.network.as_str()
         );
-        let me = self.address();
-        let mut r = proof::verify(&p, src, Some(&me), self.pow())?;
-        if r.recipient_confirmed == Some(false) {
-            r.recipient_confirmed = None;
-        }
-        Ok(r)
+        proof::verify_for(&p, src, Some(&self.address()), self.pow())
     }
 
     pub fn mnemonic(&self) -> Zeroizing<String> {
@@ -467,8 +465,35 @@ impl Wallet {
             }
         }
         report.to = self.verifier.as_ref().map(|v| v.last.height).unwrap_or(0);
+        self.expire_pending(report.to);
         self.save()?;
         Ok(report)
+    }
+
+    /// Forgets our sends that can no longer be mined (past their expiry height without
+    /// confirming) and makes the notes they would have spent spendable again.
+    fn expire_pending(&mut self, synced: u64) {
+        let dead = |h: &HistoryEntry| h.height.is_none() && h.expiry.is_some_and(|e| e < synced);
+        let expired: Vec<String> = self
+            .state
+            .history
+            .iter()
+            .filter(|h| dead(h))
+            .map(|h| h.txid.clone())
+            .collect();
+        if expired.is_empty() {
+            return;
+        }
+        self.state.history.retain(|h| !dead(h));
+        for n in self.state.notes.iter_mut() {
+            if n.spent_height.is_none()
+                && n.pending_spend
+                    .as_ref()
+                    .is_some_and(|t| expired.contains(t))
+            {
+                n.pending_spend = None;
+            }
+        }
     }
 
     /// Steps back until our checkpoint matches the source's chain.
@@ -550,6 +575,7 @@ impl Wallet {
                 time: b.header.timestamp,
                 change_cm: None,
                 disclosure: None,
+                expiry: None,
             });
         }
         for o in &b.outputs {
@@ -588,6 +614,7 @@ impl Wallet {
                         time: b.header.timestamp,
                         change_cm: None,
                         disclosure: None,
+                        expiry: None,
                     });
                 }
             }
@@ -818,6 +845,7 @@ impl Wallet {
                 owner: digest_to_bytes(&to.owner).to_vec(),
                 recipient: to.short_id().to_vec(),
             }),
+            expiry: Some(tx.expiry_height),
         });
         if to_self {
             // The payment output is ours too: do not report it as income.
@@ -831,6 +859,7 @@ impl Wallet {
                 time: krypton_core::now(),
                 change_cm: Some(hex::encode(cm0)),
                 disclosure: None,
+                expiry: Some(tx.expiry_height),
             });
         }
         self.save()?;

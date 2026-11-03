@@ -303,10 +303,7 @@ fn main() -> Result<()> {
                 params.pow,
                 krypton_core::consensus::genesis_block(&params).hash(),
             );
-            let mut r = krypton_wallet_core::proof::verify(&p, src, me.as_ref(), &pow)?;
-            if r.recipient_confirmed == Some(false) {
-                r.recipient_confirmed = None;
-            }
+            let r = krypton_wallet_core::proof::verify_for(&p, src, me.as_ref(), &pow)?;
             println!("VALID payment proof");
             println!("amount         {} GNR", format_amount(r.value));
             println!("recipient      {}", r.recipient);
@@ -315,10 +312,13 @@ fn main() -> Result<()> {
                 "transaction    {} (block {}, {} confirmations)",
                 r.txid, r.height, r.confirmations
             );
-            match r.recipient_confirmed {
-                Some(true) => println!("paid to        THIS wallet"),
+            match (r.recipient_confirmed, r.recipient_verified) {
+                (Some(true), _) => println!("paid to        THIS wallet"),
+                (_, true) => println!("paid to        the address above (verified)"),
                 _ => println!(
-                    "paid to        the address above (compare it with the recipient's short address)"
+                    "paid to        UNVERIFIED: the payment is real, but the recipient address above\n               \
+                     is only a claim. The recipient can confirm it with their wallet, or publish\n               \
+                     their address (`address --publish`) so anyone can check it."
                 ),
             }
         }

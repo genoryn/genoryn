@@ -306,9 +306,31 @@ fn mine_sync_send_receive() {
     assert_eq!(rep.value, amount);
     assert_eq!(rep.memo, "first private payment");
     assert_eq!(rep.recipient_confirmed, Some(true));
+    assert!(rep.recipient_verified);
     assert_eq!(rep.recipient, addr_b.short());
     let third = a.verify_payment(&src, &proof_text).unwrap();
     assert_eq!(third.recipient_confirmed, None, "A is not the recipient");
+    assert!(
+        !third.recipient_verified,
+        "no directory: the named recipient is only a claim"
+    );
+    // A proof re-labelled to name another wallet as the recipient is refused by that wallet.
+    let c = Wallet::create(
+        &dir.path().join("c.wallet"),
+        "password-c",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    let mut p = proof::PaymentProof::decode(&proof_text).unwrap();
+    p.recipient = c.address().short_id();
+    let forged = p.encode();
+    assert!(c.verify_payment(&src, &forged).is_err(), "forged recipient");
+    let r = b.verify_payment(&src, &forged).unwrap();
+    assert!(r.recipient_confirmed.is_none() && !r.recipient_verified);
     let mut p = proof::PaymentProof::decode(&proof_text).unwrap();
     p.key[0] ^= 1;
     assert!(b.verify_payment(&src, &p.encode()).is_err(), "wrong key");
@@ -350,6 +372,66 @@ fn mine_sync_send_receive() {
             .iter()
             .any(|n| n.value == 500_000 && n.memo == "back")
     );
+}
+
+#[test]
+fn expired_sends_release_their_notes() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let mut a = Wallet::create(
+        &dir.path().join("a.wallet"),
+        "password-a",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    let to = Wallet::create(
+        &dir.path().join("b.wallet"),
+        "password-b",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap()
+    .address();
+    for _ in 0..10 {
+        mine(&src, &a.address());
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    let spendable = a.balance().spendable;
+    assert!(spendable > 0);
+    a.send(&src, &to, 1_000, DEFAULT_FEE, "never mined")
+        .unwrap();
+    assert!(a.balance().pending > 0);
+    // The transaction is lost (never relayed): it can never be mined after its expiry.
+    let lost = src.pool.borrow_mut().pop().unwrap();
+    let expiry = lost.expiry_height;
+    while chain.tip().height() <= expiry + 1 {
+        mine(&src, &a.address());
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.balance().pending, 0, "expired spend released");
+    assert!(a.balance().spendable >= spendable);
+    assert!(
+        a.history()
+            .iter()
+            .all(|h| h.txid != hex::encode(lost.txid())),
+        "an expired send is not shown as sent"
+    );
+    // The released notes can be spent again.
+    a.send(&src, &to, 1_000, DEFAULT_FEE, "second try").unwrap();
+    mine(&src, &a.address());
+    a.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.balance().pending, 0);
 }
 
 #[test]

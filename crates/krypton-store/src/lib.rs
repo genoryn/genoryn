@@ -249,7 +249,13 @@ pub struct Chain {
     db: Database,
     write: Mutex<()>,
     tip: RwLock<Tip>,
+    disconnected: Mutex<Vec<krypton_core::Transaction>>,
 }
+
+const MAX_DISCONNECTED_TXS: usize = 4096;
+/// Set once the 1.0.2 repair has cleared invalid markers that earlier versions could set
+/// wrongly.
+const META_INVALID_RESET: &str = "repair/invalid-reset-v1";
 
 /// A chain database from another genesis (an earlier launch of the same network) holds
 /// nothing this chain can use; it is moved aside, never deleted, and sync starts fresh.
@@ -337,9 +343,77 @@ impl Chain {
             genesis,
             db,
             write: Mutex::new(()),
+            disconnected: Mutex::new(Vec::new()),
         };
         chain.init()?;
+        chain.repair()?;
         Ok(chain)
+    }
+
+    /// Repairs state that kryptond 1.0.0 and 1.0.1 could leave inconsistent; cheap and
+    /// idempotent.
+    ///
+    /// * Anchor roots of the last `ANCHOR_WINDOW` blocks are rewritten from the main
+    ///   chain: undoing a block that added no note leaves deleted a root that was still
+    ///   valid, so the node rejected transfers (and blocks) every other node accepts.
+    /// * Once: headers marked invalid are made unverified again. A relayed block with an
+    ///   altered body, or the missing root above, could get a valid block marked invalid;
+    ///   bodies are fetched and fully validated again when peers offer them.
+    fn repair(&self) -> Result<()> {
+        let tip = self.tip().height();
+        let w = self.db.begin_write()?;
+        let (roots_fixed, reset) = {
+            let main = w.open_table(MAIN)?;
+            let mut headers = w.open_table(HEADERS)?;
+            let mut roots = w.open_table(ROOTS)?;
+            let mut meta = w.open_table(META)?;
+            // Highest main-chain height of every root in the window.
+            let mut want: std::collections::BTreeMap<Hash32, u64> = Default::default();
+            let from = tip.saturating_sub(krypton_core::params::ANCHOR_WINDOW + 1);
+            for h in from..=tip {
+                let Some(hash) = main.get(h)?.map(|v| v.value().to_vec()) else {
+                    continue;
+                };
+                let Some(rec) = headers.get(hash.as_slice())?.map(|v| v.value().to_vec()) else {
+                    continue;
+                };
+                want.insert(HeaderRecord::from_bytes(&rec)?.header.note_root, h);
+            }
+            let mut roots_fixed = 0usize;
+            for (root, h) in want {
+                if roots.get(root.as_slice())?.map(|v| v.value()) != Some(h) {
+                    roots.insert(root.as_slice(), h)?;
+                    roots_fixed += 1;
+                }
+            }
+            let mut reset = 0usize;
+            if meta.get(META_INVALID_RESET)?.is_none() {
+                let mut invalid = Vec::new();
+                for e in headers.iter()? {
+                    let (k, v) = e?;
+                    let rec = HeaderRecord::from_bytes(v.value())?;
+                    if rec.status == STATUS_INVALID {
+                        invalid.push((k.value().to_vec(), rec));
+                    }
+                }
+                for (k, mut rec) in invalid {
+                    rec.status = STATUS_UNVERIFIED;
+                    headers.insert(k.as_slice(), rec.to_bytes().as_slice())?;
+                    reset += 1;
+                }
+                meta.insert(META_INVALID_RESET, [1u8].as_slice())?;
+            }
+            (roots_fixed, reset)
+        };
+        w.commit()?;
+        if roots_fixed > 0 || reset > 0 {
+            tracing::warn!(
+                roots_fixed,
+                invalid_reset = reset,
+                "repaired chain state written by an earlier version"
+            );
+        }
+        Ok(())
     }
 
     fn init(&self) -> Result<()> {
@@ -582,6 +656,10 @@ impl Chain {
             matured: vec![],
         };
         consensus::check_header(&self.params, &self.pow, &ctx, &block.header, now)?;
+        // Anyone can relay a real header with an altered body. Such a block is refused
+        // before anything is stored, so the header is never remembered as invalid and the
+        // genuine block is still accepted when it arrives.
+        consensus::check_body_commitments(block)?;
         let work = parent.work.saturating_add(block.header.difficulty);
         let w = self.db.begin_write().map_err(anyhow::Error::from)?;
         self.put_header(
@@ -604,7 +682,9 @@ impl Chain {
             match self.connect(block, now) {
                 Ok(()) => Ok(Outcome::Connected { reorg_depth: 0 }),
                 Err(e) => {
-                    self.mark_invalid(&hash)?;
+                    if matches!(e, ChainError::Invalid(_)) {
+                        self.mark_invalid(&hash)?;
+                    }
                     Err(e)
                 }
             }
@@ -878,7 +958,13 @@ impl Chain {
                 .map(|v| v.value())
                 == Some(height)
             {
-                roots.remove(tip.header.note_root.as_slice())?;
+                // Blocks that add no leaves keep their parent's root, which must stay a
+                // valid anchor (at the parent's height) after this block is undone.
+                if parent.header.note_root == tip.header.note_root {
+                    roots.insert(tip.header.note_root.as_slice(), height - 1)?;
+                } else {
+                    roots.remove(tip.header.note_root.as_slice())?;
+                }
             }
             {
                 let mut t = w.open_table(TXINDEX)?;
@@ -923,6 +1009,12 @@ impl Chain {
             cur = rec.header.prev;
         }
         branch.reverse();
+        // Every body must be at hand before the current chain is touched.
+        for h in &branch {
+            if !self.has_block(h)? {
+                return Ok(Outcome::Orphan { missing: *h });
+            }
+        }
         let fork_height = self
             .header_record(&cur)?
             .context("fork point")?
@@ -933,11 +1025,16 @@ impl Chain {
             old.push(self.disconnect_tip()?);
         }
         for (i, h) in branch.iter().enumerate() {
-            let block = self.block(h)?.context("branch block missing")?;
-            if let Err(e) = self.connect(&block, now) {
+            let result = match self.block(h)? {
+                Some(block) => self.connect(&block, now),
+                None => Err(ChainError::Storage(anyhow!("branch block missing"))),
+            };
+            if let Err(e) = result {
                 tracing::warn!("reorg failed at branch block {}: {e}", i);
-                for bad in &branch[i..] {
-                    self.mark_invalid(bad)?;
+                if matches!(e, ChainError::Invalid(_)) {
+                    for bad in &branch[i..] {
+                        self.mark_invalid(bad)?;
+                    }
                 }
                 while self.tip().height() > fork_height {
                     self.disconnect_tip()?;
@@ -949,10 +1046,20 @@ impl Chain {
                 return Err(e);
             }
         }
-        tracing::info!(depth = old.len(), "reorganized chain");
-        Ok(Outcome::Connected {
-            reorg_depth: old.len() as u64,
-        })
+        let reorg_depth = old.len() as u64;
+        tracing::info!(depth = reorg_depth, "reorganized chain");
+        let mut d = self.disconnected.lock();
+        d.extend(old.into_iter().rev().flat_map(|b| b.txs));
+        let excess = d.len().saturating_sub(MAX_DISCONNECTED_TXS);
+        d.drain(..excess);
+        drop(d);
+        Ok(Outcome::Connected { reorg_depth })
+    }
+
+    /// Transactions of blocks dropped by reorganizations since the last call, oldest
+    /// first; the node offers them to its mempool again.
+    pub fn take_disconnected_txs(&self) -> Vec<krypton_core::Transaction> {
+        std::mem::take(&mut *self.disconnected.lock())
     }
 
     /// Builds an unmined block on the current tip paying `miner`, crediting every

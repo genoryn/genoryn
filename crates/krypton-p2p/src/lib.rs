@@ -12,10 +12,17 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
+use tokio::sync::{Semaphore, mpsc};
+
+/// A peer whose unsent data exceeds this is not reading: it is disconnected.
+pub const MAX_QUEUED_BYTES: usize = 128 * 1024 * 1024;
+/// Serving bulk data (blocks, transactions) pauses while a peer has this much unsent.
+pub const SOFT_QUEUED_BYTES: usize = 32 * 1024 * 1024;
+/// Inbound connections still in the handshake, in total.
+const MAX_PENDING_HANDSHAKES: usize = 64;
 
 pub type PeerId = u64;
 
@@ -49,6 +56,23 @@ struct Peer {
     info: PeerInfo,
     tx: mpsc::Sender<Vec<u8>>,
     dial: Option<String>,
+    /// Bytes handed to the writer task and not yet written to the socket.
+    queued: Arc<AtomicUsize>,
+}
+
+impl Peer {
+    /// Queues a frame; false when the peer is too far behind and must be dropped.
+    fn enqueue(&self, bytes: Vec<u8>) -> bool {
+        let n = bytes.len();
+        if self.queued.load(Ordering::Relaxed) + n > MAX_QUEUED_BYTES {
+            return false;
+        }
+        self.queued.fetch_add(n, Ordering::Relaxed);
+        if self.tx.try_send(bytes).is_err() {
+            self.queued.fetch_sub(n, Ordering::Relaxed);
+        }
+        true
+    }
 }
 
 struct Inner {
@@ -58,6 +82,11 @@ struct Inner {
     events: mpsc::Sender<Event>,
     addrs: Mutex<HashSet<String>>,
     banned: Mutex<HashMap<IpAddr, Instant>>,
+    handshakes: Arc<Semaphore>,
+    /// Inbound handshakes in progress per IP.
+    pending: Mutex<HashMap<IpAddr, usize>>,
+    /// Outbound targets being dialed right now.
+    dialing: Mutex<HashSet<String>>,
 }
 
 #[derive(Clone)]
@@ -79,6 +108,9 @@ impl Net {
                 events: tx,
                 addrs: Mutex::new(addrs),
                 banned: Mutex::new(HashMap::new()),
+                handshakes: Arc::new(Semaphore::new(MAX_PENDING_HANDSHAKES)),
+                pending: Mutex::new(HashMap::new()),
+                dialing: Mutex::new(HashSet::new()),
             }),
         };
         if let Some(l) = net.inner.cfg.listen {
@@ -98,7 +130,15 @@ impl Net {
         let l = TcpListener::bind(addr).await?;
         tracing::info!("p2p listening on {addr}");
         loop {
-            let (s, peer) = l.accept().await?;
+            let (s, peer) = match l.accept().await {
+                Ok(x) => x,
+                Err(e) => {
+                    // Transient (e.g. out of file descriptors): keep listening.
+                    tracing::warn!("p2p accept failed: {e}");
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
+            };
             if self.is_banned(&peer.ip()) {
                 continue;
             }
@@ -112,12 +152,33 @@ impl Net {
             if inbound >= self.inner.cfg.max_inbound || same_ip >= self.inner.cfg.max_per_ip {
                 continue;
             }
+            let Ok(permit) = self.inner.handshakes.clone().try_acquire_owned() else {
+                continue;
+            };
+            {
+                let mut p = self.inner.pending.lock();
+                let c = p.entry(peer.ip()).or_insert(0);
+                if *c >= self.inner.cfg.max_per_ip {
+                    continue;
+                }
+                *c += 1;
+            }
             let n = self.clone();
             tokio::spawn(async move {
                 let magic = n.inner.cfg.magic;
-                match tokio::time::timeout(Duration::from_secs(10), session::respond(s, magic))
-                    .await
+                let hs =
+                    tokio::time::timeout(Duration::from_secs(10), session::respond(s, magic)).await;
                 {
+                    let mut p = n.inner.pending.lock();
+                    if let Some(c) = p.get_mut(&peer.ip()) {
+                        *c -= 1;
+                        if *c == 0 {
+                            p.remove(&peer.ip());
+                        }
+                    }
+                }
+                drop(permit);
+                match hs {
                     Ok(Ok((send, recv))) => n.run_peer(peer, true, None, send, recv).await,
                     _ => tracing::debug!("inbound handshake with {peer} failed"),
                 }
@@ -134,21 +195,35 @@ impl Net {
                     p.values().filter_map(|x| x.dial.clone()).collect(),
                 )
             };
-            if outbound < self.inner.cfg.max_outbound {
-                let mut candidates: Vec<String> = self
+            let dialing = self.inner.dialing.lock().len();
+            let free = self
+                .inner
+                .cfg
+                .max_outbound
+                .saturating_sub(outbound + dialing);
+            if free > 0 {
+                use rand::seq::SliceRandom;
+                let busy =
+                    |a: &String| connected.contains(a) || self.inner.dialing.lock().contains(a);
+                let seeds = &self.inner.cfg.seeds;
+                let mut first: Vec<String> = seeds.iter().filter(|a| !busy(a)).cloned().collect();
+                let mut rest: Vec<String> = self
                     .inner
                     .addrs
                     .lock()
                     .iter()
-                    .filter(|a| !connected.contains(*a))
+                    .filter(|a| !seeds.contains(a))
                     .cloned()
                     .collect();
-                use rand::seq::SliceRandom;
-                candidates.shuffle(&mut rand::thread_rng());
-                for a in candidates
-                    .into_iter()
-                    .take(self.inner.cfg.max_outbound - outbound)
-                {
+                rest.retain(|a| !busy(a));
+                first.shuffle(&mut rand::thread_rng());
+                rest.shuffle(&mut rand::thread_rng());
+                // With few peers the seeds go first, so an address book flooded with
+                // unreachable or hostile entries cannot keep the node isolated.
+                if outbound >= 2 {
+                    std::mem::swap(&mut first, &mut rest);
+                }
+                for a in first.into_iter().chain(rest).take(free) {
                     let n = self.clone();
                     tokio::spawn(async move { n.dial(a).await });
                 }
@@ -158,22 +233,38 @@ impl Net {
     }
 
     pub async fn dial(&self, target: String) {
-        let Ok(Ok(mut addrs)) = tokio::time::timeout(
-            Duration::from_secs(10),
-            tokio::net::lookup_host(target.clone()),
-        )
-        .await
+        if !self.inner.dialing.lock().insert(target.clone()) {
+            return;
+        }
+        let session = self.handshake_with(&target).await;
+        self.inner.dialing.lock().remove(&target);
+        match session {
+            Some((addr, send, recv)) => self.run_peer(addr, false, Some(target), send, recv).await,
+            // Unreachable addresses are forgotten (seeds are always kept).
+            None if !self.inner.cfg.seeds.contains(&target) => {
+                self.inner.addrs.lock().remove(&target);
+            }
+            None => {}
+        }
+    }
+
+    async fn handshake_with(
+        &self,
+        target: &str,
+    ) -> Option<(SocketAddr, session::SendHalf, session::RecvHalf)> {
+        let Ok(Ok(mut addrs)) =
+            tokio::time::timeout(Duration::from_secs(10), tokio::net::lookup_host(target)).await
         else {
-            return;
+            return None;
         };
-        let Some(addr) = addrs.next() else { return };
+        let addr = addrs.next()?;
         if self.is_banned(&addr.ip()) || Some(addr) == self.inner.cfg.listen {
-            return;
+            return None;
         }
         let Ok(Ok(s)) =
             tokio::time::timeout(Duration::from_secs(10), TcpStream::connect(addr)).await
         else {
-            return;
+            return None;
         };
         let _ = s.set_nodelay(true);
         match tokio::time::timeout(
@@ -182,8 +273,11 @@ impl Net {
         )
         .await
         {
-            Ok(Ok((send, recv))) => self.run_peer(addr, false, Some(target), send, recv).await,
-            _ => tracing::debug!("outbound handshake with {addr} failed"),
+            Ok(Ok((send, recv))) => Some((addr, send, recv)),
+            _ => {
+                tracing::debug!("outbound handshake with {addr} failed");
+                None
+            }
         }
     }
 
@@ -204,17 +298,36 @@ impl Net {
             hello: None,
             since: krypton_core::now(),
         };
-        self.inner.peers.lock().insert(id, Peer { info, tx, dial });
+        let queued = Arc::new(AtomicUsize::new(0));
+        self.inner.peers.lock().insert(
+            id,
+            Peer {
+                info,
+                tx,
+                dial,
+                queued: queued.clone(),
+            },
+        );
         let _ = self.inner.events.send(Event::Connected(id)).await;
+        // Signals the reader once the peer is dropped or its socket stops accepting data.
+        let closed = Arc::new(tokio::sync::Notify::new());
+        let closed_w = closed.clone();
         let writer = tokio::spawn(async move {
             while let Some(m) = rx.recv().await {
-                if send.send(&m).await.is_err() {
+                let sent = send.send(&m).await;
+                queued.fetch_sub(m.len(), Ordering::Relaxed);
+                if sent.is_err() {
                     break;
                 }
             }
+            closed_w.notify_one();
         });
         loop {
-            match tokio::time::timeout(Duration::from_secs(600), recv.recv()).await {
+            let frame = tokio::select! {
+                f = tokio::time::timeout(Duration::from_secs(600), recv.recv()) => f,
+                _ = closed.notified() => break,
+            };
+            match frame {
                 Ok(Ok(frame)) => match Message::decode(&frame) {
                     Ok(m) => {
                         if self.inner.events.send(Event::Message(id, m)).await.is_err() {
@@ -239,18 +352,37 @@ impl Net {
     }
 
     pub fn send(&self, peer: PeerId, m: &Message) {
-        if let Some(p) = self.inner.peers.lock().get(&peer) {
-            let _ = p.tx.try_send(m.encode());
+        let mut ps = self.inner.peers.lock();
+        if let Some(p) = ps.get(&peer)
+            && !p.enqueue(m.encode())
+        {
+            tracing::debug!("peer {} stopped reading; disconnecting", p.info.addr);
+            ps.remove(&peer);
         }
     }
 
     pub fn broadcast(&self, m: &Message, except: Option<PeerId>) {
         let bytes = m.encode();
-        for (id, p) in self.inner.peers.lock().iter() {
-            if Some(*id) != except && p.info.hello.is_some() {
-                let _ = p.tx.try_send(bytes.clone());
-            }
+        let mut ps = self.inner.peers.lock();
+        let stalled: Vec<PeerId> = ps
+            .iter()
+            .filter(|(id, p)| Some(**id) != except && p.info.hello.is_some())
+            .filter(|(_, p)| !p.enqueue(bytes.clone()))
+            .map(|(id, _)| *id)
+            .collect();
+        for id in stalled {
+            ps.remove(&id);
         }
+    }
+
+    /// Bytes queued for `peer` and not yet written (0 for unknown peers).
+    pub fn queued_bytes(&self, peer: PeerId) -> usize {
+        self.inner
+            .peers
+            .lock()
+            .get(&peer)
+            .map(|p| p.queued.load(Ordering::Relaxed))
+            .unwrap_or(0)
     }
 
     pub fn set_hello(&self, peer: PeerId, h: Hello) {

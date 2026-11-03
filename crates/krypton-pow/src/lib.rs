@@ -257,28 +257,27 @@ pub fn meets_difficulty(hash: &[u8; 32], difficulty: u128) -> bool {
     if difficulty == 0 {
         return false;
     }
-    let lo = difficulty as u64 as u128;
-    let hi = (difficulty >> 64) as u64 as u128;
-    let mut limbs = [0u64; 4];
-    for (i, l) in limbs.iter_mut().enumerate() {
-        *l = u64::from_le_bytes(hash[i * 8..i * 8 + 8].try_into().expect("8"));
-    }
-    // Multiply the 256-bit hash by the 128-bit difficulty and check for overflow past 256 bits.
-    let mut out = [0u128; 6];
-    for (i, &l) in limbs.iter().enumerate() {
-        out[i] += l as u128 * lo;
-        out[i + 1] += l as u128 * hi;
-    }
-    let mut carry = 0u128;
-    for (i, o) in out.iter().enumerate() {
-        let v = o + carry;
-        let (limb, c) = (v as u64, v >> 64);
-        carry = c;
-        if i >= 4 && limb != 0 {
-            return false;
+    let d = [difficulty as u64, (difficulty >> 64) as u64];
+    // Schoolbook 256 x 128 -> 384-bit product in 64-bit limbs; every partial sum
+    // (a*b + c + carry, all < 2^64) fits in a u128, so nothing can overflow.
+    let mut out = [0u64; 6];
+    for i in 0..4 {
+        let l = u64::from_le_bytes(hash[i * 8..i * 8 + 8].try_into().expect("8")) as u128;
+        let mut carry = 0u128;
+        for (j, &dj) in d.iter().enumerate() {
+            let t = l * dj as u128 + out[i + j] as u128 + carry;
+            out[i + j] = t as u64;
+            carry = t >> 64;
+        }
+        let mut k = i + 2;
+        while carry != 0 && k < out.len() {
+            let t = out[k] as u128 + carry;
+            out[k] = t as u64;
+            carry = t >> 64;
+            k += 1;
         }
     }
-    carry == 0
+    out[4] == 0 && out[5] == 0
 }
 
 /// `floor((2^256 - 1) / difficulty)` as a little-endian 256-bit integer (GPU target).
@@ -434,6 +433,67 @@ mod tests {
         assert!(meets_difficulty(&[0xff; 32], 1));
         assert!(!meets_difficulty(&[0xff; 32], 2));
         assert!(!meets_difficulty(&[0; 32], 0));
+    }
+
+    /// `hash * difficulty < 2^256` with plain 32-bit limb arithmetic as the reference.
+    fn reference_meets(hash: &[u8; 32], difficulty: u128) -> bool {
+        if difficulty == 0 {
+            return false;
+        }
+        let h: Vec<u64> = hash
+            .chunks(4)
+            .map(|c| u32::from_le_bytes(c.try_into().unwrap()) as u64)
+            .collect();
+        let d: Vec<u64> = (0..4)
+            .map(|i| (difficulty >> (32 * i)) as u32 as u64)
+            .collect();
+        let mut out = [0u64; 12];
+        for (i, &a) in h.iter().enumerate() {
+            for (j, &b) in d.iter().enumerate() {
+                out[i + j] += a * b;
+                let mut k = i + j;
+                while out[k] >> 32 != 0 {
+                    let c = out[k] >> 32;
+                    out[k] &= 0xffff_ffff;
+                    out[k + 1] += c;
+                    k += 1;
+                }
+            }
+        }
+        out[8..].iter().all(|&x| x == 0)
+    }
+
+    #[test]
+    fn meets_difficulty_is_exact_for_all_sizes() {
+        let mut s = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = || {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            s
+        };
+        for _ in 0..20_000 {
+            let mut hash = [0u8; 32];
+            for c in hash.chunks_mut(8) {
+                c.copy_from_slice(&next().to_le_bytes());
+            }
+            // Leading zero bytes make passing hashes common at every difficulty size.
+            let zeros = (next() % 33) as usize;
+            for b in hash.iter_mut().rev().take(zeros) {
+                *b = 0;
+            }
+            let bits = next() % 129;
+            let d = if bits == 128 {
+                u128::MAX
+            } else {
+                ((next() as u128) << 64 | next() as u128) & ((1u128 << bits) - 1)
+            };
+            assert_eq!(
+                meets_difficulty(&hash, d),
+                reference_meets(&hash, d),
+                "hash {hash:02x?} difficulty {d}"
+            );
+        }
     }
 
     #[test]

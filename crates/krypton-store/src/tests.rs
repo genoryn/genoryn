@@ -172,6 +172,163 @@ fn database_from_another_genesis_is_set_aside() {
     assert!(d.path().join("chain.redb").exists());
 }
 
+#[test]
+fn relayed_block_with_altered_body_does_not_poison_its_header() {
+    let d = tempfile::tempdir().unwrap();
+    let now = u64::MAX / 4;
+    let c = Chain::open(d.path(), Network::Devnet).unwrap();
+    for _ in 0..2 {
+        let b = mine_next(&c, 0);
+        c.process_block(&b, now).unwrap();
+    }
+    let s = mine_share(&c, owner(2), 1);
+    let genuine = mine_with(&c, owner(1), vec![s], 0);
+    assert_eq!(genuine.shares.len(), 1);
+    // Same header (valid proof of work), body stripped by a relaying peer.
+    let mut altered = genuine.clone();
+    altered.shares.clear();
+    assert_eq!(altered.hash(), genuine.hash());
+    assert!(matches!(
+        c.process_block(&altered, now),
+        Err(ChainError::Invalid(_))
+    ));
+    assert!(
+        c.header_record(&genuine.hash())
+            .unwrap()
+            .is_none_or(|r| r.status != STATUS_INVALID),
+        "header must not be remembered as invalid"
+    );
+    assert_eq!(
+        c.process_block(&genuine, now).unwrap(),
+        Outcome::Connected { reorg_depth: 0 }
+    );
+    assert_eq!(c.tip().hash, genuine.hash());
+}
+
+#[test]
+fn undoing_a_block_without_new_leaves_keeps_the_anchor() {
+    let d = tempfile::tempdir().unwrap();
+    let now = u64::MAX / 4;
+    let c = Chain::open(d.path(), Network::Devnet).unwrap();
+    // Devnet payouts first mature at height 7: blocks 1..=4 keep the empty tree's root.
+    for _ in 0..4 {
+        let b = mine_next(&c, 0);
+        c.process_block(&b, now).unwrap();
+    }
+    let root = c.tip().header.note_root;
+    assert_eq!(c.header_at(3).unwrap().unwrap().note_root, root);
+    assert_eq!(c.view().unwrap().anchor_height(&root), Some(4));
+    {
+        let _g = c.write.lock();
+        c.disconnect_tip().unwrap();
+    }
+    assert_eq!(c.tip().height(), 3);
+    assert_eq!(
+        c.view().unwrap().anchor_height(&root),
+        Some(3),
+        "the parent's identical root stays a valid anchor"
+    );
+}
+
+#[test]
+fn startup_repair_restores_anchor_roots_and_clears_wrong_invalid_marks() {
+    let d = tempfile::tempdir().unwrap();
+    let now = u64::MAX / 4;
+    let (root, side) = {
+        let c = Chain::open(d.path(), Network::Devnet).unwrap();
+        for _ in 0..2 {
+            let b = mine_next(&c, 0);
+            c.process_block(&b, now).unwrap();
+        }
+        // Two valid blocks at height 3; the first seen stays main. Then the state
+        // kryptond 1.0.0 could leave: the tip's root missing and the valid side block
+        // marked invalid (body deleted).
+        let main3 = mine_next(&c, 0);
+        let side = mine_next(&c, 5);
+        assert_eq!(
+            c.process_block(&main3, now).unwrap(),
+            Outcome::Connected { reorg_depth: 0 }
+        );
+        assert_eq!(c.process_block(&side, now).unwrap(), Outcome::SideChain);
+        c.mark_invalid(&side.hash()).unwrap();
+        let root = c.tip().header.note_root;
+        let w = c.db.begin_write().unwrap();
+        w.open_table(ROOTS)
+            .unwrap()
+            .remove(root.as_slice())
+            .unwrap();
+        w.open_table(META)
+            .unwrap()
+            .remove(META_INVALID_RESET)
+            .unwrap();
+        w.commit().unwrap();
+        assert_eq!(c.view().unwrap().anchor_height(&root), None);
+        (root, side)
+    };
+    let c = Chain::open(d.path(), Network::Devnet).unwrap();
+    assert_eq!(c.view().unwrap().anchor_height(&root), Some(3));
+    let rec = c.header_record(&side.hash()).unwrap().unwrap();
+    assert_eq!(rec.status, STATUS_UNVERIFIED);
+    assert_eq!(c.process_block(&side, now).unwrap(), Outcome::SideChain);
+    // Invalid marks set after the one-time reset are kept.
+    c.mark_invalid(&side.hash()).unwrap();
+    drop(c);
+    let c = Chain::open(d.path(), Network::Devnet).unwrap();
+    assert_eq!(
+        c.header_record(&side.hash()).unwrap().unwrap().status,
+        STATUS_INVALID
+    );
+}
+
+#[test]
+fn reorganization_with_a_missing_body_leaves_the_chain_untouched() {
+    let d1 = tempfile::tempdir().unwrap();
+    let d2 = tempfile::tempdir().unwrap();
+    let now = u64::MAX / 4;
+    let a = Chain::open(d1.path(), Network::Devnet).unwrap();
+    let b = Chain::open(d2.path(), Network::Devnet).unwrap();
+    for _ in 0..2 {
+        let blk = mine_next(&a, 0);
+        a.process_block(&blk, now).unwrap();
+        b.process_block(&blk, now).unwrap();
+    }
+    let blk = mine_next(&a, 1);
+    a.process_block(&blk, now).unwrap();
+    let branch: Vec<Block> = (0..3)
+        .map(|_| {
+            let blk = mine_next(&b, 9);
+            b.process_block(&blk, now).unwrap();
+            blk
+        })
+        .collect();
+    let tip = a.tip().hash;
+    a.process_block(&branch[0], now).unwrap();
+    let w = a.db.begin_write().unwrap();
+    w.open_table(BLOCKS)
+        .unwrap()
+        .remove(branch[0].hash().as_slice())
+        .unwrap();
+    w.commit().unwrap();
+    a.process_block(&branch[1], now).unwrap();
+    let out = a.process_block(&branch[2], now).unwrap();
+    assert_eq!(
+        out,
+        Outcome::Orphan {
+            missing: branch[0].hash()
+        }
+    );
+    assert_eq!(a.tip().hash, tip, "nothing was disconnected");
+    // Once the body arrives again the heavier branch wins.
+    a.process_block(&branch[0], now).unwrap();
+    let next = mine_next(&b, 9);
+    b.process_block(&next, now).unwrap();
+    assert!(matches!(
+        a.process_block(&next, now).unwrap(),
+        Outcome::Connected { .. }
+    ));
+    assert_eq!(a.tip().hash, b.tip().hash);
+}
+
 /// A header from `c`'s next template that meets the share target only.
 fn mine_share(c: &Chain, miner: Hash32, salt: u64) -> BlockHeader {
     let mut h = c

@@ -102,6 +102,11 @@ pub trait ProofSource {
         pow: &Verifier,
     ) -> Result<BlockHeader>;
     fn tip_height(&self) -> Result<u64>;
+    /// The full address published for a short address, if the source keeps a directory.
+    /// The caller checks that it hashes to the short address.
+    fn resolve_recipient(&self, _short: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -114,6 +119,10 @@ pub struct PaymentReport {
     pub recipient: String,
     /// Some(true/false) when the verifier supplied the recipient's address.
     pub recipient_confirmed: Option<bool>,
+    /// `recipient` provably belongs to the owner the payment went to (checked against
+    /// the verifier's own address or the published address the short form hashes to).
+    /// The short address is chosen by the prover, so it means nothing when false.
+    pub recipient_verified: bool,
     pub time: u64,
 }
 
@@ -143,11 +152,19 @@ pub fn verify(
     let Some(note) = open_disclosed_note(&proof.key, &owner, &out.cm, &out.ciphertext) else {
         bail!("the proof does not open this payment: it is forged or for another output");
     };
-    let recipient_confirmed = recipient.map(|a| {
+    let paid = |a: &Address| {
         krypton_crypto::field::digest_to_bytes(&a.owner) == proof.owner
             && a.short_id() == proof.recipient
             && a.network == proof.network
-    });
+    };
+    let recipient_confirmed = recipient.map(paid);
+    let recipient_verified = recipient_confirmed == Some(true)
+        || src
+            .resolve_recipient(&proof.recipient_short())
+            .ok()
+            .flatten()
+            .and_then(|s| Address::decode(&s).ok())
+            .is_some_and(|a| paid(&a));
     let tip = src.tip_height()?;
     Ok(PaymentReport {
         txid: hex::encode(proof.txid),
@@ -157,8 +174,29 @@ pub fn verify(
         memo: note.memo_text(),
         recipient: proof.recipient_short(),
         recipient_confirmed,
+        recipient_verified,
         time: header.timestamp,
     })
+}
+
+/// [`verify`] from the point of view of the wallet `me` (if any): a proof that names
+/// `me` as the recipient but paid someone else is rejected as forged; for proofs about
+/// other people's payments `recipient_confirmed` is None.
+pub fn verify_for(
+    proof: &PaymentProof,
+    src: &impl ProofSource,
+    me: Option<&Address>,
+    pow: &Verifier,
+) -> Result<PaymentReport> {
+    let mut r = verify(proof, src, me, pow)?;
+    if r.recipient_confirmed == Some(false) {
+        ensure!(
+            me.is_none_or(|a| a.short_id() != proof.recipient),
+            "this proof names this wallet as the recipient, but the payment went to someone else: it is forged"
+        );
+        r.recipient_confirmed = None;
+    }
+    Ok(r)
 }
 
 impl ProofSource for krypton_light::client::NodeClient {
@@ -184,5 +222,8 @@ impl ProofSource for krypton_light::client::NodeClient {
     }
     fn tip_height(&self) -> Result<u64> {
         Ok(self.info()?.height)
+    }
+    fn resolve_recipient(&self, short: &str) -> Result<Option<String>> {
+        Ok(self.resolve_short(short).ok())
     }
 }

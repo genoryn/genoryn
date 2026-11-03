@@ -21,6 +21,13 @@ An attacker who forks away from the honest chain must produce proof of work for 
 sampled height on its branch; with enough samples the probability of a successful fake is
 negligible, while the cost stays logarithmic in the chain length.
 
+**Limitation (v1).** Samples are chosen by height and checked against the difficulty each
+header claims; the client does not compare total work. A server can therefore present a
+fabricated low-difficulty chain from the real genesis. Configure several independently
+operated nodes: wallets refuse to sync when they disagree. Work-weighted sampling and a
+minimum chain work per release are planned
+([review](../audit/2026-11-security-review.md), H-6).
+
 ## Compact blocks
 
 `GET /v1/compact?from=h&count=n` returns, per block: header, tree size before the block, all

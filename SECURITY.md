@@ -3,8 +3,10 @@
 ## Status
 
 Genoryn Krypton has extensive automated tests (consensus, proofs, PoW, reorganizations,
-light-client forgery, parser property tests) but **no independent audit yet**. Treat the
-testnet as experimental. Highest-value review targets:
+light-client forgery, parser property tests) but **no independent audit yet**. An internal
+end-to-end review and the fixes it led to are in
+[docs/audit/2026-11-security-review.md](docs/audit/2026-11-security-review.md).
+Highest-value review targets:
 
 1. The spend AIR and its zero-knowledge masking (`crates/krypton-zk`, `docs/spec/spend-circuit.md`)
 2. Consensus and reorganization code (`crates/krypton-core/src/consensus.rs`, `crates/krypton-store`)

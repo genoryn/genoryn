@@ -30,13 +30,17 @@ pub struct Available {
     pub can_install: bool,
 }
 
+/// Strict `[v]MAJOR.MINOR.PATCH`: the version also names the installer file.
 fn parse(v: &str) -> Option<(u64, u64, u64)> {
-    let mut it = v.trim().trim_start_matches('v').split(['.', '-']);
-    Some((
-        it.next()?.parse().ok()?,
-        it.next()?.parse().ok()?,
-        it.next()?.parse().ok()?,
-    ))
+    let v = v.trim();
+    let mut it = v.strip_prefix('v').unwrap_or(v).split('.');
+    let mut num = || {
+        it.next()
+            .filter(|s| !s.is_empty() && s.len() <= 6 && s.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|s| s.parse().ok())
+    };
+    let r = (num()?, num()?, num()?);
+    it.next().is_none().then_some(r)
 }
 
 /// Whether `candidate` is a newer release than `current`.
@@ -69,6 +73,10 @@ pub fn check() -> Result<Option<Available>> {
     if !newer(&tag, env!("CARGO_PKG_VERSION")) || v["draft"].as_bool() == Some(true) {
         return Ok(None);
     }
+    let version = tag.trim().trim_start_matches('v').to_string();
+    // The signed checksums name each file with its version, so binding the installer
+    // name to the tag stops an old (validly signed) installer being served as an update.
+    let installer_name = format!("GenorynKrypton-{version}-Windows-x64-Setup.exe");
     let assets = v["assets"].as_array().cloned().unwrap_or_default();
     let find = |pred: &dyn Fn(&str) -> bool| {
         assets.iter().find_map(|a| {
@@ -78,7 +86,7 @@ pub fn check() -> Result<Option<Available>> {
         })
     };
     let installer = if cfg!(windows) {
-        find(&|n: &str| n.ends_with("-Windows-x64-Setup.exe"))
+        find(&|n: &str| n == installer_name)
     } else {
         None
     };
@@ -86,7 +94,7 @@ pub fn check() -> Result<Option<Available>> {
     let sig = find(&|n: &str| n == "SHA256SUMS.sig").map(|x| x.1);
     let can_install = installer.is_some() && sums.is_some() && sig.is_some();
     Ok(Some(Available {
-        version: tag.trim_start_matches('v').to_string(),
+        version,
         page: v["html_url"]
             .as_str()
             .unwrap_or("https://github.com/genoryn/genoryn/releases")
@@ -170,6 +178,9 @@ mod tests {
         assert!(!newer("v1.0.0", "1.0.0"));
         assert!(!newer("v0.9.9", "1.0.0"));
         assert!(!newer("garbage", "1.0.0"));
+        assert!(!newer("v9.0.0-/../../x", "1.0.0"), "strict tags only");
+        assert!(!newer("v9.0.0.1", "1.0.0"));
+        assert!(!newer("v9..0", "1.0.0"));
     }
     #[test]
     fn embedded_key_is_valid_hex() {

@@ -182,6 +182,31 @@ impl ChainSource for Multi {
     }
 }
 impl Multi {
+    /// With several nodes configured, refuses to continue when they disagree about a
+    /// recent common block (an attack or a network split).
+    fn cross_check(&self) -> Result<()> {
+        if self.0.len() < 2 {
+            return Ok(());
+        }
+        let heights: Vec<(&NodeClient, u64)> = self
+            .0
+            .iter()
+            .filter_map(|c| c.info().ok().map(|i| (c, i.height)))
+            .collect();
+        let Some(min) = heights.iter().map(|(_, h)| *h).min() else {
+            return Ok(());
+        };
+        let at = min.saturating_sub(2);
+        let hashes: std::collections::HashSet<_> = heights
+            .iter()
+            .filter_map(|(c, _)| NodeClient::header(c, at).ok().map(|h| h.hash()))
+            .collect();
+        anyhow::ensure!(
+            hashes.len() <= 1,
+            "configured nodes disagree about block {at}: possible attack or network split"
+        );
+        Ok(())
+    }
     fn first(&self) -> Result<&NodeClient> {
         for c in &self.0 {
             if c.info().is_ok() {
@@ -406,6 +431,7 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
     let a = app.clone();
     match blocking(move || {
         let src = Multi(a.sources()?);
+        src.cross_check()?;
         let to = r.to.trim().to_string();
         let full = if to.contains("s1") && to.len() < 120 {
             src.first()?.resolve_short(&to)?
@@ -938,7 +964,7 @@ async fn serve(
                     return;
                 };
                 if let Some(w) = g.as_mut() {
-                    match w.sync(&src, |_, _| {}) {
+                    match src.cross_check().and_then(|_| w.sync(&src, |_, _| {})) {
                         Ok(_) => a.last_error.lock().clear(),
                         Err(e) => *a.last_error.lock() = format!("sync: {e}"),
                     }

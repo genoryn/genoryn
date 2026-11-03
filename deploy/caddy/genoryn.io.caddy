@@ -3,7 +3,8 @@ genoryn.io, www.genoryn.io {
 	# Public node API for light wallets, explorers and miners.
 	@api path /v1/* /rpc
 	handle @api {
-		reverse_proxy 127.0.0.1:31334 {
+		# Mainnet node API (testnet would be 31334).
+		reverse_proxy 127.0.0.1:30334 {
 			header_up X-Forwarded-For {remote_host}
 		}
 	}

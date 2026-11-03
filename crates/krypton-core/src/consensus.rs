@@ -277,6 +277,24 @@ fn block_rewards(
     )
 }
 
+/// Checks that the body is exactly the one the header commits to (no chain state).
+/// A mismatch says nothing about the header itself: its real body may be valid, so a
+/// node must reject such a block without remembering the header as invalid.
+pub fn check_body_commitments(b: &Block) -> Result<()> {
+    let h = &b.header;
+    if b.shares.len() > MAX_SHARES_PER_BLOCK {
+        return Err(CoreError::Invalid("too many shares"));
+    }
+    if h.tx_root != tx_root(&b.txs)
+        || h.nullifier_digest != nullifier_digest(&b.txs)
+        || h.output_digest != output_digest(&b.txs)
+        || h.share_root != reward::share_root(&b.shares)
+    {
+        return Err(CoreError::Invalid("block commitments do not match body"));
+    }
+    Ok(())
+}
+
 /// Full validation of a block on top of `ctx`. Returns the state changes to apply.
 pub fn check_block(
     p: &ChainParams,
@@ -292,16 +310,7 @@ pub fn check_block(
     if b.to_bytes().len() > MAX_BLOCK_BYTES {
         return bad("block too large");
     }
-    if h.tx_root != tx_root(&b.txs)
-        || h.nullifier_digest != nullifier_digest(&b.txs)
-        || h.output_digest != output_digest(&b.txs)
-        || h.share_root != reward::share_root(&b.shares)
-    {
-        return bad("block commitments do not match body");
-    }
-    if b.shares.len() > MAX_SHARES_PER_BLOCK {
-        return bad("too many shares");
-    }
+    check_body_commitments(b)?;
     let share_hashes: Vec<Hash32> = b.shares.iter().map(|s| s.hash()).collect();
     if share_hashes.windows(2).any(|w| w[0] >= w[1]) {
         return bad("shares must be strictly ordered by hash");

@@ -52,6 +52,23 @@ pub enum ShareOutcome {
     Known,
 }
 
+/// Why a transaction was not added to the pool.
+#[derive(Debug)]
+pub enum TxReject {
+    /// Not acceptable now: fee policy, conflicts, a spent nullifier, a stale anchor.
+    Rejected(String),
+    /// Can never be valid (malformed, or the proof fails).
+    Invalid(String),
+}
+
+impl std::fmt::Display for TxReject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TxReject::Rejected(m) | TxReject::Invalid(m) => f.write_str(m),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ShareError {
     /// Not creditable on top of the current tip (stale, duplicate, wrong context).
@@ -83,6 +100,8 @@ pub struct Node {
     pub jobs: Mutex<HashMap<u64, Job>>,
     pub templates: Mutex<HashMap<String, (Hash32, u64, Instant, u64)>>,
     pub template_budget: Mutex<Vec<Instant>>,
+    /// Recent address-directory writes (bounds disk use from the public API).
+    pub address_budget: Mutex<Vec<Instant>>,
     pub nonce: u64,
     pub started: Instant,
     peer_heights: Mutex<HashMap<PeerId, u64>>,
@@ -108,6 +127,7 @@ impl Node {
             jobs: Mutex::new(HashMap::new()),
             templates: Mutex::new(HashMap::new()),
             template_budget: Mutex::new(Vec::new()),
+            address_budget: Mutex::new(Vec::new()),
             nonce: rand::random(),
             started: Instant::now(),
             peer_heights: Mutex::new(HashMap::new()),
@@ -305,7 +325,11 @@ impl Node {
                 }
             }
             Message::GetBlocks(v) => {
+                // Requests beyond what the peer is reading are dropped; it asks again.
                 for h in v.iter().take(64) {
+                    if self.net.queued_bytes(p) > krypton_p2p::SOFT_QUEUED_BYTES {
+                        break;
+                    }
                     if let Some(b) = self.chain.block(h)? {
                         self.net.send(p, &Message::Block(b.to_bytes()));
                     }
@@ -372,6 +396,9 @@ impl Node {
             Message::GetTxs(v) => {
                 let mp = self.mempool.lock();
                 for id in v.iter().take(500) {
+                    if self.net.queued_bytes(p) > krypton_p2p::SOFT_QUEUED_BYTES {
+                        break;
+                    }
                     if let Some(e) = mp.txs.get(id) {
                         self.net.send(p, &Message::Tx(e.tx.to_bytes()));
                     }
@@ -390,6 +417,11 @@ impl Node {
                         },
                         Some(p),
                     ),
+                    // Honest nodes only relay transactions whose proofs they verified.
+                    Err(TxReject::Invalid(e)) => {
+                        tracing::warn!("peer {p} sent an invalid transaction: {e}");
+                        self.net.ban(p);
+                    }
                     Err(e) => tracing::debug!("rejected tx from {p}: {e}"),
                 }
             }
@@ -419,6 +451,18 @@ impl Node {
                 }
                 let chain = self.chain.clone();
                 mp.retain_valid(|t| chain.check_tx_state(t).is_ok());
+                // Transfers from blocks a reorganization dropped were valid (proof
+                // included); those still valid on the new chain wait for the next block.
+                for t in chain.take_disconnected_txs() {
+                    let id = t.txid();
+                    if !mp.contains(&id)
+                        && chain.tx_height(&id).ok().flatten().is_none()
+                        && chain.check_tx_state(&t).is_ok()
+                        && mp.precheck(&t).is_ok()
+                    {
+                        mp.insert(t);
+                    }
+                }
             }
             {
                 let chain = self.chain.clone();
@@ -517,24 +561,35 @@ impl Node {
         Ok(ShareOutcome::Accepted)
     }
 
-    /// Validates a transaction for the pool (proof verified off the async runtime).
+    /// Validates a transaction for the pool: cheap checks first, the proof last and off
+    /// the async runtime.
     pub async fn accept_tx(
         self: &Arc<Self>,
         tx: Transaction,
-    ) -> std::result::Result<Hash32, String> {
+    ) -> std::result::Result<Hash32, TxReject> {
         let id = tx.txid();
         if self.mempool.lock().contains(&id) {
-            return Err("already in pool".into());
+            return Err(TxReject::Rejected("already in pool".into()));
         }
-        self.mempool.lock().precheck(&tx)?;
+        let st = krypton_core::consensus::check_tx_structure(&tx)
+            .map_err(|e| TxReject::Invalid(e.to_string()))?;
+        self.mempool
+            .lock()
+            .precheck(&tx)
+            .map_err(TxReject::Rejected)?;
         let chain = self.chain.clone();
         let t2 = tx.clone();
-        tokio::task::spawn_blocking(move || chain.check_mempool_tx(&t2))
-            .await
-            .map_err(|e| e.to_string())?
-            .map_err(|e| e.to_string())?;
+        tokio::task::spawn_blocking(move || {
+            chain
+                .check_tx_state(&t2)
+                .map_err(|e| TxReject::Rejected(e.to_string()))?;
+            krypton_core::consensus::verify_proof(&t2, &st)
+                .map_err(|e| TxReject::Invalid(e.to_string()))
+        })
+        .await
+        .map_err(|e| TxReject::Rejected(e.to_string()))??;
         let mut mp = self.mempool.lock();
-        mp.precheck(&tx)?;
+        mp.precheck(&tx).map_err(TxReject::Rejected)?;
         mp.insert(tx);
         drop(mp);
         let _ = self

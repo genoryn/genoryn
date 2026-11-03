@@ -2,7 +2,7 @@
 # Installs a Genoryn Krypton node (+ optional CPU miner capped at 50 %) on Ubuntu 22.04/24.04.
 # Usage: sudo ./setup-server.sh <network> [--miner <payout-address-file>]
 set -euo pipefail
-NET="${1:-testnet}"
+NET="${1:-mainnet}"
 MINER_ADDR=""
 if [[ "${2:-}" == "--miner" ]]; then MINER_ADDR="$3"; fi
 case "$NET" in mainnet) RPC=30334; P2P=30333 ;; testnet) RPC=31334; P2P=31333 ;; *) echo "network?"; exit 1 ;; esac

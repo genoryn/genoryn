@@ -234,7 +234,11 @@ async fn block_json(State(n): S, Path(id): Path<String>) -> R<Json<Value>> {
     .ok_or_else(|| nf("block not found"))?;
     let tip = n.chain.tip().height();
     let main = n.chain.is_main(&b.hash()).map_err(ise)?;
-    let conf = if main { tip - b.header.height + 1 } else { 0 };
+    let conf = if main {
+        (tip + 1).saturating_sub(b.header.height)
+    } else {
+        0
+    };
     let payouts = if main {
         n.chain.payouts_at(b.header.height).map_err(ise)?
     } else {
@@ -290,10 +294,21 @@ async fn compact(State(n): S, Query(q): Query<Range>) -> R<Response> {
     let chain = n.chain.clone();
     let list = tokio::task::spawn_blocking(
         move || -> anyhow::Result<Vec<krypton_light::CompactBlock>> {
+            // Bounded response: wallets continue from the last block they received.
+            const MAX_BYTES: usize = 16 * 1024 * 1024;
             let mut v = Vec::new();
-            for h in from..from + count {
+            let mut bytes = 0usize;
+            for h in from..from.saturating_add(count) {
+                if bytes >= MAX_BYTES {
+                    break;
+                }
                 match chain.compact_block(h)? {
-                    Some(b) => v.push(b),
+                    Some(b) => {
+                        bytes += b.outputs.len() * (36 + krypton_core::types::NOTE_CIPHERTEXT_LEN)
+                            + b.nullifiers.len() * 32
+                            + 512;
+                        v.push(b);
+                    }
                     None => break,
                 }
             }
@@ -440,7 +455,7 @@ async fn tx_lookup(State(n): S, Path(x): Path<String>) -> R<Json<Value>> {
         .ok_or_else(|| nf("transaction not found"))?;
     let tip = n.chain.tip().height();
     Ok(Json(
-        json!({"txid": x, "status": "confirmed", "height": h, "confirmations": tip - h + 1}),
+        json!({"txid": x, "status": "confirmed", "height": h, "confirmations": (tip + 1).saturating_sub(h)}),
     ))
 }
 
@@ -480,9 +495,25 @@ async fn publish_address(State(n): S, body: String) -> R<Json<Value>> {
     if a.network != n.chain.params.network {
         return Err(bad("address is for another network"));
     }
-    n.chain
-        .put_address(&a.short_id(), body.trim().as_bytes())
-        .map_err(ise)?;
+    let id = a.short_id();
+    if n.chain.get_address(&id).map_err(ise)?.is_none() {
+        // Entries are content-addressed and permanent: bound how fast anyone can add them.
+        {
+            let mut b = n.address_budget.lock();
+            let now = Instant::now();
+            b.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
+            if b.len() >= 120 {
+                return Err(ApiError(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "address directory is busy; try again in a minute".into(),
+                ));
+            }
+            b.push(now);
+        }
+        n.chain
+            .put_address(&id, a.encode().as_bytes())
+            .map_err(ise)?;
+    }
     Ok(Json(json!({"short": a.short()})))
 }
 
@@ -528,9 +559,9 @@ async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
     if let Some((hash, r, at, job)) = n.templates.lock().get(&key).copied()
         && hash == tip.hash
         && (r == rev || at.elapsed() < Duration::from_secs(10))
-        && n.jobs.lock().contains_key(&job)
+        && let Some(v) = job_json(n, job)
     {
-        return Ok(job_json(n, job));
+        return Ok(v);
     }
     {
         // Bound template building on public endpoints.
@@ -558,29 +589,45 @@ async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
     .map_err(ise)?
     .map_err(ise)?;
     let id: u64 = rand::random::<u64>() >> 12;
-    n.jobs.lock().insert(
-        id,
-        Job {
-            block,
-            created: Instant::now(),
-        },
-    );
+    {
+        // Every job holds a full block: bound their memory (oldest go first; miners
+        // refresh their template every few seconds).
+        const MAX_JOB_TXS: usize = 8192;
+        let mut jobs = n.jobs.lock();
+        let mut txs: usize =
+            jobs.values().map(|j| j.block.txs.len()).sum::<usize>() + block.txs.len();
+        while txs > MAX_JOB_TXS || jobs.len() >= 20_000 {
+            let Some(oldest) = jobs.iter().min_by_key(|(_, j)| j.created).map(|(k, _)| *k) else {
+                break;
+            };
+            if let Some(j) = jobs.remove(&oldest) {
+                txs -= j.block.txs.len();
+            }
+        }
+        jobs.insert(
+            id,
+            Job {
+                block,
+                created: Instant::now(),
+            },
+        );
+    }
     n.templates
         .lock()
         .insert(key, (tip.hash, rev, Instant::now(), id));
-    Ok(job_json(n, id))
+    job_json(n, id).ok_or_else(|| ise("job expired"))
 }
 
-fn job_json(n: &Node, id: u64) -> Value {
+fn job_json(n: &Node, id: u64) -> Option<Value> {
     let jobs = n.jobs.lock();
-    let b = &jobs[&id].block;
+    let b = &jobs.get(&id)?.block;
     let h = &b.header;
     let target = krypton_pow::target_from_difficulty(h.difficulty);
     let share_difficulty = reward::share_difficulty(h.difficulty);
     let share_target = krypton_pow::target_from_difficulty(share_difficulty);
     let epoch = krypton_pow::epoch_of(h.height);
     let hex_target = |t: &[u64; 4]| t.iter().map(|l| format!("{l:016x}")).collect::<Vec<_>>();
-    json!({
+    Some(json!({
         "job_id": id,
         "height": h.height,
         "pow_hash": hex::encode(h.pow_hash()),
@@ -594,7 +641,7 @@ fn job_json(n: &Node, id: u64) -> Value {
         "subsidy": subsidy(h.height),
         "shares": b.shares.len(),
         "txs": b.txs.len(),
-    })
+    }))
 }
 
 async fn mining_template(State(n): S, Json(r): Json<TemplateReq>) -> R<Json<Value>> {
