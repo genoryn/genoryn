@@ -92,15 +92,74 @@
     }).catch(function () { err("Invalid nullifier."); });
   }
 
+  function post(p, body) {
+    return fetch(p, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
+  }
+
+  function proofForm(prefillAddress) {
+    return card('<div style="padding:18px"><h3 class="xh">Verify a payment proof</h3>' +
+      '<p class="muted" style="margin:6px 0 12px">Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.</p>' +
+      '<label for="pf" class="sr-only">Payment proof</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
+      '<label for="pfa" class="sr-only">Recipient address (optional)</label><input id="pfa" placeholder="Recipient full address (optional, confirms the recipient)" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
+      '<button class="btn btn-primary" type="button" onclick="exProof()" style="margin-top:10px">Verify</button><div id="pfr" style="margin-top:14px"></div></div>');
+  }
+
+  window.exProof = function () {
+    var out = document.getElementById("pfr");
+    out.innerHTML = '<p class="muted">Checking…</p>';
+    post("/v1/verify-payment", { proof: document.getElementById("pf").value.trim(), address: document.getElementById("pfa").value.trim() || null }).then(function (r) {
+      out.innerHTML = '<p class="ok"><b>Valid payment proof</b></p>' + kv([
+        ["Amount", "<b>" + gk.gnr(r.value) + " GNR</b>"], ["Recipient", '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === true ? ' <span class="ok">· matches the address</span>' : r.recipient_confirmed === false ? ' <span class="bad">· does not match the address</span>' : "")],
+        ["Memo", gk.esc(r.memo) || "—"], ["Transaction", '<a class="mono" href="#/tx/' + r.txid + '">' + short(r.txid) + "</a>"],
+        ["Block", '<a href="#/block/' + r.height + '">' + r.height + "</a> · " + r.confirmations + " confirmations"], ["Time", new Date(r.time * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
+      ]);
+    }).catch(function (e) { out.innerHTML = '<p class="bad"><b>Not valid:</b> ' + gk.esc(e.message) + "</p>"; });
+  };
+
+  function address(id) {
+    view.innerHTML = '<p class="muted">Looking up…</p>';
+    gk.api("/v1/address-info/" + encodeURIComponent(id)).then(function (a) {
+      var rows = [["Status", '<span class="ok"><b>Valid ' + gk.esc(a.network) + " address</b></span>"], ["Short address", '<span class="mono wrap-any">' + gk.esc(a.short) + "</span>"]];
+      var priv = '<p class="muted" style="margin:14px 0 0">Transfers are shielded: incoming and outgoing payments never appear in any explorer, for this or any other address. To show that a payment really happened, ask the sender for a <b>payment proof</b> and check it below.</p>';
+      if (a.kind === "short") {
+        rows.push(["Full address", a.published ? "published" : '<span class="warn">not published on this node</span>']);
+        view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Address</h2>' + card('<div style="padding:4px 0">' + kv(rows) + '</div><div style="padding:0 18px 18px">' +
+          '<p class="muted">The short form is correct, but its owner has not published the full address here, so it cannot be resolved. In the wallet: <b>Wallet → Receive → Publish short form</b>, or search with the full address.</p>' + priv + "</div>") + proofForm();
+        return;
+      }
+      var m = a.mining || {}, act = m.activity || {}, pays = act.payouts || [];
+      rows.push(["Published", a.published ? "yes, the short form resolves on this node" : 'no (Wallet → Receive → Publish short form)'], ["Owner tag", '<span class="mono wrap-any">' + gk.esc(a.owner) + "</span>"], ["Cryptography", gk.esc(a.crypto)]);
+      var paid = pays.reduce(function (s, p) { return s + Number(p.value); }, 0);
+      var eta = m.next_payout_height ? m.next_payout_height + " (in ~" + Math.max(0, m.next_payout_height - a.height) + " min)" : "—";
+      var mining = kv([
+        ["Rewards accruing", "<b>" + gk.gnr(m.unpaid) + " GNR</b>"], ["Next payout", "block " + eta],
+        ["Paid so far", gk.gnr(paid) + " GNR in " + pays.length + " payout" + (pays.length === 1 ? "" : "s")],
+        ["Blocks found", String(act.blocks_found || 0)], ["Blocks with its shares", String(act.blocks_with_shares || 0)],
+        ["Mining since", act.first_seen ? '<a href="#/block/' + act.first_seen + '">block ' + act.first_seen + "</a>" : "—"], ["Last share", act.last_seen ? '<a href="#/block/' + act.last_seen + '">block ' + act.last_seen + "</a>" : "—"]
+      ]);
+      var payRows = pays.slice().reverse().map(function (p) {
+        var spend = p.height + (m.maturity || 100);
+        return '<tr><td data-label="Block"><a href="#/block/' + p.height + '">' + p.height + '</a></td><td data-label="Amount" class="num">' + gk.gnr(p.value) + ' GNR</td><td data-label="Spendable">' + (a.height >= spend ? '<span class="ok">yes</span>' : "from block " + spend) + "</td></tr>";
+      }).join("");
+      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Address</h2>' + card(kv(rows)) +
+        '<h2 style="font-size:20px;margin:22px 0 12px">Mining</h2>' + card(mining) +
+        (payRows ? '<h2 style="font-size:20px;margin:22px 0 12px">Payouts</h2>' + card('<table class="data"><thead><tr><th>Block</th><th class="num">Amount</th><th>Spendable</th></tr></thead><tbody>' + payRows + "</tbody></table>") : "") +
+        card('<div style="padding:0 18px 16px">' + priv + "</div>") + proofForm(id);
+    }).catch(function (e) { err("Not a valid Genoryn Krypton address: " + e.message); });
+  }
+
   window.exSearch = function (e) {
     e.preventDefault();
-    var q = document.getElementById("q").value.trim();
+    var q = document.getElementById("q").value.trim().replace(/\s+/g, "");
+    if (/^[a-z]*pay1/.test(q)) { location.hash = "#/proof"; setTimeout(function () { var f = document.getElementById("pf"); if (f) f.value = q; }, 50); return false; }
+    if (/^[a-z]*gnrs?1[a-z2-7]+$/.test(q)) { location.hash = "#/address/" + q; return false; }
     if (/^\d+$/.test(q)) location.hash = "#/block/" + q;
     else if (/^[0-9a-fA-F]{64}$/.test(q)) {
       gk.api("/v1/block/" + q).then(function () { location.hash = "#/block/" + q; }).catch(function () {
         gk.api("/v1/tx/" + q).then(function () { location.hash = "#/tx/" + q; }).catch(function () { location.hash = "#/nullifier/" + q; });
       });
-    } else err("Enter a block height or a 64-character hex id.");
+    } else err("Enter a block height, a 64-character hash or id, an address (gnr1… / gnrs1…) or a payment proof (gnrpay1…).");
     return false;
   };
 
@@ -109,7 +168,12 @@
     if (p[0] === "block" && p[1]) block(p[1]);
     else if (p[0] === "tx" && p[1]) tx(p[1]);
     else if (p[0] === "nullifier" && p[1]) nullifier(p[1]);
+    else if (p[0] === "address" && p[1]) address(decodeURIComponent(p[1]));
+    else if (p[0] === "proof") { view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Payment proof</h2>' + proofForm(); }
     else home();
+    var isHome = !p[0];
+    if (dashEl) dashEl.style.display = isHome ? "" : "none";
+    if (!isHome) view.scrollIntoView({ block: "start" });
   }
   window.addEventListener("hashchange", route);
   stats(); route();

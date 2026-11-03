@@ -78,6 +78,8 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/miner/{id}", get(miner_account))
         .route("/v1/shares", get(shares_pool))
         .route("/v1/stats", get(stats))
+        .route("/v1/address-info/{addr}", get(address_info))
+        .route("/v1/verify-payment", post(verify_payment))
         .route("/v1/ws", get(ws))
         .route("/rpc", post(json_rpc))
         .with_state(node)
@@ -770,6 +772,129 @@ async fn miner_account(State(n): S, Path(id): Path<String>) -> R<Json<Value>> {
         "network_shares_per_block": krypton_core::params::SHARE_RATIO as u64,
         "height": tip,
     })))
+}
+
+/// Everything public about an address: validity, short form, directory entry and
+/// mining activity. Transfers are shielded and never appear here.
+async fn address_info(State(n): S, Path(a): Path<String>) -> R<Json<Value>> {
+    let a = a.trim().to_string();
+    let net = &n.chain.params;
+    let (full, short, published) = if a.contains("s1") && a.len() < 120 {
+        let (network, id) = Address::parse_short(&a).map_err(bad)?;
+        if network != net.network {
+            return Err(bad(format!("short address for {}", network.as_str())));
+        }
+        match n.chain.get_address(&id).map_err(ise)? {
+            Some(f) => (Some(String::from_utf8(f).map_err(ise)?), a.clone(), true),
+            None => (None, a.clone(), false),
+        }
+    } else {
+        let addr = Address::decode(&a).map_err(bad)?;
+        if addr.network != net.network {
+            return Err(bad(format!("address for {}", addr.network.as_str())));
+        }
+        let published = n
+            .chain
+            .get_address(&addr.short_id())
+            .map_err(ise)?
+            .is_some();
+        (Some(a.clone()), addr.short(), published)
+    };
+    let Some(full) = full else {
+        return Ok(Json(json!({
+            "valid": true, "network": net.network.as_str(), "kind": "short", "short": short,
+            "published": false,
+        })));
+    };
+    let addr = Address::decode(&full).map_err(ise)?;
+    let owner = digest_to_bytes(&addr.owner);
+    let account = n.chain.account(&owner).map_err(ise)?;
+    let (chain, st) = (n.chain.clone(), n.stats.clone());
+    let activity = tokio::task::spawn_blocking(move || {
+        let mut s = st.lock();
+        s.refresh(&chain);
+        s.activity(&owner)
+    })
+    .await
+    .map_err(ise)?;
+    Ok(Json(json!({
+        "valid": true,
+        "network": net.network.as_str(),
+        "kind": "full",
+        "short": short,
+        "published": published,
+        "owner": hex::encode(owner),
+        "crypto": "ML-KEM-1024 + X25519 key, 128-bit checksum",
+        "height": n.chain.tip().height(),
+        "mining": {
+            "unpaid": account.map(|x| x.amount).unwrap_or(0),
+            "next_payout_height": account.map(|x| x.due_height(net.payout_interval)),
+            "maturity": net.coinbase_maturity,
+            "activity": activity,
+        },
+    })))
+}
+
+/// The node's own chain as a proof source (it validated every block itself).
+struct ChainProof(Arc<krypton_store::Chain>);
+impl krypton_wallet_core::proof::ProofSource for ChainProof {
+    fn tx_height(&self, txid: &Hash32) -> anyhow::Result<Option<u64>> {
+        self.0.tx_height(txid)
+    }
+    fn raw_block(&self, height: u64) -> anyhow::Result<Block> {
+        self.0
+            .block_at(height)?
+            .ok_or_else(|| anyhow::anyhow!("no block"))
+    }
+    fn proven_header(
+        &self,
+        height: u64,
+        _: &krypton_core::ChainParams,
+        _: &krypton_pow::Verifier,
+    ) -> anyhow::Result<krypton_core::BlockHeader> {
+        self.0
+            .header_at(height)?
+            .ok_or_else(|| anyhow::anyhow!("no header"))
+    }
+    fn tip_height(&self) -> anyhow::Result<u64> {
+        Ok(self.0.tip().height())
+    }
+}
+
+#[derive(Deserialize)]
+struct ProofReq {
+    proof: String,
+    address: Option<String>,
+}
+
+/// Checks a payment proof (`gnrpay1…`) against this node's chain.
+async fn verify_payment(State(n): S, Json(r): Json<ProofReq>) -> R<Json<Value>> {
+    let p = krypton_wallet_core::proof::PaymentProof::decode(&r.proof).map_err(bad)?;
+    if p.network != n.chain.params.network {
+        return Err(bad("proof is for another network"));
+    }
+    let recipient = match r
+        .address
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(a) => Some(Address::decode(a).map_err(bad)?),
+        None => None,
+    };
+    let chain = n.chain.clone();
+    let rep = tokio::task::spawn_blocking(move || {
+        krypton_wallet_core::proof::verify(
+            &p,
+            &ChainProof(chain.clone()),
+            recipient.as_ref(),
+            &chain.pow,
+        )
+    })
+    .await
+    .map_err(ise)?
+    .map_err(bad)?;
+    Ok(Json(serde_json::to_value(rep).map_err(ise)?))
 }
 
 #[derive(Deserialize)]

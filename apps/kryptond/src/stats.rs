@@ -18,6 +18,10 @@ pub const ACTIVE_WINDOW: u64 = 360;
 #[derive(Clone)]
 struct BlockStat {
     hash: Hash32,
+    /// Owner whose header became this block.
+    finder: Hash32,
+    /// Payouts made by this block: (owner, value).
+    payouts: Vec<(Hash32, u64)>,
     time: u64,
     difficulty: u128,
     shares: u32,
@@ -59,8 +63,16 @@ impl Stats {
             if h == 0 {
                 owners.clear();
             }
+            let payouts = chain
+                .payouts_at(h)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| (p.owner, p.value))
+                .collect();
             self.blocks.push(BlockStat {
                 hash: b.hash(),
+                finder: b.header.miner,
+                payouts,
                 time: b.header.timestamp,
                 difficulty: b.header.difficulty,
                 shares: b.shares.len() as u32 + (h > 0) as u32,
@@ -68,6 +80,38 @@ impl Stats {
                 owners,
             });
         }
+    }
+
+    /// Public mining activity of one owner: blocks found, blocks with its shares,
+    /// payouts (height, value) and the first and last height it was credited.
+    pub fn activity(&self, owner: &Hash32) -> Value {
+        let s = short(owner);
+        let mut found = 0u64;
+        let mut active = 0u64;
+        let (mut first, mut last) = (None, None);
+        let mut payouts = Vec::new();
+        for (h, b) in self.blocks.iter().enumerate().skip(1) {
+            if b.finder == *owner {
+                found += 1;
+            }
+            if b.owners.contains(&s) {
+                active += 1;
+                first.get_or_insert(h);
+                last = Some(h);
+            }
+            for (o, v) in &b.payouts {
+                if o == owner {
+                    payouts.push(json!({"height": h, "value": v, "time": b.time}));
+                }
+            }
+        }
+        json!({
+            "blocks_found": found,
+            "blocks_with_shares": active,
+            "first_seen": first,
+            "last_seen": last,
+            "payouts": payouts,
+        })
     }
 
     /// Distinct payout owners credited over the last `window` blocks.

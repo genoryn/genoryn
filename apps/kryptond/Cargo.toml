@@ -15,6 +15,7 @@ krypton-pow.workspace = true
 krypton-store.workspace = true
 krypton-p2p.workspace = true
 krypton-light.workspace = true
+krypton-wallet-core.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

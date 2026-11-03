@@ -2647,6 +2647,7 @@ dependencies = [
  "krypton-p2p",
  "krypton-pow",
  "krypton-store",
+ "krypton-wallet-core",
  "krypton-zk",
  "parking_lot",
  "rand 0.8.8",
