@@ -43,9 +43,34 @@ pub struct Entry {
     #[serde(default)]
     pub created: u64,
     /// Truncated hash of the address, so a phrase is not added twice even while its
-    /// wallet is locked. Not the address itself: the registry is not encrypted.
+    /// wallet is locked.
     #[serde(default)]
     pub fp: String,
+    /// The wallet's public receiving address, so payments between this app's own wallets
+    /// work even while the recipient is locked and its short form is unpublished.
+    #[serde(default)]
+    pub addr: String,
+}
+
+/// Stores the public address of the registered wallet with fingerprint `fp`.
+pub fn remember_addr(app: &App, fp: &str, addr: &str) {
+    let mut reg = app.vault.reg.lock();
+    if let Some(e) = reg.wallets.iter_mut().find(|e| e.fp == fp)
+        && e.addr != addr
+    {
+        e.addr = addr.to_string();
+        let _ = reg.save(&app.dir);
+    }
+}
+
+/// The full address of one of this app's wallets whose short form has id `id`.
+pub fn own_address(app: &App, id: &[u8]) -> Option<String> {
+    let reg = app.vault.reg.lock().clone();
+    reg.wallets
+        .iter()
+        .filter(|e| !e.addr.is_empty())
+        .find(|e| Address::decode(&e.addr).is_ok_and(|a| a.short_id().as_slice() == id))
+        .map(|e| e.addr.clone())
 }
 
 pub fn fingerprint(w: &Wallet) -> String {
@@ -70,14 +95,17 @@ pub fn name_for_address(app: &App, encoded: &str) -> Option<String> {
         .map(|e| e.name.clone())
 }
 
-/// Records the fingerprint of a wallet that predates it (e.g. a migrated one).
+/// Records the fingerprint and public address of a wallet that predates them
+/// (e.g. a migrated one).
 pub fn remember_fp(app: &App, id: &str, w: &Wallet) {
     let fp = fingerprint(w);
+    let addr = w.address().encode();
     let mut reg = app.vault.reg.lock();
     if let Some(e) = reg.wallets.iter_mut().find(|e| e.id == id)
-        && e.fp != fp
+        && (e.fp != fp || e.addr != addr)
     {
         e.fp = fp;
+        e.addr = addr;
         let _ = reg.save(&app.dir);
     }
 }
@@ -106,6 +134,7 @@ impl Registry {
                     file: "wallet.krypton".into(),
                     created: 0,
                     fp: String::new(),
+                    addr: String::new(),
                 }],
             };
         }
@@ -278,6 +307,7 @@ pub fn sync_others(app: &App, src: &Multi) {
         app.vault.syncing.lock().insert(id.clone());
         let _ = w.sync(src, |_, _| {});
         app.vault.note(&id, &w);
+        remember_fp(app, &id, &w);
         put_back(app, &id, w);
     }
 }
@@ -396,6 +426,7 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
                 file,
                 created: krypton_core::now(),
                 fp,
+                addr: me.encode(),
             });
             if first {
                 reg.active = id.clone();
@@ -579,7 +610,7 @@ mod tests {
         assert_eq!(r.active, "main");
         assert_eq!(r.wallets[0].file, "wallet.krypton");
         let mut r2 = r.clone();
-        r2.wallets.push(Entry { id: "abcd".into(), name: "Savings".into(), file: "wallets/abcd.krypton".into(), created: 1, fp: String::new() });
+        r2.wallets.push(Entry { id: "abcd".into(), name: "Savings".into(), file: "wallets/abcd.krypton".into(), created: 1, fp: String::new(), addr: String::new() });
         r2.save(&d).unwrap();
         let r3 = Registry::load(&d);
         assert_eq!(r3.wallets.len(), 2);

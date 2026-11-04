@@ -120,8 +120,13 @@ impl NodeClient {
             .with_context(|| format!("GET {path}"))?;
         if !r.status().is_success() {
             let status = r.status();
-            let msg = read_limited(r, 4096).unwrap_or_default();
-            bail!("{} {}: {}", status, path, String::from_utf8_lossy(&msg));
+            let body = read_limited(r, 4096).unwrap_or_default();
+            // Nodes answer {"error": "..."}: show that sentence, not the raw response.
+            let msg = serde_json::from_slice::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v["error"].as_str().map(str::to_string))
+                .unwrap_or_else(|| String::from_utf8_lossy(&body).chars().take(200).collect());
+            bail!("{msg} (HTTP {}, {path})", status.as_u16());
         }
         Ok(Body(read_limited(r, MAX_RESPONSE)?))
     }

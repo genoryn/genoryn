@@ -60,6 +60,19 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .center{max-width:580px;margin:44px auto}
 .toast{position:fixed;bottom:18px;right:18px;left:auto;z-index:20;padding:12px 16px;border-radius:12px;max-width:min(440px,calc(100vw - 36px));color:var(--text-primary)}
 .toast.bad{color:var(--status-error)}
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);animation:mfade .18s ease-out}
+.modal.hidden{display:none}@keyframes mfade{from{opacity:0}}@keyframes mpop{from{opacity:0;transform:translateY(10px) scale(.98)}}
+.modal-card{width:min(460px,100%);max-height:calc(100vh - 36px);overflow:auto;padding:22px 22px 18px;border-radius:18px;border-color:var(--line-strong);background:color-mix(in srgb,var(--bg-solid) 94%,transparent);box-shadow:0 30px 80px rgba(0,0,0,.5);animation:mpop .22s cubic-bezier(.2,.7,.2,1)}
+.modal-card h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font:700 19px/1.25 var(--font-display)}.modal-card h3 .ic{width:20px;height:20px}
+.modal-card .mtext{color:var(--text-secondary);font-size:14px;line-height:1.55;margin:6px 0 0}
+.modal-card input{margin:14px 0 0}
+.modal-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.modal-acts .btn{min-width:104px}
+.btn-danger{background:var(--text-primary);color:var(--bg-solid);border-color:var(--text-primary)}
+.sum{margin:14px 0 2px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg-inset)}
+.sum-amt{padding:16px 16px 12px;text-align:center;border-bottom:1px solid var(--line)}.sum-amt b{display:block;font:700 30px/1.1 var(--font-mono)}.sum-amt span{font-size:12.5px;color:var(--text-tertiary)}
+.sum .row{padding:9px 14px;margin:0}.sum .row:last-child{border-bottom:0}.sum .row b{max-width:62%}
+.sum .tot b{font-weight:700}
+.mcheck{display:flex;align-items:flex-start;gap:9px;margin-top:14px;font-size:13.5px;color:var(--text-secondary);cursor:pointer}.mcheck input{margin:2px 0 0;width:auto}
 .pub-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;min-height:4px}
 .pchip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--text-secondary);background:var(--bg-inset)}
 .pchip.ok{border-color:var(--status-success-line);color:var(--text-primary)}.pchip.bad{border-color:var(--status-error-line,var(--status-warning-line))}
@@ -502,6 +515,9 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Connection mode<b id="aMode">-</b></div>
         <div class="row">Own node<b id="aNode">-</b></div>
         <div class="row">Updates<b id="aUpd">-</b></div>
+        <div class="row-flex" style="margin-top:14px;align-items:center"><button class="btn" id="updCheck" type="button" onclick="checkUpdates()"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Check for updates</button>
+          <label class="mcheck" style="margin:0"><input type="checkbox" id="autoUpd" onchange="setAuto(this.checked)"> Install updates automatically</label></div>
+        <p class="hero-note">The wallet checks GitHub every hour. Only releases signed with the project's post-quantum key are offered or installed; a running miner resumes after the restart.</p>
       </div>
       <div class="glass card">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg>Protocol</h2>
@@ -550,6 +566,13 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <div id="swList" class="sw-list" role="listbox"></div>
   <div class="sw-foot"><button class="btn" type="button" onclick="closeSwitcher();toggleAll(true)">Show all wallets</button><button class="btn" type="button" onclick="closeSwitcher();toggleAll(true);toggleAdd(true)"><span aria-hidden="true">+</span>&nbsp;Add</button></div>
 </div>
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal-card glass">
+    <h3 id="mTitle"></h3>
+    <div id="mBody"></div>
+    <div class="modal-acts"><button type="button" class="btn" id="mCancel">Cancel</button><button type="button" class="btn btn-primary" id="mOk">OK</button></div>
+  </div>
+</div>
 <div id="toast" class="toast float hidden" role="status" aria-live="polite"></div>
 <script src="/assets/fx.js" data-base="/assets/"></script>
 <script src="/assets/charts.js"></script>
@@ -560,6 +583,23 @@ const gnr = v => (Number(v||0)/1e8).toLocaleString(undefined,{minimumFractionDig
 const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let S = {};
 async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET', headers:{'x-token':token,'content-type':'application/json'}, body: body?JSON.stringify(body):undefined}); const j = await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
+/* In-app dialog instead of the browser's confirm/prompt. Resolves to the input's value
+   (or true) on confirm, null on cancel. body is trusted HTML built by the caller. */
+let modalDone=null;
+function ask({title, body='', ok='OK', cancel='Cancel', icon=null, input=null, danger=false, hideCancel=false}){
+  if(modalDone) modalDone(null);
+  $('mTitle').innerHTML=(icon?`<svg class="ic" aria-hidden="true"><use href="#i-${icon}"/></svg>`:'')+esc(title);
+  $('mBody').innerHTML=body+(input?`<input id="mInput" maxlength="${input.max||80}" value="${esc(input.value||'')}" placeholder="${esc(input.placeholder||'')}" aria-label="${esc(title)}">`:'');
+  $('mOk').textContent=ok; $('mOk').className='btn '+(danger?'btn-danger':'btn-primary');
+  $('mCancel').textContent=cancel; $('mCancel').classList.toggle('hidden',hideCancel);
+  show('modal');
+  setTimeout(()=>{ const i=$('mInput'); if(i){ i.focus(); i.select(); } else $('mOk').focus(); },30);
+  return new Promise(res=>{ modalDone=v=>{ modalDone=null; hide('modal'); res(v); }; });
+}
+$('mOk').onclick=()=>{ const i=$('mInput'); modalDone&&modalDone(i?i.value:true); };
+$('mCancel').onclick=()=>modalDone&&modalDone(null);
+$('modal').addEventListener('mousedown',e=>{ if(e.target.id==='modal') modalDone&&modalDone(null); });
+document.addEventListener('keydown',e=>{ if(!modalDone) return; if(e.key==='Escape'){ e.preventDefault(); modalDone(null); } else if(e.key==='Enter' && e.target.tagName!=='TEXTAREA'){ e.preventDefault(); $('mOk').click(); } });
 function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast float '+(bad?'bad':''); setTimeout(()=>t.classList.add('hidden'), 6000); }
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
 let adding=false, restoreMode=false, W=null;
@@ -657,12 +697,13 @@ document.querySelectorAll('#wFilter button').forEach(b=>b.onclick=()=>{ document
 const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).find(w=>w.id===id) || {}).name || 'this wallet';
 async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
 async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
-async function lockAll(){ if(!confirm('Lock all wallets? Each one asks for its own password again. The miner keeps running.')) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function lockAll(){ if(!await ask({title:'Lock all wallets?', icon:'lock', ok:'Lock all', body:'<p class="mtext">Each wallet asks for its own password again. The miner keeps running.</p>'})) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function useWallet(id){ try{ await api('/api/wallets/use',{id}); toast('Switched to “'+wname(id)+'”'); }catch(e){ toast(e.message,true) } await refresh(); loadWallets(); }
-async function renameW(id){ WV.menu=null; const n=prompt('New name for “'+wname(id)+'”', wname(id)); if(n==null||!n.trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function renameW(id){ WV.menu=null; renderWallets(); const n=await ask({title:'Rename wallet', icon:'wallet', ok:'Save', input:{value:wname(id), max:40, placeholder:'Wallet name'}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function removeW(id){
   WV.menu=null; const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
-  if(!confirm('Remove “'+n+'” from this app?\n\nNothing is deleted: the wallet file is moved to the "removed" folder next to your other wallets, and its coins stay on the chain. You can add it back at any time with its 24 words, so make sure you have them.'+(paysMiner?'\n\nThe running miner pays this wallet and keeps doing so until you restart it.':''))) return;
+  if(!await ask({title:'Remove “'+n+'” from this app?', icon:'lock', ok:'Remove', danger:true,
+    body:'<p class="mtext">Nothing is deleted: the wallet file moves to the <b>removed</b> folder next to your other wallets, and its coins stay on the chain. You can add it back at any time with its 24 words, so make sure you have them.</p>'+(paysMiner?'<p class="mtext">The running miner pays this wallet and keeps doing so until you restart it.</p>':'')})) return;
   try{ await api('/api/wallets/remove',{id}); toast('“'+n+'” removed from the app'); }catch(e){ toast(e.message,true) } await loadWallets(); refresh();
 }
 function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?'Restore wallet':'Create new wallet'; $('addMode').textContent=restoreMode?'Create a new one instead':'Restore from recovery phrase'; }
@@ -682,8 +723,20 @@ setInterval(()=>{ if(!document.hidden && !$('app').classList.contains('hidden') 
 async function send(){
   const body={to:$('to').value, amount:$('amount').value, memo:$('memo').value};
   if(FEE.speed==='custom'){ const f=$('feeCustom').value.trim(); if(!f) return toast('Enter the fee in GNR', true); body.fee=f; } else body.speed=FEE.speed;
-  const shown=FEE.speed==='custom'?body.fee:(FEE.opts?gnrShort(FEE.opts[FEE.speed]):'');
-  if(!confirm('Send '+(body.amount||'0')+' GNR?'+(shown?'\nNetwork fee: '+shown+' GNR':''))) return;
+  if(!body.to.trim()) return toast('Enter the recipient\'s address', true);
+  const amt=Number(String(body.amount).replace(',','.')); if(!(amt>0)) return toast('Enter the amount to send', true);
+  let who;
+  try{ who=await api('/api/resolve?to='+encodeURIComponent(body.to.trim())); }catch(e){ return ask({title:'Recipient not found', icon:'about', body:`<p class="mtext">${esc(e.message)}</p>`, ok:'OK', hideCancel:true}); }
+  const feeG=FEE.speed==='custom'?Math.round(Number(String(body.fee).replace(',','.'))*1e8):(FEE.opts?FEE.opts[FEE.speed]:0);
+  if(FEE.speed==='custom' && !(feeG>0)) return toast('Enter a valid fee', true);
+  const speed={economy:'Economy',normal:'Normal',fast:'Fast',custom:'Custom'}[FEE.speed];
+  const ok=await ask({title:'Confirm payment', icon:'wallet', ok:'Send now',
+    body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(Math.round(amt*1e8)))} GNR</b><span>to ${who.own?'your wallet “'+esc(who.own)+'”':'<span class="mono">'+esc(who.short.slice(0,28))+'…</span>'}</span></div>
+      <div class="row">Network fee<b>${esc(gnrShort(feeG))} GNR · ${speed}</b></div>
+      <div class="row tot">Total<b>${esc(gnrShort(Math.round(amt*1e8)+feeG))} GNR</b></div>
+      ${body.memo?`<div class="row">Private memo<b>${esc(body.memo)}</b></div>`:''}</div>
+      <p class="mtext">Transfers are final. Amount, sender and recipient stay hidden on chain; proving takes a few seconds.</p>`});
+  if(!ok) return;
   const b=$('sendBtn'); b.disabled=true; window.fxBusy=true;
   try{ const r = await api('/api/send',body); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; refresh(); }
@@ -829,7 +882,7 @@ async function minerStart(){ window.fxBusy=true; setTimeout(()=>window.fxBusy=fa
 async function devices(){ try{ $('devs').textContent = (await api('/api/devices')).devices; }catch(e){ toast(e.message,true) } }
 async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean)}); toast('Saved'); }catch(e){ toast(e.message,true) } }
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
-async function quitApp(){ if(!confirm('Quit Genoryn Krypton? The miner and your own node stop too.')) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
+async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
 const TABS=['wallet','history','mining','network','security','about'];
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); }
@@ -849,7 +902,27 @@ function initNetDash(){ if(netDash||!window.GKCharts) { if(netDash) netDash.relo
   });
 }
 setInterval(()=>{ if(netDash && !document.hidden && !$('tab-network').classList.contains('hidden')) netDash.reload(); }, 60000);
-async function installUpdate(){ const u=S.update; if(!u) return; if(u.can_install && !confirm('Install Genoryn Krypton '+u.version+'? The wallet closes for a moment and starts again; a running miner resumes automatically.')) return; try{ const r=await api('/api/update',{}); toast(r.opened?'Opened the release page':'Installing the update…'); }catch(e){ toast(e.message,true) } }
+async function installUpdate(skipAsk){ const u=S.update; if(!u) return;
+  if(u.can_install && !skipAsk && !await offerUpdate(u, true)) return;
+  try{ const r=await api('/api/update',{}); toast(r.opened?'Opened the release page':'Installing '+u.version+'… the wallet restarts in a moment'); }catch(e){ toast(e.message,true) } }
+/* Offer a found update once per version: install now, later, or always automatically. */
+async function offerUpdate(u, fromButton){
+  const auto=!!(S.settings&&S.settings.auto_update);
+  const v=await ask({title:'Genoryn Krypton '+u.version+' is available', icon:'download', ok:u.can_install?'Install now':'Open release page', cancel:'Later',
+    body:`<p class="mtext">You have ${esc(S.version)}. The update was signed with the project's post-quantum release key, and the installer is checked against that signature before it runs. The wallet restarts for a moment; a running miner resumes by itself.</p>
+      <label class="mcheck"><input type="checkbox" id="mAuto" ${auto?'checked':''}> Install future updates automatically</label>
+      <p class="mtext"><a href="#" data-link="releases" onclick="openLink('releases');return false">What's new</a></p>`});
+  const want=$('mAuto')?$('mAuto').checked:auto;
+  if(want!==auto){ try{ await api('/api/update/auto',{on:want}); S.settings.auto_update=want; }catch(e){} }
+  try{ localStorage.setItem('gk-upd-seen', u.version); }catch(e){}
+  if(v && !fromButton) installUpdate(true);
+  return !!v;
+}
+async function setAuto(on){ try{ await api('/api/update/auto',{on}); if(S.settings) S.settings.auto_update=on; toast(on?'Updates install automatically':'Updates will be offered first'); }catch(e){ toast(e.message,true) } }
+async function checkUpdates(){ const b=$('updCheck'); if(b){ b.disabled=true; b.textContent='Checking…'; }
+  try{ const r=await api('/api/update/check',{}); if(r.update){ S.update=r.update; offerUpdate(r.update,false); } else ask({title:'You have the latest version', icon:'about', body:`<p class="mtext">Genoryn Krypton ${esc(r.version)} is the newest release on GitHub.</p>`, ok:'OK', hideCancel:true}); }
+  catch(e){ toast(e.message,true) }
+  if(b){ b.disabled=false; b.textContent='Check for updates'; } }
 async function openLink(t){ try{ await api('/api/open',{target:t}); toast('Opened in your browser'); }catch(e){ toast(e.message,true) } }
 function rate(r){ return r>=1e9?(r/1e9).toFixed(2)+' GH/s':r>=1e6?(r/1e6).toFixed(2)+' MH/s':r>=1e3?(r/1e3).toFixed(1)+' kH/s':(r||0).toFixed(0)+' H/s'; }
 let settingsLoaded=false;
@@ -882,7 +955,11 @@ async function refresh(){
   const hk=S.short+'|'+v+'|'+(S.history||[]).length; if(hk!==H.key){ H.key=hk; if(!$('tab-history').classList.contains('hidden')) loadHistory(); else H.stale=true; }
   $('aVer2').textContent=S.version||''; $('aWallets').textContent=(S.wallet_count||0)+' ('+((S.wallet_names||[]).filter(w=>w.unlocked).length)+' unlocked)';
   $('aMode').textContent=S.settings?(S.settings.mode==='full'?'Full node':'Light (verified)'):'-'; $('aNode').textContent=S.node_running?'running':'not running';
-  $('aUpd').textContent=S.update?(S.update.version+' available'):'up to date'; $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
+  $('aUpd').textContent=S.update?(S.update.version+' available'):'up to date';
+  if(S.settings && document.activeElement!==$('autoUpd')) $('autoUpd').checked=!!S.settings.auto_update;
+  // Offer a newly found update once per version (automatic mode installs by itself).
+  let seen=null; try{ seen=localStorage.getItem('gk-upd-seen'); }catch(e){}
+  if(S.update && S.update.version!==seen && !modalDone && !(S.settings&&S.settings.auto_update) && !S.working && !S.busy) offerUpdate(S.update,false); $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
   const m=S.miner||{}; $('mStat').textContent=m.running?'mining':'stopped'; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';

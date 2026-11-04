@@ -71,6 +71,9 @@ struct Settings {
     /// "light" (remote nodes, verified locally) or "full" (own node)
     mode: String,
     nodes: Vec<String>,
+    /// Install signed updates as soon as they are found (otherwise offer them).
+    #[serde(default)]
+    auto_update: bool,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -527,6 +530,74 @@ struct SendReq {
     speed: Option<String>,
 }
 
+/// The full address behind a short one: this app's own wallets first (they need no
+/// publishing), then the directory of every known node. Nodes' answers are checked
+/// against the short form's hash, so none can substitute another recipient.
+fn resolve_short_any(a: &App, short: &str) -> Result<String> {
+    let (net, id) = Address::parse_short(short).context("this is not a valid short address")?;
+    anyhow::ensure!(
+        net == a.network,
+        "this short address is for {}, not {}",
+        net.as_str(),
+        a.network.as_str()
+    );
+    if let Some(full) = vault::own_address(a, id.as_slice()) {
+        return Ok(full);
+    }
+    for u in a.publish_targets() {
+        if let Ok(full) = NodeClient::new(&u).and_then(|c| c.resolve_short(short)) {
+            return Ok(full);
+        }
+    }
+    anyhow::bail!(
+        "no node knows the full address for this short address yet. Ask the recipient to press \
+         \"Publish short form\" in their wallet, or paste their full address instead"
+    )
+}
+
+#[derive(Deserialize)]
+struct ResolveQ {
+    to: String,
+}
+
+/// Checks a recipient before sending: valid, its short form, and whether it is one of
+/// this app's own wallets.
+async fn resolve(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<ResolveQ>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    let r = blocking(move || {
+        let to: String = q.to.split_whitespace().collect();
+        let full = if to.contains("s1") && to.len() < 120 {
+            resolve_short_any(&a, &to)?
+        } else {
+            to
+        };
+        let addr = Address::decode(&full)
+            .map_err(|e| anyhow!("this is not a valid {} address: {e}", a.network.as_str()))?;
+        anyhow::ensure!(addr.network == a.network, "this address is for {}", addr.network.as_str());
+        let own = a
+            .vault
+            .reg
+            .lock()
+            .wallets
+            .iter()
+            .find(|e| e.addr == full)
+            .map(|e| e.name.clone());
+        Ok(json!({"short": addr.short(), "own": own}))
+    })
+    .await;
+    match r {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
 /// Fee suggestions for one transfer, in gori: economy, normal, fast (from the first
 /// node that offers estimates; the built-in default otherwise).
 fn fee_options(src: &Multi) -> (u64, u64, u64, bool) {
@@ -573,13 +644,15 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
     match blocking(move || {
         let src = Multi(a.sources()?);
         src.cross_check()?;
-        let to = r.to.trim().to_string();
+        let to: String = r.to.split_whitespace().collect();
+        anyhow::ensure!(!to.is_empty(), "enter the recipient's address");
         let full = if to.contains("s1") && to.len() < 120 {
-            src.first()?.resolve_short(&to)?
+            resolve_short_any(&a, &to)?
         } else {
             to
         };
-        let addr = Address::decode(&full)?;
+        let addr = Address::decode(&full)
+            .map_err(|e| anyhow!("this is not a valid {} address: {e}", a.network.as_str()))?;
         let amount = parse_amount(&r.amount).context("invalid amount")?;
         let fee = match r.fee.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             Some(f) => parse_amount(f).context("invalid fee")?,
@@ -897,6 +970,9 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
             return err(format!("use https:// for remote nodes: {u}"));
         }
     }
+    let mut s = s;
+    // The update preference has its own switch; saving nodes must not reset it.
+    s.auto_update = app.settings.lock().auto_update;
     *app.settings.lock() = s;
     match app.save_settings() {
         Ok(()) => Json(json!({"ok": true})).into_response(),
@@ -1099,6 +1175,49 @@ async fn install_update(State(app): S, h: HeaderMap) -> Response {
         open_browser(&av.page);
         return Json(json!({"ok": true, "opened": av.page})).into_response();
     }
+    match start_install(&app).await {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// Checks GitHub for a newer signed release right now.
+async fn check_update(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    match tokio::task::spawn_blocking(update::check).await {
+        Ok(Ok(found)) => {
+            *app.update.lock() = found.clone();
+            Json(json!({"update": found, "version": env!("CARGO_PKG_VERSION")})).into_response()
+        }
+        Ok(Err(e)) => err(format!("could not reach GitHub: {e}")),
+        Err(e) => err(e),
+    }
+}
+
+#[derive(Deserialize)]
+struct AutoReq {
+    on: bool,
+}
+
+/// Turns automatic installation of signed updates on or off.
+async fn auto_update(State(app): S, h: HeaderMap, Json(r): Json<AutoReq>) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    app.settings.lock().auto_update = r.on;
+    match app.save_settings() {
+        Ok(()) => Json(json!({"ok": true, "auto_update": r.on})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// Downloads and verifies the found release, then hands over to its installer, which
+/// replaces the programs and starts the wallet again (a running miner resumes).
+async fn start_install(app: &Arc<App>) -> Result<()> {
+    let av = app.update.lock().clone().context("no update available")?;
+    anyhow::ensure!(av.can_install, "this update has no installer for this computer");
     *app.update_status.lock() = format!("Downloading {} and checking its signature…", av.version);
     let a = app.clone();
     let r = blocking(move || {
@@ -1135,11 +1254,11 @@ async fn install_update(State(app): S, h: HeaderMap) -> Response {
                 tokio::time::sleep(std::time::Duration::from_millis(800)).await;
                 q.quit.notify_one();
             });
-            Json(json!({"ok": true})).into_response()
+            Ok(())
         }
         Err(e) => {
             *app.update_status.lock() = format!("Update failed: {e}");
-            err(e)
+            Err(e)
         }
     }
 }
@@ -1313,6 +1432,7 @@ async fn serve(
         .unwrap_or(Settings {
             mode: "light".into(),
             nodes: vec![PUBLIC_NODE.into()],
+            auto_update: false,
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
@@ -1354,7 +1474,8 @@ async fn serve(
             }
         });
     }
-    // Look for a newer signed release now and every six hours.
+    // Look for a newer signed release shortly after start and then every hour; with
+    // automatic updates on, install it as soon as the wallet is idle.
     let up = app.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(20)).await;
@@ -1362,7 +1483,12 @@ async fn serve(
             if let Ok(Ok(found)) = tokio::task::spawn_blocking(update::check).await {
                 *up.update.lock() = found;
             }
-            tokio::time::sleep(std::time::Duration::from_secs(6 * 3600)).await;
+            let auto = up.settings.lock().auto_update;
+            let ready = up.update.lock().as_ref().is_some_and(|u| u.can_install);
+            if auto && ready && up.busy.lock().is_empty() {
+                let _ = start_install(&up).await;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
         }
     });
 
@@ -1403,7 +1529,9 @@ async fn serve(
                         a.vault.note(&e.id, w);
                     }
                     let owner = krypton_crypto::field::digest_to_bytes(&w.address().owner);
+                    let encoded = w.address().encode();
                     drop(g);
+                    vault::remember_addr(&a, &fp, &encoded);
                     if let Some(c) = src.0.first() {
                         *a.account.lock() = c.miner_account(&owner).ok();
                     }
@@ -1454,6 +1582,9 @@ async fn serve(
         .route("/api/published", get(published))
         .route("/api/history", get(history_page))
         .route("/api/fees", get(fees))
+        .route("/api/resolve", get(resolve))
+        .route("/api/update/check", post(check_update))
+        .route("/api/update/auto", post(auto_update))
         .route("/api/chain", get(chain_info))
         .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))
