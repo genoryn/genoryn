@@ -1,6 +1,6 @@
 {
   "name": "@genoryn/krypton",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "TypeScript client for the Genoryn Krypton node API",
   "license": "MIT OR Apache-2.0",
   "type": "module",

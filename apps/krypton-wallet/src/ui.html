@@ -59,6 +59,17 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .center{max-width:580px;margin:44px auto}
 .toast{position:fixed;bottom:18px;right:18px;left:auto;z-index:20;padding:12px 16px;border-radius:12px;max-width:min(440px,calc(100vw - 36px));color:var(--text-primary)}
 .toast.bad{color:var(--status-error)}
+.chip-btn{cursor:pointer;font:inherit;font-size:12px}.chip-btn .ic{width:14px;height:14px}.chip-btn b{color:var(--text-primary);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.wlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;margin-top:18px}
+.wcard{display:flex;flex-direction:column;gap:6px;transition:transform .2s,border-color .2s}
+.wcard.active{border-color:var(--status-success-line);box-shadow:0 0 0 1px var(--status-success-line) inset}
+.wcard h3{display:flex;align-items:center;gap:8px;margin:0;font-size:16px;overflow-wrap:anywhere}.wcard h3 .ic{width:16px;height:16px;flex:none}
+.wcard .wbal{font:700 28px/1.2 var(--font-display);margin-top:4px}.wcard .wbal small{font:500 14px var(--font-sans);color:var(--text-secondary)}
+.wcard .wst{font-size:12.5px;color:var(--text-tertiary)}
+.wcard .wacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:10px}.wcard .wacts .btn{padding:6px 11px;font-size:13px}
+.wcard .wunl{display:flex;gap:8px;width:100%}.wcard .wunl input{margin:0;flex:1;min-width:0}
+.pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--status-success-line);color:var(--text-secondary)}
+.wsplit{display:flex;gap:6px;height:8px;border-radius:99px;overflow:hidden;margin:14px 0 4px;background:var(--bg-inset)}.wsplit i{display:block;height:100%;background:var(--text-secondary);opacity:.35;min-width:3px}.wsplit i:nth-child(odd){opacity:.6}
 pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .hero-note{font-size:13px;color:var(--text-tertiary);margin-top:12px}
 @media (max-width:640px){
@@ -89,16 +100,19 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
   <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8"/><path d="M6.6 7a7.5 7.5 0 1 0 10.8 0"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 7.7-1.6"/></symbol>
+  <symbol id="i-wallets" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="12" rx="2.2"/><path d="M6 8V6.6A1.6 1.6 0 0 1 7.6 5h8.8A1.6 1.6 0 0 1 18 6.6V8"/><path d="M8.5 5V4M15.5 5V4"/><circle cx="16.5" cy="14" r="1.2"/></symbol>
 </svg>
 <header class="float">
   <div class="brand"><img src="/assets/genoryn-mark-dark.svg" alt="Genoryn"><h1>Genoryn Krypton <small>wallet</small></h1></div>
   <span id="net" class="badge"></span>
+  <button id="wChip" class="badge chip-btn hidden" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
   <span class="spacer"></span>
   <span id="netBadge" class="badge net-badge hidden" title="Estimated miners (payout addresses active in ~6 h) · network hashrate"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
   <button class="btn" onclick="openLink('explorer')" title="Open the block explorer on genoryn.io"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg><span class="lbl">Explorer</span></button>
   <button class="btn" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme" title="Theme">◐</button>
-  <button id="lockBtn" class="btn hidden" onclick="api('/api/lock',{}).then(refresh)" title="Lock the wallet"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="lbl">Lock</span></button>
+  <button id="lockBtn" class="btn hidden" onclick="api('/api/lock',{}).then(refresh)" title="Lock this wallet (other wallets stay as they are)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="lbl">Lock</span></button>
   <button class="btn" onclick="quitApp()" title="Close the wallet, node and miner"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span class="lbl">Quit</span></button>
 </header>
 <main>
@@ -109,10 +123,11 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   </div>
   <section id="onboard" class="center hidden">
     <div class="glass card">
-      <h2>Welcome</h2>
-      <p class="muted">A quantum-resistant, private wallet. Your keys never leave this computer; balances are verified locally, no full node required.</p>
+      <h2 id="onbTitle">Welcome</h2>
+      <p class="muted" id="onbText">A quantum-resistant, private wallet. Your keys never leave this computer; balances are verified locally, no full node required.</p>
+      <label for="newName">Wallet name</label><input id="newName" maxlength="40" value="Main wallet">
       <div id="createBox">
-        <label for="newPass">Choose a password (12+ characters)</label><input id="newPass" type="password" autocomplete="new-password">
+        <label for="newPass">Choose a password for this wallet (12+ characters)</label><input id="newPass" type="password" autocomplete="new-password">
         <div class="row-flex"><button class="btn btn-primary" onclick="createWallet()">Create new wallet</button><button class="btn" onclick="show('restoreBox');hide('createBox')">Restore from recovery phrase</button></div>
       </div>
       <div id="restoreBox" class="hidden">
@@ -121,11 +136,12 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <label for="restoreBirthday">Scan from block (0 = full history)</label><input id="restoreBirthday" type="number" value="0">
         <div class="row-flex"><button class="btn btn-primary" onclick="restoreWallet()">Restore</button><button class="btn" onclick="hide('restoreBox');show('createBox')">Back</button></div>
       </div>
+      <button id="onbBack" class="btn hidden" style="margin-top:12px" onclick="adding=false;refresh()">Cancel</button>
     </div>
   </section>
   <section id="mnemonicBox" class="center hidden">
     <div class="glass card">
-      <h2>Your recovery phrase</h2>
+      <h2>Your recovery phrase<span id="mnFor" class="muted"></span></h2>
       <p class="warn">Write these 24 words <b>with their numbers</b> on paper, in order, and keep them offline. Anyone with them controls your funds. They will not be shown again.</p>
       <p class="hero-note">384 bits of entropy: a 192-bit margin even against quantum computers. A built-in checksum catches any wrong word or number when you restore.</p>
       <div id="words" class="words"></div>
@@ -133,12 +149,18 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     </div>
   </section>
   <section id="unlockBox" class="center hidden">
-    <div class="glass card"><h2>Unlock</h2><label for="unlockPass" class="sr-only">Wallet password</label><input id="unlockPass" type="password" placeholder="Wallet password" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlock()"><button class="btn btn-primary" onclick="unlock()">Unlock</button></div>
+    <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Unlock <span id="uName"></span></h2>
+      <div id="uPick" class="hidden"><label for="uSel">Wallet</label><select id="uSel" onchange="useWallet(this.value)"></select></div>
+      <label for="unlockPass" class="sr-only">Wallet password</label><input id="unlockPass" type="password" placeholder="Password of this wallet" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlock()">
+      <div class="row-flex"><button class="btn btn-primary" onclick="unlock()">Unlock</button><button class="btn" onclick="startAdding()">Add another wallet</button></div>
+      <p class="hero-note">Every wallet has its own password. Once unlocked, a wallet stays open for 24 hours, then locks itself and asks for its password again. The miner keeps running either way.</p>
+    </div>
   </section>
 
   <section id="app" class="hidden">
     <nav class="tabs glass" aria-label="Wallet sections">
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
+      <button class="rail" data-tab="wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><span>Wallets</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
@@ -171,6 +193,33 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <p class="hero-note">Fee 0.002 GNR. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
     </div>
+    <div id="tab-wallets" class="hidden">
+      <div class="grid">
+        <div class="glass card">
+          <h2><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>All wallets</h2>
+          <div class="big"><span id="tTotal" class="num">0</span> <small>GNR in total</small></div>
+          <div id="tSplit" class="wsplit" aria-hidden="true"></div>
+          <div class="row">Spendable<b id="tSpend">0</b></div>
+          <div class="row">Pending<b id="tPend">0</b></div>
+          <div class="row">Maturing<b id="tImm">0</b></div>
+          <div class="row">Wallets<b id="tCount">0</b></div>
+          <p id="tNote" class="hero-note"></p>
+          <div class="row-flex"><button class="btn" onclick="lockAll()"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock all wallets</button></div>
+        </div>
+        <div class="glass card">
+          <h2>Add a wallet</h2>
+          <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
+          <label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings">
+          <label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password">
+          <div id="addRestore" class="hidden">
+            <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
+            <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
+          </div>
+          <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button></div>
+        </div>
+      </div>
+      <div id="wList" class="wlist"></div>
+    </div>
     <div id="tab-history" class="hidden">
       <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>History</h2><table><thead><tr><th>Block</th><th>Amount</th><th>Memo</th><th>To</th><th>Proof</th></tr></thead><tbody id="hist"></tbody></table></div>
       <div class="grid" style="margin-top:18px">
@@ -198,6 +247,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       </div>
       <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg>Miner</h2>
         <div class="row">Status<b id="mStat">stopped</b></div><div class="row">Device<b id="mDev">-</b></div>
+        <div class="row">Pays to<b id="mWal">-</b></div>
         <div class="row">Hashrate<b id="mRate">-</b></div>
         <div class="row">Your share of the network<b id="mFrac">-</b></div>
         <div class="row">Expected earnings<b id="mDay">-</b></div>
@@ -285,8 +335,60 @@ let S = {};
 async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET', headers:{'x-token':token,'content-type':'application/json'}, body: body?JSON.stringify(body):undefined}); const j = await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
 function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast float '+(bad?'bad':''); setTimeout(()=>t.classList.add('hidden'), 6000); }
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
-async function createWallet(){ const p=$('newPass').value; if(p.length<12) return toast('Use at least 12 characters', true); try{ const r = await api('/api/create',{password:p}); words('words', r.mnemonic); hide('onboard'); show('mnemonicBox'); }catch(e){ toast(e.message,true) } }
-async function restoreWallet(){ try{ await api('/api/create',{password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0)}); refresh(); }catch(e){ toast(e.message,true) } }
+let adding=false, restoreMode=false, W=null;
+const onbName = () => $('newName').value.trim() || 'Main wallet';
+async function createWallet(){ const p=$('newPass').value; if(p.length<12) return toast('Use at least 12 characters', true); window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:p}); $('newPass').value=''; await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+async function restoreWallet(){ window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0)}); ['restorePass','restoreWords'].forEach(i=>$(i).value=''); await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+async function afterAdd(r, name, activate){
+  if(activate) await api('/api/wallets/use',{id:r.id}).catch(()=>{});
+  adding=false;
+  if(r.mnemonic){ words('words', r.mnemonic); $('mnFor').textContent=' · '+name; ['onboard','unlockBox','app'].forEach(hide); show('mnemonicBox'); }
+  else toast('Wallet “'+name+'” added');
+  await refresh(); loadWallets();
+}
+function startAdding(){ adding=true; const n=(S.wallet_count||0)+1; $('newName').value='Wallet '+n; refresh(); }
+function chipClick(){ if(S.unlocked) goTab('wallets'); else { show('uPick'); $('uSel').focus(); } }
+function dur(s){ if(s==null) return ''; const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?h+' h '+m+' min':m?m+' min':'less than a minute'; }
+async function loadWallets(){ try{ W=await api('/api/wallets'); renderWallets(); }catch(e){} }
+function renderWallets(){
+  if(!W) return;
+  const t=W.total||{}; $('tTotal').textContent=gnr(t.total); $('tSpend').textContent=gnr(t.spendable); $('tPend').textContent=gnr(t.pending); $('tImm').textContent=gnr(t.immature);
+  const open=W.wallets.filter(w=>w.unlocked).length; $('tCount').textContent=W.wallets.length+' · '+open+' unlocked';
+  $('tNote').textContent = W.unknown ? W.unknown+' wallet'+(W.unknown>1?'s have':' has')+' not been unlocked since the app started, so '+(W.unknown>1?'they are':'it is')+' not in the total yet. Unlock '+(W.unknown>1?'them':'it')+' once to include '+(W.unknown>1?'them':'it')+'.' : 'Locked wallets count with their last known balance. Unlocked wallets stay open for '+(W.unlock_hours||24)+' hours, then lock themselves.';
+  const sum=Number(t.total||0); $('tSplit').innerHTML = sum>0 ? W.wallets.filter(w=>w.balance&&Number(w.balance.total)>0).map(w=>`<i style="flex:${Number(w.balance.total)}" title="${esc(w.name)}: ${gnr(w.balance.total)} GNR"></i>`).join('') : '';
+  const keep={}; let focus=null; document.querySelectorAll('#wList input').forEach(i=>{ keep[i.id]=i.value; if(i===document.activeElement) focus=i.id; });
+  $('wList').innerHTML = W.wallets.map(w=>{ const id=esc(w.id), b=w.balance;
+    const status = w.unlocked ? 'Unlocked · locks itself in '+dur(w.locks_in) : (b ? 'Locked · last known balance' : 'Locked');
+    return `<div class="glass card wcard${w.active?' active':''}">
+      <h3><svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>${esc(w.name)}${w.active?' <span class="pill">active</span>':''}</h3>
+      <div class="mono muted" style="font-size:12.5px">${w.short?esc(w.short.slice(0,22))+'…':'address appears after the first unlock'}</div>
+      <div class="wbal">${b?gnr(b.total)+' <small>GNR</small>':'<small>balance hidden while locked</small>'}</div>
+      ${b&&(Number(b.pending)||Number(b.immature))?`<div class="wst">${gnr(b.spendable)} spendable${Number(b.pending)?' · '+gnr(b.pending)+' pending':''}${Number(b.immature)?' · '+gnr(b.immature)+' maturing':''}</div>`:''}
+      <div class="wst">${status}</div>
+      <div class="wacts">
+        ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock</button>`:`<span class="wunl"><input type="password" id="p-${id}" placeholder="Password of this wallet" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlockOne('${id}')"><button class="btn btn-primary" onclick="unlockOne('${id}')">Unlock</button></span>`}
+        ${w.active?'':`<button class="btn" onclick="useWallet('${id}')">Use this wallet</button>`}
+        <button class="btn" onclick="renameW('${id}')">Rename</button>
+        <button class="btn" onclick="removeW('${id}')">Remove</button>
+      </div></div>`; }).join('');
+  Object.entries(keep).forEach(([k,v])=>{ const i=$(k); if(i) i.value=v; }); if(focus&&$(focus)) $(focus).focus();
+}
+const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).find(w=>w.id===id) || {}).name || 'this wallet';
+async function unlockOne(id){ const i=$('p-'+id); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
+async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function lockAll(){ if(!confirm('Lock all wallets? Each one asks for its own password again. The miner keeps running.')) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function useWallet(id){ try{ await api('/api/wallets/use',{id}); toast('Switched to “'+wname(id)+'”'); }catch(e){ toast(e.message,true) } await refresh(); loadWallets(); }
+async function renameW(id){ const n=prompt('New name for “'+wname(id)+'”', wname(id)); if(n==null||!n.trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function removeW(id){
+  const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
+  if(!confirm('Remove “'+n+'” from this app?\n\nNothing is deleted: the wallet file is moved to the "removed" folder next to your other wallets, and its coins stay on the chain. You can add it back at any time with its 24 words, so make sure you have them.'+(paysMiner?'\n\nThe running miner pays this wallet and keeps doing so until you restart it.':''))) return;
+  try{ await api('/api/wallets/remove',{id}); toast('“'+n+'” removed from the app'); }catch(e){ toast(e.message,true) } await loadWallets(); refresh();
+}
+function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?'Restore wallet':'Create new wallet'; $('addMode').textContent=restoreMode?'Create a new one instead':'Restore from recovery phrase'; }
+async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass').value; if(!name) return toast('Give the wallet a name', true); if(p.length<12) return toast('Use at least 12 characters for the password', true);
+  const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
+  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
+  window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; refresh(); }catch(e){ toast(e.message,true) } }
 async function send(){ const b=$('sendBtn'); b.disabled=true; window.fxBusy=true; try{ const r = await api('/api/send',{to:$('to').value, amount:$('amount').value, memo:$('memo').value}); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) } window.fxBusy=false; b.disabled=false; refresh(); }
 async function publish(){ try{ const r = await api('/api/publish',{}); toast('Published on '+r.published.length+' node(s)'); }catch(e){ toast(e.message,true) } }
@@ -296,7 +398,9 @@ async function saveSettings(){ const mode=[...document.getElementsByName('mode')
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 async function quitApp(){ if(!confirm('Quit Genoryn Krypton? The miner and your own node stop too.')) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); ['wallet','history','mining','network','security','about'].forEach(t=>hide('tab-'+t)); show('tab-'+b.dataset.tab); if(b.dataset.tab==='network') initNetDash(); });
+const TABS=['wallet','wallets','history','mining','network','security','about'];
+function goTab(t){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network') initNetDash(); if(t==='wallets') loadWallets(); }
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
 async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); box.innerHTML=`<p class="ok"><b>Valid payment proof</b></p><div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':(r.recipient_verified?'the recipient above (verified)':'unverified recipient: ask them to confirm in their wallet')}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.height} · ${r.confirmations} confirmations</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
@@ -322,9 +426,15 @@ async function refresh(){
   if(S.update){ $('updTitle').textContent='Genoryn Krypton '+S.update.version+' is available'; $('updText').textContent=S.update_status||(S.update.can_install?'Checked against the project\'s post-quantum release signature before it installs. A running miner resumes automatically.':'Open the release page to download it.'); $('updBtn').textContent=S.update.can_install?'Install update':'Download'; show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
   if(S.working){ $('busy').textContent = S.busy || 'working…'; return; }
+  const act=S.active||{}; const nw=S.wallet_count||0;
+  if(S.exists && !adding){ $('wChipName').textContent=act.name||'Wallet'; $('wChipCount').textContent=nw>1?'· '+nw:''; $('wChip').title=(S.unlocked&&act.locks_in!=null?'Unlocked · locks itself in '+dur(act.locks_in):'Locked')+' · click to manage your wallets'; show('wChip'); } else hide('wChip');
   ['onboard','unlockBox','app'].forEach(hide); if(!S.unlocked) $('proofIn').value=''; $('lockBtn').classList.toggle('hidden', !S.unlocked);
   if(!$('mnemonicBox').classList.contains('hidden')) return;
-  if(!S.exists){ show('onboard'); return; } if(!S.unlocked){ show('unlockBox'); return; } show('app');
+  if(adding || !S.exists){ $('onbTitle').textContent=adding?'Add a wallet':'Welcome'; $('onbText').classList.toggle('hidden',adding); $('onbBack').classList.toggle('hidden',!adding); show('onboard'); return; }
+  if(!S.unlocked){ $('uName').textContent=act.name?'“'+act.name+'”':''; const ws=S.wallet_names||[];
+    if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' (unlocked)':''}</option>`).join(''); show('uPick'); } else hide('uPick');
+    show('unlockBox'); return; }
+  show('app'); if(!$('tab-wallets').classList.contains('hidden')) loadWallets();
   const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;
@@ -332,7 +442,7 @@ async function refresh(){
     $('cH').textContent=tip.height; $('cP').textContent=tip.peers; $('cR').textContent=rate(tip.hashrate); $('cS').textContent=gnr(tip.supply)+' GNR'; } else { $('sync').textContent='no node reachable'; $('sync').className='badge warn'; }
   $('cV').textContent=v??'-'; $('cN').textContent=S.node_running?'running':'not running';
   $('hist').innerHTML=(S.history||[]).map(h=>`<tr><td data-label="Block">${h.height??'<span class=warn>pending</span>'}</td><td data-label="Amount" class="amt"><span class="${h.amount<0?'bad':'ok'}">${h.amount<0?'-':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable&&h.height!=null?`<button class="btn" onclick="makeProof('${esc(h.txid)}')">Proof</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class=muted>No transactions yet</td></tr>';
-  const m=S.miner||{}; $('mStat').textContent=m.running?'mining':'stopped'; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
+  const m=S.miner||{}; $('mStat').textContent=m.running?'mining':'stopped'; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';
   $('mDay').textContent=m.running&&m.hashrate>0?'≈ '+Number(m.expected_per_day||0).toLocaleString(undefined,{maximumFractionDigits:2})+' GNR / day':'-';

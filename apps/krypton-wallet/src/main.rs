@@ -28,6 +28,7 @@ use std::sync::Arc;
 
 mod assets;
 mod update;
+mod vault;
 
 const UI: &str = include_str!("ui.html");
 
@@ -81,6 +82,8 @@ struct MinerStats {
     /// This miner's fraction of the network hashrate and the GNR/day it implies.
     network_fraction: f64,
     expected_per_day: f64,
+    /// Name of the wallet the miner pays, filled in per request.
+    wallet: String,
 }
 
 struct App {
@@ -100,11 +103,17 @@ struct App {
     /// A newer signed release, if one was found.
     update: Mutex<Option<update::Available>>,
     update_status: Mutex<String>,
+    /// All wallets of this network; `wallet` above holds the active one when unlocked.
+    vault: vault::Vault,
 }
 
 impl App {
+    /// File of the active wallet.
     fn wallet_path(&self) -> PathBuf {
-        self.dir.join("wallet.krypton")
+        let id = self.vault.active_id();
+        self.vault
+            .path(&self.dir, &id)
+            .unwrap_or_else(|| self.dir.join("wallet.krypton"))
     }
     fn settings_path(&self) -> PathBuf {
         self.dir.join("wallet-settings.json")
@@ -289,10 +298,24 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
         let miner_running = a.miner.lock().as_mut().map(|c| c.try_wait().ok().flatten().is_none()).unwrap_or(false);
         let mut ms = a.miner_stats.lock().clone();
         ms.running = miner_running;
+        if ms.running
+            && let Ok(addr) = std::fs::read_to_string(a.dir.join("miner-address.txt"))
+            && let Some(name) = vault::name_for_address(&a, &addr)
+        {
+            ms.wallet = name;
+        }
+        let reg = a.vault.reg.lock().clone();
         Ok(json!({
             "network": a.network.as_str(),
-            "exists": a.wallet_path().exists(),
+            "exists": !reg.wallets.is_empty(),
             "unlocked": address.is_some(),
+            "active": {
+                "id": reg.active,
+                "name": reg.get(&reg.active).map(|e| e.name.clone()),
+                "locks_in": a.vault.locks_in(&reg.active),
+            },
+            "wallet_count": reg.wallets.len(),
+            "wallet_names": reg.wallets.iter().map(|e| json!({"id": e.id, "name": e.name, "unlocked": a.vault.locks_in(&e.id).is_some()})).collect::<Vec<_>>(),
             "address": address,
             "short": short,
             "balance": balance,
@@ -327,47 +350,25 @@ struct CreateReq {
     birthday: Option<u64>,
 }
 
+/// First-run wallet creation (onboarding); later wallets come from the Wallets tab.
 async fn create(State(app): S, h: HeaderMap, Json(r): Json<CreateReq>) -> Response {
-    if let Err(x) = check(&app, &h) {
-        return x;
-    }
-    let a = app.clone();
-    match blocking(move || {
-        let restoring = r.mnemonic.is_some();
-        let m = match r.mnemonic {
-            Some(m) => {
-                keys::validate_mnemonic(&m)?;
-                zeroize::Zeroizing::new(m.trim().to_lowercase())
-            }
-            None => keys::new_mnemonic(),
-        };
-        let birthday = if restoring {
-            r.birthday.unwrap_or(0)
-        } else {
-            Multi(a.sources()?).tip_height().unwrap_or(0)
-        };
-        std::fs::create_dir_all(&a.dir)?;
-        let w = Wallet::create(
-            &a.wallet_path(),
-            &r.password,
-            &m,
-            "",
-            a.network,
-            birthday,
-            Argon2Params::STRONG,
-        )?;
-        *a.wallet.lock() = Some(w);
-        Ok(if restoring {
-            json!({"ok": true})
-        } else {
-            json!({"mnemonic": m.as_str()})
-        })
-    })
+    let n = app.vault.reg.lock().wallets.len();
+    let name = if n == 0 {
+        "Main wallet".to_string()
+    } else {
+        format!("Wallet {}", n + 1)
+    };
+    vault::add(
+        State(app),
+        h,
+        Json(vault::AddReq {
+            name,
+            password: r.password,
+            mnemonic: r.mnemonic,
+            birthday: r.birthday,
+        }),
+    )
     .await
-    {
-        Ok(v) => Json(v).into_response(),
-        Err(e) => err(e),
-    }
 }
 
 #[derive(Deserialize)]
@@ -382,6 +383,13 @@ async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
     let a = app.clone();
     match blocking(move || {
         let w = Wallet::open(&a.wallet_path(), &r.password)?;
+        let id = a.vault.active_id();
+        vault::remember_fp(&a, &id, &w);
+        a.vault.note(&id, &w);
+        a.vault
+            .unlocked
+            .lock()
+            .insert(id, vault::Since::now());
         *a.wallet.lock() = Some(w);
         Ok(())
     })
@@ -413,7 +421,8 @@ async fn lock(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    *app.wallet.lock() = None;
+    let id = app.vault.active_id();
+    vault::lock_wallet(&app, &id);
     Json(json!({"ok": true})).into_response()
 }
 
@@ -903,6 +912,7 @@ async fn serve(
             nodes: vec!["https://genoryn.io".into()],
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
+    let vault = vault::Vault::new(&dir);
     let app = Arc::new(App {
         network,
         dir,
@@ -918,6 +928,7 @@ async fn serve(
         quit: tokio::sync::Notify::new(),
         update: Mutex::new(None),
         update_status: Mutex::new(String::new()),
+        vault,
     });
 
     // Full-node mode: our node starts with the wallet.
@@ -958,22 +969,26 @@ async fn serve(
             tokio::time::sleep(std::time::Duration::from_secs(15)).await;
             let a = bg.clone();
             let _ = tokio::task::spawn_blocking(move || {
+                vault::expire(&a);
                 let Ok(sources) = a.sources() else { return };
                 let src = Multi(sources);
-                let Some(mut g) = a.wallet.try_lock() else {
-                    return;
-                };
-                if let Some(w) = g.as_mut() {
+                // Lock order everywhere: registry, then active wallet, then others.
+                let active_id = a.vault.active_id();
+                if let Some(mut g) = a.wallet.try_lock()
+                    && let Some(w) = g.as_mut()
+                {
                     match src.cross_check().and_then(|_| w.sync(&src, |_, _| {})) {
                         Ok(_) => a.last_error.lock().clear(),
                         Err(e) => *a.last_error.lock() = format!("sync: {e}"),
                     }
+                    a.vault.note(&active_id, w);
                     let owner = krypton_crypto::field::digest_to_bytes(&w.address().owner);
                     drop(g);
                     if let Some(c) = src.0.first() {
                         *a.account.lock() = c.miner_account(&owner).ok();
                     }
                 }
+                vault::sync_others(&a, &src);
             })
             .await;
         }
@@ -992,6 +1007,14 @@ async fn serve(
         .route("/api/state", get(state))
         .route("/api/create", post(create))
         .route("/api/unlock", post(unlock))
+        .route("/api/wallets", get(vault::list))
+        .route("/api/wallets/add", post(vault::add))
+        .route("/api/wallets/unlock", post(vault::unlock_one))
+        .route("/api/wallets/lock", post(vault::lock_one))
+        .route("/api/wallets/lock-all", post(vault::lock_all))
+        .route("/api/wallets/use", post(vault::use_wallet))
+        .route("/api/wallets/rename", post(vault::rename))
+        .route("/api/wallets/remove", post(vault::remove))
         .route("/api/lock", post(lock))
         .route("/api/reveal", post(reveal))
         .route("/api/send", post(send))

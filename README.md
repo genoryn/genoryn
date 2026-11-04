@@ -167,6 +167,14 @@ a 128-bit checksum, so a typo or tampering is always detected. Its short form
 (`gnrs1…`) is a content hash: every wallet checks that what a node resolves hashes back to
 it, so a node can never substitute another recipient.
 
+## Several wallets
+
+The desktop wallet's **Wallets** tab holds as many wallets as you like, each with its own
+24 words and its own password, and adds their balances into one total. A wallet you unlock
+stays open for 24 hours, then locks itself and asks for its password again; locking never
+stops the miner. Removing a wallet only moves its file to a `removed` folder, and its
+24 words bring it back at any time.
+
 ## No full node required
 
 A wallet should not need hundreds of gigabytes to show a balance. Genoryn Krypton
