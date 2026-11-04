@@ -2,7 +2,10 @@
 (function () {
   var view = document.getElementById("view");
   function card(html) { return '<div class="glass table-card">' + html + "</div>"; }
-  function short(h) { return h ? h.slice(0, 10) + "…" + h.slice(-8) : ""; }
+  /* Node data only ever reaches HTML through these: hashes must be hex, numbers are numbers. */
+  function hx(h) { return typeof h === "string" && /^[0-9a-f]{1,128}$/i.test(h) ? h : ""; }
+  function nm(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+  function short(h) { h = hx(h); return h ? h.slice(0, 10) + "…" + h.slice(-8) : ""; }
   function kv(rows) { return '<div class="kv">' + rows.map(function (r) { return "<div>" + r[0] + "</div><div>" + r[1] + "</div>"; }).join("") + "</div>"; }
   function err(m) { view.innerHTML = card('<p style="padding:18px" class="err-site">' + gk.esc(m) + "</p>"); }
 
@@ -38,10 +41,10 @@
   function home() {
     gk.api("/v1/blocks?count=25").then(function (bs) {
       var rows = bs.map(function (b) {
-        return '<tr><td data-label="Height"><a href="#/block/' + b.height + '">' + b.height + '</a></td><td data-label="Hash" class="mono"><a href="#/block/' + b.hash + '">' + short(b.hash) +
-          '</a></td><td data-label="Age">' + gk.ago(b.timestamp) + '</td><td data-label="Shares" class="num">' + (b.shares || 0) + '</td><td data-label="Transactions" class="num">' + b.txs +
+        return '<tr><td data-label="Height"><a href="#/block/' + nm(b.height) + '">' + nm(b.height) + '</a></td><td data-label="Hash" class="mono"><a href="#/block/' + hx(b.hash) + '">' + short(b.hash) +
+          '</a></td><td data-label="Age">' + gk.ago(b.timestamp) + '</td><td data-label="Shares" class="num">' + nm(b.shares) + '</td><td data-label="Transactions" class="num">' + nm(b.txs) +
           '</td><td data-label="Reward" class="num">' + gk.gnr((b.subsidy || 0) + (b.fees || 0)) +
-          '</td><td data-label="Size" class="num">' + (b.size / 1024).toFixed(1) + " KB</td></tr>";
+          '</td><td data-label="Size" class="num">' + (nm(b.size) / 1024).toFixed(1) + " KB</td></tr>";
       }).join("");
       view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Latest blocks</h2>' + card('<table class="data"><thead><tr><th>Height</th><th>Hash</th><th>Age</th><th class="num">Shares</th><th class="num">Txs</th><th class="num">Reward GNR</th><th class="num">Size</th></tr></thead><tbody>' + rows + "</tbody></table>") +
         '<p class="muted" style="margin-top:12px;font-size:13.5px">Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.</p>';
@@ -52,22 +55,22 @@
     gk.api("/v1/block/" + encodeURIComponent(id)).then(function (b) {
       var h = b.header;
       var txs = b.txs.map(function (t) {
-        return '<tr><td data-label="Txid" class="mono"><a href="#/tx/' + t.txid + '">' + short(t.txid) + '</a></td><td data-label="Kind">' + t.kind + '</td><td data-label="Fee" class="num">' + gk.gnr(t.fee) +
-          '</td><td data-label="Proof" class="num">' + (t.proof_bytes / 1024).toFixed(1) + " KB</td></tr>";
+        return '<tr><td data-label="Txid" class="mono"><a href="#/tx/' + hx(t.txid) + '">' + short(t.txid) + '</a></td><td data-label="Kind">' + gk.esc(t.kind) + '</td><td data-label="Fee" class="num">' + gk.gnr(t.fee) +
+          '</td><td data-label="Proof" class="num">' + (nm(t.proof_bytes) / 1024).toFixed(1) + " KB</td></tr>";
       }).join("") || '<tr><td colspan="4" class="muted">No transactions</td></tr>';
       var shares = (b.shares || []).map(function (s) {
-        return '<tr><td data-label="Share" class="mono">' + short(s.hash) + '</td><td data-label="Mined on block" class="num">' + s.height + '</td><td data-label="Miner" class="mono">' + short(s.miner) + "</td></tr>";
+        return '<tr><td data-label="Share" class="mono">' + short(s.hash) + '</td><td data-label="Mined on block" class="num">' + nm(s.height) + '</td><td data-label="Miner" class="mono">' + short(s.miner) + "</td></tr>";
       }).join("") || '<tr><td colspan="3" class="muted">Only the block itself was credited</td></tr>';
       var payouts = (b.payouts || []).map(function (p) {
         return '<tr><td data-label="Miner" class="mono">' + short(p.owner) + '</td><td data-label="Paid" class="num">' + gk.gnr(p.value) + " GNR</td></tr>";
       }).join("");
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Block ' + h.height + "</h2>" + card(kv([
-        ["Hash", '<span class="mono">' + b.hash + "</span>"], ["Previous", '<a class="mono" href="#/block/' + h.prev + '">' + h.prev + "</a>"],
-        ["Time", new Date(h.timestamp * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"], ["Confirmations", b.confirmations],
-        ["Difficulty", Number(h.difficulty).toLocaleString("en-US")], ["Nonce", h.nonce],
+      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Block ' + nm(h.height) + "</h2>" + card(kv([
+        ["Hash", '<span class="mono">' + hx(b.hash) + "</span>"], ["Previous", '<a class="mono" href="#/block/' + hx(h.prev) + '">' + hx(h.prev) + "</a>"],
+        ["Time", new Date(nm(h.timestamp) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"], ["Confirmations", nm(b.confirmations)],
+        ["Difficulty", Number(h.difficulty).toLocaleString("en-US")], ["Nonce", gk.esc(h.nonce)],
         ["Reward to the pool", gk.gnr((b.subsidy || 0) + (b.fees || 0)) + " GNR"], ["Found by", '<span class="mono">' + short(b.miner) + "</span>"],
         ["Shares credited", (b.shares || []).length + 1], ["Payouts made", (b.payouts || []).length],
-        ["Note tree root", '<span class="mono">' + h.note_root + "</span>"], ["MMR root (light clients)", '<span class="mono">' + h.mmr_root + "</span>"], ["Size", (b.size / 1024).toFixed(1) + " KB"]
+        ["Note tree root", '<span class="mono">' + hx(h.note_root) + "</span>"], ["MMR root (light clients)", '<span class="mono">' + hx(h.mmr_root) + "</span>"], ["Size", (nm(b.size) / 1024).toFixed(1) + " KB"]
       ])) +
         (payouts ? '<h2 style="font-size:20px;margin:22px 0 12px">Payouts</h2>' + card('<table class="data"><thead><tr><th>Miner</th><th class="num">Paid</th></tr></thead><tbody>' + payouts + "</tbody></table>") : "") +
         '<h2 style="font-size:20px;margin:22px 0 12px">Shares</h2>' + card('<table class="data"><thead><tr><th>Share</th><th class="num">Mined on block</th><th>Miner</th></tr></thead><tbody>' + shares + "</tbody></table>") +
@@ -77,8 +80,8 @@
 
   function tx(id) {
     gk.api("/v1/tx/" + encodeURIComponent(id)).then(function (t) {
-      var rows = [["Transaction", '<span class="mono">' + t.txid + "</span>"], ["Status", t.status === "confirmed" ? '<span class="ok">confirmed</span>' : '<span class="warn">pending</span>']];
-      if (t.height != null) rows.push(["Block", '<a href="#/block/' + t.height + '">' + t.height + "</a>"], ["Confirmations", t.confirmations]);
+      var rows = [["Transaction", '<span class="mono">' + hx(t.txid) + "</span>"], ["Status", t.status === "confirmed" ? '<span class="ok">confirmed</span>' : '<span class="warn">pending</span>']];
+      if (t.height != null) rows.push(["Block", '<a href="#/block/' + nm(t.height) + '">' + nm(t.height) + "</a>"], ["Confirmations", nm(t.confirmations)]);
       if (t.fee != null) rows.push(["Fee", gk.gnr(t.fee) + " GNR"]);
       rows.push(["Privacy", "Sender, recipient and amount are hidden by a zk-STARK proof."]);
       view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Transaction</h2>' + card(kv(rows));
@@ -88,7 +91,7 @@
   function nullifier(id) {
     gk.api("/v1/nullifier/" + encodeURIComponent(id)).then(function (n) {
       view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Nullifier</h2>' + card(kv([["Nullifier", '<span class="mono">' + gk.esc(id) + "</span>"],
-        ["Spent", n.spent_height != null ? '<span class="ok">yes</span>, in block <a href="#/block/' + n.spent_height + '">' + n.spent_height + "</a>" : "not spent"]]));
+        ["Spent", n.spent_height != null ? '<span class="ok">yes</span>, in block <a href="#/block/' + nm(n.spent_height) + '">' + nm(n.spent_height) + "</a>" : "not spent"]]));
     }).catch(function () { err("Invalid nullifier."); });
   }
 
@@ -102,17 +105,24 @@
       '<p class="muted" style="margin:6px 0 12px">Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.</p>' +
       '<label for="pf" class="sr-only">Payment proof</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
       '<label for="pfa" class="sr-only">Recipient address (optional)</label><input id="pfa" placeholder="Recipient full address (optional, confirms the recipient)" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
-      '<button class="btn btn-primary" type="button" onclick="exProof()" style="margin-top:10px">Verify</button><div id="pfr" style="margin-top:14px"></div></div>');
+      '<button class="btn btn-primary" type="button" data-act="proof" style="margin-top:10px">Verify</button><div id="pfr" style="margin-top:14px"></div></div>');
   }
 
   window.exProof = function () {
     var out = document.getElementById("pfr");
     out.innerHTML = '<p class="muted">Checking…</p>';
     post("/v1/verify-payment", { proof: document.getElementById("pf").value.trim(), address: document.getElementById("pfa").value.trim() || null }).then(function (r) {
-      out.innerHTML = '<p class="ok"><b>Valid payment proof</b></p>' + kv([
-        ["Amount", "<b>" + gk.gnr(r.value) + " GNR</b>"], ["Recipient", '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === true ? ' <span class="ok">· matches the address</span>' : r.recipient_confirmed === false ? ' <span class="bad">· does not match the address</span>' : "")],
-        ["Memo", gk.esc(r.memo) || "—"], ["Transaction", '<a class="mono" href="#/tx/' + r.txid + '">' + short(r.txid) + "</a>"],
-        ["Block", '<a href="#/block/' + r.height + '">' + r.height + "</a> · " + r.confirmations + " confirmations"], ["Time", new Date(r.time * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
+      var txid = /^[0-9a-f]{64}$/.test(r.txid) ? r.txid : "", h = Number(r.height) || 0;
+      var head = r.recipient_confirmed === false
+        ? '<p class="bad"><b>Not a payment to that address.</b> The transaction exists, but it did not pay the address you entered.</p>'
+        : r.recipient_verified
+          ? '<p class="ok"><b>Valid payment proof.</b> The payment below went to the recipient shown.</p>'
+          : '<p class="warn"><b>Real payment, recipient not verified.</b> The amount below was paid on chain, but the recipient short address was written by the sender and nothing confirms it. Paste the recipient\'s full address above, or ask them to publish their short address, then check again.</p>';
+      out.innerHTML = head + kv([
+        ["Amount", "<b>" + gk.gnr(r.value) + " GNR</b>"],
+        ["Recipient", '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === false ? ' <span class="bad">· does not match</span>' : r.recipient_verified ? ' <span class="ok">· verified</span>' : ' <span class="warn">· unverified</span>')],
+        ["Memo", gk.esc(r.memo) || "—"], ["Transaction", '<a class="mono" href="#/tx/' + txid + '">' + short(txid) + "</a>"],
+        ["Block", '<a href="#/block/' + h + '">' + h + "</a> · " + (Number(r.confirmations) || 0) + " confirmations"], ["Time", new Date(Number(r.time) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
       ]);
     }).catch(function (e) { out.innerHTML = '<p class="bad"><b>Not valid:</b> ' + gk.esc(e.message) + "</p>"; });
   };
@@ -168,7 +178,7 @@
     if (p[0] === "block" && p[1]) block(p[1]);
     else if (p[0] === "tx" && p[1]) tx(p[1]);
     else if (p[0] === "nullifier" && p[1]) nullifier(p[1]);
-    else if (p[0] === "address" && p[1]) address(decodeURIComponent(p[1]));
+    else if (p[0] === "address" && p[1]) { var a = null; try { a = decodeURIComponent(p[1]); } catch (e) {} if (a) address(a); else err("Not a valid address."); }
     else if (p[0] === "proof") { view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Payment proof</h2>' + proofForm(); }
     else home();
     var isHome = !p[0];

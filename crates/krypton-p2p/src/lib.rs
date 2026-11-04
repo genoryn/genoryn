@@ -69,11 +69,28 @@ impl Peer {
         }
         self.queued.fetch_add(n, Ordering::Relaxed);
         if self.tx.try_send(bytes).is_err() {
+            // Silently dropping a frame (a block reply, say) would stall the peer's sync.
             self.queued.fetch_sub(n, Ordering::Relaxed);
+            return false;
         }
         true
     }
 }
+
+/// Limits and bans apply per IPv4 address and per IPv6 /64 (one customer's prefix).
+fn ip_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            IpAddr::V6(std::net::Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
+        }
+        v4 => v4,
+    }
+}
+
+/// An inbound peer must introduce itself (Hello) this soon or lose its slot.
+const HELLO_DEADLINE: Duration = Duration::from_secs(30);
+const MAX_ADDR_BOOK: usize = 5000;
 
 struct Inner {
     cfg: Config,
@@ -142,11 +159,12 @@ impl Net {
             if self.is_banned(&peer.ip()) {
                 continue;
             }
+            let key = ip_key(peer.ip());
             let (inbound, same_ip) = {
                 let p = self.inner.peers.lock();
                 (
                     p.values().filter(|x| x.info.inbound).count(),
-                    p.values().filter(|x| x.info.addr.ip() == peer.ip()).count(),
+                    p.values().filter(|x| ip_key(x.info.addr.ip()) == key).count(),
                 )
             };
             if inbound >= self.inner.cfg.max_inbound || same_ip >= self.inner.cfg.max_per_ip {
@@ -157,7 +175,7 @@ impl Net {
             };
             {
                 let mut p = self.inner.pending.lock();
-                let c = p.entry(peer.ip()).or_insert(0);
+                let c = p.entry(key).or_insert(0);
                 if *c >= self.inner.cfg.max_per_ip {
                     continue;
                 }
@@ -170,10 +188,10 @@ impl Net {
                     tokio::time::timeout(Duration::from_secs(10), session::respond(s, magic)).await;
                 {
                     let mut p = n.inner.pending.lock();
-                    if let Some(c) = p.get_mut(&peer.ip()) {
+                    if let Some(c) = p.get_mut(&key) {
                         *c -= 1;
                         if *c == 0 {
-                            p.remove(&peer.ip());
+                            p.remove(&key);
                         }
                     }
                 }
@@ -322,11 +340,31 @@ impl Net {
             }
             closed_w.notify_one();
         });
+        let started = Instant::now();
         loop {
+            let introduced = self
+                .inner
+                .peers
+                .lock()
+                .get(&id)
+                .is_some_and(|p| p.info.hello.is_some());
+            let wait = if inbound && !introduced {
+                let left = HELLO_DEADLINE.saturating_sub(started.elapsed());
+                if left.is_zero() {
+                    tracing::debug!("inbound peer {addr} never introduced itself");
+                    break;
+                }
+                left
+            } else {
+                Duration::from_secs(600)
+            };
             let frame = tokio::select! {
-                f = tokio::time::timeout(Duration::from_secs(600), recv.recv()) => f,
+                f = tokio::time::timeout(wait, recv.recv()) => f,
                 _ = closed.notified() => break,
             };
+            if frame.is_err() && inbound && !introduced {
+                continue;
+            }
             match frame {
                 Ok(Ok(frame)) => match Message::decode(&frame) {
                     Ok(m) => {
@@ -388,9 +426,13 @@ impl Net {
     pub fn set_hello(&self, peer: PeerId, h: Hello) {
         let mut ps = self.inner.peers.lock();
         if let Some(p) = ps.get_mut(&peer) {
-            if p.info.inbound && h.listen_port != 0 {
+            // Only a peer's first Hello may add its listening address to the book.
+            if p.info.hello.is_none() && p.info.inbound && h.listen_port != 0 {
                 let a = SocketAddr::new(p.info.addr.ip(), h.listen_port).to_string();
-                self.inner.addrs.lock().insert(a);
+                let mut book = self.inner.addrs.lock();
+                if book.len() < MAX_ADDR_BOOK {
+                    book.insert(a);
+                }
             }
             p.info.hello = Some(h);
         }
@@ -426,7 +468,7 @@ impl Net {
                 self.inner
                     .banned
                     .lock()
-                    .insert(p.info.addr.ip(), Instant::now());
+                    .insert(ip_key(p.info.addr.ip()), Instant::now());
             }
             tracing::warn!("banned peer {}", p.info.addr);
         }
@@ -435,13 +477,13 @@ impl Net {
     fn is_banned(&self, ip: &IpAddr) -> bool {
         let mut b = self.inner.banned.lock();
         b.retain(|_, t| t.elapsed() < BAN_TIME);
-        b.contains_key(ip)
+        b.contains_key(&ip_key(*ip))
     }
 
     pub fn add_addrs(&self, v: Vec<String>) {
         let mut a = self.inner.addrs.lock();
         for x in v.into_iter().take(message::MAX_ADDRS) {
-            if a.len() >= 5000 {
+            if a.len() >= MAX_ADDR_BOOK {
                 break;
             }
             if x.parse::<SocketAddr>()

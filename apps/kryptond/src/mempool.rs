@@ -125,4 +125,34 @@ impl Mempool {
     pub fn bytes(&self) -> usize {
         self.bytes
     }
+
+    /// Fee per KB that should get a transaction mined within `blocks` blocks: the floor
+    /// while the pool fits, otherwise just above the rate at that depth of the backlog.
+    pub fn fee_per_kb_within(&self, blocks: usize, block_bytes: usize) -> u64 {
+        let mut v: Vec<&Entry> = self.txs.values().collect();
+        v.sort_by_key(|e| std::cmp::Reverse(e.rate()));
+        let room = blocks.saturating_mul(block_bytes);
+        let mut used = 0usize;
+        for e in v {
+            used += e.size + 16;
+            if used > room {
+                // rate is fee per byte × 10^6; one more gori per KB outbids it.
+                let per_kb = (e.rate() * 1024 / 1_000_000) as u64 + 1;
+                return per_kb.max(MIN_FEE_PER_KB);
+            }
+        }
+        MIN_FEE_PER_KB
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_pool_suggests_the_floor() {
+        let m = Mempool::default();
+        assert_eq!(m.fee_per_kb_within(1, 1 << 20), MIN_FEE_PER_KB);
+        assert_eq!(min_fee(100 * 1024), 100 * MIN_FEE_PER_KB);
+    }
 }

@@ -22,7 +22,7 @@
     <p class="lead">Everything you need to use, mine, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch and a 21,000,000 GNR cap.</p>
   </div>
   <div class="docs-layout">
-    <button class="btn toc-toggle" type="button" aria-expanded="false" aria-controls="toc" onclick="docsToc()">Contents</button>
+    <button class="btn toc-toggle" type="button" aria-expanded="false" aria-controls="toc" data-act="toc">Contents</button>
     <aside class="toc glass" id="toc" aria-label="On this page">
       <p class="toc-title">On this page</p>
       <ol>
@@ -267,7 +267,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
             <tr><td data-label="Item">Transaction</td><td data-label="Size" class="num">~97 KB</td></tr>
             <tr><td data-label="Item">Proving (desktop CPU)</td><td data-label="Time" class="num">~0.5 s</td></tr>
             <tr><td data-label="Item">Verification</td><td data-label="Time" class="num">~2 ms</td></tr>
-            <tr><td data-label="Item">Default fee</td><td data-label="Size" class="num">0.002 GNR</td></tr>
+            <tr><td data-label="Item">Fee</td><td data-label="Size" class="num">Market rate (<code>/v1/fee</code>); relay floor 10 gori/KB ≈ 0.00001 GNR</td></tr>
           </tbody>
         </table></div>
         <p>The proof is bound to the exact transaction through its sighash, which replaces a signature. Transactions expire after 120 blocks if not mined.</p>
@@ -318,6 +318,7 @@ sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux, systemd, CPU 
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/tx/{txid}</code></td><td data-label="Description">Pending or confirmed, confirmations</td></tr>
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/tx</code></td><td data-label="Description">Submit a transaction (binary body)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/mempool</code></td><td data-label="Description">Pool size and entries</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/fee</code></td><td data-label="Description">Fee estimates per KB (economy, normal, fast) from the backlog</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/nullifier/{hex}</code></td><td data-label="Description">Spent height or null</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/compact?from&amp;count</code></td><td data-label="Description">Compact blocks for wallets (binary)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/frontier/{height}</code></td><td data-label="Description">Note-tree frontier (every 64 blocks, binary)</td></tr>
@@ -408,7 +409,8 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
       <section id="security">
         <h2>Security model</h2>
         <ul>
-          <li><b>Status:</b> extensive automated tests (consensus, proofs, reorganizations, forged light-client data, parser property tests), no independent audit yet.</li>
+          <li><b>Status:</b> extensive automated tests (consensus, proofs, reorganizations, forged light-client data, parser property tests). <b>Latest internal audit: 5 November 2026</b>, covering node, consensus, wallets, light client, website and server, with every fixable finding fixed in 1.0.7 (<a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-05-security-audit.md">report</a>). No external audit yet.</li>
+          <li><b>Light clients:</b> every release carries a checkpoint block; light wallets require it and refuse headers above it with less than 1/16 of its difficulty, so a server can't show a cheap fake chain.</li>
           <li><b>Chain observer:</b> sees fees, sizes, timing; not amounts, senders or recipients.</li>
           <li><b>Malicious server:</b> may withhold data, cannot forge it undetected; use several sources.</li>
           <li><b>Quantum adversary:</b> no elliptic-curve dependency for funds or privacy.</li>

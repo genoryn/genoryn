@@ -400,7 +400,11 @@ impl Wallet {
             None => match self.state.checkpoints.first() {
                 Some(c) => {
                     let h = BlockHeader::from_bytes(&c.header)?;
-                    h.height > tip || src.header(h.height)?.hash() != h.hash()
+                    match &vtip {
+                        // Only a proven chain may tell us ours is foreign.
+                        Some(t) => h.height <= t.height && !src.header_in(&h, t)?,
+                        None => h.height > tip || src.header(h.height)?.hash() != h.hash(),
+                    }
                 }
                 None => false,
             },
@@ -455,7 +459,16 @@ impl Wallet {
             for b in &blocks {
                 let ok = self.verifier.as_ref().expect("verifier").last.hash() == b.header.prev;
                 if !ok {
-                    report.reorged += self.rollback(src)?;
+                    // Roll back only if the proven chain no longer contains our last block;
+                    // a node sending blocks that merely fail to link must not undo history.
+                    if let Some(t) = &vtip {
+                        let last = self.verifier.as_ref().expect("verifier").last.clone();
+                        ensure!(
+                            last.height > t.height || !src.header_in(&last, t)?,
+                            "the node sent blocks that do not extend the proven chain"
+                        );
+                    }
+                    report.reorged += self.rollback(src, vtip.as_ref())?;
                     break;
                 }
                 self.verifier.as_mut().expect("verifier").verify(b)?;
@@ -497,7 +510,7 @@ impl Wallet {
     }
 
     /// Steps back until our checkpoint matches the source's chain.
-    fn rollback(&mut self, src: &impl ChainSource) -> Result<u64> {
+    fn rollback(&mut self, src: &impl ChainSource, vtip: Option<&BlockHeader>) -> Result<u64> {
         let mut dropped = 0u64;
         loop {
             let Some(c) = self.state.checkpoints.last() else {
@@ -506,7 +519,12 @@ impl Wallet {
                 )
             };
             let h = BlockHeader::from_bytes(&c.header)?;
-            if src.header(h.height)?.hash() == h.hash() {
+            // The fork point is found against the proven chain, not the node's word.
+            let still_in = match vtip {
+                Some(t) => h.height <= t.height && src.header_in(&h, t)?,
+                None => src.header(h.height)?.hash() == h.hash(),
+            };
+            if still_in {
                 break;
             }
             self.state.checkpoints.pop();
@@ -672,6 +690,12 @@ impl Wallet {
             to.network.as_str()
         );
         ensure!(amount > 0, "amount must be positive");
+        ensure!(
+            (MIN_FEE..=MAX_FEE).contains(&fee),
+            "the fee must be between {} and {} GNR",
+            krypton_core::emission::format_amount(MIN_FEE),
+            krypton_core::emission::format_amount(MAX_FEE)
+        );
         ensure!(self.verifier.is_some(), "sync the wallet first");
         let need = amount.checked_add(fee).context("amount overflow")?;
         let mut spendable: Vec<&OwnedNote> = self
@@ -968,8 +992,22 @@ impl Wallet {
     }
 }
 
-/// Default fee: comfortably above the minimum relay fee for a ~100 KB transfer.
-pub const DEFAULT_FEE: u64 = 200_000;
+/// Fee for one transfer at `per_kb` gori per KB of transaction (never below the relay
+/// floor). Fees are a market: wallets take `per_kb` from the node's estimate.
+pub fn transfer_fee(per_kb: u64) -> u64 {
+    use krypton_core::params::{FEE_ESTIMATE_KB, MIN_FEE_PER_KB};
+    per_kb.max(MIN_FEE_PER_KB).saturating_mul(FEE_ESTIMATE_KB)
+}
+
+/// The lowest fee a transfer can carry and still be relayed.
+pub const MIN_FEE: u64 =
+    krypton_core::params::MIN_FEE_PER_KB * krypton_core::params::FEE_ESTIMATE_KB;
+
+/// Fee when no estimate is available: twice the floor (about 0.000026 GNR).
+pub const DEFAULT_FEE: u64 = 2 * MIN_FEE;
+
+/// A fee above this (0.1 GNR) is refused as a likely typo.
+pub const MAX_FEE: u64 = 10_000_000;
 
 #[cfg(test)]
 mod tests;

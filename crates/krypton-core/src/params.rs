@@ -38,6 +38,26 @@ pub struct ChainParams {
     /// Credits accrue per miner and are paid as one note this many blocks after the first credit.
     pub payout_interval: u64,
     pub seeds: &'static [&'static str],
+    /// A main-chain block this release vouches for. Light clients require it in the chain
+    /// they are shown and refuse headers above it with far less difficulty, so a server
+    /// cannot present a cheap low-difficulty chain. Not a consensus rule.
+    pub checkpoint: Option<Checkpoint>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Checkpoint {
+    pub height: u64,
+    /// Block hash (hex).
+    pub hash: &'static str,
+    pub difficulty: u128,
+}
+
+impl Checkpoint {
+    /// Lowest difficulty a light client accepts above the checkpoint (a 16-fold drop in
+    /// hashrate after the release would need a new one).
+    pub fn min_difficulty(&self) -> u128 {
+        (self.difficulty / 16).max(1)
+    }
 }
 
 pub const GENESIS_MESSAGE: &str =
@@ -98,6 +118,11 @@ impl Network {
                 coinbase_maturity: 100,
                 payout_interval: 360,
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:30333"],
+                checkpoint: Some(Checkpoint {
+                    height: 1400,
+                    hash: "8d650ee7c81cf920bd24ae4aaa3997bb7fcf4bba0e3ffa8205d388a75484a68d",
+                    difficulty: 40_547_978_637,
+                }),
             },
             Self::Testnet => ChainParams {
                 network: self,
@@ -118,6 +143,7 @@ impl Network {
                 coinbase_maturity: 20,
                 payout_interval: 360,
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:31333"],
+                checkpoint: None,
             },
             Self::Devnet => ChainParams {
                 network: self,
@@ -135,6 +161,7 @@ impl Network {
                 coinbase_maturity: 2,
                 payout_interval: 4,
                 seeds: &[],
+                checkpoint: None,
             },
         }
     }
@@ -186,8 +213,13 @@ pub const MEDIAN_TIME_WINDOW: usize = 11;
 pub const MAX_FUTURE_DRIFT: u64 = 300;
 /// Transfers may anchor to the note tree root of any of the last N blocks.
 pub const ANCHOR_WINDOW: u64 = 2_880;
-/// Minimum relay fee per started kilobyte of transaction (policy, not consensus).
-pub const MIN_FEE_PER_KB: u64 = 1_000;
+/// Minimum relay fee per started kilobyte of transaction (policy, not consensus: any fee,
+/// even zero, is valid in a block). A transfer is about 100 KB, so the floor is about
+/// 0.00001 GNR; above it fees are a market, estimated from the mempool (`/v1/fee`).
+pub const MIN_FEE_PER_KB: u64 = 10;
+/// Size a wallet assumes for a transfer when it chooses a fee before proving it
+/// (real transfers are about 100 KB; the margin keeps the fee above the floor).
+pub const FEE_ESTIMATE_KB: u64 = 128;
 
 // Proportional mining rewards (shares). See docs/spec/rewards.md.
 /// A share needs 1/SHARE_RATIO of the block work: the network finds about this many

@@ -147,7 +147,10 @@ pub fn verify(
         .iter()
         .find(|t| t.txid() == proof.txid)
         .context("transaction not in its block")?;
-    let out = &tx.outputs[proof.output as usize];
+    let out = tx
+        .outputs
+        .get(proof.output as usize)
+        .context("the proof names an output this transaction does not have")?;
     let owner = digest_from_bytes(&proof.owner).context("owner tag")?;
     let Some(note) = open_disclosed_note(&proof.key, &owner, &out.cm, &out.ciphertext) else {
         bail!("the proof does not open this payment: it is forged or for another output");

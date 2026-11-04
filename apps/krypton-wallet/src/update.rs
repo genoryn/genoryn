@@ -92,18 +92,38 @@ pub fn check() -> Result<Option<Available>> {
     };
     let sums = find(&|n: &str| n == "SHA256SUMS").map(|x| x.1);
     let sig = find(&|n: &str| n == "SHA256SUMS.sig").map(|x| x.1);
-    let can_install = installer.is_some() && sums.is_some() && sig.is_some();
+    // Announce nothing that the release key has not signed: someone holding only the
+    // GitHub account could otherwise steer users to an unsigned download page.
+    let (Some(sums_url), Some(sig_url)) = (sums.clone(), sig.clone()) else {
+        return Ok(None);
+    };
+    let c = http()?;
+    let signed = signed_sums(&c, &sums_url, &sig_url)?;
+    if !signed.lines().any(|l| l.contains(&format!("-{version}-")) || l.contains(&format!("_{version}_"))) {
+        return Ok(None);
+    }
+    let can_install = installer.is_some();
     Ok(Some(Available {
+        page: format!("https://github.com/genoryn/genoryn/releases/tag/v{version}"),
         version,
-        page: v["html_url"]
-            .as_str()
-            .unwrap_or("https://github.com/genoryn/genoryn/releases")
-            .to_string(),
         installer,
         sums,
         sig,
         can_install,
     }))
+}
+
+/// Downloads `SHA256SUMS` and its signature; errors unless the release key signed it.
+fn signed_sums(c: &reqwest::blocking::Client, sums_url: &str, sig_url: &str) -> Result<String> {
+    let sums = fetch(c, sums_url, 1 << 20)?;
+    let sig_hex = fetch(c, sig_url, 1 << 20)?;
+    let key = hex::decode(RELEASE_KEY_HEX.trim()).context("embedded release key")?;
+    let sig =
+        hex::decode(String::from_utf8_lossy(&sig_hex).trim()).context("signature encoding")?;
+    if !krypton_crypto::sign::hybrid_verify(&key, &sums, &sig, CTX) {
+        bail!("release signature is invalid: update refused");
+    }
+    Ok(String::from_utf8_lossy(&sums).into_owned())
 }
 
 fn fetch(c: &reqwest::blocking::Client, url: &str, max: u64) -> Result<Vec<u8>> {
@@ -115,9 +135,11 @@ fn fetch(c: &reqwest::blocking::Client, url: &str, max: u64) -> Result<Vec<u8>> 
     if let Some(len) = r.content_length() {
         ensure!(len <= max, "download too large");
     }
-    let b = r.bytes()?;
+    // Bounded even without a Content-Length (chunked responses).
+    let mut b = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(r, max + 1), &mut b)?;
     ensure!(b.len() as u64 <= max, "download too large");
-    Ok(b.to_vec())
+    Ok(b)
 }
 
 /// Downloads the installer and verifies the signed checksums. Returns its path.
@@ -132,23 +154,12 @@ pub fn download_verified(a: &Available, dir: &Path) -> Result<PathBuf> {
         "unexpected installer name"
     );
     let c = http()?;
-    let sums = fetch(
+    let sums = signed_sums(
         &c,
         a.sums.as_deref().context("SHA256SUMS missing")?,
-        1 << 20,
-    )?;
-    let sig_hex = fetch(
-        &c,
         a.sig.as_deref().context("SHA256SUMS.sig missing")?,
-        1 << 20,
     )?;
-    let key = hex::decode(RELEASE_KEY_HEX.trim()).context("embedded release key")?;
-    let sig =
-        hex::decode(String::from_utf8_lossy(&sig_hex).trim()).context("signature encoding")?;
-    if !krypton_crypto::sign::hybrid_verify(&key, &sums, &sig, CTX) {
-        bail!("release signature is invalid: update refused");
-    }
-    let want = String::from_utf8_lossy(&sums)
+    let want = sums
         .lines()
         .find_map(|l| {
             let (h, n) = l.split_once("  ")?;
@@ -161,9 +172,25 @@ pub fn download_verified(a: &Available, dir: &Path) -> Result<PathBuf> {
         got == want,
         "installer hash does not match the signed checksums"
     );
-    std::fs::create_dir_all(dir)?;
+    // A fresh, unpredictable folder: nothing can be planted at the path in advance.
+    let dir = dir.join(hex::encode(rand::random::<[u8; 12]>()));
+    std::fs::create_dir_all(&dir)?;
     let path = dir.join(&name);
-    std::fs::write(&path, &bin)?;
+    {
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
+        f.write_all(&bin)?;
+        f.sync_all()?;
+    }
+    // Hash what is on disk right before it runs.
+    let disk = std::fs::read(&path)?;
+    ensure!(
+        hex::encode(Sha256::digest(&disk)) == want,
+        "installer changed on disk: update refused"
+    );
     Ok(path)
 }
 

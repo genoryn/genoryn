@@ -125,7 +125,7 @@
         var p = pts[best], d = data[best];
         cross.setAttribute("x1", p[0]); cross.setAttribute("x2", p[0]); cross.setAttribute("visibility", "visible");
         dot.setAttribute("cx", p[0]); dot.setAttribute("cy", p[1]); dot.setAttribute("visibility", "visible");
-        tip.innerHTML = "<b>" + (o.fmt || String)(d.v) + "</b><span>" + new Date(d.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (d.h != null ? " · block " + d.h : "") + "</span>";
+        tip.innerHTML = "<b>" + (o.fmt || String)(d.v) + "</b><span>" + new Date(d.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (d.h != null && isFinite(d.h) ? " · block " + Number(d.h) : "") + "</span>";
         tip.classList.remove("hidden");
         var left = (p[0] / W) * r.width;
         tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left - tip.offsetWidth / 2)) + "px";

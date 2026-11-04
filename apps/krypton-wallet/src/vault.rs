@@ -183,11 +183,15 @@ fn valid_name(n: &str) -> Result<String> {
 
 /// Locks one wallet (active or not). The miner keeps running.
 pub fn lock_wallet(app: &App, id: &str) {
-    app.vault.unlocked.lock().remove(id);
     if app.vault.active_id() == id {
+        // Clear the wallet before dropping its unlock record, so `expired` keeps
+        // refusing it while we wait for a running sync to let go of it.
         *app.wallet.lock() = None;
         *app.account.lock() = None;
+        app.vault.unlocked.lock().remove(id);
     } else {
+        // `put_back` checks the record, so it goes first here.
+        app.vault.unlocked.lock().remove(id);
         app.vault.others.lock().remove(id);
     }
 }
@@ -229,6 +233,16 @@ pub fn put_back(app: &App, id: &str, w: Wallet) {
     } else {
         app.vault.others.lock().insert(id.to_string(), w);
     }
+}
+
+/// Whether `id` was unlocked more than 24 hours ago (it must not be used any more,
+/// even before the background task gets to lock it).
+pub fn expired(app: &App, id: &str) -> bool {
+    app.vault
+        .unlocked
+        .lock()
+        .get(id)
+        .is_some_and(|t| t.elapsed() >= UNLOCK_TTL)
 }
 
 /// Locks every wallet whose 24 hours are over.
@@ -336,9 +350,9 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
         ensure!(r.password.chars().count() >= 12, "use a password of at least 12 characters");
         let restoring = r.mnemonic.as_deref().is_some_and(|m| !m.trim().is_empty());
         let m = if restoring {
-            let m = r.mnemonic.unwrap_or_default();
-            keys::validate_mnemonic(&m)?;
-            keys::normalize(&m)?
+            let m = r.mnemonic.as_deref().unwrap_or_default();
+            keys::validate_mnemonic(m)?;
+            keys::normalize(m)?
         } else {
             keys::new_mnemonic()
         };
@@ -414,6 +428,25 @@ pub struct IdReq {
     name: Option<String>,
 }
 
+// Secrets from requests are wiped from memory once handled.
+impl Drop for AddReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+        if let Some(m) = self.mnemonic.as_mut() {
+            m.zeroize();
+        }
+    }
+}
+impl Drop for IdReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        if let Some(p) = self.password.as_mut() {
+            p.zeroize();
+        }
+    }
+}
+
 pub async fn unlock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
@@ -443,7 +476,8 @@ pub async fn lock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Resp
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    lock_wallet(&app, &r.id);
+    let a = app.clone();
+    let _ = tokio::task::spawn_blocking(move || lock_wallet(&a, &r.id)).await;
     Json(json!({"ok": true})).into_response()
 }
 
@@ -451,10 +485,14 @@ pub async fn lock_all(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    let ids: Vec<String> = app.vault.unlocked.lock().keys().cloned().collect();
-    for id in ids {
-        lock_wallet(&app, &id);
-    }
+    let a = app.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        let ids: Vec<String> = a.vault.unlocked.lock().keys().cloned().collect();
+        for id in ids {
+            lock_wallet(&a, &id);
+        }
+    })
+    .await;
     Json(json!({"ok": true})).into_response()
 }
 

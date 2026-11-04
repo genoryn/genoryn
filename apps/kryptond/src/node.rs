@@ -8,7 +8,7 @@ use krypton_core::{CoreError, Hash32};
 use krypton_p2p::{Event, Hello, Message, Net, PeerId};
 use krypton_store::{Chain, ChainError, Outcome};
 use parking_lot::Mutex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc};
@@ -18,6 +18,8 @@ pub const USER_AGENT: &str = concat!("kryptond/", env!("CARGO_PKG_VERSION"));
 pub struct Job {
     pub block: Block,
     pub created: Instant,
+    /// Encoded size, for the jobs memory budget.
+    pub bytes: usize,
 }
 
 /// Shares waiting to be credited by a block.
@@ -28,6 +30,11 @@ pub struct SharePool {
 }
 
 const MAX_POOL_SHARES: usize = 4096;
+const IN_FLIGHT_TTL: Duration = Duration::from_secs(30);
+const MAX_IN_FLIGHT: usize = 4096;
+const MAX_IN_FLIGHT_PER_PEER: usize = 1024;
+/// A peer whose shares are mostly uncreditable after this many is disconnected.
+const STALE_SHARE_LIMIT: u32 = 256;
 
 /// Per-owner share counts over the recent blocks, computed once per tip:
 /// (tip hash, counts, blocks covered).
@@ -102,10 +109,19 @@ pub struct Node {
     pub template_budget: Mutex<Vec<Instant>>,
     /// Recent address-directory writes (bounds disk use from the public API).
     pub address_budget: Mutex<Vec<Instant>>,
+    /// Per-client HTTP budgets and connection caps.
+    pub guard: Arc<crate::guard::Guard>,
+    /// At most a few HTTP-submitted transaction proofs are verified at once.
+    pub tx_verify: tokio::sync::Semaphore,
     pub nonce: u64,
     pub started: Instant,
     peer_heights: Mutex<HashMap<PeerId, u64>>,
-    in_flight: Mutex<HashSet<Hash32>>,
+    /// Blocks requested and not yet received: who was asked and when.
+    in_flight: Mutex<HashMap<Hash32, (PeerId, Instant)>>,
+    /// When we last asked each peer for hashes; unsolicited `Hashes` are ignored.
+    hash_requests: Mutex<HashMap<PeerId, Instant>>,
+    /// Uncreditable shares per peer: (stale, total) since connecting.
+    share_counts: Mutex<HashMap<PeerId, (u32, u32)>>,
     /// Our own transactions in the stem phase: (txid, first seen).
     stem: Mutex<Vec<(Hash32, Instant)>>,
     pub listen_port: u16,
@@ -128,10 +144,14 @@ impl Node {
             templates: Mutex::new(HashMap::new()),
             template_budget: Mutex::new(Vec::new()),
             address_budget: Mutex::new(Vec::new()),
+            guard: Arc::new(crate::guard::Guard::default()),
+            tx_verify: tokio::sync::Semaphore::new(4),
             nonce: rand::random(),
             started: Instant::now(),
             peer_heights: Mutex::new(HashMap::new()),
-            in_flight: Mutex::new(HashSet::new()),
+            in_flight: Mutex::new(HashMap::new()),
+            hash_requests: Mutex::new(HashMap::new()),
+            share_counts: Mutex::new(HashMap::new()),
             stem: Mutex::new(Vec::new()),
             listen_port,
         })
@@ -162,9 +182,34 @@ impl Node {
 
     fn request_hashes(&self, peer: PeerId) {
         if let Ok(locator) = self.chain.locator() {
+            self.hash_requests.lock().insert(peer, Instant::now());
             self.net
                 .send(peer, &Message::GetHashes { locator, max: 500 });
         }
+    }
+
+    /// Marks `h` as requested from `p` unless another request for it is still fresh.
+    /// Bounded in total and per peer; entries expire so a peer that never delivers
+    /// cannot stall the download.
+    fn claim_block(&self, h: Hash32, p: PeerId) -> bool {
+        let mut f = self.in_flight.lock();
+        let now = Instant::now();
+        if let Some((_, t)) = f.get(&h)
+            && now.duration_since(*t) < IN_FLIGHT_TTL
+        {
+            return false;
+        }
+        if f.len() >= MAX_IN_FLIGHT {
+            f.retain(|_, (_, t)| now.duration_since(*t) < IN_FLIGHT_TTL);
+            if f.len() >= MAX_IN_FLIGHT {
+                return false;
+            }
+        }
+        if f.values().filter(|(q, _)| *q == p).count() >= MAX_IN_FLIGHT_PER_PEER {
+            return false;
+        }
+        f.insert(h, (p, now));
+        true
     }
 
     /// Extends the statistics cache off the async runtime.
@@ -190,6 +235,10 @@ impl Node {
                 Event::Connected(p) => self.net.send(p, &Message::Hello(self.hello())),
                 Event::Disconnected(p) => {
                     self.peer_heights.lock().remove(&p);
+                    self.hash_requests.lock().remove(&p);
+                    self.share_counts.lock().remove(&p);
+                    // Whatever it was asked for may be asked from others right away.
+                    self.in_flight.lock().retain(|_, (q, _)| *q != p);
                 }
                 Event::Message(p, m) => {
                     if let Err(e) = self.handle(p, m).await {
@@ -211,6 +260,9 @@ impl Node {
                 .filter(|(_, h)| **h > ours)
                 .map(|(p, _)| *p)
                 .collect();
+            self.in_flight
+                .lock()
+                .retain(|_, (_, t)| t.elapsed() < IN_FLIGHT_TTL);
             if let Some(p) = behind.first() {
                 self.in_flight.lock().clear();
                 self.request_hashes(*p);
@@ -261,7 +313,12 @@ impl Node {
                     self.net.disconnect(p);
                     return Ok(());
                 }
-                self.peer_heights.lock().insert(p, h.height);
+                // A claimed height can't exceed what the time since genesis allows
+                // (blocks every 60 s on average; twice as fast is already implausible).
+                let elapsed = krypton_core::now().saturating_sub(self.chain.params.genesis_time);
+                let plausible =
+                    elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
+                self.peer_heights.lock().insert(p, h.height.min(plausible));
                 self.net.set_hello(p, h.clone());
                 if h.height > self.chain.tip().height() {
                     self.request_hashes(p);
@@ -299,9 +356,17 @@ impl Node {
                         }
                     }
                 }
-                // Honest peers send recent shares; a flood of uncreditable ones is abuse.
-                if total >= 64 && stale * 2 > total {
-                    tracing::warn!("peer {p} sent {stale}/{total} uncreditable shares");
+                // Honest peers send recent shares; a flood of uncreditable ones is abuse,
+                // counted across messages so it can't be split into small batches.
+                let (s_all, t_all) = {
+                    let mut c = self.share_counts.lock();
+                    let e = c.entry(p).or_insert((0, 0));
+                    e.0 = e.0.saturating_add(stale as u32);
+                    e.1 = e.1.saturating_add(total as u32);
+                    *e
+                };
+                if (total >= 64 && stale * 2 > total) || (s_all >= STALE_SHARE_LIMIT && s_all * 2 > t_all) {
+                    tracing::warn!("peer {p} sent {s_all}/{t_all} uncreditable shares");
                     self.net.disconnect(p);
                 }
             }
@@ -314,9 +379,17 @@ impl Node {
                 self.net.send(p, &Message::Hashes(v));
             }
             Message::Hashes(v) => {
+                let asked = self
+                    .hash_requests
+                    .lock()
+                    .get(&p)
+                    .is_some_and(|t| t.elapsed() < Duration::from_secs(120));
+                if !asked {
+                    return Ok(());
+                }
                 let mut want = Vec::new();
                 for h in v {
-                    if !self.chain.has_block(&h)? && self.in_flight.lock().insert(h) {
+                    if !self.chain.has_block(&h)? && self.claim_block(h, p) {
                         want.push(h);
                     }
                 }
@@ -371,7 +444,7 @@ impl Node {
             Message::Inv { blocks, txs } => {
                 let mut want_b = Vec::new();
                 for h in blocks.into_iter().take(500) {
-                    if !self.chain.has_block(&h)? && self.in_flight.lock().insert(h) {
+                    if !self.chain.has_block(&h)? && self.claim_block(h, p) {
                         want_b.push(h);
                     }
                 }
@@ -513,6 +586,10 @@ impl Node {
         let next = self.chain.tip().height() + 1;
         if s.height == 0 || s.height > next || s.height + SHARE_WINDOW <= next {
             return Err(ShareError::Stale("outside the inclusion window".into()));
+        }
+        // Creditable shares extend the main chain: one lookup rejects the rest cheaply.
+        if self.chain.main_hash(s.height - 1).ok().flatten() != Some(s.prev) {
+            return Err(ShareError::Stale("not on the main chain".into()));
         }
         let chain = self.chain.clone();
         let s2 = s.clone();

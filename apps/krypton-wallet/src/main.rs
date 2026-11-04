@@ -240,15 +240,31 @@ impl Multi {
         let Some(min) = heights.iter().map(|(_, h)| *h).min() else {
             return Ok(());
         };
-        let at = min.saturating_sub(2);
-        let hashes: std::collections::HashSet<_> = heights
+        // A node can't steer the comparison into deep history by claiming a low height:
+        // nodes must reach the release checkpoint and agree on it as well.
+        let mut points = vec![min.saturating_sub(2)];
+        let net = heights
             .iter()
-            .filter_map(|(c, _)| NodeClient::header(c, at).ok().map(|h| h.hash()))
-            .collect();
-        anyhow::ensure!(
-            hashes.len() <= 1,
-            "configured nodes disagree about block {at}: possible attack or network split"
-        );
+            .find_map(|(c, _)| c.info().ok())
+            .and_then(|i| krypton_core::Network::parse(&i.network));
+        if let Some(cp) = net.and_then(|n| n.params().checkpoint) {
+            anyhow::ensure!(
+                min > cp.height,
+                "a configured node is behind this release's checkpoint (block {})",
+                cp.height
+            );
+            points.push(cp.height);
+        }
+        for at in points {
+            let hashes: std::collections::HashSet<_> = heights
+                .iter()
+                .filter_map(|(c, _)| NodeClient::header(c, at).ok().map(|h| h.hash()))
+                .collect();
+            anyhow::ensure!(
+                hashes.len() <= 1,
+                "configured nodes disagree about block {at}: possible attack or network split"
+            );
+        }
         Ok(())
     }
     fn first(&self) -> Result<&NodeClient> {
@@ -265,11 +281,30 @@ type S = State<Arc<App>>;
 
 #[allow(clippy::result_large_err)]
 fn check(app: &App, h: &HeaderMap) -> Result<(), Response> {
-    if h.get("x-token").and_then(|v| v.to_str().ok()) == Some(app.token.as_str()) {
+    let given = h.get("x-token").map(|v| v.as_bytes()).unwrap_or_default();
+    let want = app.token.as_bytes();
+    // Constant time: the comparison does not reveal how many characters matched.
+    let same = given.len() == want.len()
+        && given.iter().zip(want).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
+    if same {
         Ok(())
     } else {
         Err((StatusCode::UNAUTHORIZED, "missing session token").into_response())
     }
+}
+
+/// [`check`] for handlers that use the active wallet: past its 24 hours it is refused
+/// at once, even if the background task has not locked it yet.
+#[allow(clippy::result_large_err)]
+fn check_open(app: &Arc<App>, h: &HeaderMap) -> Result<(), Response> {
+    check(app, h)?;
+    let id = app.vault.active_id();
+    if vault::expired(app, &id) {
+        let a = app.clone();
+        tokio::task::spawn_blocking(move || vault::lock_wallet(&a, &id));
+        return Err(err("this wallet locked itself after 24 hours; unlock it again"));
+    }
+    Ok(())
 }
 
 fn err(e: impl std::fmt::Display) -> Response {
@@ -331,7 +366,14 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             None => (None, None, None, None, vec![]),
         };
         drop(w);
-        let info = a.sources().ok().and_then(|c| c.first().and_then(|c| c.info().ok()));
+        let info = a
+            .sources()
+            .ok()
+            .and_then(|c| c.first().and_then(|c| c.info().ok()))
+            .map(|mut i| {
+                i.stats = i.stats.map(scrub);
+                i
+            });
         let node_running = a.node.lock().as_mut().map(|c| c.try_wait().ok().flatten().is_none()).unwrap_or(false);
         let miner_running = a.miner.lock().as_mut().map(|c| c.try_wait().ok().flatten().is_none()).unwrap_or(false);
         let mut ms = a.miner_stats.lock().clone();
@@ -346,7 +388,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
         Ok(json!({
             "network": a.network.as_str(),
             "exists": !reg.wallets.is_empty(),
-            "unlocked": address.is_some(),
+            "unlocked": address.is_some() && !vault::expired(&a, &reg.active),
             "active": {
                 "id": reg.active,
                 "name": reg.get(&reg.active).map(|e| e.name.clone()),
@@ -414,6 +456,11 @@ async fn create(State(app): S, h: HeaderMap, Json(r): Json<CreateReq>) -> Respon
 struct PassReq {
     password: String,
 }
+impl Drop for PassReq {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.password);
+    }
+}
 
 async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response {
     if let Err(x) = check(&app, &h) {
@@ -440,7 +487,7 @@ async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
 }
 
 async fn reveal(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let a = app.clone();
@@ -460,8 +507,12 @@ async fn lock(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    let id = app.vault.active_id();
-    vault::lock_wallet(&app, &id);
+    let a = app.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        let id = a.vault.active_id();
+        vault::lock_wallet(&a, &id);
+    })
+    .await;
     Json(json!({"ok": true})).into_response()
 }
 
@@ -470,10 +521,52 @@ struct SendReq {
     to: String,
     amount: String,
     memo: Option<String>,
+    /// Exact fee in GNR; otherwise `speed` picks one from the node's estimate.
+    fee: Option<String>,
+    /// economy, normal (default) or fast.
+    speed: Option<String>,
+}
+
+/// Fee suggestions for one transfer, in gori: economy, normal, fast (from the first
+/// node that offers estimates; the built-in default otherwise).
+fn fee_options(src: &Multi) -> (u64, u64, u64, bool) {
+    match src.0.iter().find_map(|c| c.fee_rates().ok().flatten()) {
+        Some(r) => (
+            krypton_wallet_core::transfer_fee(r.economy_per_kb),
+            krypton_wallet_core::transfer_fee(r.normal_per_kb),
+            krypton_wallet_core::transfer_fee(r.fast_per_kb.max(r.normal_per_kb * 2)),
+            true,
+        ),
+        None => (
+            krypton_wallet_core::MIN_FEE,
+            DEFAULT_FEE,
+            DEFAULT_FEE * 2,
+            false,
+        ),
+    }
+}
+
+async fn fees(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let (economy, normal, fast, live) = fee_options(&Multi(a.sources()?));
+        Ok(json!({
+            "economy": economy, "normal": normal, "fast": fast, "live": live,
+            "min": krypton_wallet_core::MIN_FEE, "max": krypton_wallet_core::MAX_FEE,
+        }))
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
 }
 
 async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let a = app.clone();
@@ -488,6 +581,17 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
         };
         let addr = Address::decode(&full)?;
         let amount = parse_amount(&r.amount).context("invalid amount")?;
+        let fee = match r.fee.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(f) => parse_amount(f).context("invalid fee")?,
+            None => {
+                let (economy, normal, fast, _) = fee_options(&src);
+                match r.speed.as_deref().unwrap_or("normal") {
+                    "economy" => economy,
+                    "fast" => fast,
+                    _ => normal,
+                }
+            }
+        };
         let mut guard = a.wallet.lock();
         let w = guard.as_mut().context("wallet locked")?;
         *a.busy.lock() = "Proving a zero-knowledge transfer...".into();
@@ -496,7 +600,7 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
             &src,
             &addr,
             amount,
-            DEFAULT_FEE,
+            fee,
             r.memo.as_deref().unwrap_or(""),
             |s| *busy.lock() = s.to_string(),
         );
@@ -511,7 +615,7 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
 }
 
 async fn publish(State(app): S, h: HeaderMap) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let a = app.clone();
@@ -551,7 +655,7 @@ async fn history_page(
     h: HeaderMap,
     axum::extract::Query(q): axum::extract::Query<HistQ>,
 ) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let a = app.clone();
@@ -622,6 +726,27 @@ async fn history_page(
     }
 }
 
+/// Node JSON shown in the UI is informational: keep numbers and plain tokens (hex,
+/// versions, network names) and drop any string that could carry markup or script.
+fn scrub(v: Value) -> Value {
+    match v {
+        Value::String(s) => {
+            let ok = s.len() <= 160
+                && s.chars().all(|c| c.is_ascii_alphanumeric() || " ._:/+-≈()".contains(c));
+            Value::String(if ok { s } else { String::new() })
+        }
+        Value::Array(a) => Value::Array(a.into_iter().take(10_000).map(scrub).collect()),
+        Value::Object(o) => Value::Object(
+            o.into_iter()
+                .take(256)
+                .filter(|(k, _)| k.len() <= 64 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+                .map(|(k, v)| (k, scrub(v)))
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
 #[derive(Deserialize)]
 struct ChainQ {
     what: String,
@@ -645,6 +770,7 @@ async fn chain_info(
             "supply" => c.supply(),
             _ => Err(anyhow!("unknown request")),
         }
+        .map(scrub)
     })
     .await
     {
@@ -655,7 +781,7 @@ async fn chain_info(
 
 /// Where the active wallet's short address resolves (cached for ten minutes).
 async fn published(State(app): S, h: HeaderMap) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let a = app.clone();
@@ -739,6 +865,7 @@ async fn recent_blocks(
             .next()
             .context("no node configured")?
             .blocks(q.count.unwrap_or(14).clamp(1, 100))
+            .map(scrub)
     })
     .await
     {
@@ -753,6 +880,22 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
     }
     if s.mode != "light" && s.mode != "full" {
         return err("mode must be light or full");
+    }
+    // Remote nodes only over HTTPS (plain HTTP would let anyone on the path feed data);
+    // plain HTTP is fine for a node on this computer.
+    if s.nodes.is_empty() || s.nodes.len() > 8 {
+        return err("configure between 1 and 8 nodes");
+    }
+    for u in &s.nodes {
+        let ok = u.len() <= 200
+            && !u.chars().any(|c| c.is_whitespace() || c.is_control())
+            && (u.starts_with("https://")
+                || u.starts_with("http://127.0.0.1:")
+                || u.starts_with("http://localhost:")
+                || u.starts_with("http://[::1]:"));
+        if !ok {
+            return err(format!("use https:// for remote nodes: {u}"));
+        }
     }
     *app.settings.lock() = s;
     match app.save_settings() {
@@ -806,7 +949,7 @@ struct MinerReq {
 }
 
 async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let addr = match app.wallet.lock().as_ref() {
@@ -1025,7 +1168,7 @@ async fn net_stats(
             .into_iter()
             .next()
             .context("no node configured")?;
-        src.stats(&range)
+        src.stats(&range).map(scrub)
     })
     .await
     {
@@ -1035,7 +1178,7 @@ async fn net_stats(
 }
 
 async fn payment_proof(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Response {
-    if let Err(x) = check(&app, &h) {
+    if let Err(x) = check_open(&app, &h) {
         return x;
     }
     let txid = b["txid"].as_str().unwrap_or("").to_string();
@@ -1138,10 +1281,14 @@ fn running_instance(dir: &std::path::Path) -> Option<String> {
 
 /// Links the embedded window may hand to the system browser.
 fn project_link(url: &str) -> bool {
+    let path = url.strip_prefix("https://").unwrap_or("");
     (url.starts_with("https://genoryn.io/") || url.starts_with("https://github.com/genoryn/"))
         && url
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || b"-._~:/?#=+".contains(&c))
+        // No dot segments or empty segments: `github.com/genoryn/../x` is another repository.
+        && !path.split(['/', '?', '#']).any(|seg| seg == ".." || seg == ".")
+        && !path.contains("//")
 }
 
 fn open_browser(url: &str) {
@@ -1219,6 +1366,17 @@ async fn serve(
         }
     });
 
+    // The 24-hour lock runs on its own timer: a slow or hostile node stalling the sync
+    // below must not keep a wallet open.
+    let ttl = app.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            let a = ttl.clone();
+            let _ = tokio::task::spawn_blocking(move || vault::expire(&a)).await;
+        }
+    });
+
     // Background sync while unlocked.
     let bg = app.clone();
     tokio::spawn(async move {
@@ -1230,7 +1388,7 @@ async fn serve(
                 let Ok(sources) = a.sources() else { return };
                 let src = Multi(sources);
                 // Lock order everywhere: registry, then active wallet, then others.
-                let active_id = a.vault.active_id();
+                let reg = a.vault.reg.lock().clone();
                 if let Some(mut g) = a.wallet.try_lock()
                     && let Some(w) = g.as_mut()
                 {
@@ -1238,7 +1396,12 @@ async fn serve(
                         Ok(_) => a.last_error.lock().clear(),
                         Err(e) => *a.last_error.lock() = format!("sync: {e}"),
                     }
-                    a.vault.note(&active_id, w);
+                    // Name the wallet by what it is, not by what was active before we
+                    // got it (a switch may have happened in between).
+                    let fp = vault::fingerprint(w);
+                    if let Some(e) = reg.wallets.iter().find(|e| e.fp == fp) {
+                        a.vault.note(&e.id, w);
+                    }
                     let owner = krypton_crypto::field::digest_to_bytes(&w.address().owner);
                     drop(g);
                     if let Some(c) = src.0.first() {
@@ -1290,6 +1453,7 @@ async fn serve(
         .route("/api/blocks", get(recent_blocks))
         .route("/api/published", get(published))
         .route("/api/history", get(history_page))
+        .route("/api/fees", get(fees))
         .route("/api/chain", get(chain_info))
         .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))

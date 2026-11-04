@@ -66,7 +66,7 @@ enum Cmd {
         amount: String,
         #[arg(long, default_value = "")]
         memo: String,
-        /// Fee in GNR
+        /// Fee in GNR (default: the node's "normal" estimate for the current backlog)
         #[arg(long)]
         fee: Option<String>,
     },
@@ -258,11 +258,12 @@ fn main() -> Result<()> {
             let fee = fee
                 .map(|f| parse_amount(&f).context("invalid fee"))
                 .transpose()?
-                .unwrap_or(DEFAULT_FEE);
+                .unwrap_or_else(|| suggested_fee(&clients));
             eprintln!(
-                "proving shielded transfer of {} GNR to {} ...",
+                "proving shielded transfer of {} GNR to {} (fee {} GNR) ...",
                 format_amount(amount),
-                addr.short()
+                addr.short(),
+                format_amount(fee)
             );
             let id = w.send_auto(&Multi(&clients), &addr, amount, fee, &memo, |s| {
                 eprintln!("{s}")
@@ -272,7 +273,7 @@ fn main() -> Result<()> {
         Cmd::Consolidate => {
             let mut w = Wallet::open(&path, &password("Wallet password: ")?)?;
             w.sync(src, |_, _| {})?;
-            for id in w.consolidate(&Multi(&clients), DEFAULT_FEE, 64)? {
+            for id in w.consolidate(&Multi(&clients), suggested_fee(&clients), 64)? {
                 println!("sent: {}", hex::encode(id));
             }
         }
@@ -340,6 +341,15 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The node's "normal" fee for one transfer, or the built-in default.
+fn suggested_fee(clients: &[NodeClient]) -> u64 {
+    clients
+        .iter()
+        .find_map(|c| c.fee_rates().ok().flatten())
+        .map(|r| krypton_wallet_core::transfer_fee(r.normal_per_kb))
+        .unwrap_or(DEFAULT_FEE)
 }
 
 /// With several sources, refuse to proceed if they disagree on a common height.

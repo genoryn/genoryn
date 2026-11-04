@@ -1,23 +1,54 @@
-genoryn.io, www.genoryn.io {
+{
+	auto_https disable_redirects
+}
+
+(site) {
+	@www host www.genoryn.io
+	redir @www https://genoryn.io{uri} 301
 	encode zstd gzip
-	# Public node API for light wallets, explorers and miners.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy same-origin
+		-Server
+	}
+	# Small JSON requests everywhere except transactions and JSON-RPC (proofs are large).
+	@small not path /v1/tx /rpc
+	request_body @small {
+		max_size 64KB
+	}
+	request_body /v1/tx {
+		max_size 8MB
+	}
+	# Public node API for light wallets, explorers and miners (mainnet; testnet would be 31334).
 	@api path /v1/* /rpc
 	handle @api {
-		# Mainnet node API (testnet would be 31334).
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 		reverse_proxy 127.0.0.1:30334 {
+			flush_interval -1
 			header_up X-Forwarded-For {remote_host}
+			header_up X-Real-IP {remote_host}
 		}
 	}
 	handle {
 		root * /var/www/genoryn-krypton
 		header /assets/* Cache-Control "public, max-age=604800"
-		header {
-			Strict-Transport-Security "max-age=31536000; includeSubDomains"
-			X-Content-Type-Options nosniff
-			Referrer-Policy no-referrer
-			Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		}
+		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 		try_files {path} {path}.html /index.html
 		file_server
 	}
+}
+
+# Behind Cloudflare in "Full" mode: Cloudflare terminates the public certificate.
+https://genoryn.io, https://www.genoryn.io {
+	tls internal
+	import site
+}
+
+# Cloudflare "Flexible" mode and direct HTTP.
+http://genoryn.io, http://www.genoryn.io, :80 {
+	import site
 }

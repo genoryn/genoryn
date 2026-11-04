@@ -21,6 +21,9 @@ use redb::{Database, ReadOnlyTable, ReadableTable, TableDefinition, WriteTransac
 use std::path::Path;
 use std::sync::Arc;
 
+/// Side-branch blocks are stored only while their branch is within this many blocks of
+/// work (at the tip's difficulty) of the main chain: about 16 hours of mining.
+const SIDE_BRANCH_WORK_BLOCKS: u128 = 1000;
 const HEADERS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("headers");
 const BLOCKS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("blocks");
 const MAIN: TableDefinition<u64, &[u8]> = TableDefinition::new("main");
@@ -140,6 +143,14 @@ pub enum ChainError {
     Storage(#[from] anyhow::Error),
 }
 
+impl ChainError {
+    /// Whether the block can never become valid. A timestamp "in the future" can (our
+    /// clock may be behind or have stepped back), so it is not remembered as invalid.
+    pub fn is_permanent(&self) -> bool {
+        matches!(self, ChainError::Invalid(e) if !matches!(e, CoreError::Future))
+    }
+}
+
 /// Read-only snapshot of the state used for validation.
 pub struct View {
     nullifiers: ReadOnlyTable<&'static [u8], u64>,
@@ -152,6 +163,21 @@ pub struct View {
     due: ReadOnlyTable<&'static [u8], u8>,
     pool: u64,
     tip_height: u64,
+    /// Set when a read failed: validation results are then not trusted (a disk error
+    /// must never read as "not spent" or "no account").
+    pub failed: std::cell::Cell<bool>,
+}
+
+impl View {
+    fn seen<T, E>(&self, r: std::result::Result<T, E>) -> Option<T> {
+        match r {
+            Ok(v) => Some(v),
+            Err(_) => {
+                self.failed.set(true);
+                None
+            }
+        }
+    }
 }
 
 fn tree_key(level: u8, index: u64) -> u128 {
@@ -160,10 +186,10 @@ fn tree_key(level: u8, index: u64) -> u128 {
 
 impl StateView for View {
     fn nullifier_spent(&self, nf: &Hash32) -> bool {
-        self.nullifiers.get(nf.as_slice()).ok().flatten().is_some()
+        self.seen(self.nullifiers.get(nf.as_slice())).flatten().is_some()
     }
     fn anchor_height(&self, root: &Hash32) -> Option<u64> {
-        let h = self.roots.get(root.as_slice()).ok().flatten()?.value();
+        let h = self.seen(self.roots.get(root.as_slice())).flatten()?.value();
         // Only roots of the current main chain count.
         (h <= self.tip_height).then_some(h)
     }
@@ -174,7 +200,7 @@ impl StateView for View {
         View::main_hash(self, height)
     }
     fn share_seen(&self, hash: &Hash32) -> bool {
-        self.shares.get(hash.as_slice()).ok().flatten().is_some()
+        self.seen(self.shares.get(hash.as_slice())).flatten().is_some()
     }
 }
 
@@ -183,15 +209,15 @@ impl RewardView for View {
         self.pool
     }
     fn account(&self, owner: &Hash32) -> Option<Account> {
-        Account::from_bytes(self.accounts.get(owner.as_slice()).ok().flatten()?.value())
+        Account::from_bytes(self.seen(self.accounts.get(owner.as_slice())).flatten()?.value())
     }
     fn due_accounts(&self, max_since: u64, limit: usize) -> Vec<(Hash32, Account)> {
         let hi = due_key(max_since, &[0xff; 32]);
-        let Ok(range) = self.due.range::<&[u8]>(..=hi.as_slice()) else {
+        let Some(range) = self.seen(self.due.range::<&[u8]>(..=hi.as_slice())) else {
             return vec![];
         };
         range
-            .filter_map(|e| e.ok())
+            .filter_map(|e| self.seen(e))
             .filter_map(|(k, _)| {
                 let owner: Hash32 = k.value().get(8..40)?.try_into().ok()?;
                 Some((owner, self.account(&owner)?))
@@ -203,22 +229,20 @@ impl RewardView for View {
 
 impl NodeStore for View {
     fn get(&self, level: u8, index: u64) -> Option<Digest> {
-        let v = self.tree.get(tree_key(level, index)).ok().flatten()?;
+        let v = self.seen(self.tree.get(tree_key(level, index))).flatten()?;
         digest_from_bytes(v.value().try_into().ok()?).ok()
     }
 }
 
 impl MmrStore for View {
     fn mmr_get(&self, pos: u64) -> Option<MmrNode> {
-        MmrNode::from_bytes(self.mmr.get(pos).ok().flatten()?.value())
+        MmrNode::from_bytes(self.seen(self.mmr.get(pos)).flatten()?.value())
     }
 }
 
 impl View {
     pub fn main_hash(&self, height: u64) -> Option<Hash32> {
-        self.main
-            .get(height)
-            .ok()
+        self.seen(self.main.get(height))
             .flatten()?
             .value()
             .try_into()
@@ -495,6 +519,7 @@ impl Chain {
             due: r.open_table(DUE)?,
             pool,
             tip_height: self.tip.read().height(),
+            failed: std::cell::Cell::new(false),
         })
     }
 
@@ -661,6 +686,15 @@ impl Chain {
         // genuine block is still accepted when it arrives.
         consensus::check_body_commitments(block)?;
         let work = parent.work.saturating_add(block.header.difficulty);
+        // A side branch far behind the main chain cannot win: don't store its bodies.
+        // Otherwise cheap low-difficulty forks from deep history could fill the disk.
+        let tip = self.tip();
+        if block.header.prev != tip.hash
+            && work.saturating_add(tip.header.difficulty.saturating_mul(SIDE_BRANCH_WORK_BLOCKS))
+                < tip.work
+        {
+            return Ok(Outcome::SideChain);
+        }
         let w = self.db.begin_write().map_err(anyhow::Error::from)?;
         self.put_header(
             &w,
@@ -682,7 +716,7 @@ impl Chain {
             match self.connect(block, now) {
                 Ok(()) => Ok(Outcome::Connected { reorg_depth: 0 }),
                 Err(e) => {
-                    if matches!(e, ChainError::Invalid(_)) {
+                    if e.is_permanent() {
                         self.mark_invalid(&hash)?;
                     }
                     Err(e)
@@ -743,7 +777,11 @@ impl Chain {
             mmr_root,
             matured,
         };
-        let fx = consensus::check_block(&self.params, &self.pow, &view, &ctx, block, now)?;
+        let fx = consensus::check_block(&self.params, &self.pow, &view, &ctx, block, now);
+        if view.failed.get() {
+            return Err(ChainError::Storage(anyhow!("a database read failed while validating")));
+        }
+        let fx = fx?;
         let old_pool = view.pool();
         let old_accounts: Vec<(Hash32, Option<Account>)> = fx
             .reward
@@ -760,6 +798,9 @@ impl Chain {
             tip.mmr_leaves(),
             leaf,
         );
+        if view.failed.get() {
+            return Err(ChainError::Storage(anyhow!("a database read failed while connecting")));
+        }
         drop(view);
 
         let height = block.header.height;
@@ -1031,7 +1072,7 @@ impl Chain {
             };
             if let Err(e) = result {
                 tracing::warn!("reorg failed at branch block {}: {e}", i);
-                if matches!(e, ChainError::Invalid(_)) {
+                if e.is_permanent() {
                     for bad in &branch[i..] {
                         self.mark_invalid(bad)?;
                     }

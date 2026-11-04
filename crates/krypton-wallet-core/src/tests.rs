@@ -49,7 +49,10 @@ impl ChainSource for Local<'_> {
         heights.dedup();
         let p = krypton_light::FlyProof {
             tip: tip.header.clone(),
-            recent: (tip.height().saturating_sub(20)..tip.height())
+            // As the node serves them: the difficulty window and a margin.
+            recent: (tip
+                .height()
+                .saturating_sub(krypton_core::difficulty::WINDOW as u64 + 10)..tip.height())
                 .map(|h| self.chain.header_at(h).unwrap().unwrap())
                 .collect(),
             samples: heights
@@ -161,7 +164,7 @@ fn light_client_rejects_forged_data() {
     let heights = krypton_light::sample_heights(tip.height(), 8, 7);
     let mk = |hs: &[u64]| krypton_light::FlyProof {
         tip: tip.header.clone(),
-        recent: (1..tip.height())
+        recent: (0..tip.height())
             .map(|h| chain.header_at(h).unwrap().unwrap())
             .collect(),
         samples: hs
@@ -189,6 +192,45 @@ fn light_client_rejects_forged_data() {
         krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &omitted, &heights)
             .is_err(),
         "omitted sample"
+    );
+    let mut short = good.clone();
+    short.recent.truncate(2);
+    assert!(
+        krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &short, &heights)
+            .is_err(),
+        "too few recent headers to check the difficulty rule"
+    );
+    let mut extra = good.clone();
+    extra.samples.push(extra.samples[0].clone());
+    assert!(
+        krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &extra, &heights)
+            .is_err(),
+        "unrequested samples"
+    );
+    // Release checkpoint: required in the chain, and headers above it need real work.
+    let cp_h = heights[heights.len() / 2];
+    let cp_hdr = chain.header_at(cp_h).unwrap().unwrap();
+    let with_cp = |hash: String, difficulty: u128| {
+        let mut p = chain.params.clone();
+        p.checkpoint = Some(krypton_core::params::Checkpoint {
+            height: cp_h,
+            hash: Box::leak(hash.into_boxed_str()),
+            difficulty,
+        });
+        p
+    };
+    let ok = with_cp(hex::encode(cp_hdr.hash()), cp_hdr.difficulty);
+    krypton_light::verify_flyclient(&ok, &genesis, &chain.pow, &good, &heights)
+        .expect("honest chain contains the checkpoint");
+    let wrong = with_cp(hex::encode([7u8; 32]), cp_hdr.difficulty);
+    assert!(
+        krypton_light::verify_flyclient(&wrong, &genesis, &chain.pow, &good, &heights).is_err(),
+        "a chain without the checkpoint is refused"
+    );
+    let hard = with_cp(hex::encode(cp_hdr.hash()), u128::MAX / 2);
+    assert!(
+        krypton_light::verify_flyclient(&hard, &genesis, &chain.pow, &good, &heights).is_err(),
+        "headers far below the checkpoint difficulty are refused"
     );
 
     // Compact blocks: any change to outputs, nullifiers or tree updates is caught.

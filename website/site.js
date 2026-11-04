@@ -18,6 +18,22 @@
     document.querySelector(".menu-btn").setAttribute("aria-expanded", String(open));
   };
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.siteDrawer(false); });
+  // Buttons declare their action in data-act: no inline handlers, so the CSP can forbid inline script.
+  var acts = {
+    theme: function () { window.fxToggleTheme(); },
+    "drawer-open": function () { window.siteDrawer(true); },
+    "drawer-close": function () { window.siteDrawer(false); },
+    toc: function () { if (window.docsToc) window.docsToc(); },
+    proof: function () { if (window.exProof) window.exProof(); }
+  };
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest ? e.target.closest("[data-act]") : null;
+    var f = el && acts[el.getAttribute("data-act")];
+    if (f) { e.preventDefault(); f(); }
+  });
+  document.addEventListener("submit", function (e) {
+    if (e.target.getAttribute("data-act") === "search" && window.exSearch) window.exSearch(e);
+  });
 
   // Docs: table of contents drawer (phones) and scrollspy.
   var toc = document.getElementById("toc");

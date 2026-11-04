@@ -69,6 +69,7 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/tx/{txid}", get(tx_lookup))
         .route("/v1/tx", post(submit_tx))
         .route("/v1/mempool", get(mempool))
+        .route("/v1/fee", get(fee_estimate))
         .route("/v1/peers", get(peers))
         .route("/v1/address", post(publish_address))
         .route("/v1/address/{short}", get(resolve_address))
@@ -82,11 +83,24 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/verify-payment", post(verify_payment))
         .route("/v1/ws", get(ws))
         .route("/rpc", post(json_rpc))
-        .with_state(node)
+        .with_state(node.clone())
         .layer(tower_http::limit::RequestBodyLimitLayer::new(
             8 * 1024 * 1024,
         ))
-        .layer(tower_http::cors::CorsLayer::permissive())
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(30),
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            node.guard.clone(),
+            crate::guard::limit,
+        ))
+        // Other sites may read public data, but never drive writes from a visitor's browser.
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods([axum::http::Method::GET]),
+        )
 }
 
 /// Network hashrate over the last 60 blocks, estimated from the shares they credit
@@ -268,25 +282,32 @@ async fn blocks_list(State(n): S, Query(q): Query<Range>) -> R<Json<Value>> {
     let tip = n.chain.tip().height();
     let count = q.count.unwrap_or(20).min(100) as u64;
     let from = q.from.unwrap_or(tip);
-    let mut v = Vec::new();
-    let mut h = from.min(tip) as i64;
-    while h >= 0 && (v.len() as u64) < count {
-        if let Some(b) = n.chain.block_at(h as u64).map_err(ise)? {
-            v.push(json!({
-                "height": b.header.height,
-                "hash": hex::encode(b.hash()),
-                "timestamp": b.header.timestamp,
-                "difficulty": b.header.difficulty.to_string(),
-                "txs": b.txs.len(),
-                "shares": b.shares.len(),
-                "size": b.to_bytes().len(),
-                "subsidy": subsidy(b.header.height),
-                "fees": fees(&b),
-                "miner": hex::encode(b.header.miner),
-            }));
+    let chain = n.chain.clone();
+    let v = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Value>> {
+        let mut v = Vec::new();
+        let mut h = from.min(tip) as i64;
+        while h >= 0 && (v.len() as u64) < count {
+            if let Some(b) = chain.block_at(h as u64)? {
+                v.push(json!({
+                    "height": b.header.height,
+                    "hash": hex::encode(b.hash()),
+                    "timestamp": b.header.timestamp,
+                    "difficulty": b.header.difficulty.to_string(),
+                    "txs": b.txs.len(),
+                    "shares": b.shares.len(),
+                    "size": b.to_bytes().len(),
+                    "subsidy": subsidy(b.header.height),
+                    "fees": fees(&b),
+                    "miner": hex::encode(b.header.miner),
+                }));
+            }
+            h -= 1;
         }
-        h -= 1;
-    }
+        Ok(v)
+    })
+    .await
+    .map_err(ise)?
+    .map_err(ise)?;
     Ok(Json(json!(v)))
 }
 
@@ -343,7 +364,8 @@ async fn witness(State(n): S, Path(pos): Path<u64>) -> R<Json<Value>> {
 async fn subtree(State(n): S, Path(chunk): Path<u64>) -> R<Json<Value>> {
     const L: u8 = 12;
     let size = n.chain.tip().frontier.size;
-    if chunk << L >= size {
+    // Compare chunk counts, not shifted indices: `chunk << L` wraps for huge chunks.
+    if chunk >= size.div_ceil(1 << L) {
         return Err(nf("chunk beyond the tree"));
     }
     let chain = n.chain.clone();
@@ -373,10 +395,15 @@ struct MmrQ {
 }
 
 async fn mmr_proof(State(n): S, Query(q): Query<MmrQ>) -> R<Json<Value>> {
-    let at = q.at.unwrap_or(n.chain.tip().height());
-    let p = n
-        .chain
-        .mmr_proof(q.leaf, at)
+    let tip = n.chain.tip().height();
+    let at = q.at.unwrap_or(tip);
+    if at > tip {
+        return Err(nf("leaf not committed at that height"));
+    }
+    let chain = n.chain.clone();
+    let p = tokio::task::spawn_blocking(move || chain.mmr_proof(q.leaf, at))
+        .await
+        .map_err(ise)?
         .map_err(ise)?
         .ok_or_else(|| nf("leaf not committed at that height"))?;
     Ok(Json(serde_json::to_value(p).map_err(ise)?))
@@ -399,40 +426,43 @@ async fn flyclient(State(n): S, Query(q): Query<FlyQ>) -> R<Json<Value>> {
     if heights.len() > 200 {
         return Err(bad("at most 200 samples"));
     }
-    let mut samples = Vec::new();
-    for h in heights {
-        if h >= tip.height() {
-            continue;
-        }
-        let header = n
-            .chain
-            .header_at(h)
-            .map_err(ise)?
-            .ok_or_else(|| nf("height"))?;
-        let proof = n
-            .chain
-            .mmr_proof(h, tip.height())
-            .map_err(ise)?
-            .ok_or_else(|| nf("proof"))?;
-        samples.push(krypton_light::FlySample { header, proof });
-    }
-    let mut recent = Vec::new();
-    let start = tip
-        .height()
-        .saturating_sub(krypton_core::difficulty::WINDOW as u64 + 10);
-    for h in start..tip.height() {
-        recent.push(
-            n.chain
+    let chain = n.chain.clone();
+    let fp = tokio::task::spawn_blocking(move || -> R<krypton_light::FlyProof> {
+        let mut samples = Vec::new();
+        for h in heights {
+            if h >= tip.height() {
+                continue;
+            }
+            let header = chain
                 .header_at(h)
                 .map_err(ise)?
-                .ok_or_else(|| nf("height"))?,
-        );
-    }
-    let fp = krypton_light::FlyProof {
-        tip: tip.header,
-        recent,
-        samples,
-    };
+                .ok_or_else(|| nf("height"))?;
+            let proof = chain
+                .mmr_proof(h, tip.height())
+                .map_err(ise)?
+                .ok_or_else(|| nf("proof"))?;
+            samples.push(krypton_light::FlySample { header, proof });
+        }
+        let mut recent = Vec::new();
+        let start = tip
+            .height()
+            .saturating_sub(krypton_core::difficulty::WINDOW as u64 + 10);
+        for h in start..tip.height() {
+            recent.push(
+                chain
+                    .header_at(h)
+                    .map_err(ise)?
+                    .ok_or_else(|| nf("height"))?,
+            );
+        }
+        Ok(krypton_light::FlyProof {
+            tip: tip.header.clone(),
+            recent,
+            samples,
+        })
+    })
+    .await
+    .map_err(ise)??;
     Ok(Json(serde_json::to_value(fp).map_err(ise)?))
 }
 
@@ -463,9 +493,36 @@ async fn tx_lookup(State(n): S, Path(x): Path<String>) -> R<Json<Value>> {
 
 async fn submit_tx(State(n): S, body: Bytes) -> R<Json<Value>> {
     let tx = Transaction::from_bytes(&body).map_err(bad)?;
+    let busy = || ApiError(StatusCode::SERVICE_UNAVAILABLE, "busy verifying transactions; retry in a moment".into());
+    let _verifying = tokio::time::timeout(Duration::from_secs(10), n.tx_verify.acquire())
+        .await
+        .map_err(|_| busy())?
+        .map_err(|_| busy())?;
     let id = n.accept_tx(tx).await.map_err(bad)?;
     n.relay_local(id);
     Ok(Json(json!({ "txid": hex::encode(id) })))
+}
+
+/// Fee suggestions per KB (a transfer is about 100 KB): mined within about 1, 3 and 12
+/// blocks given the current backlog. Fees are a market; these are only estimates.
+async fn fee_estimate(State(n): S) -> Json<Value> {
+    use krypton_core::params::{FEE_ESTIMATE_KB, MAX_BLOCK_BYTES, MIN_FEE_PER_KB};
+    let room = MAX_BLOCK_BYTES - 512 * 1024;
+    let mp = n.mempool.lock();
+    let (fast, normal, economy) = (
+        mp.fee_per_kb_within(1, room),
+        mp.fee_per_kb_within(3, room),
+        mp.fee_per_kb_within(12, room),
+    );
+    Json(json!({
+        "min_per_kb": MIN_FEE_PER_KB,
+        "economy_per_kb": economy,
+        "normal_per_kb": normal,
+        "fast_per_kb": fast,
+        "transfer_kb": FEE_ESTIMATE_KB,
+        "mempool_bytes": mp.bytes(),
+        "mempool_txs": mp.txs.len(),
+    }))
 }
 
 async fn mempool(State(n): S) -> Json<Value> {
@@ -594,16 +651,16 @@ async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
     {
         // Every job holds a full block: bound their memory (oldest go first; miners
         // refresh their template every few seconds).
-        const MAX_JOB_TXS: usize = 8192;
+        const MAX_JOB_BYTES: usize = 256 * 1024 * 1024;
+        let size = block.to_bytes().len();
         let mut jobs = n.jobs.lock();
-        let mut txs: usize =
-            jobs.values().map(|j| j.block.txs.len()).sum::<usize>() + block.txs.len();
-        while txs > MAX_JOB_TXS || jobs.len() >= 20_000 {
+        let mut bytes: usize = jobs.values().map(|j| j.bytes).sum::<usize>() + size;
+        while bytes > MAX_JOB_BYTES || jobs.len() >= 20_000 {
             let Some(oldest) = jobs.iter().min_by_key(|(_, j)| j.created).map(|(k, _)| *k) else {
                 break;
             };
             if let Some(j) = jobs.remove(&oldest) {
-                txs -= j.block.txs.len();
+                bytes -= j.bytes;
             }
         }
         jobs.insert(
@@ -611,12 +668,16 @@ async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
             Job {
                 block,
                 created: Instant::now(),
+                bytes: size,
             },
         );
     }
-    n.templates
-        .lock()
-        .insert(key, (tip.hash, rev, Instant::now(), id));
+    {
+        let mut t = n.templates.lock();
+        // Entries for older tips can never be reused.
+        t.retain(|_, e| e.0 == tip.hash);
+        t.insert(key, (tip.hash, rev, Instant::now(), id));
+    }
     job_json(n, id).ok_or_else(|| ise("job expired"))
 }
 
@@ -659,15 +720,27 @@ struct SubmitReq {
 /// Accepts a solution for a job: a full block when it meets the block target,
 /// otherwise a share when it meets the share target.
 async fn mining_submit(State(n): S, Json(r): Json<SubmitReq>) -> R<Json<Value>> {
-    let mut block = n
+    // Only the header is copied here; the (up to 4 MiB) body only for a real block.
+    let mut h = n
         .jobs
         .lock()
         .get(&r.job_id)
-        .map(|j| j.block.clone())
+        .map(|j| j.block.header.clone())
         .ok_or_else(|| nf("unknown or expired job"))?;
-    block.header.nonce = r.nonce;
-    let h = block.header.clone();
+    h.nonce = r.nonce;
     let ph = h.pow_hash();
+    let (meets_block, meets_share) = {
+        let (chain, height, diff, nonce) = (n.chain.clone(), h.height, h.difficulty, r.nonce);
+        tokio::task::spawn_blocking(move || {
+            let v = chain.pow.pow_hash(height, &ph, nonce);
+            (
+                krypton_pow::meets_difficulty(&v, diff),
+                krypton_pow::meets_difficulty(&v, reward::share_difficulty(diff)),
+            )
+        })
+        .await
+        .map_err(ise)?
+    };
     let as_share = |n: Arc<Node>, h: krypton_core::BlockHeader| async move {
         match n.accept_share(h.clone(), None).await {
             Ok(_) => Ok(Json(json!({
@@ -678,7 +751,14 @@ async fn mining_submit(State(n): S, Json(r): Json<SubmitReq>) -> R<Json<Value>> 
             )),
         }
     };
-    if n.chain.pow.verify(h.height, &ph, r.nonce, h.difficulty) {
+    if meets_block {
+        let mut block = n
+            .jobs
+            .lock()
+            .get(&r.job_id)
+            .map(|j| j.block.clone())
+            .ok_or_else(|| nf("unknown or expired job"))?;
+        block.header.nonce = r.nonce;
         return match n.submit_block(block.clone()).await {
             Ok(Outcome::Connected { .. }) => {
                 tracing::info!(height = h.height, "mined block accepted");
@@ -691,12 +771,7 @@ async fn mining_submit(State(n): S, Json(r): Json<SubmitReq>) -> R<Json<Value>> 
             Err(e) => Err(bad(e)),
         };
     }
-    if !n.chain.pow.verify(
-        h.height,
-        &ph,
-        r.nonce,
-        reward::share_difficulty(h.difficulty),
-    ) {
+    if !meets_share {
         return Err(bad("solution does not meet the share target"));
     }
     as_share(n.clone(), h).await
@@ -859,6 +934,13 @@ impl krypton_wallet_core::proof::ProofSource for ChainProof {
     fn tip_height(&self) -> anyhow::Result<u64> {
         Ok(self.0.tip().height())
     }
+    fn resolve_recipient(&self, short: &str) -> anyhow::Result<Option<String>> {
+        let (_, id) = Address::parse_short(short)?;
+        Ok(self
+            .0
+            .get_address(&id)?
+            .and_then(|b| String::from_utf8(b).ok()))
+    }
 }
 
 #[derive(Deserialize)]
@@ -942,18 +1024,31 @@ async fn shares_pool(State(n): S) -> Json<Value> {
 }
 
 async fn ws(State(n): S, up: WebSocketUpgrade) -> Response {
-    up.on_upgrade(move |s| ws_loop(n, s))
+    let Ok(permit) = n.guard.ws.clone().try_acquire_owned() else {
+        return ApiError(StatusCode::SERVICE_UNAVAILABLE, "too many subscribers".into())
+            .into_response();
+    };
+    // Subscribers only receive; anything they send is tiny.
+    up.max_message_size(1024)
+        .max_frame_size(1024)
+        .on_upgrade(move |s| async move {
+            ws_loop(n, s).await;
+            drop(permit);
+        })
 }
 
 async fn ws_loop(n: Arc<Node>, mut s: WebSocket) {
+    // A subscriber that stops reading is dropped instead of holding a task forever.
+    const SEND: Duration = Duration::from_secs(10);
     let mut rx = n.events.subscribe();
-    let _ = s
-        .send(WsMessage::Text(info_value(&n).to_string().into()))
-        .await;
+    let first = WsMessage::Text(info_value(&n).to_string().into());
+    if !matches!(tokio::time::timeout(SEND, s.send(first)).await, Ok(Ok(()))) {
+        return;
+    }
     loop {
         tokio::select! {
             ev = rx.recv() => match ev {
-                Ok(e) => if s.send(WsMessage::Text(e.into())).await.is_err() { break },
+                Ok(e) => if !matches!(tokio::time::timeout(SEND, s.send(WsMessage::Text(e.into()))).await, Ok(Ok(()))) { break },
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(_) => break,
             },

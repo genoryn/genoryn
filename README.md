@@ -284,6 +284,29 @@ merits, in public.
 
 ## Security
 
+**Latest audit: 5 November 2026** · [full report](docs/audit/2026-11-05-security-audit.md) ·
+[previous review](docs/audit/2026-11-security-review.md)
+
+Four independent reviewers covered the node and peer-to-peer layer, consensus and rewards,
+the wallets and light client, and the website and server. The dependency tree and the
+live server were checked as well. No way was found to mint coins beyond the schedule,
+spend someone else's coins, break transfer privacy or forge a block. Every finding that
+could be fixed without a consensus change is fixed in 1.0.7:
+
+| What was checked | Result |
+|---|---|
+| Emission, reward pool, share crediting, reorg undo | Correct; two reward-timing refinements scheduled for a consensus upgrade |
+| zk-STARK spends, post-quantum note encryption, release signatures | No issues |
+| Desktop wallet (local API, 24-hour lock, updater, multi-wallet) | Script injection from a hostile node fixed; updater and lock hardened |
+| Light-client verification | Release checkpoint and difficulty floor: a fake chain now costs real mining |
+| Public node API and P2P | Per-client limits, bounded downloads, side-branch disk limit, WebSocket caps |
+| Explorer and website | Payment proofs show whether the recipient is verified; strict CSP, no inline script |
+| Dependencies (612 crates) | 0 known vulnerabilities (`cargo audit`) |
+| Server | Key-only SSH, sandboxed services, web traffic only via Cloudflare, no keys stored |
+
+Fees are a market since 1.0.7: wallets offer Economy, Normal, Fast or a custom fee from
+the node's estimate (`/v1/fee`). The relay floor is about 0.00001 GNR per transfer.
+
 Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 Do not test against other people's funds or nodes.
 

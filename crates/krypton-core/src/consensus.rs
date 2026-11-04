@@ -414,16 +414,22 @@ pub fn build_template(
         block_hash: None,
         history: ctx.history,
     };
-    shares.sort_by_key(|s| s.hash());
+    // With more pending shares than fit, the oldest go first so none expires uncredited;
+    // the body itself is then ordered by hash, as consensus requires.
+    shares.sort_by_key(|s| (s.height, s.hash()));
     shares.dedup_by_key(|s| s.hash());
-    let mut weights = Vec::new();
-    shares.retain(|s| match check_share_context(view, &sc, s) {
-        Ok(w) if weights.len() < MAX_SHARES_PER_BLOCK => {
-            weights.push((s.miner, w));
-            true
+    let mut picked = Vec::new();
+    for s in shares {
+        if picked.len() >= MAX_SHARES_PER_BLOCK {
+            break;
         }
-        _ => false,
-    });
+        if let Ok(w) = check_share_context(view, &sc, &s) {
+            picked.push((s, w));
+        }
+    }
+    picked.sort_by_key(|(s, _)| s.hash());
+    let weights: Vec<_> = picked.iter().map(|(s, w)| (s.miner, *w)).collect();
+    let shares: Vec<BlockHeader> = picked.into_iter().map(|(s, _)| s).collect();
     let fees: u64 = txs.iter().map(|t| t.fee).sum();
     let mut header = BlockHeader {
         version: HEADER_VERSION,

@@ -19,16 +19,16 @@
       <a href="https://github.com/genoryn/genoryn" rel="noopener"><svg class="ni" aria-hidden="true"><use href="#n-github"/></svg>GitHub</a>
     </nav>
     <div class="nav-cta">
-      <button class="btn icon-btn" type="button" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme">◐</button>
+      <button class="btn icon-btn" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button>
       <a class="btn hide-sm" href="/download.html"><svg class="ni" aria-hidden="true"><use href="#n-wallet"/></svg>Open wallet</a>
       <a class="btn btn-primary hide-sm" href="/mining.html"><svg class="ni" aria-hidden="true"><use href="#n-mining"/></svg>Start mining</a>
-      <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" onclick="siteDrawer(true)">☰</button>
+      <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" data-act="drawer-open">☰</button>
     </div>
   </div>
 </header>
-<div id="drawerBackdrop" class="modal-backdrop hidden" onclick="siteDrawer(false)"></div>
+<div id="drawerBackdrop" class="modal-backdrop hidden" data-act="drawer-close"></div>
 <aside id="drawer" class="drawer float" aria-label="Menu">
-  <button class="btn icon-btn" type="button" aria-label="Close menu" onclick="siteDrawer(false)" style="align-self:flex-end">✕</button>
+  <button class="btn icon-btn" type="button" aria-label="Close menu" data-act="drawer-close" style="align-self:flex-end">✕</button>
   <a href="/"><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg>Home</a>
   <a href="/explorer.html"><svg class="ni" aria-hidden="true"><use href="#n-explorer"/></svg>Explorer</a>
   <a href="/mining.html"><svg class="ni" aria-hidden="true"><use href="#n-mining"/></svg>Mining</a>

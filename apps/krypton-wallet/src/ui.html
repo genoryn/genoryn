@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <title>Genoryn Krypton Wallet</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
 <link rel="icon" href="/assets/genoryn-mark-dark.svg">
 <link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/space-grotesk-700.woff2" as="font" type="font/woff2" crossorigin>
@@ -100,6 +101,7 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .seg{display:inline-flex;gap:2px;padding:4px;border-radius:12px;border:1px solid var(--line);background:var(--bg-inset);overflow-x:auto;scrollbar-width:none;max-width:100%}
 .seg button{background:transparent;border:0;color:var(--text-secondary);font:600 12.5px var(--font-sans);padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .seg button.on{background:var(--bg-raised);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--line-strong)}.seg em{font-style:normal;color:var(--text-tertiary);margin-left:3px}
+.fee-seg{display:flex;width:100%;margin:6px 0 0}.fee-seg button{flex:1;padding:7px 6px;font-size:12px}.fee-seg em{display:block;margin:2px 0 0;font:400 10.5px var(--font-mono)}
 .pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;color:var(--text-secondary);font-size:13px}
 .pager .pg{display:flex;gap:4px;flex-wrap:wrap}.pager button{min-width:34px;height:34px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:var(--bg-inset);color:var(--text-secondary);font:600 13px var(--font-mono);cursor:pointer}
 .pager button.on{background:var(--text-primary);color:var(--bg-solid);border-color:var(--text-primary)}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{padding:0 4px;align-self:center}
@@ -322,8 +324,11 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <label for="to">To (address or short address)</label><textarea id="to" style="min-height:64px"></textarea>
         <label for="amount">Amount (GNR)</label><input id="amount" placeholder="0.0" inputmode="decimal">
         <label for="memo">Private memo (only the recipient can read it)</label><input id="memo" maxlength="120">
-        <button id="sendBtn" class="btn btn-primary" onclick="send()">Send</button>
-        <p class="hero-note">Fee 0.002 GNR. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
+        <label>Network fee</label>
+        <div class="seg fee-seg" id="feeSeg" role="group" aria-label="Network fee"><button type="button" data-s="economy">Economy <em id="feE"></em></button><button type="button" data-s="normal" class="on">Normal <em id="feN"></em></button><button type="button" data-s="fast">Fast <em id="feF"></em></button><button type="button" data-s="custom">Custom</button></div>
+        <input id="feeCustom" class="hidden" placeholder="Fee in GNR, e.g. 0.00002" inputmode="decimal" aria-label="Custom fee in GNR" style="margin-top:8px">
+        <button id="sendBtn" class="btn btn-primary" onclick="send()" style="margin-top:10px">Send</button>
+        <p class="hero-note" id="feeNote">Fees follow the network: when blocks have room the lowest fee confirms just as fast. They go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
     </div>
     <section id="overview" class="ov" aria-label="Network and mining overview">
@@ -666,7 +671,22 @@ async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass')
   try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; refresh(); }catch(e){ toast(e.message,true) } }
-async function send(){ const b=$('sendBtn'); b.disabled=true; window.fxBusy=true; try{ const r = await api('/api/send',{to:$('to').value, amount:$('amount').value, memo:$('memo').value}); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) } window.fxBusy=false; b.disabled=false; refresh(); }
+const FEE={speed:'normal', opts:null, t:0};
+const gnrShort=v=>(Number(v||0)/1e8).toLocaleString(undefined,{maximumFractionDigits:8});
+async function loadFees(){ FEE.t=Date.now(); try{ FEE.opts=await api('/api/fees'); }catch(e){ return; }
+  const o=FEE.opts; $('feE').textContent=gnrShort(o.economy); $('feN').textContent=gnrShort(o.normal); $('feF').textContent=gnrShort(o.fast); feeNote(); }
+function feeNote(){ const o=FEE.opts; if(!o) return; const v=FEE.speed==='custom'?null:o[FEE.speed];
+  $('feeNote').textContent=(v!=null?'Fee '+gnrShort(v)+' GNR · ':'')+(o.live?'estimated from the network backlog; when blocks have room the lowest fee confirms just as fast. ':'')+'Fees go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.'; }
+document.querySelectorAll('#feeSeg button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#feeSeg button').forEach(x=>x.classList.toggle('on',x===b)); FEE.speed=b.dataset.s; $('feeCustom').classList.toggle('hidden',FEE.speed!=='custom'); if(FEE.speed==='custom') $('feeCustom').focus(); feeNote(); });
+setInterval(()=>{ if(!document.hidden && !$('app').classList.contains('hidden') && Date.now()-FEE.t>60000) loadFees(); }, 10000);
+async function send(){
+  const body={to:$('to').value, amount:$('amount').value, memo:$('memo').value};
+  if(FEE.speed==='custom'){ const f=$('feeCustom').value.trim(); if(!f) return toast('Enter the fee in GNR', true); body.fee=f; } else body.speed=FEE.speed;
+  const shown=FEE.speed==='custom'?body.fee:(FEE.opts?gnrShort(FEE.opts[FEE.speed]):'');
+  if(!confirm('Send '+(body.amount||'0')+' GNR?'+(shown?'\nNetwork fee: '+shown+' GNR':''))) return;
+  const b=$('sendBtn'); b.disabled=true; window.fxBusy=true;
+  try{ const r = await api('/api/send',body); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) }
+  window.fxBusy=false; b.disabled=false; refresh(); }
 let pubFor=null;
 function renderPub(nodes){
   const onSite=nodes.some(n=>n.ok&&n.node==='genoryn.io'), all=nodes.length&&nodes.every(n=>n.ok);
@@ -790,7 +810,7 @@ async function loadNetExtras(){
 function renderNetBlocks(){
   const bl=NX.blocks, pages=Math.max(1,Math.ceil(bl.length/NX.per)); NX.page=Math.min(NX.page,pages-1);
   $('nbTip').textContent='#'+fmtN(bl[0].height);
-  $('nbRows').innerHTML=bl.slice(NX.page*NX.per,(NX.page+1)*NX.per).map(b=>`<tr><td data-label="Block" class="mono">#${fmtN(b.height)}</td><td data-label="Time">${ago(b.timestamp)}</td><td data-label="Shares" class="mono">${b.shares}</td><td data-label="Txs" class="mono">${b.txs}</td><td data-label="Size" class="mono">${(b.size/1024).toFixed(1)} KB</td><td data-label="Reward" class="mono">${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</td><td data-label="Found by" class="mono">${S.owner&&b.miner===S.owner?'<b>you</b>':esc(b.miner.slice(0,12))+'…'}</td></tr>`).join('');
+  $('nbRows').innerHTML=bl.slice(NX.page*NX.per,(NX.page+1)*NX.per).map(b=>`<tr><td data-label="Block" class="mono">#${fmtN(b.height)}</td><td data-label="Time">${ago(b.timestamp)}</td><td data-label="Shares" class="mono">${fmtN(b.shares)}</td><td data-label="Txs" class="mono">${fmtN(b.txs)}</td><td data-label="Size" class="mono">${(Number(b.size)/1024).toFixed(1)} KB</td><td data-label="Reward" class="mono">${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</td><td data-label="Found by" class="mono">${S.owner&&b.miner===S.owner?'<b>you</b>':esc(b.miner.slice(0,12))+'…'}</td></tr>`).join('');
   pager($('nbPager'), NX.page, pages, bl.length, NX.per, p=>{ NX.page=p; renderNetBlocks(); }, 'blocks');
 }
 setInterval(()=>{ if(!document.hidden && !$('tab-network').classList.contains('hidden') && Date.now()-NX.t>30000) loadNetExtras(); }, 5000);
@@ -801,7 +821,7 @@ function renderOvBlocks(){
   const maxS=Math.max(32,...bl.map(b=>b.shares||0));
   $('ovChain').innerHTML=bl.map(b=>{ const mine=own&&b.miner===own, isNew=!first&&!OV.seen.has(b.hash);
     return `<div class="blk${mine?' mine':''}${isNew?' new':''}" title="${esc(b.hash)}">${mine?'<span class="tag">yours</span>':''}<b>#${fmtN(b.height)}</b><span>${ago(b.timestamp)}</span>
-      <div class="bm"><span>${b.shares} shares</span><span>${b.txs} tx</span></div><div class="bm"><span>${(b.size/1024).toFixed(1)} KB</span><span>${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</span></div>
+      <div class="bm"><span>${fmtN(b.shares)} shares</span><span>${fmtN(b.txs)} tx</span></div><div class="bm"><span>${(Number(b.size)/1024).toFixed(1)} KB</span><span>${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</span></div>
       <div class="bf"><i style="width:${Math.min(100,(b.shares/maxS)*100)}%"></i></div></div>`; }).join('');
   bl.forEach(b=>OV.seen.add(b.hash));
 }
@@ -816,7 +836,8 @@ function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button')
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
-async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); box.innerHTML=`<p class="ok"><b>Valid payment proof</b></p><div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':(r.recipient_verified?'the recipient above (verified)':'unverified recipient: ask them to confirm in their wallet')}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.height} · ${r.confirmations} confirmations</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
+async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); const head=r.recipient_confirmed||r.recipient_verified?'<p class="ok"><b>Valid payment proof</b></p>':'<p class="warn"><b>Real payment, recipient not verified</b> · the sender wrote the recipient below; ask them to publish their short address, or check it in the recipient\'s wallet</p>';
+    box.innerHTML=head+`<div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':(r.recipient_verified?'the recipient above (verified)':'unverified recipient: ask them to confirm in their wallet')}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.height} · ${r.confirmations} confirmations</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
 let netDash=null;
 function initNetDash(){ if(netDash||!window.GKCharts) { if(netDash) netDash.reload(); return; }
   netDash = GKCharts.dashboard($('netDash'), r=>api('/api/stats?range='+r), (s)=>{
@@ -849,7 +870,7 @@ async function refresh(){
     show('unlockBox'); return; }
   show('app'); loadWallets();
   $('wSelName').textContent=act.name||'Wallet'; $('wSelAddr').textContent=S.short?S.short.slice(0,30)+'…':'';
-  initOverview(); checkPublished();
+  initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
   const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);

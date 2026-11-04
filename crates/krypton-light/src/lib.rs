@@ -260,10 +260,32 @@ pub fn verify_flyclient(
         pow.verify(tip.height, &tip.pow_hash(), tip.nonce, tip.difficulty),
         "tip proof of work"
     );
+    // Above the release checkpoint every header must carry real work: a cheap
+    // low-difficulty chain presented by a server is refused.
+    let cp = params.checkpoint;
+    if let Some(cp) = cp {
+        ensure!(
+            tip.height > cp.height,
+            "the node's chain ends before this release's checkpoint (block {})",
+            cp.height
+        );
+    }
+    let floor_ok = |h: &BlockHeader| cp.is_none_or(|c| h.height <= c.height || h.difficulty >= c.min_difficulty());
+    ensure!(floor_ok(tip), "tip difficulty far below the checkpoint");
+    // The difficulty rule must be checkable on the latest blocks.
+    let need = (krypton_core::difficulty::WINDOW as u64 + 1).min(tip.height);
+    ensure!(
+        p.recent.len() as u64 >= need,
+        "the node sent too few recent headers to check the difficulty rule"
+    );
     let leaves = tip.height;
     let mut found = std::collections::BTreeSet::new();
+    let wanted: std::collections::BTreeSet<u64> = expected.iter().copied().collect();
+    ensure!(p.samples.len() <= wanted.len(), "the node sent unrequested samples");
     for s in &p.samples {
         let h = &s.header;
+        // Checked before any proof of work: unrequested samples could only cost CPU.
+        ensure!(wanted.contains(&h.height), "the node sent an unrequested sample");
         ensure!(
             s.proof.leaves == leaves && s.proof.leaf_index == h.height,
             "sample proof shape"
@@ -282,7 +304,16 @@ pub fn verify_flyclient(
             mmr::verify(&tip.mmr_root, &MmrNode::leaf(&hash, h.difficulty), &s.proof),
             "sample not in tip MMR"
         );
+        ensure!(floor_ok(h), "sample difficulty far below the checkpoint at {}", h.height);
+        if let Some(c) = cp
+            && h.height == c.height
+        {
+            ensure!(hex::encode(hash) == c.hash, "the node's chain does not contain this release's checkpoint");
+        }
         found.insert(h.height);
+    }
+    if let Some(c) = cp {
+        ensure!(found.contains(&c.height), "the node did not prove this release's checkpoint");
     }
     for e in expected {
         if !found.contains(e) {
@@ -311,6 +342,7 @@ pub fn verify_flyclient(
                 "recent proof of work"
             );
         }
+        ensure!(floor_ok(h), "recent difficulty far below the checkpoint");
         history.push((h.timestamp, h.difficulty));
         prev = Some(h);
     }
