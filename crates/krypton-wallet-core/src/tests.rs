@@ -52,7 +52,8 @@ impl ChainSource for Local<'_> {
             // As the node serves them: the difficulty window and a margin.
             recent: (tip
                 .height()
-                .saturating_sub(krypton_core::difficulty::WINDOW as u64 + 10)..tip.height())
+                .saturating_sub(krypton_core::difficulty::WINDOW as u64 + 10)
+                ..tip.height())
                 .map(|h| self.chain.header_at(h).unwrap().unwrap())
                 .collect(),
             samples: heights

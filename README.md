@@ -242,6 +242,17 @@ Every node serves the same API (the public node is `https://genoryn.io`):
 
 Guides for exchanges, wallets and explorers: [docs/integration](docs/integration).
 
+## Getting GNR
+
+GNR is not traded on any exchange yet, and there was no presale. Today it is earned by
+mining. [genoryn.io/get](https://genoryn.io/get.html) and the wallet show a **reference
+value**: the electricity cost of mining one GNR at today's network hashrate, at your own
+price per kWh. This is not a market price; the wallet can hide it under
+Network → Display. Peer-to-peer **BTC ⇄ GNR atomic swaps** with no exchange or custody are in
+development. The Bitcoin side is done (`crates/krypton-swap`). The GNR side needs a
+consensus upgrade that is not active yet; see the design in
+[docs/spec/atomic-swaps.md](docs/spec/atomic-swaps.md).
+
 ## Repository layout
 
 | Path | Contents |
@@ -255,6 +266,7 @@ Guides for exchanges, wallets and explorers: [docs/integration](docs/integration
 | `crates/krypton-light` | Light-client protocol and verified HTTP client |
 | `crates/krypton-wallet-core` | Wallet engine: keys, sync, shielded transfers |
 | `crates/krypton-sdk` | Integration SDK and C ABI |
+| `crates/krypton-swap` | BTC ⇄ GNR atomic swaps: the Bitcoin HTLC, claim and refund |
 | `apps/kryptond` | Full node |
 | `apps/krypton-miner` | Miner |
 | `apps/krypton-wallet` | Desktop wallet (native window, local UI) |

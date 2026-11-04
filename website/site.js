@@ -74,6 +74,42 @@
     }
   };
 
+  // Reference value: estimated electricity cost to mine 1 GNR (not a market price).
+  var kwhPrice = function () {
+    var v = Number(localStorage.getItem("gk-kwh"));
+    return v > 0 && v < 10 ? v : 0.15;
+  };
+  gk.value = function (info) {
+    if (!window.GKValue || !info) return;
+    var kwh = kwhPrice(), e = GKValue.estimate(info.hashrate, kwh, info.next_subsidy);
+    var put = function (sel, text) { document.querySelectorAll(sel).forEach(function (el) { el.textContent = text; }); };
+    put("[data-cost]", e ? GKValue.usd(e.usd) : "—");
+    put("[data-cost-kwh]", "$" + kwh.toFixed(2));
+    if (!e) return;
+    put("[data-cost-rate]", gk.rate(info.hashrate));
+    put("[data-cost-gpus]", "≈ " + (e.gpus < 10 ? e.gpus.toFixed(1) : Math.round(e.gpus).toLocaleString("en-US")) + " " + GKValue.REF.name);
+    put("[data-cost-kw]", "≈ " + e.kw.toFixed(1) + " kW");
+    put("[data-cost-day]", GKValue.usd(e.usdPerDay) + " a day");
+    put("[data-cost-gnrday]", e.gnrPerDay.toLocaleString("en-US") + " GNR a day");
+    var oneGpu = e.gnrPerDay / Math.max(e.gpus, 1);
+    put("[data-gpu-gnr]", "≈ " + oneGpu.toLocaleString("en-US", { maximumFractionDigits: oneGpu < 10 ? 2 : 0 }) + " GNR a day");
+    put("[data-gpu-usd]", GKValue.usd(GKValue.REF.watts / 1000 * 24 * kwh) + " a day");
+  };
+  if (document.querySelector("[data-cost]")) {
+    var lastInfo = null;
+    var loadCost = function () { gk.api("/v1/info").then(function (i) { lastInfo = i; gk.value(i); }).catch(function () {}); };
+    loadCost();
+    setInterval(function () { if (!document.hidden) loadCost(); }, 60000);
+    var kwhIn = document.getElementById("kwh");
+    if (kwhIn) {
+      kwhIn.value = kwhPrice().toFixed(2);
+      kwhIn.addEventListener("input", function () {
+        var v = Number(kwhIn.value);
+        if (v > 0 && v < 10) { localStorage.setItem("gk-kwh", String(v)); gk.value(lastInfo); }
+      });
+    }
+  }
+
   var homeNet = document.getElementById("homeNet");
   if (homeNet && window.GKCharts) {
     var homeChart = null;

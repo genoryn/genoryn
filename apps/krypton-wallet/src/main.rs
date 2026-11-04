@@ -114,13 +114,17 @@ struct App {
     /// Last "where does my short address resolve" check: (short, when, result).
     published: Mutex<Option<(String, std::time::Instant, Value)>>,
     /// Pending transactions fetched from the node (the whole pool, fetched once each).
-    mempool: Mutex<std::collections::HashMap<krypton_core::Hash32, krypton_core::types::Transaction>>,
+    mempool:
+        Mutex<std::collections::HashMap<krypton_core::Hash32, krypton_core::types::Transaction>>,
 }
 
 /// The node's pending transactions as (all fetched, ids still in the pool). The whole
 /// pool is downloaded, a bounded number of new transactions per round, so the node
 /// cannot tell which of them a wallet is interested in.
-pub(crate) type Pool = (Vec<krypton_core::types::Transaction>, Vec<krypton_core::Hash32>);
+pub(crate) type Pool = (
+    Vec<krypton_core::types::Transaction>,
+    Vec<krypton_core::Hash32>,
+);
 
 fn mempool_snapshot(a: &App, src: &Multi) -> Option<Pool> {
     let c = src.0.first()?;
@@ -128,7 +132,11 @@ fn mempool_snapshot(a: &App, src: &Multi) -> Option<Pool> {
     let missing: Vec<_> = {
         let mut cache = a.mempool.lock();
         cache.retain(|k, _| ids.contains(k));
-        ids.iter().filter(|id| !cache.contains_key(*id)).take(40).copied().collect()
+        ids.iter()
+            .filter(|id| !cache.contains_key(*id))
+            .take(40)
+            .copied()
+            .collect()
     };
     for id in missing {
         if let Ok(Some(tx)) = c.pending_tx(&id) {
@@ -176,8 +184,16 @@ impl App {
         if self.network == Network::Mainnet {
             urls.push(PUBLIC_NODE.into());
         }
-        urls.extend(s.nodes.iter().map(|u| u.trim().trim_end_matches('/').to_string()));
-        let own = self.node.lock().as_mut().is_some_and(|c| c.try_wait().ok().flatten().is_none());
+        urls.extend(
+            s.nodes
+                .iter()
+                .map(|u| u.trim().trim_end_matches('/').to_string()),
+        );
+        let own = self
+            .node
+            .lock()
+            .as_mut()
+            .is_some_and(|c| c.try_wait().ok().flatten().is_none());
         if s.mode == "full" || own {
             urls.push(self.local_node());
         }
@@ -189,7 +205,9 @@ impl App {
         if url == self.local_node() {
             "your node".into()
         } else {
-            url.trim_start_matches("https://").trim_start_matches("http://").to_string()
+            url.trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .to_string()
         }
     }
     fn save_settings(&self) -> Result<()> {
@@ -312,7 +330,11 @@ fn check(app: &App, h: &HeaderMap) -> Result<(), Response> {
     let want = app.token.as_bytes();
     // Constant time: the comparison does not reveal how many characters matched.
     let same = given.len() == want.len()
-        && given.iter().zip(want).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
+        && given
+            .iter()
+            .zip(want)
+            .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+            == 0;
     if same {
         Ok(())
     } else {
@@ -329,7 +351,9 @@ fn check_open(app: &Arc<App>, h: &HeaderMap) -> Result<(), Response> {
     if vault::expired(app, &id) {
         let a = app.clone();
         tokio::task::spawn_blocking(move || vault::lock_wallet(&a, &id));
-        return Err(err("this wallet locked itself after 24 hours; unlock it again"));
+        return Err(err(
+            "this wallet locked itself after 24 hours; unlock it again",
+        ));
     }
     Ok(())
 }
@@ -501,10 +525,7 @@ async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
         let id = a.vault.active_id();
         vault::remember_fp(&a, &id, &w);
         a.vault.note(&id, &w);
-        a.vault
-            .unlocked
-            .lock()
-            .insert(id, vault::Since::now());
+        a.vault.unlocked.lock().insert(id, vault::Since::now());
         *a.wallet.lock() = Some(w);
         Ok(())
     })
@@ -606,7 +627,11 @@ async fn resolve(
         };
         let addr = Address::decode(&full)
             .map_err(|e| anyhow!("this is not a valid {} address: {e}", a.network.as_str()))?;
-        anyhow::ensure!(addr.network == a.network, "this address is for {}", addr.network.as_str());
+        anyhow::ensure!(
+            addr.network == a.network,
+            "this address is for {}",
+            addr.network.as_str()
+        );
         let own = a
             .vault
             .reg
@@ -725,7 +750,13 @@ async fn publish(State(app): S, h: HeaderMap) -> Response {
         if ok == 0 {
             let why = results
                 .iter()
-                .map(|r| format!("{}: {}", r["node"].as_str().unwrap_or("?"), r["error"].as_str().unwrap_or("?")))
+                .map(|r| {
+                    format!(
+                        "{}: {}",
+                        r["node"].as_str().unwrap_or("?"),
+                        r["error"].as_str().unwrap_or("?")
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join("; ");
             anyhow::bail!("could not publish on any node ({why})");
@@ -792,7 +823,9 @@ async fn history_page(
                 needle.is_empty()
                     || e.memo.to_lowercase().contains(&needle)
                     || e.txid.to_lowercase().contains(&needle)
-                    || e.to.as_deref().is_some_and(|t| t.to_lowercase().contains(&needle))
+                    || e.to
+                        .as_deref()
+                        .is_some_and(|t| t.to_lowercase().contains(&needle))
                     || e.height.is_some_and(|h| h.to_string() == needle)
             })
             .collect();
@@ -848,14 +881,17 @@ fn scrub(v: Value) -> Value {
     match v {
         Value::String(s) => {
             let ok = s.len() <= 160
-                && s.chars().all(|c| c.is_ascii_alphanumeric() || " ._:/+-≈()".contains(c));
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || " ._:/+-≈()".contains(c));
             Value::String(if ok { s } else { String::new() })
         }
         Value::Array(a) => Value::Array(a.into_iter().take(10_000).map(scrub).collect()),
         Value::Object(o) => Value::Object(
             o.into_iter()
                 .take(256)
-                .filter(|(k, _)| k.len() <= 64 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+                .filter(|(k, _)| {
+                    k.len() <= 64 && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                })
                 .map(|(k, v)| (k, scrub(v)))
                 .collect(),
         ),
@@ -879,7 +915,11 @@ async fn chain_info(
     }
     let a = app.clone();
     match blocking(move || {
-        let c = a.sources()?.into_iter().next().context("no node configured")?;
+        let c = a
+            .sources()?
+            .into_iter()
+            .next()
+            .context("no node configured")?;
         match q.what.as_str() {
             "peers" => c.peers(),
             "mempool" => c.mempool(),
@@ -907,7 +947,10 @@ async fn published(State(app): S, h: HeaderMap) -> Response {
                 .wallet
                 .try_lock_for(std::time::Duration::from_secs(3))
                 .context("the wallet is busy; try again")?;
-            g.as_ref().context("unlock the wallet first")?.address().short()
+            g.as_ref()
+                .context("unlock the wallet first")?
+                .address()
+                .short()
         };
         if let Some((s, t, v)) = a.published.lock().as_ref()
             && *s == short
@@ -932,7 +975,10 @@ fn active_address(a: &App) -> Result<String> {
         .wallet
         .try_lock_for(std::time::Duration::from_secs(5))
         .context("the wallet is busy syncing; try again in a few seconds")?;
-    Ok(g.as_ref().context("unlock the wallet first")?.address().encode())
+    Ok(g.as_ref()
+        .context("unlock the wallet first")?
+        .address()
+        .encode())
 }
 
 /// Runs `f` against every publish target in parallel: `[{node, ok, error}]`.
@@ -1260,7 +1306,10 @@ async fn auto_update(State(app): S, h: HeaderMap, Json(r): Json<AutoReq>) -> Res
 /// replaces the programs and starts the wallet again (a running miner resumes).
 async fn start_install(app: &Arc<App>) -> Result<()> {
     let av = app.update.lock().clone().context("no update available")?;
-    anyhow::ensure!(av.can_install, "this update has no installer for this computer");
+    anyhow::ensure!(
+        av.can_install,
+        "this update has no installer for this computer"
+    );
     *app.update_status.lock() = format!("Downloading {} and checking its signature…", av.version);
     let a = app.clone();
     let r = blocking(move || {
@@ -1388,7 +1437,11 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
     let own;
     let url = match b["target"].as_str().unwrap_or("") {
         "address" => {
-            let Some(short) = app.wallet.try_lock().and_then(|g| g.as_ref().map(|w| w.address().short())) else {
+            let Some(short) = app
+                .wallet
+                .try_lock()
+                .and_then(|g| g.as_ref().map(|w| w.address().short()))
+            else {
                 return err("unlock the wallet first");
             };
             own = format!("https://genoryn.io/explorer#/address/{short}");

@@ -135,7 +135,10 @@ impl Guard {
                 return false;
             }
         }
-        let e = b.entry((ip, class)).or_insert(Bucket { tokens: burst, at: now });
+        let e = b.entry((ip, class)).or_insert(Bucket {
+            tokens: burst,
+            at: now,
+        });
         let refill = now.duration_since(e.at).as_secs_f64() * per_min / 60.0;
         e.tokens = (e.tokens + refill).min(burst);
         e.at = now;
@@ -186,15 +189,27 @@ mod tests {
         assert_eq!(client("127.0.0.1:5000".parse().unwrap(), &h), None);
         let mut h2 = axum::http::HeaderMap::new();
         h2.insert("x-real-ip", "203.0.113.7".parse().unwrap());
-        assert_eq!(client("127.0.0.1:5000".parse().unwrap(), &h2), Some("203.0.113.7".parse().unwrap()));
+        assert_eq!(
+            client("127.0.0.1:5000".parse().unwrap(), &h2),
+            Some("203.0.113.7".parse().unwrap())
+        );
         // A remote peer cannot pick its identity with the header.
-        assert_eq!(client("198.51.100.1:5000".parse().unwrap(), &h2), Some("198.51.100.1".parse().unwrap()));
+        assert_eq!(
+            client("198.51.100.1:5000".parse().unwrap(), &h2),
+            Some("198.51.100.1".parse().unwrap())
+        );
     }
 
     #[test]
     fn ipv6_clients_are_grouped_by_64() {
-        let a = client("[2001:db8:1:2:3:4:5:6]:1".parse().unwrap(), &Default::default());
-        let b = client("[2001:db8:1:2:ffff::1]:1".parse().unwrap(), &Default::default());
+        let a = client(
+            "[2001:db8:1:2:3:4:5:6]:1".parse().unwrap(),
+            &Default::default(),
+        );
+        let b = client(
+            "[2001:db8:1:2:ffff::1]:1".parse().unwrap(),
+            &Default::default(),
+        );
         assert_eq!(a, b);
     }
 

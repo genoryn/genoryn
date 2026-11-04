@@ -494,7 +494,12 @@ async fn tx_lookup(State(n): S, Path(x): Path<String>) -> R<Json<Value>> {
 
 async fn submit_tx(State(n): S, body: Bytes) -> R<Json<Value>> {
     let tx = Transaction::from_bytes(&body).map_err(bad)?;
-    let busy = || ApiError(StatusCode::SERVICE_UNAVAILABLE, "busy verifying transactions; retry in a moment".into());
+    let busy = || {
+        ApiError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "busy verifying transactions; retry in a moment".into(),
+        )
+    };
     let _verifying = tokio::time::timeout(Duration::from_secs(10), n.tx_verify.acquire())
         .await
         .map_err(|_| busy())?
@@ -1046,8 +1051,11 @@ async fn shares_pool(State(n): S) -> Json<Value> {
 
 async fn ws(State(n): S, up: WebSocketUpgrade) -> Response {
     let Ok(permit) = n.guard.ws.clone().try_acquire_owned() else {
-        return ApiError(StatusCode::SERVICE_UNAVAILABLE, "too many subscribers".into())
-            .into_response();
+        return ApiError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "too many subscribers".into(),
+        )
+        .into_response();
     };
     // Subscribers only receive; anything they send is tiny.
     up.max_message_size(1024)

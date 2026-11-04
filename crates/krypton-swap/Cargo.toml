@@ -1,0 +1,17 @@
+[package]
+name = "krypton-swap"
+description = "BTC <-> GNR atomic swaps: the hash time-locked contract on Bitcoin, its claim and refund"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+bitcoin = "0.32"
+rand_core.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+bitcoin = { version = "0.32", features = ["bitcoinconsensus"] }

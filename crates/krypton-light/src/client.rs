@@ -163,8 +163,7 @@ impl NodeClient {
     }
 
     pub fn miner_account(&self, owner: &Hash32) -> Result<MinerAccount> {
-        self
-            .get(&format!("/v1/miner/{}", hex::encode(owner)))?
+        self.get(&format!("/v1/miner/{}", hex::encode(owner)))?
             .json()
     }
 
@@ -266,8 +265,7 @@ impl NodeClient {
 
     pub fn flyclient(&self, heights: &[u64]) -> Result<FlyProof> {
         let q: Vec<String> = heights.iter().map(|h| h.to_string()).collect();
-        self
-            .get(&format!("/v1/flyclient?heights={}", q.join(",")))?
+        self.get(&format!("/v1/flyclient?heights={}", q.join(",")))?
             .json()
     }
 
@@ -320,8 +318,7 @@ impl NodeClient {
     }
 
     pub fn mmr_proof(&self, leaf: u64, at: u64) -> Result<MmrProof> {
-        self
-            .get(&format!("/v1/mmrproof?leaf={leaf}&at={at}"))?
+        self.get(&format!("/v1/mmrproof?leaf={leaf}&at={at}"))?
             .json()
     }
 
@@ -355,7 +352,12 @@ impl NodeClient {
         let ok = r.status().is_success();
         let v: serde_json::Value = r.json().unwrap_or_default();
         if !ok {
-            bail!("{}", v["error"].as_str().unwrap_or("the node refused the address"));
+            bail!(
+                "{}",
+                v["error"]
+                    .as_str()
+                    .unwrap_or("the node refused the address")
+            );
         }
         Ok(v["short"].as_str().context("short")?.to_string())
     }
@@ -376,7 +378,8 @@ impl NodeClient {
 
     /// The latest `count` block summaries, newest first; informational.
     pub fn blocks(&self, count: u32) -> Result<serde_json::Value> {
-        self.get(&format!("/v1/blocks?count={}", count.min(100)))?.json()
+        self.get(&format!("/v1/blocks?count={}", count.min(100)))?
+            .json()
     }
 
     /// Ids of the transactions waiting in the node's mempool (informational).
@@ -405,7 +408,11 @@ impl NodeClient {
         if r.status().as_u16() == 404 {
             return Ok(None);
         }
-        anyhow::ensure!(r.status().is_success(), "pending transaction: HTTP {}", r.status());
+        anyhow::ensure!(
+            r.status().is_success(),
+            "pending transaction: HTTP {}",
+            r.status()
+        );
         let tx = krypton_core::types::Transaction::from_bytes(&read_limited(r, 1 << 20)?)?;
         anyhow::ensure!(tx.txid() == *txid, "the node returned another transaction");
         Ok(Some(tx))

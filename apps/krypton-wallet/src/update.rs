@@ -99,7 +99,10 @@ pub fn check() -> Result<Option<Available>> {
     };
     let c = http()?;
     let signed = signed_sums(&c, &sums_url, &sig_url)?;
-    if !signed.lines().any(|l| l.contains(&format!("-{version}-")) || l.contains(&format!("_{version}_"))) {
+    if !signed
+        .lines()
+        .any(|l| l.contains(&format!("-{version}-")) || l.contains(&format!("_{version}_")))
+    {
         return Ok(None);
     }
     let can_install = installer.is_some();

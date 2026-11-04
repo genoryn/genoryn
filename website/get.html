@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get GNR — Mine Genoryn Krypton · Reference Value · Exchanges and Swaps</title>
+<meta name="description" content="How to get Genoryn Krypton (GNR) today: mine it on a GPU or CPU from the wallet. Reference value from the cost of mining, exchanges and atomic swaps to come.">
+<!--SEO:get-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="get">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head"><span class="eyebrow">Get GNR</span><h1 class="h2 glow">Mine it today. Trade it later.</h1>
+    <p class="lead">GNR is not traded on any exchange yet, and nobody sells it on behalf of the project: there was no premine and there is no presale. Today you get GNR the way everyone does, by mining it, and you earn from your first share.</p></div>
+
+  <section class="get-grid">
+    <div class="glass card value-card reveal tilt-card">
+      <span class="eyebrow-s">Reference value</span>
+      <div class="value-big"><b data-cost>—</b><span>per GNR</span></div>
+      <p class="muted value-what">Estimated <b>electricity cost to mine one GNR</b> with today's network, at <span data-cost-kwh>$0.15</span> per kWh. <b>This is not a price</b>: GNR is not traded yet, so no market has set one.</p>
+      <label class="kwh-label" for="kwh">Your electricity price (USD per kWh)</label>
+      <input id="kwh" type="number" min="0.01" max="9.99" step="0.01" inputmode="decimal">
+      <div class="kv value-kv">
+        <div>Network hashrate</div><div data-cost-rate>—</div>
+        <div>Equivalent hardware</div><div data-cost-gpus>—</div>
+        <div>Power drawn</div><div data-cost-kw>—</div>
+        <div>Electricity for the network</div><div data-cost-day>—</div>
+        <div>GNR issued</div><div data-cost-gnrday>—</div>
+      </div>
+      <p class="value-fine">Assumes every miner is an RTX 5090 (about 74 MH/s at its 575 W board power) and counts electricity only, no hardware. When GNR trades on an exchange, this page and the wallet show the market price as well.</p>
+    </div>
+
+    <div class="get-steps">
+      <div class="glass card step reveal">
+        <span class="step-n">1</span>
+        <div><h2 class="h3">Mine it <span class="pill ok">available now</span></h2>
+          <p class="muted">Install the wallet, open <b>Mining</b> and press <b>Start mining</b>. It uses your GPU (NVIDIA or AMD/Intel) or your CPU, and pays you in proportion to your share of the work.</p>
+          <div class="kv">
+            <div>One RTX 5090 earns today</div><div data-gpu-gnr>—</div>
+            <div>Its electricity costs</div><div data-gpu-usd>—</div>
+          </div>
+          <div class="row-btns"><a class="btn btn-primary" href="/download.html">Download the wallet</a><a class="btn" href="/mining.html">Mining guide</a></div>
+        </div>
+      </div>
+      <div class="glass card step reveal">
+        <span class="step-n">2</span>
+        <div><h2 class="h3">Buy on an exchange <span class="pill">not yet</span></h2>
+          <p class="muted">GNR is not listed anywhere yet. We are applying to exchanges that list privacy-focused proof-of-work coins. Listings will be announced only on genoryn.io and on <a href="https://github.com/genoryn/genoryn">GitHub</a>; treat any other "GNR market" as a scam until then.</p>
+        </div>
+      </div>
+      <div class="glass card step reveal">
+        <span class="step-n">3</span>
+        <div><h2 class="h3">Swap BTC ⇄ GNR in the wallet <span class="pill">in development</span></h2>
+          <p class="muted">Atomic swaps exchange Bitcoin and GNR directly between two people: either both sides receive their coins or both get their own back. There is no exchange, no custody and no account. The design is public in <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/atomic-swaps.md">docs/spec/atomic-swaps.md</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="prose">
+    <h2>Stay safe</h2>
+    <ul>
+      <li>There is no presale, no token sale and no "early investor" round. Anyone offering one is not from the project.</li>
+      <li>Download the wallet only from genoryn.io or GitHub. Every release is signed with the project's post-quantum key, and the wallet checks that signature before it updates itself.</li>
+      <li>Never share your 24 words. Nobody from the project will ever ask for them.</li>
+    </ul>
+  </div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/value.js" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

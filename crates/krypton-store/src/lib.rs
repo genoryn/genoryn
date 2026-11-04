@@ -186,10 +186,15 @@ fn tree_key(level: u8, index: u64) -> u128 {
 
 impl StateView for View {
     fn nullifier_spent(&self, nf: &Hash32) -> bool {
-        self.seen(self.nullifiers.get(nf.as_slice())).flatten().is_some()
+        self.seen(self.nullifiers.get(nf.as_slice()))
+            .flatten()
+            .is_some()
     }
     fn anchor_height(&self, root: &Hash32) -> Option<u64> {
-        let h = self.seen(self.roots.get(root.as_slice())).flatten()?.value();
+        let h = self
+            .seen(self.roots.get(root.as_slice()))
+            .flatten()?
+            .value();
         // Only roots of the current main chain count.
         (h <= self.tip_height).then_some(h)
     }
@@ -200,7 +205,9 @@ impl StateView for View {
         View::main_hash(self, height)
     }
     fn share_seen(&self, hash: &Hash32) -> bool {
-        self.seen(self.shares.get(hash.as_slice())).flatten().is_some()
+        self.seen(self.shares.get(hash.as_slice()))
+            .flatten()
+            .is_some()
     }
 }
 
@@ -209,7 +216,11 @@ impl RewardView for View {
         self.pool
     }
     fn account(&self, owner: &Hash32) -> Option<Account> {
-        Account::from_bytes(self.seen(self.accounts.get(owner.as_slice())).flatten()?.value())
+        Account::from_bytes(
+            self.seen(self.accounts.get(owner.as_slice()))
+                .flatten()?
+                .value(),
+        )
     }
     fn due_accounts(&self, max_since: u64, limit: usize) -> Vec<(Hash32, Account)> {
         let hi = due_key(max_since, &[0xff; 32]);
@@ -690,8 +701,11 @@ impl Chain {
         // Otherwise cheap low-difficulty forks from deep history could fill the disk.
         let tip = self.tip();
         if block.header.prev != tip.hash
-            && work.saturating_add(tip.header.difficulty.saturating_mul(SIDE_BRANCH_WORK_BLOCKS))
-                < tip.work
+            && work.saturating_add(
+                tip.header
+                    .difficulty
+                    .saturating_mul(SIDE_BRANCH_WORK_BLOCKS),
+            ) < tip.work
         {
             return Ok(Outcome::SideChain);
         }
@@ -779,7 +793,9 @@ impl Chain {
         };
         let fx = consensus::check_block(&self.params, &self.pow, &view, &ctx, block, now);
         if view.failed.get() {
-            return Err(ChainError::Storage(anyhow!("a database read failed while validating")));
+            return Err(ChainError::Storage(anyhow!(
+                "a database read failed while validating"
+            )));
         }
         let fx = fx?;
         let old_pool = view.pool();
@@ -799,7 +815,9 @@ impl Chain {
             leaf,
         );
         if view.failed.get() {
-            return Err(ChainError::Storage(anyhow!("a database read failed while connecting")));
+            return Err(ChainError::Storage(anyhow!(
+                "a database read failed while connecting"
+            )));
         }
         drop(view);
 

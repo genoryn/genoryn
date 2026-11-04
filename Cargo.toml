@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/krypton-crypto", "crates/krypton-zk", "crates/krypton-pow", "crates/krypton-core", "crates/krypton-store", "crates/krypton-light", "crates/krypton-wallet-core", "crates/krypton-p2p", "apps/kryptond", "apps/krypton-miner", "apps/krypton-wallet-cli", "apps/krypton-wallet", "crates/krypton-sdk", "apps/krypton-setup", "apps/krypton-release"]
+members = ["crates/krypton-crypto", "crates/krypton-zk", "crates/krypton-pow", "crates/krypton-core", "crates/krypton-store", "crates/krypton-light", "crates/krypton-wallet-core", "crates/krypton-p2p", "apps/kryptond", "apps/krypton-miner", "apps/krypton-wallet-cli", "apps/krypton-wallet", "crates/krypton-sdk", "apps/krypton-setup", "apps/krypton-release", "crates/krypton-swap"]
 
 [workspace.package]
-version = "1.0.9"
+version = "1.0.10"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"

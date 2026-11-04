@@ -299,7 +299,9 @@ impl Wallet {
                 continue;
             }
             for o in &tx.outputs {
-                if kept.iter().any(|i| i.cm == o.cm) || self.state.notes.iter().any(|n| n.cm == o.cm) {
+                if kept.iter().any(|i| i.cm == o.cm)
+                    || self.state.notes.iter().any(|n| n.cm == o.cm)
+                {
                     continue;
                 }
                 if let Some(note) = try_decrypt_note(&self.keys.kem, &owner, &o.cm, &o.ciphertext)

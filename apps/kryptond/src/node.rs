@@ -316,8 +316,7 @@ impl Node {
                 // A claimed height can't exceed what the time since genesis allows
                 // (blocks every 60 s on average; twice as fast is already implausible).
                 let elapsed = krypton_core::now().saturating_sub(self.chain.params.genesis_time);
-                let plausible =
-                    elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
+                let plausible = elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
                 self.peer_heights.lock().insert(p, h.height.min(plausible));
                 self.net.set_hello(p, h.clone());
                 if h.height > self.chain.tip().height() {
@@ -365,7 +364,9 @@ impl Node {
                     e.1 = e.1.saturating_add(total as u32);
                     *e
                 };
-                if (total >= 64 && stale * 2 > total) || (s_all >= STALE_SHARE_LIMIT && s_all * 2 > t_all) {
+                if (total >= 64 && stale * 2 > total)
+                    || (s_all >= STALE_SHARE_LIMIT && s_all * 2 > t_all)
+                {
                     tracing::warn!("peer {p} sent {s_all}/{t_all} uncreditable shares");
                     self.net.disconnect(p);
                 }

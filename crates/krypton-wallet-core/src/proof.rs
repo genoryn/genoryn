@@ -146,7 +146,10 @@ pub fn verify(
         let tx = src.pending_tx(&proof.txid)?.context(
             "this payment is not on the chain or waiting in the mempool: it was never sent, was dropped or expired",
         )?;
-        anyhow::ensure!(tx.txid() == proof.txid, "the node returned another transaction");
+        anyhow::ensure!(
+            tx.txid() == proof.txid,
+            "the node returned another transaction"
+        );
         return report(proof, &tx, src, recipient, 0, 0, 0, true);
     };
     let block = src.raw_block(height)?;

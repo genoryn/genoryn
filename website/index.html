@@ -53,6 +53,11 @@
         <div class="glass stat reveal tilt-card"><b id="sMiners">—</b><span>Estimated miners <em id="sGpus" class="stat-sub"></em></span></div>
         <div class="glass stat reveal tilt-card"><b>60 s</b><span>Target block time</span></div>
       </div>
+      <div class="glass value-strip reveal">
+        <div class="vs-main"><span class="eyebrow-s">Reference value</span><b><span data-cost>—</span><small>per GNR</small></b></div>
+        <p class="vs-note">Estimated electricity cost to mine one GNR with today's network hashrate, at <span data-cost-kwh>$0.15</span> per kWh. <b>Not a market price</b>: GNR is not traded on any exchange yet.</p>
+        <a class="btn btn-primary" href="/get.html">Get GNR</a>
+      </div>
       <div class="glass card net-teaser reveal tilt-card" id="homeNet">
         <div class="teaser-chart">
           <div class="gk-card-head"><h3>Network hashrate · last 24 h</h3><b id="homeRate">—</b></div>
@@ -149,6 +154,7 @@
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
 <script src="/assets/charts.js" defer></script>
+<script src="/assets/value.js" defer></script>
 <script src="/site.js" defer></script>
 </body>
 </html>

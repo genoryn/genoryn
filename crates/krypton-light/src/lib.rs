@@ -270,7 +270,9 @@ pub fn verify_flyclient(
             cp.height
         );
     }
-    let floor_ok = |h: &BlockHeader| cp.is_none_or(|c| h.height <= c.height || h.difficulty >= c.min_difficulty());
+    let floor_ok = |h: &BlockHeader| {
+        cp.is_none_or(|c| h.height <= c.height || h.difficulty >= c.min_difficulty())
+    };
     ensure!(floor_ok(tip), "tip difficulty far below the checkpoint");
     // The difficulty rule must be checkable on the latest blocks.
     let need = (krypton_core::difficulty::WINDOW as u64 + 1).min(tip.height);
@@ -281,11 +283,17 @@ pub fn verify_flyclient(
     let leaves = tip.height;
     let mut found = std::collections::BTreeSet::new();
     let wanted: std::collections::BTreeSet<u64> = expected.iter().copied().collect();
-    ensure!(p.samples.len() <= wanted.len(), "the node sent unrequested samples");
+    ensure!(
+        p.samples.len() <= wanted.len(),
+        "the node sent unrequested samples"
+    );
     for s in &p.samples {
         let h = &s.header;
         // Checked before any proof of work: unrequested samples could only cost CPU.
-        ensure!(wanted.contains(&h.height), "the node sent an unrequested sample");
+        ensure!(
+            wanted.contains(&h.height),
+            "the node sent an unrequested sample"
+        );
         ensure!(
             s.proof.leaves == leaves && s.proof.leaf_index == h.height,
             "sample proof shape"
@@ -304,16 +312,26 @@ pub fn verify_flyclient(
             mmr::verify(&tip.mmr_root, &MmrNode::leaf(&hash, h.difficulty), &s.proof),
             "sample not in tip MMR"
         );
-        ensure!(floor_ok(h), "sample difficulty far below the checkpoint at {}", h.height);
+        ensure!(
+            floor_ok(h),
+            "sample difficulty far below the checkpoint at {}",
+            h.height
+        );
         if let Some(c) = cp
             && h.height == c.height
         {
-            ensure!(hex::encode(hash) == c.hash, "the node's chain does not contain this release's checkpoint");
+            ensure!(
+                hex::encode(hash) == c.hash,
+                "the node's chain does not contain this release's checkpoint"
+            );
         }
         found.insert(h.height);
     }
     if let Some(c) = cp {
-        ensure!(found.contains(&c.height), "the node did not prove this release's checkpoint");
+        ensure!(
+            found.contains(&c.height),
+            "the node did not prove this release's checkpoint"
+        );
     }
     for e in expected {
         if !found.contains(e) {

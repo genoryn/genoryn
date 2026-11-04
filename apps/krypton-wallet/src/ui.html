@@ -60,6 +60,8 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .center{max-width:580px;margin:44px auto}
 .toast{position:fixed;bottom:18px;right:18px;left:auto;z-index:20;padding:12px 16px;border-radius:12px;max-width:min(440px,calc(100vw - 36px));color:var(--text-primary)}
 .toast.bad{color:var(--status-error)}
+.val-line{margin:6px 0 4px;color:var(--text-tertiary);font-size:12.5px}.val-line b{font:500 16px var(--font-mono);color:var(--text-primary)}
+.val-small{display:block;font-size:11.5px;color:var(--text-tertiary)}
 .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);animation:mfade .18s ease-out}
 .modal.hidden{display:none}@keyframes mfade{from{opacity:0}}@keyframes mpop{from{opacity:0;transform:translateY(10px) scale(.98)}}
 .modal-card{width:min(460px,100%);max-height:calc(100vh - 36px);overflow:auto;padding:22px 22px 18px;border-radius:18px;border-color:var(--line-strong);background:color-mix(in srgb,var(--bg-solid) 94%,transparent);box-shadow:0 30px 80px rgba(0,0,0,.5);animation:mpop .22s cubic-bezier(.2,.7,.2,1)}
@@ -276,7 +278,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <span class="wsel-t"><em>Active wallet</em><b id="wSelName">-</b><span id="wSelAddr" class="mono"></span></span>
         <span class="caret" aria-hidden="true">▾</span>
       </button>
-      <div class="wbar-total"><em>All wallets</em><b id="wbTotal">-</b><span id="wbCount"></span></div>
+      <div class="wbar-total"><em>All wallets</em><b id="wbTotal">-</b><span id="wbCount"></span><span id="wbVal" class="val-small hidden"></span></div>
       <div class="wbar-acts">
         <button class="btn" id="wAllBtn" type="button" onclick="toggleAll()" aria-expanded="false">Show all wallets <span class="caret" aria-hidden="true">▾</span></button>
         <button class="btn" type="button" onclick="toggleAll(true);toggleAdd(true)"><span aria-hidden="true">+</span>&nbsp;Add wallet</button>
@@ -318,6 +320,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <div class="glass card">
         <h2>Balance</h2>
         <div class="big glow"><span id="bal" class="num">0</span> <small>GNR</small></div>
+        <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span title="Estimated electricity cost to mine this much GNR with today's network. GNR is not traded yet, so there is no market price.">estimated value · cost to mine, not a market price</span></div>
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
@@ -473,6 +476,14 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       </div>
     </div>
     <div class="grid" style="margin-top:18px">
+      <div class="glass card"><h2>Display</h2>
+        <label class="mcheck" style="margin-top:0"><input type="checkbox" id="showVal" onchange="setShowVal(this.checked)"> Show an estimated value next to balances</label>
+        <label for="kwhW" style="margin-top:12px">Electricity price for the estimate (USD per kWh)</label>
+        <input id="kwhW" type="number" min="0.01" max="9.99" step="0.01" inputmode="decimal" oninput="setKwh(this.value)">
+        <label for="valSrc">Value source</label>
+        <select id="valSrc" disabled><option>Cost to mine</option><option>Market price (after listing)</option></select>
+        <p class="hero-note">GNR is not traded on any exchange yet, so the wallet shows what it costs to mine: today's network hashrate in RTX 5090 equivalents (74 MH/s, 575 W each) times your electricity price, divided by the GNR issued per day. It is an orientation, not a price. Once GNR is listed, the market price can be chosen here.</p>
+      </div>
       <div class="glass card"><h2>Connection mode</h2>
         <label><input type="radio" name="mode" value="light"> Light (recommended): remote nodes provide data, everything is verified on this device</label>
         <label><input type="radio" name="mode" value="full"> Full node: download and validate the whole chain on this computer</label>
@@ -577,6 +588,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 <div id="toast" class="toast float hidden" role="status" aria-live="polite"></div>
 <script src="/assets/fx.js" data-base="/assets/"></script>
 <script src="/assets/charts.js"></script>
+<script src="/assets/value.js"></script>
 <script>
 const token = location.hash.slice(1) || sessionStorage.getItem('t') || ''; sessionStorage.setItem('t', token); history.replaceState(null,'',location.pathname);
 const $ = id => document.getElementById(id); const show = id => $(id).classList.remove('hidden'); const hide = id => $(id).classList.add('hidden');
@@ -601,6 +613,18 @@ $('mOk').onclick=()=>{ const i=$('mInput'); modalDone&&modalDone(i?i.value:true)
 $('mCancel').onclick=()=>modalDone&&modalDone(null);
 $('modal').addEventListener('mousedown',e=>{ if(e.target.id==='modal') modalDone&&modalDone(null); });
 document.addEventListener('keydown',e=>{ if(!modalDone) return; if(e.key==='Escape'){ e.preventDefault(); modalDone(null); } else if(e.key==='Enter' && e.target.tagName!=='TEXTAREA'){ e.preventDefault(); $('mOk').click(); } });
+/* Estimated value: cost to mine (GNR is not traded yet). Display preference is local. */
+const VAL={ show:(()=>{ try{ return localStorage.getItem('gk-showval')!=='0'; }catch(e){ return true; } })(),
+            kwh:(()=>{ try{ const v=Number(localStorage.getItem('gk-kwh')); return v>0&&v<10?v:0.15; }catch(e){ return 0.15; } })() };
+function perGnr(){ const t=S.tip; if(!window.GKValue||!t) return null; const e=GKValue.estimate(t.hashrate, VAL.kwh, t.next_subsidy); return e?e.usd:null; }
+function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
+function renderValue(){
+  const on=VAL.show && perGnr()!=null;
+  const v=valueOf((S.balance||{}).total); $('bValRow').classList.toggle('hidden',!on); if(on) $('bVal').textContent=GKValue.approx(v);
+  const tv=W?valueOf((W.total||{}).total):null; $('wbVal').classList.toggle('hidden',!on||tv==null); if(on&&tv!=null) $('wbVal').textContent=GKValue.approx(tv)+' estimated (cost to mine)';
+}
+function setShowVal(on){ VAL.show=on; try{ localStorage.setItem('gk-showval', on?'1':'0'); }catch(e){} renderValue(); }
+function setKwh(v){ v=Number(v); if(v>0&&v<10){ VAL.kwh=v; try{ localStorage.setItem('gk-kwh', String(v)); }catch(e){} renderValue(); } }
 function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast float '+(bad?'bad':''); setTimeout(()=>t.classList.add('hidden'), 6000); }
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
 let adding=false, restoreMode=false, W=null;
@@ -651,7 +675,7 @@ const WV={q:'', f:'all', sort:'added', page:0, per:Infinity, unlocking:null, men
 function renderBar(){
   if(!W) return; const t=W.total||{}, n=W.wallets.length, open=W.wallets.filter(w=>w.unlocked).length;
   $('wbTotal').textContent=gnr(t.total)+' GNR'; $('wbCount').textContent=n+' wallet'+(n===1?'':'s')+' · '+open+' unlocked'+(W.unknown?' · '+W.unknown+' not counted yet':'');
-  $('swTotal').textContent=gnr(t.total)+' GNR';
+  $('swTotal').textContent=gnr(t.total)+' GNR'; renderValue();
   if(!$('switcher').classList.contains('hidden')) renderSwitcher();
 }
 function toggleAll(on){ const p=$('allWallets'), show_=on===undefined?p.classList.contains('hidden'):on;
@@ -974,6 +998,8 @@ async function refresh(){
   $('rUnpaid').textContent=gnr(rw?rw.unpaid:0);
   $('rNext').textContent=rw&&rw.next_payout_height?('block '+rw.next_payout_height+(tip?' (in ~'+Math.max(0,rw.next_payout_height-tip.height)+' min)':'')):'with your next share';
   $('rRecent').textContent=rw?rw.shares_recent:'-'; $('rBlocks').textContent=rw?rw.shares_recent_blocks||60:60;
+  renderValue();
+  if(!settingsLoaded && S.settings){ $('showVal').checked=VAL.show; $('kwhW').value=VAL.kwh.toFixed(2); }
   if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); }
 }
 refresh(); setInterval(refresh, 4000);

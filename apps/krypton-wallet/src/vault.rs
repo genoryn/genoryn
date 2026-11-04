@@ -25,7 +25,10 @@ pub struct Since {
 
 impl Since {
     pub fn now() -> Self {
-        Since { mono: Instant::now(), wall: SystemTime::now() }
+        Since {
+            mono: Instant::now(),
+            wall: SystemTime::now(),
+        }
     }
     pub fn elapsed(&self) -> Duration {
         let wall = self.wall.elapsed().unwrap_or(Duration::ZERO);
@@ -208,8 +211,14 @@ impl Vault {
 fn valid_name(n: &str) -> Result<String> {
     let n = n.trim();
     ensure!(!n.is_empty(), "give the wallet a name");
-    ensure!(n.chars().count() <= 40, "use at most 40 characters for the name");
-    ensure!(!n.chars().any(|c| c.is_control()), "the name contains invalid characters");
+    ensure!(
+        n.chars().count() <= 40,
+        "use at most 40 characters for the name"
+    );
+    ensure!(
+        !n.chars().any(|c| c.is_control()),
+        "the name contains invalid characters"
+    );
     Ok(n.to_string())
 }
 
@@ -388,7 +397,10 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
     let a = app.clone();
     match blocking(move || {
         let name = valid_name(&r.name)?;
-        ensure!(r.password.chars().count() >= 12, "use a password of at least 12 characters");
+        ensure!(
+            r.password.chars().count() >= 12,
+            "use a password of at least 12 characters"
+        );
         let restoring = r.mnemonic.as_deref().is_some_and(|m| !m.trim().is_empty());
         let m = if restoring {
             let m = r.mnemonic.as_deref().unwrap_or_default();
@@ -418,7 +430,15 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
         if let Some(d) = path.parent() {
             std::fs::create_dir_all(d)?;
         }
-        let w = Wallet::create(&path, &r.password, &m, "", a.network, birthday, Argon2Params::STRONG)?;
+        let w = Wallet::create(
+            &path,
+            &r.password,
+            &m,
+            "",
+            a.network,
+            birthday,
+            Argon2Params::STRONG,
+        )?;
         let me = w.address();
         let fp = fingerprint(&w);
         let duplicate = a.vault.reg.lock().wallets.iter().any(|e| e.fp == fp)
@@ -555,7 +575,11 @@ pub async fn rename(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Respon
     let res = (|| -> Result<()> {
         let name = valid_name(r.name.as_deref().unwrap_or(""))?;
         let mut reg = app.vault.reg.lock();
-        let e = reg.wallets.iter_mut().find(|e| e.id == r.id).context("no such wallet")?;
+        let e = reg
+            .wallets
+            .iter_mut()
+            .find(|e| e.id == r.id)
+            .context("no such wallet")?;
         e.name = name;
         reg.save(&app.dir)
     })();
@@ -572,20 +596,35 @@ pub async fn remove(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Respon
         return x;
     }
     let res = (|| -> Result<()> {
-        let entry = app.vault.reg.lock().get(&r.id).cloned().context("no such wallet")?;
+        let entry = app
+            .vault
+            .reg
+            .lock()
+            .get(&r.id)
+            .cloned()
+            .context("no such wallet")?;
         lock_wallet(&app, &r.id);
         app.vault.cache.lock().remove(&r.id);
         let src = app.dir.join(&entry.file);
         if src.exists() {
             let bin = app.dir.join("removed");
             std::fs::create_dir_all(&bin)?;
-            let dst = bin.join(format!("{}-{}-{}.krypton", entry.id, krypton_core::now(), sanitize(&entry.name)));
+            let dst = bin.join(format!(
+                "{}-{}-{}.krypton",
+                entry.id,
+                krypton_core::now(),
+                sanitize(&entry.name)
+            ));
             std::fs::rename(&src, &dst)?;
         }
         let mut reg = app.vault.reg.lock();
         reg.wallets.retain(|e| e.id != r.id);
         if reg.active == r.id {
-            reg.active = reg.wallets.first().map(|e| e.id.clone()).unwrap_or_default();
+            reg.active = reg
+                .wallets
+                .first()
+                .map(|e| e.id.clone())
+                .unwrap_or_default();
             let next = reg.active.clone();
             drop(reg);
             let w = app.vault.others.lock().remove(&next);
@@ -621,7 +660,14 @@ mod tests {
         assert_eq!(r.active, "main");
         assert_eq!(r.wallets[0].file, "wallet.krypton");
         let mut r2 = r.clone();
-        r2.wallets.push(Entry { id: "abcd".into(), name: "Savings".into(), file: "wallets/abcd.krypton".into(), created: 1, fp: String::new(), addr: String::new() });
+        r2.wallets.push(Entry {
+            id: "abcd".into(),
+            name: "Savings".into(),
+            file: "wallets/abcd.krypton".into(),
+            created: 1,
+            fp: String::new(),
+            addr: String::new(),
+        });
         r2.save(&d).unwrap();
         let r3 = Registry::load(&d);
         assert_eq!(r3.wallets.len(), 2);
@@ -635,7 +681,10 @@ mod tests {
         assert_eq!(valid_name("  Mining rig 2 ").unwrap(), "Mining rig 2");
     }
     fn tempdir() -> PathBuf {
-        let d = std::env::temp_dir().join(format!("gk-vault-{}", hex::encode(rand::random::<[u8; 6]>())));
+        let d = std::env::temp_dir().join(format!(
+            "gk-vault-{}",
+            hex::encode(rand::random::<[u8; 6]>())
+        ));
         std::fs::create_dir_all(&d).unwrap();
         d
     }

@@ -164,7 +164,9 @@ impl Net {
                 let p = self.inner.peers.lock();
                 (
                     p.values().filter(|x| x.info.inbound).count(),
-                    p.values().filter(|x| ip_key(x.info.addr.ip()) == key).count(),
+                    p.values()
+                        .filter(|x| ip_key(x.info.addr.ip()) == key)
+                        .count(),
                 )
             };
             if inbound >= self.inner.cfg.max_inbound || same_ip >= self.inner.cfg.max_per_ip {
