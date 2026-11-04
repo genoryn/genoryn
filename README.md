@@ -25,7 +25,7 @@
 <table>
   <tr>
     <td width="50%"><img src="docs/images/wallet.webp" alt="Wallet overview: network hashrate, estimated miners, mining share, rewards and live charts"></td>
-    <td width="50%"><img src="docs/images/wallets.webp" alt="Wallets tab: several wallets with their own passwords and one total"></td>
+    <td width="50%"><img src="docs/images/wallets.webp" alt="All wallets expanded on the Wallet tab: several wallets with their own passwords and one total"></td>
   </tr>
   <tr>
     <td align="center"><sub>Live network and mining overview</sub></td>
@@ -175,8 +175,9 @@ it, so a node can never substitute another recipient.
 
 ## Several wallets
 
-The desktop wallet's **Wallets** tab holds as many wallets as you like, each with its own
-24 words and its own password, and adds their balances into one total. A wallet you unlock
+The desktop wallet holds as many wallets as you like, each with its own 24 words and its own
+password. The selector at the top of the **Wallet** tab switches between them, and **Show all
+wallets** expands them all in one list (search, filters, sorting) with one total. A wallet you unlock
 stays open for 24 hours, then locks itself and asks for its password again; locking never
 stops the miner. Removing a wallet only moves its file to a `removed` folder, and its
 24 words bring it back at any time.

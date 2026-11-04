@@ -103,7 +103,31 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;color:var(--text-secondary);font-size:13px}
 .pager .pg{display:flex;gap:4px;flex-wrap:wrap}.pager button{min-width:34px;height:34px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:var(--bg-inset);color:var(--text-secondary);font:600 13px var(--font-mono);cursor:pointer}
 .pager button.on{background:var(--text-primary);color:var(--bg-solid);border-color:var(--text-primary)}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{padding:0 4px;align-self:center}
-.wtop{display:grid;grid-template-columns:1.4fr 1fr;gap:26px;align-items:start}
+.wbar{display:flex;align-items:center;gap:18px;padding:12px 14px 12px 12px;margin-bottom:14px;flex-wrap:wrap}
+.wsel{display:flex;align-items:center;gap:12px;min-width:0;flex:0 1 380px;padding:8px 14px 8px 8px;border-radius:12px;border:1px solid var(--line);background:var(--bg-inset);color:var(--text-primary);cursor:pointer;text-align:left;transition:border-color .2s,background .2s}
+.wsel:hover,.wsel[aria-expanded="true"]{border-color:var(--line-strong);background:var(--bg-raised)}
+.wsel-ic{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--bg-raised);border:1px solid var(--line);flex:none}
+.wsel-t{display:flex;flex-direction:column;min-width:0;flex:1}.wsel-t em{font-style:normal;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary)}
+.wsel-t b{font:600 15.5px var(--font-sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wsel-t span{font-size:11.5px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caret{color:var(--text-secondary);font-size:12px;transition:transform .2s}[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.wbar-total{display:flex;flex-direction:column;min-width:0;flex:1}.wbar-total em{font-style:normal;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary)}
+.wbar-total b{font:600 20px/1.2 var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wbar-total span{font-size:12px;color:var(--text-secondary)}
+.wbar-acts{display:flex;gap:8px;flex-wrap:wrap}
+.allw{margin-bottom:14px}.allw-sum{display:grid;grid-template-columns:1.4fr repeat(4,minmax(0,1fr));gap:12px}
+.allw-sum>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:11px;background:var(--bg-inset);border:1px solid var(--line);min-width:0}
+.allw-sum em{font-style:normal;font-size:11.5px;color:var(--text-tertiary)}.allw-sum b{font:500 15px var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.allw-sum>div:first-child b{font:700 22px/1.15 var(--font-mono)}
+.addp{padding:16px;margin:12px 0;border-radius:12px;border:1px solid var(--line-strong);background:var(--bg-inset)}
+.allw .wrows{max-height:min(62vh,640px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.switcher{position:fixed;z-index:30;width:min(380px,calc(100vw - 24px));max-height:min(72vh,620px);display:flex;flex-direction:column;padding:12px;border-radius:14px;border-color:var(--line-strong);background:color-mix(in srgb,var(--bg-solid) 96%,transparent);backdrop-filter:blur(18px);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.sw-head{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 8px}.sw-head b{font:600 13px var(--font-sans);letter-spacing:1.2px;text-transform:uppercase;color:var(--text-secondary)}.sw-head span{font:500 13px var(--font-mono)}
+.switcher input{margin:0 0 8px}
+.sw-list{overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+.sw-it{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:0;background:none;color:var(--text-primary);text-align:left;cursor:pointer;width:100%}
+.sw-it:hover,.sw-it:focus-visible{background:var(--bg-inset);outline:none}.sw-it.on{background:var(--bg-raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.sw-it .ic{width:15px;height:15px;color:var(--text-secondary)}.sw-it.on .ic{color:var(--text-primary)}
+.swn{min-width:0}.swn b{display:block;font:600 14px var(--font-sans);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.swn small{display:block;font:400 11.5px var(--font-mono);color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-it i{font:500 13px var(--font-mono);font-style:normal;white-space:nowrap;text-align:right}.sw-it i small{display:block;font:400 11px var(--font-sans);color:var(--text-tertiary)}
+.sw-foot{display:flex;gap:8px;padding-top:10px;margin-top:6px;border-top:1px solid var(--line)}.sw-foot .btn{flex:1;padding:8px 10px;font-size:13px}
 .add-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
 .wrows{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .wrow{display:grid;grid-template-columns:22px minmax(0,1.5fr) 150px minmax(0,1.1fr) 176px;align-items:center;gap:14px;padding:11px 6px;border-bottom:1px solid var(--line);transition:background .15s}
@@ -130,6 +154,7 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .about-motto{margin:14px 0 0;font:700 13px var(--font-display);letter-spacing:2.2px;color:var(--text-primary)}
 .about-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
 @media (max-width:1380px){h1 small{display:none}}
+@media (max-width:900px){.allw-sum{grid-template-columns:1fr 1fr}.allw-sum>div:first-child{grid-column:1/-1}.wsel{flex:1 1 100%}.wbar-acts{width:100%}.wbar-acts .btn{flex:1}}
 @media (max-width:900px){.wtop{grid-template-columns:1fr}.hsums,.about-facts{grid-template-columns:1fr 1fr}.wrow{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"i n b" "s s s" "a a a"}.wrow>.ic{grid-area:i}.wn{grid-area:n}.wb{grid-area:b}.ws{grid-area:s}.wa{grid-area:a;justify-content:flex-start}}
 @media (max-width:640px){.add-grid{grid-template-columns:1fr}.about-hero{flex-direction:column;align-items:flex-start;padding:24px}.about-hero img{width:84px;height:84px}.toolbar input[type=search]{min-width:100%}}
 .wsplit{display:flex;gap:6px;height:8px;border-radius:99px;overflow:hidden;margin:14px 0 4px;background:var(--bg-inset)}.wsplit i{display:block;height:100%;background:var(--text-secondary);opacity:.35;min-width:3px}.wsplit i:nth-child(odd){opacity:.6}
@@ -169,7 +194,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 <header class="float">
   <div class="brand"><img src="/assets/genoryn-mark-dark.svg" alt="Genoryn"><h1>Genoryn Krypton <small>wallet</small></h1></div>
   <span id="net" class="badge"></span>
-  <button id="wChip" class="badge chip-btn hidden" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
+  <button id="wChip" class="badge chip-btn hidden" aria-haspopup="dialog" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
   <span class="spacer"></span>
   <span id="netBadge" class="badge net-badge hidden" title="Estimated miners (payout addresses active in ~6 h) · network hashrate"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
@@ -223,7 +248,6 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <section id="app" class="hidden">
     <nav class="tabs glass" aria-label="Wallet sections">
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
-      <button class="rail" data-tab="wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><span>Wallets</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
@@ -231,6 +255,50 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <button class="rail" data-tab="about"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg><span>About</span></button>
     </nav>
     <div id="tab-wallet">
+    <div class="glass wbar">
+      <button class="wsel" id="wSel" type="button" onclick="openSwitcher(this)" aria-haspopup="dialog" title="Switch wallet">
+        <span class="wsel-ic"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg></span>
+        <span class="wsel-t"><em>Active wallet</em><b id="wSelName">-</b><span id="wSelAddr" class="mono"></span></span>
+        <span class="caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="wbar-total"><em>All wallets</em><b id="wbTotal">-</b><span id="wbCount"></span></div>
+      <div class="wbar-acts">
+        <button class="btn" id="wAllBtn" type="button" onclick="toggleAll()" aria-expanded="false">Show all wallets <span class="caret" aria-hidden="true">▾</span></button>
+        <button class="btn" type="button" onclick="toggleAll(true);toggleAdd(true)"><span aria-hidden="true">+</span>&nbsp;Add wallet</button>
+      </div>
+    </div>
+    <section id="allWallets" class="glass card allw hidden" aria-label="All wallets">
+      <div class="allw-sum">
+        <div><em>Total</em><b id="tTotal">0</b></div>
+        <div><em>Spendable</em><b id="tSpend">0</b></div>
+        <div><em>Pending</em><b id="tPend">0</b></div>
+        <div><em>Maturing</em><b id="tImm">0</b></div>
+        <div><em>Wallets</em><b id="tCount">0</b></div>
+      </div>
+      <div id="tSplit" class="wsplit" aria-hidden="true"></div>
+      <p id="tNote" class="hero-note" style="margin-top:6px"></p>
+      <div id="addPanel" class="addp hidden">
+        <h2>Add a wallet</h2>
+        <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
+        <div class="add-grid">
+          <div><label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings"></div>
+          <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"></div>
+        </div>
+        <div id="addRestore" class="hidden">
+          <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
+          <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
+        </div>
+        <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button><button class="btn" onclick="toggleAdd(false)">Cancel</button></div>
+      </div>
+      <div class="toolbar">
+        <input id="wQ" type="search" placeholder="Search by name or address" aria-label="Search wallets">
+        <div class="seg" id="wFilter" role="group" aria-label="Filter"><button type="button" data-f="all" class="on">All <em id="wnAll"></em></button><button type="button" data-f="open">Unlocked <em id="wnOpen"></em></button><button type="button" data-f="locked">Locked <em id="wnLocked"></em></button></div>
+        <select id="wSort" aria-label="Sort"><option value="added">Order added</option><option value="name">Name A–Z</option><option value="bal">Balance, highest first</option><option value="open">Unlocked first</option></select>
+        <button class="btn" type="button" onclick="lockAll()"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock all</button>
+      </div>
+      <div class="wrows" id="wList" role="list"></div>
+      <div class="pager" id="wPager"></div>
+    </section>
     <div class="grid">
       <div class="glass card">
         <h2>Balance</h2>
@@ -286,45 +354,6 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <p class="hero-note" style="margin-top:10px">Blocks you found are marked. Transfers stay shielded: only block sizes, shares and transaction counts are public.</p>
       </div>
     </section>
-    </div>
-    <div id="tab-wallets" class="hidden">
-      <div class="glass card wtop">
-        <div class="wtop-main">
-          <h2><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>All wallets</h2>
-          <div class="big"><span id="tTotal" class="num">0</span> <small>GNR in total</small></div>
-          <div id="tSplit" class="wsplit" aria-hidden="true"></div>
-          <p id="tNote" class="hero-note"></p>
-        </div>
-        <div class="wtop-side">
-          <div class="row">Spendable<b id="tSpend">0</b></div>
-          <div class="row">Pending<b id="tPend">0</b></div>
-          <div class="row">Maturing<b id="tImm">0</b></div>
-          <div class="row">Wallets<b id="tCount">0</b></div>
-          <div class="row-flex" style="margin-top:12px"><button class="btn btn-primary" onclick="toggleAdd()"><span aria-hidden="true">+</span>&nbsp;Add wallet</button><button class="btn" onclick="lockAll()"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock all</button></div>
-        </div>
-      </div>
-      <div id="addPanel" class="glass card hidden" style="margin-top:14px">
-        <h2>Add a wallet</h2>
-        <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
-        <div class="add-grid">
-          <div><label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings"></div>
-          <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"></div>
-        </div>
-        <div id="addRestore" class="hidden">
-          <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
-          <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
-        </div>
-        <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button><button class="btn" onclick="toggleAdd(false)">Cancel</button></div>
-      </div>
-      <div class="glass card" style="margin-top:14px">
-        <div class="toolbar">
-          <input id="wQ" type="search" placeholder="Search by name or address" aria-label="Search wallets">
-          <div class="seg" id="wFilter" role="group" aria-label="Filter"><button type="button" data-f="all" class="on">All <em id="wnAll"></em></button><button type="button" data-f="open">Unlocked <em id="wnOpen"></em></button><button type="button" data-f="locked">Locked <em id="wnLocked"></em></button></div>
-          <select id="wSort" aria-label="Sort"><option value="added">Order added</option><option value="name">Name A–Z</option><option value="bal">Balance, highest first</option><option value="open">Unlocked first</option></select>
-        </div>
-        <div class="wrows" id="wList" role="list"></div>
-        <div class="pager" id="wPager"></div>
-      </div>
     </div>
     <div id="tab-history" class="hidden">
       <div class="hsums" id="hSums">
@@ -510,6 +539,12 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     </div>
   </section>
 </main>
+<div id="switcher" class="switcher glass float hidden" role="dialog" aria-label="Switch wallet">
+  <div class="sw-head"><b>Wallets</b><span id="swTotal"></span></div>
+  <input id="swQ" type="search" placeholder="Search wallets" aria-label="Search wallets">
+  <div id="swList" class="sw-list" role="listbox"></div>
+  <div class="sw-foot"><button class="btn" type="button" onclick="closeSwitcher();toggleAll(true)">Show all wallets</button><button class="btn" type="button" onclick="closeSwitcher();toggleAll(true);toggleAdd(true)"><span aria-hidden="true">+</span>&nbsp;Add</button></div>
+</div>
 <div id="toast" class="toast float hidden" role="status" aria-live="polite"></div>
 <script src="/assets/fx.js" data-base="/assets/"></script>
 <script src="/assets/charts.js"></script>
@@ -534,9 +569,9 @@ async function afterAdd(r, name, activate){
   await refresh(); loadWallets();
 }
 function startAdding(){ adding=true; const n=(S.wallet_count||0)+1; $('newName').value='Wallet '+n; refresh(); }
-function chipClick(){ if(S.unlocked) goTab('wallets'); else { show('uPick'); $('uSel').focus(); } }
+function chipClick(){ if(S.unlocked) openSwitcher($('wChip')); else { show('uPick'); $('uSel').focus(); } }
 function dur(s){ if(s==null) return ''; const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?h+' h '+m+' min':m?m+' min':'less than a minute'; }
-async function loadWallets(){ try{ W=await api('/api/wallets'); renderWallets(); }catch(e){} }
+async function loadWallets(){ try{ W=await api('/api/wallets'); renderBar(); if(!$('allWallets').classList.contains('hidden')) renderWallets(); }catch(e){} }
 function renderWallets(){
   if(!W) return;
   const t=W.total||{}; $('tTotal').textContent=gnr(t.total); $('tSpend').textContent=gnr(t.spendable); $('tPend').textContent=gnr(t.pending); $('tImm').textContent=gnr(t.immature);
@@ -566,7 +601,42 @@ function renderWallets(){
   if($('wpw')){ $('wpw').value=keep; if(hadFocus) $('wpw').focus(); }
   pager($('wPager'), WV.page, pages, list.length, WV.per, p=>{ WV.page=p; renderWallets(); }, 'wallets');
 }
-const WV={q:'', f:'all', sort:'added', page:0, per:20, unlocking:null, menu:null};
+const WV={q:'', f:'all', sort:'added', page:0, per:Infinity, unlocking:null, menu:null, sq:''};
+function renderBar(){
+  if(!W) return; const t=W.total||{}, n=W.wallets.length, open=W.wallets.filter(w=>w.unlocked).length;
+  $('wbTotal').textContent=gnr(t.total)+' GNR'; $('wbCount').textContent=n+' wallet'+(n===1?'':'s')+' · '+open+' unlocked'+(W.unknown?' · '+W.unknown+' not counted yet':'');
+  $('swTotal').textContent=gnr(t.total)+' GNR';
+  if(!$('switcher').classList.contains('hidden')) renderSwitcher();
+}
+function toggleAll(on){ const p=$('allWallets'), show_=on===undefined?p.classList.contains('hidden'):on;
+  p.classList.toggle('hidden',!show_); $('wAllBtn').setAttribute('aria-expanded',String(show_)); $('wAllBtn').firstChild.textContent=show_?'Hide all wallets ':'Show all wallets ';
+  try{ localStorage.setItem('gk-allw', show_?'1':'0'); }catch(e){}
+  if(show_){ loadWallets(); if(on===true) p.scrollIntoView({block:'nearest', behavior:'smooth'}); } }
+let swAnchor=null, swOpened=0;
+function openSwitcher(anchor){
+  const s=$('switcher'); if(!s.classList.contains('hidden')&&swAnchor===anchor){ closeSwitcher(); return; }
+  swAnchor=anchor; swOpened=Date.now(); s.classList.remove('hidden'); document.querySelectorAll('[aria-haspopup="dialog"]').forEach(x=>x.setAttribute('aria-expanded',String(x===anchor)));
+  const r=anchor.getBoundingClientRect(), w=s.offsetWidth, top=Math.min(r.bottom+8, innerHeight-260);
+  s.style.top=top+'px'; s.style.left=Math.max(12, Math.min(r.left, innerWidth-w-12))+'px'; s.style.maxHeight=Math.min(620, innerHeight-top-12)+'px';
+  WV.sq=''; $('swQ').value=''; renderSwitcher(); loadWallets(); if((W&&W.wallets.length>6)) $('swQ').focus();
+}
+function closeSwitcher(){ $('switcher').classList.add('hidden'); document.querySelectorAll('[aria-haspopup="dialog"]').forEach(x=>x.setAttribute('aria-expanded','false')); swAnchor=null; }
+function renderSwitcher(){
+  const ws=(W?W.wallets:(S.wallet_names||[]).map(w=>({...w, active:w.id===(S.active||{}).id}))), q=WV.sq.toLowerCase();
+  const list=ws.filter(w=>!q||w.name.toLowerCase().includes(q)||(w.short||'').toLowerCase().includes(q));
+  $('swList').innerHTML=list.map(w=>`<button type="button" class="sw-it${w.active?' on':''}" role="option" aria-selected="${!!w.active}" onclick="pickWallet('${esc(w.id)}')">
+      <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
+      <span class="swn"><b>${esc(w.name)}</b><small>${w.short?esc(w.short.slice(0,26))+'…':'address after first unlock'}</small></span>
+      <i>${w.balance?gnr(w.balance.total):'—'}<small>${w.active?'active':(w.unlocked?'unlocked':'locked')}</small></i></button>`).join('')||'<div class="wempty">No wallet matches.</div>';
+}
+async function pickWallet(id){ closeSwitcher(); if(S.active&&S.active.id===id) return; await useWallet(id); }
+$('swQ').oninput=e=>{ WV.sq=e.target.value.trim(); renderSwitcher(); };
+$('swQ').onkeydown=e=>{ if(e.key==='Escape') closeSwitcher(); if(e.key==='Enter'){ const f=$('swList').querySelector('.sw-it'); if(f) f.click(); } };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&!$('switcher').classList.contains('hidden')) closeSwitcher(); });
+document.addEventListener('mousedown', e=>{ const s=$('switcher'); if(!s.classList.contains('hidden')&&!s.contains(e.target)&&!(swAnchor&&swAnchor.contains(e.target))) closeSwitcher(); });
+addEventListener('resize', ()=>closeSwitcher());
+addEventListener('scroll', ()=>{ if(swAnchor&&Date.now()-swOpened>600) closeSwitcher(); }, {passive:true});
+try{ if(localStorage.getItem('gk-allw')==='1') setTimeout(()=>toggleAll(true),0); }catch(e){}
 document.addEventListener('click', e=>{ if(WV.menu&&!e.target.closest('.wmenu')){ WV.menu=null; renderWallets(); } });
 function toggleAdd(on){ const p=$('addPanel'); const show_=on===undefined?p.classList.contains('hidden'):on; p.classList.toggle('hidden',!show_); if(show_) $('addName').focus(); }
 /* Shared pager: « ‹ 1 … 4 5 6 … 12 › » plus "21–40 of 230". */
@@ -741,8 +811,8 @@ async function saveSettings(){ const mode=[...document.getElementsByName('mode')
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 async function quitApp(){ if(!confirm('Quit Genoryn Krypton? The miner and your own node stop too.')) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
-const TABS=['wallet','wallets','history','mining','network','security','about'];
-function goTab(t){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='wallets') loadWallets(); if(t==='history') loadHistory(); }
+const TABS=['wallet','history','mining','network','security','about'];
+function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); }
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
@@ -777,7 +847,8 @@ async function refresh(){
   if(!S.unlocked){ $('uName').textContent=act.name?'“'+act.name+'”':''; const ws=S.wallet_names||[];
     if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' (unlocked)':''}</option>`).join(''); show('uPick'); } else hide('uPick');
     show('unlockBox'); return; }
-  show('app'); if(!$('tab-wallets').classList.contains('hidden')) loadWallets();
+  show('app'); loadWallets();
+  $('wSelName').textContent=act.name||'Wallet'; $('wSelAddr').textContent=S.short?S.short.slice(0,30)+'…':'';
   initOverview(); checkPublished();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
