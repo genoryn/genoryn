@@ -2401,7 +2401,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "krypton-core"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "hex",
  "krypton-crypto",
@@ -2419,7 +2419,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-crypto"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2442,7 +2442,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-light"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "hex",
@@ -2457,7 +2457,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-miner"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -2473,7 +2473,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-p2p"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "chacha20poly1305",
@@ -2491,7 +2491,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-pow"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "blake3",
  "cudarc",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-release"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "hex",
@@ -2517,7 +2517,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-sdk"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "krypton-core",
  "krypton-crypto",
@@ -2527,7 +2527,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-setup"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "eframe",
@@ -2540,7 +2540,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-store"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "krypton-core",
@@ -2557,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -2584,7 +2584,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-cli"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -2601,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-core"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "bip39",
@@ -2622,7 +2622,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-zk"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "krypton-crypto",
  "proptest",
@@ -2634,7 +2634,7 @@ dependencies = [
 
 [[package]]
 name = "kryptond"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "axum",

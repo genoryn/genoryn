@@ -59,6 +59,41 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .center{max-width:580px;margin:44px auto}
 .toast{position:fixed;bottom:18px;right:18px;left:auto;z-index:20;padding:12px 16px;border-radius:12px;max-width:min(440px,calc(100vw - 36px));color:var(--text-primary)}
 .toast.bad{color:var(--status-error)}
+.pub-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;min-height:4px}
+.pchip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--text-secondary);background:var(--bg-inset)}
+.pchip.ok{border-color:var(--status-success-line);color:var(--text-primary)}.pchip.bad{border-color:var(--status-error-line,var(--status-warning-line))}
+.linkbtn{background:none;border:0;padding:3px 4px;color:var(--text-primary);font:600 12.5px var(--font-sans);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ov{margin-top:26px;opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s}.ov.ready{opacity:1;transform:none}
+.ov-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ov-title{margin:0;font:700 20px/1.2 var(--font-display);letter-spacing:.2px}
+.ov-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.ov-kpi{position:relative;padding:14px 14px 10px;overflow:hidden;min-width:0;display:flex;flex-direction:column;gap:2px;transition:transform .25s,border-color .25s}
+.ov-kpi::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,var(--tone),transparent);opacity:.9}
+.ov-kpi::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--tone) 22%,transparent),transparent 70%);pointer-events:none}
+.ov-kpi:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--tone) 45%,var(--line))}
+.ov-ic{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:color-mix(in srgb,var(--tone) 14%,transparent);color:var(--tone);margin-bottom:6px}.ov-ic .ic{width:15px;height:15px}
+.ov-kpi b{font:500 clamp(16px,1.7vw,21px)/1.15 var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.ov-kpi span{color:var(--text-secondary);font-size:12.5px}.ov-kpi em{font-style:normal;color:var(--text-tertiary);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-spark{height:26px;margin-top:6px}.ov-spark svg{display:block;width:100%;height:26px;overflow:visible}
+.ov-spark path.l{fill:none;stroke:var(--tone);stroke-width:1.6;stroke-linejoin:round}.ov-spark path.a{fill:color-mix(in srgb,var(--tone) 16%,transparent);stroke:none}
+.ov-bar{height:6px;border-radius:99px;background:var(--bg-inset);margin:16px 0 4px;overflow:hidden}.ov-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--tone) 50%,transparent),var(--tone));box-shadow:0 0 10px color-mix(in srgb,var(--tone) 60%,transparent);transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.ov-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ov-grid .card{padding:16px 16px 8px;min-width:0}.ov-grid .wide{grid-column:span 2}
+.ov-grid .gk-card-head b{color:var(--tone)}
+.ov-blocks{margin-top:14px;padding:16px 16px 14px}
+.chain{display:flex;gap:16px;overflow-x:auto;padding:14px 4px 10px;scrollbar-width:thin;perspective:900px}
+.blk{position:relative;flex:none;width:132px;padding:12px 12px 10px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(160deg,var(--bg-raised),var(--bg-inset));transform:rotateY(-8deg) rotateX(4deg);transform-style:preserve-3d;transition:transform .3s,border-color .3s,box-shadow .3s;box-shadow:6px 8px 0 -2px color-mix(in srgb,var(--text-primary) 5%,transparent),0 10px 24px rgba(0,0,0,.25)}
+.blk:hover{transform:rotateY(0) rotateX(0) translateY(-3px);border-color:var(--line-strong)}
+.blk:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:16px;height:2px;background:linear-gradient(90deg,var(--line-strong),var(--line))}
+.blk b{display:block;font:600 15px var(--font-mono)}.blk span{display:block;font-size:11.5px;color:var(--text-tertiary);margin-top:2px}
+.blk .bm{display:flex;justify-content:space-between;gap:6px;margin-top:8px;font:400 11.5px var(--font-mono);color:var(--text-secondary)}
+.blk .bf{height:4px;border-radius:99px;margin-top:8px;background:var(--bg-inset);overflow:hidden}.blk .bf i{display:block;height:100%;background:#a98dff}
+.blk.mine{border-color:#3ee597;box-shadow:0 0 0 1px #3ee59755,0 0 22px #3ee59733,0 10px 24px rgba(0,0,0,.25)}
+.blk.mine .tag{position:absolute;top:-9px;right:10px;padding:1px 7px;border-radius:99px;font-size:10.5px;font-weight:600;background:#3ee597;color:#05140c}
+.blk.new{animation:blkin .7s cubic-bezier(.2,.7,.2,1)}@keyframes blkin{from{opacity:0;transform:translateX(-24px) rotateY(-30deg)}}
+@media (max-width:1000px){.ov-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.ov-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.ov-kpis{grid-template-columns:1fr 1fr}.ov-grid{grid-template-columns:1fr}.ov-grid .wide{grid-column:auto}}
+@media (prefers-reduced-motion:reduce){.ov,.blk,.ov-kpi{transition:none}.blk{transform:none}.blk.new{animation:none}}
 .chip-btn{cursor:pointer;font:inherit;font-size:12px}.chip-btn .ic{width:14px;height:14px}.chip-btn b{color:var(--text-primary);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis}
 .wlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;margin-top:18px}
 .wcard{display:flex;flex-direction:column;gap:6px;transition:transform .2s,border-color .2s}
@@ -167,7 +202,8 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <button class="rail" data-tab="security"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><span>Security</span></button>
       <button class="rail" data-tab="about"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg><span>About</span></button>
     </nav>
-    <div id="tab-wallet" class="grid">
+    <div id="tab-wallet">
+    <div class="grid">
       <div class="glass card">
         <h2>Balance</h2>
         <div class="big glow"><span id="bal" class="num">0</span> <small>GNR</small></div>
@@ -180,7 +216,8 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <h2>Receive</h2>
         <p class="muted">Short address (resolvable on published nodes):</p>
         <div class="mono addr inset" id="short"></div>
-        <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" onclick="publish()">Publish short form</button></div>
+        <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
+        <div id="pubStatus" class="pub-status" aria-live="polite"></div>
         <p class="muted" style="margin-top:14px">Full post-quantum address:</p>
         <div class="mono addr inset" id="full"></div>
       </div>
@@ -192,6 +229,35 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <button id="sendBtn" class="btn btn-primary" onclick="send()">Send</button>
         <p class="hero-note">Fee 0.002 GNR. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
+    </div>
+    <section id="overview" class="ov" aria-label="Network and mining overview">
+      <div class="ov-head">
+        <h2 class="ov-title">Overview</h2>
+        <div class="gk-range" id="ovRange" role="group" aria-label="Time range"><button type="button" data-range="1h">1H</button><button type="button" data-range="6h">6H</button><button type="button" data-range="24h" class="on">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button></div>
+      </div>
+      <div class="ov-kpis">
+        <div class="glass ov-kpi" data-tone="cyan"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg></span><b id="oRate">-</b><span>Network hashrate</span><em id="oRateSub">&nbsp;</em><div class="ov-spark" id="spRate"></div></div>
+        <div class="glass ov-kpi" data-tone="pink"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg></span><b id="oMiners">-</b><span>Estimated miners</span><em id="oMinersSub">&nbsp;</em><div class="ov-spark" id="spMiners"></div></div>
+        <div class="glass ov-kpi" data-tone="violet"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg></span><b id="oHeight">-</b><span>Block height</span><em id="oHeightSub">&nbsp;</em><div class="ov-spark" id="spTime"></div></div>
+        <div class="glass ov-kpi" data-tone="green"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg></span><b id="oShare">-</b><span>Your share of mining</span><em id="oShareSub">&nbsp;</em><div class="ov-spark" id="spShare"></div></div>
+        <div class="glass ov-kpi" data-tone="amber"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span><b id="oUnpaid">-</b><span>Rewards accruing</span><em id="oUnpaidSub">&nbsp;</em><div class="ov-bar"><i id="oPayBar"></i></div></div>
+        <div class="glass ov-kpi" data-tone="blue"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg></span><b id="oIssued">-</b><span>GNR issued</span><em id="oIssuedSub">&nbsp;</em><div class="ov-bar"><i id="oIssBar"></i></div></div>
+      </div>
+      <div class="ov-grid">
+        <div class="glass card wide" data-tone="cyan"><div class="gk-card-head"><h3>Network hashrate</h3><b id="ocRate">-</b></div><div id="ocHash"></div></div>
+        <div class="glass card" data-tone="green"><div class="gk-card-head"><h3>Your balance</h3><b id="ocBal">-</b></div><div id="ocBalance"></div></div>
+        <div class="glass card" data-tone="amber"><div class="gk-card-head"><h3>Block time</h3><b id="ocTime">-</b></div><div id="ocBlockTime"></div></div>
+        <div class="glass card" data-tone="violet"><div class="gk-card-head"><h3>Shares per block</h3><b id="ocShares">-</b></div><div id="ocShareChart"></div></div>
+        <div class="glass card" data-tone="pink"><div class="gk-card-head"><h3>Active miners</h3><b id="ocMiners">-</b></div><div id="ocMinerChart"></div></div>
+        <div class="glass card wide" data-tone="blue"><div class="gk-card-head"><h3>GNR issued</h3><b id="ocIssued">-</b></div><div id="ocIssuedChart"></div></div>
+        <div class="glass card" data-tone="violet"><div class="gk-card-head"><h3>Difficulty</h3><b id="ocDiff">-</b></div><div id="ocDiffChart"></div></div>
+      </div>
+      <div class="glass card ov-blocks">
+        <div class="gk-card-head"><h3>Latest blocks</h3><b id="ovTip">-</b></div>
+        <div class="chain" id="ovChain" aria-live="polite"></div>
+        <p class="hero-note" style="margin-top:10px">Blocks you found are marked. Transfers stay shielded: only block sizes, shares and transaction counts are public.</p>
+      </div>
+    </section>
     </div>
     <div id="tab-wallets" class="hidden">
       <div class="grid">
@@ -252,6 +318,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Your share of the network<b id="mFrac">-</b></div>
         <div class="row">Expected earnings<b id="mDay">-</b></div>
         <div class="row">Shares found<b id="mShares">0</b></div><div class="row">Blocks found<b id="mBlocks">0</b></div>
+        <p class="hero-note">While the miner runs, closing the window keeps mining in the background; the desktop icon opens the wallet again. <b>Quit</b> stops everything.</p>
       </div>
       <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Rewards</h2>
         <div class="big"><span id="rUnpaid" class="num">0</span> <small>GNR accruing</small></div>
@@ -391,7 +458,92 @@ async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass')
   window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; refresh(); }catch(e){ toast(e.message,true) } }
 async function send(){ const b=$('sendBtn'); b.disabled=true; window.fxBusy=true; try{ const r = await api('/api/send',{to:$('to').value, amount:$('amount').value, memo:$('memo').value}); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) } window.fxBusy=false; b.disabled=false; refresh(); }
-async function publish(){ try{ const r = await api('/api/publish',{}); toast('Published on '+r.published.length+' node(s)'); }catch(e){ toast(e.message,true) } }
+let pubFor=null;
+function renderPub(nodes){
+  const onSite=nodes.some(n=>n.ok&&n.node==='genoryn.io'), all=nodes.length&&nodes.every(n=>n.ok);
+  $('pubStatus').innerHTML = nodes.map(n=>`<span class="pchip ${n.ok?'ok':n.error?'bad':''}" title="${esc(n.ok?'Your short address resolves here':n.error||'Not published here yet')}">${n.ok?'✓':n.error?'!':'○'} ${esc(n.node)}</span>`).join('')
+    + (onSite?'<button class="linkbtn" onclick="openLink(\'address\')">View on genoryn.io ↗</button>':'');
+  $('pubBtn').textContent = all?'Published':'Publish short form';
+}
+async function checkPublished(){ if(!S.unlocked||!S.short||pubFor===S.short) return; pubFor=S.short; try{ renderPub((await api('/api/published')).nodes); }catch(e){ pubFor=null; } }
+async function publish(){ const b=$('pubBtn'); b.disabled=true; b.textContent='Publishing…';
+  try{ const r=await api('/api/publish',{}); renderPub(r.nodes); const ok=r.nodes.filter(n=>n.ok).map(n=>n.node), bad=r.nodes.filter(n=>!n.ok);
+    toast('Published on '+ok.join(' and ')+(bad.length?' · not on '+bad.map(n=>n.node).join(', ')+': '+(bad[0].error||''):''), bad.length>0); }
+  catch(e){ toast(e.message,true); b.textContent='Publish short form'; }
+  b.disabled=false; }
+
+/* ---- Overview: loads after the wallet itself is on screen ---- */
+const OV={range:'24h', started:false, stats:null, blocks:[], seen:new Set(), tStats:0, tBlocks:0};
+const fmtN=(v,d=0)=>Number(v||0).toLocaleString(undefined,{maximumFractionDigits:d});
+function spark(host, vals){ if(!host) return; vals=vals.filter(v=>isFinite(v)); if(vals.length<2){ host.innerHTML=''; return; }
+  const W=120,H=26,mn=Math.min(...vals),mx=Math.max(...vals),r=(mx-mn)||1; const p=vals.map((v,i)=>[(i/(vals.length-1))*W, H-2-((v-mn)/r)*(H-4)]);
+  const d=p.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1)).join('');
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="a" d="${d}L${W},${H}L0,${H}Z"/><path class="l" d="${d}"/></svg>`; }
+function ago(t){ const s=Math.max(0,Math.round(Date.now()/1000-t)); return s<60?s+' s ago':s<3600?Math.floor(s/60)+' min ago':Math.floor(s/3600)+' h ago'; }
+function initOverview(){ if(OV.started) return; OV.started=true;
+  document.querySelectorAll('#ovRange button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#ovRange button').forEach(x=>x.classList.toggle('on',x===b)); OV.range=b.dataset.range; loadOvStats(true); });
+  const go=()=>{ loadOvStats(); loadOvBlocks(); $('overview').classList.add('ready'); };
+  (window.requestIdleCallback||((f)=>setTimeout(f,400)))(go,{timeout:1500});
+  setInterval(()=>{ if(document.hidden||$('tab-wallet').classList.contains('hidden')||$('app').classList.contains('hidden')) return;
+    const now=Date.now(); if(now-OV.tBlocks>20000) loadOvBlocks(); if(now-OV.tStats>60000) loadOvStats(); }, 5000);
+}
+async function loadOvStats(force){ OV.tStats=Date.now(); const root=$('overview'); if(force) root.classList.add('loading');
+  try{ OV.stats=await api('/api/stats?range='+OV.range); renderOvCharts(); }catch(e){} root.classList.remove('loading'); }
+async function loadOvBlocks(){ OV.tBlocks=Date.now(); try{ OV.blocks=await api('/api/blocks'); renderOvBlocks(); }catch(e){} }
+function renderOvCharts(){
+  const s=OV.stats; if(!s||!window.GKCharts) return; const P=s.points||[], sum=s.summary||{}, m=S.miner||{};
+  const ser=k=>P.map(p=>({t:p.t,h:p.h,v:Number(p[k]||0)}));
+  const mine=m.running&&m.hashrate>0?m.hashrate:null;
+  GKCharts.chart($('ocHash'), ser('hashrate'), {fmt:rate, height:200, target:mine, targetLabel:mine?'you · '+rate(mine):'', label:'Network hashrate'});
+  GKCharts.chart($('ocBlockTime'), ser('block_time'), {kind:'bars', fmt:v=>Math.round(v)+' s', target:60, targetLabel:'target 60 s', label:'Block time'});
+  GKCharts.chart($('ocShareChart'), ser('shares'), {kind:'bars', fmt:v=>fmtN(v,1), target:32, targetLabel:'32', label:'Shares per block'});
+  GKCharts.chart($('ocMinerChart'), ser('miners'), {kind:'line', integer:true, fmt:v=>fmtN(v), label:'Active miners'});
+  GKCharts.chart($('ocIssuedChart'), P.map(p=>({t:p.t,h:p.h,v:Number(p.issued||0)/1e8})), {fmt:v=>GKCharts.fmtNum?GKCharts.fmtNum(v):fmtN(v), zero:false, label:'GNR issued'});
+  GKCharts.chart($('ocDiffChart'), ser('difficulty'), {kind:'line', zero:false, fmt:v=>GKCharts.fmtNum?GKCharts.fmtNum(v):fmtN(v), label:'Difficulty'});
+  const last=P[P.length-1]||{};
+  $('ocRate').textContent=rate(sum.hashrate||last.hashrate); $('ocTime').textContent=last.block_time?Math.round(last.block_time)+' s':'-';
+  $('ocShares').textContent=last.shares!=null?fmtN(last.shares,1):'-'; $('ocMiners').textContent=sum.estimated_miners??'-';
+  $('ocIssued').textContent=gnr(sum.issued).replace(/\.\d+$/,'')+' GNR'; $('ocDiff').textContent=last.difficulty?(GKCharts.fmtNum?GKCharts.fmtNum(last.difficulty):fmtN(last.difficulty)):'-';
+  spark($('spRate'), P.map(p=>p.hashrate)); spark($('spMiners'), P.map(p=>p.miners)); spark($('spTime'), P.map(p=>p.block_time));
+  if(mine) spark($('spShare'), P.map(p=>p.hashrate>0?Math.min(1,mine/p.hashrate)*100:0)); else $('spShare').innerHTML='';
+  renderOvBalance(); renderOvKpis();
+}
+function renderOvBalance(){
+  if(!window.GKCharts) return; const b=S.balance||{}, now=Math.floor(Date.now()/1000), total=Number(b.total||0);
+  const h=(S.history||[]).filter(x=>x.time).slice().sort((x,y)=>x.time-y.time);
+  let run=total-h.reduce((a,x)=>a+Number(x.amount||0),0); const pts=[];
+  const P=(OV.stats||{}).points||[], from=P.length?P[0].t:now-86400;
+  pts.push({t:Math.min(from, h.length?h[0].time-60:from), v:Math.max(0,run)/1e8});
+  h.forEach(x=>{ run+=Number(x.amount||0); pts.push({t:x.time, h:x.height??undefined, v:Math.max(0,run)/1e8}); });
+  pts.push({t:now, v:total/1e8});
+  GKCharts.chart($('ocBalance'), pts, {fmt:v=>fmtN(v,v<100?2:0), label:'Your balance'});
+  $('ocBal').textContent=gnr(total)+' GNR';
+}
+function renderOvKpis(){
+  const sum=(OV.stats||{}).summary||{}, tip=S.tip||{}, m=S.miner||{}, rw=S.rewards, P=(OV.stats||{}).points||[];
+  $('oRate').textContent=rate(sum.hashrate||tip.hashrate); $('oRateSub').textContent=sum.gpu_equivalents?'≈ '+fmtN(sum.gpu_equivalents,1)+' RTX 5090':' ';
+  $('oMiners').textContent=sum.estimated_miners??'-'; $('oMinersSub').textContent=sum.miners_last_hour!=null?sum.miners_last_hour+' in the last hour':' ';
+  $('oHeight').textContent=tip.height!=null?fmtN(tip.height):'-'; const bt=P.length?P.slice(-6).reduce((a,p)=>a+p.block_time,0)/Math.min(6,P.length):0; $('oHeightSub').textContent=bt?'blocks every ~'+Math.round(bt)+' s':' ';
+  const f=m.running&&m.hashrate>0?m.network_fraction:null; $('oShare').textContent=f!=null?(f*100).toFixed(f<0.01?3:1)+' %':'not mining';
+  $('oShareSub').textContent=f!=null?'≈ '+fmtN(m.expected_per_day,1)+' GNR / day · '+rate(m.hashrate):'start the miner in Mining';
+  $('oUnpaid').textContent=gnr(rw?rw.unpaid:0).replace(/(\.\d{2})\d+$/,'$1')+' GNR';
+  const iv=S.payout_interval||360, nx=rw&&rw.next_payout_height;
+  $('oUnpaidSub').textContent=nx?'payout at block '+fmtN(nx)+(tip.height?' · in ~'+Math.max(0,nx-tip.height)+' min':''):'paid every '+iv+' blocks';
+  $('oPayBar').style.width=(nx&&tip.height?Math.max(2,Math.min(100,100-((nx-tip.height)/iv)*100)):0)+'%';
+  const iss=Number(sum.issued||tip.supply||0), mx=Number(sum.max_supply||21e14);
+  $('oIssued').textContent=gnr(iss).replace(/\.\d+$/,''); $('oIssuedSub').textContent=(iss/mx*100).toFixed(4)+' % of 21,000,000';
+  $('oIssBar').style.width=Math.max(1,iss/mx*100)+'%';
+}
+function renderOvBlocks(){
+  const bl=OV.blocks||[]; if(!bl.length) return; const own=S.owner, first=!OV.seen.size;
+  $('ovTip').textContent='#'+fmtN(bl[0].height);
+  const maxS=Math.max(32,...bl.map(b=>b.shares||0));
+  $('ovChain').innerHTML=bl.map(b=>{ const mine=own&&b.miner===own, isNew=!first&&!OV.seen.has(b.hash);
+    return `<div class="blk${mine?' mine':''}${isNew?' new':''}" title="${esc(b.hash)}">${mine?'<span class="tag">yours</span>':''}<b>#${fmtN(b.height)}</b><span>${ago(b.timestamp)}</span>
+      <div class="bm"><span>${b.shares} shares</span><span>${b.txs} tx</span></div><div class="bm"><span>${(b.size/1024).toFixed(1)} KB</span><span>${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</span></div>
+      <div class="bf"><i style="width:${Math.min(100,(b.shares/maxS)*100)}%"></i></div></div>`; }).join('');
+  bl.forEach(b=>OV.seen.add(b.hash));
+}
 async function minerStart(){ window.fxBusy=true; setTimeout(()=>window.fxBusy=false, 90000); try{ await api('/api/miner/start',{backend:$('backend').value, max_cpu:Number($('cpu').value)}); toast('Miner starting (the first run prepares a 2 GiB dataset)'); }catch(e){ toast(e.message,true) } refresh(); }
 async function devices(){ try{ $('devs').textContent = (await api('/api/devices')).devices; }catch(e){ toast(e.message,true) } }
 async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean)}); toast('Saved'); }catch(e){ toast(e.message,true) } }
@@ -422,7 +574,7 @@ let settingsLoaded=false;
 async function refresh(){
   try{ S = await api('/api/state'); }catch(e){ $('sync').textContent='offline'; return; }
   $('net').textContent = S.network;
-  const st=S.tip&&S.tip.stats; if(st){ $('netBadgeText').textContent=(st.estimated_miners??0)+' miners · '+rate(st.hashrate||S.tip.hashrate); show('netBadge'); }
+  const st=S.tip&&S.tip.stats; if(st){ const nm=st.estimated_miners??0; $('netBadgeText').textContent=nm+(nm===1?' miner · ':' miners · ')+rate(st.hashrate||S.tip.hashrate); show('netBadge'); }
   if(S.update){ $('updTitle').textContent='Genoryn Krypton '+S.update.version+' is available'; $('updText').textContent=S.update_status||(S.update.can_install?'Checked against the project\'s post-quantum release signature before it installs. A running miner resumes automatically.':'Open the release page to download it.'); $('updBtn').textContent=S.update.can_install?'Install update':'Download'; show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
   if(S.working){ $('busy').textContent = S.busy || 'working…'; return; }
@@ -435,6 +587,9 @@ async function refresh(){
     if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' (unlocked)':''}</option>`).join(''); show('uPick'); } else hide('uPick');
     show('unlockBox'); return; }
   show('app'); if(!$('tab-wallets').classList.contains('hidden')) loadWallets();
+  initOverview(); checkPublished();
+  if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
+  if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
   const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;

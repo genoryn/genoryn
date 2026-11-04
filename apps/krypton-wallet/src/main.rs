@@ -30,6 +30,9 @@ mod assets;
 mod update;
 mod vault;
 
+/// The project's public mainnet node (genoryn.io explorer and light wallets).
+const PUBLIC_NODE: &str = "https://genoryn.io";
+
 const UI: &str = include_str!("ui.html");
 
 async fn asset(axum::extract::Path(p): axum::extract::Path<String>) -> Response {
@@ -105,6 +108,8 @@ struct App {
     update_status: Mutex<String>,
     /// All wallets of this network; `wallet` above holds the active one when unlocked.
     vault: vault::Vault,
+    /// Last "where does my short address resolve" check: (short, when, result).
+    published: Mutex<Option<(String, std::time::Instant, Value)>>,
 }
 
 impl App {
@@ -129,6 +134,36 @@ impl App {
             s.nodes
         };
         urls.iter().map(|u| NodeClient::new(u)).collect()
+    }
+    fn miner_running(&self) -> bool {
+        self.miner
+            .lock()
+            .as_mut()
+            .is_some_and(|c| c.try_wait().ok().flatten().is_none())
+    }
+    /// Every node a short address should resolve on: the public node(s), the configured
+    /// light-mode nodes and this computer's own node when it runs.
+    fn publish_targets(&self) -> Vec<String> {
+        let s = self.settings.lock().clone();
+        let mut urls: Vec<String> = Vec::new();
+        if self.network == Network::Mainnet {
+            urls.push(PUBLIC_NODE.into());
+        }
+        urls.extend(s.nodes.iter().map(|u| u.trim().trim_end_matches('/').to_string()));
+        let own = self.node.lock().as_mut().is_some_and(|c| c.try_wait().ok().flatten().is_none());
+        if s.mode == "full" || own {
+            urls.push(self.local_node());
+        }
+        let mut seen = std::collections::HashSet::new();
+        urls.retain(|u| !u.is_empty() && seen.insert(u.clone()));
+        urls
+    }
+    fn node_label(&self, url: &str) -> String {
+        if url == self.local_node() {
+            "your node".into()
+        } else {
+            url.trim_start_matches("https://").trim_start_matches("http://").to_string()
+        }
     }
     fn save_settings(&self) -> Result<()> {
         std::fs::write(
@@ -272,6 +307,9 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             return Ok(json!({"working": true, "unlocked": true, "exists": true, "busy": a.busy.lock().clone(), "network": a.network.as_str()}));
         };
         let s = a.settings.lock().clone();
+        let owner = w
+            .as_ref()
+            .map(|w| hex::encode(krypton_crypto::field::digest_to_bytes(&w.address().owner)));
         let (address, short, balance, synced, history) = match w.as_ref() {
             Some(w) => (
                 Some(w.address().encode()),
@@ -318,6 +356,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "wallet_names": reg.wallets.iter().map(|e| json!({"id": e.id, "name": e.name, "unlocked": a.vault.locks_in(&e.id).is_some()})).collect::<Vec<_>>(),
             "address": address,
             "short": short,
+            "owner": owner,
             "balance": balance,
             "synced_height": synced,
             "history": history,
@@ -477,24 +516,108 @@ async fn publish(State(app): S, h: HeaderMap) -> Response {
     }
     let a = app.clone();
     match blocking(move || {
-        let addr = a
-            .wallet
-            .lock()
-            .as_ref()
-            .context("wallet locked")?
-            .address()
-            .encode();
-        let mut out = vec![];
-        for c in a.sources()? {
-            if let Ok(s) = c.publish_address(&addr) {
-                out.push(s);
-            }
+        let addr = active_address(&a)?;
+        let results = for_each_target(&a, |c| c.publish_address(&addr).map(|_| true));
+        let ok = results.iter().filter(|r| r["ok"] == true).count();
+        if ok == 0 {
+            let why = results
+                .iter()
+                .map(|r| format!("{}: {}", r["node"].as_str().unwrap_or("?"), r["error"].as_str().unwrap_or("?")))
+                .collect::<Vec<_>>()
+                .join("; ");
+            anyhow::bail!("could not publish on any node ({why})");
         }
-        Ok(out)
+        *a.published.lock() = None;
+        Ok(json!({"published": ok, "nodes": results}))
     })
     .await
     {
-        Ok(v) => Json(json!({"published": v})).into_response(),
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// Where the active wallet's short address resolves (cached for ten minutes).
+async fn published(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let short = {
+            let g = a
+                .wallet
+                .try_lock_for(std::time::Duration::from_secs(3))
+                .context("the wallet is busy; try again")?;
+            g.as_ref().context("unlock the wallet first")?.address().short()
+        };
+        if let Some((s, t, v)) = a.published.lock().as_ref()
+            && *s == short
+            && t.elapsed() < std::time::Duration::from_secs(600)
+        {
+            return Ok(v.clone());
+        }
+        let nodes = for_each_target(&a, |c| c.resolves(&short));
+        let v = json!({"short": short, "nodes": nodes});
+        *a.published.lock() = Some((short, std::time::Instant::now(), v.clone()));
+        Ok(v)
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+fn active_address(a: &App) -> Result<String> {
+    let g = a
+        .wallet
+        .try_lock_for(std::time::Duration::from_secs(5))
+        .context("the wallet is busy syncing; try again in a few seconds")?;
+    Ok(g.as_ref().context("unlock the wallet first")?.address().encode())
+}
+
+/// Runs `f` against every publish target in parallel: `[{node, ok, error}]`.
+fn for_each_target(a: &App, f: impl Fn(&NodeClient) -> Result<bool> + Sync) -> Vec<Value> {
+    let targets = a.publish_targets();
+    std::thread::scope(|s| {
+        let jobs: Vec<_> = targets
+            .iter()
+            .map(|u| {
+                let f = &f;
+                s.spawn(move || NodeClient::new(u).and_then(|c| f(&c)))
+            })
+            .collect();
+        targets
+            .iter()
+            .zip(jobs)
+            .map(|(u, j)| {
+                let label = a.node_label(u);
+                match j.join().unwrap_or_else(|_| Err(anyhow!("internal error"))) {
+                    Ok(ok) => json!({"node": label, "ok": ok}),
+                    Err(e) => json!({"node": label, "ok": false, "error": format!("{e:#}")}),
+                }
+            })
+            .collect()
+    })
+}
+
+/// The latest blocks from the first data source, for the overview.
+async fn recent_blocks(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        a.sources()?
+            .into_iter()
+            .next()
+            .context("no node configured")?
+            .blocks(14)
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
         Err(e) => err(e),
     }
 }
@@ -832,7 +955,15 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
     if let Err(x) = check(&app, &h) {
         return x;
     }
+    let own;
     let url = match b["target"].as_str().unwrap_or("") {
+        "address" => {
+            let Some(short) = app.wallet.try_lock().and_then(|g| g.as_ref().map(|w| w.address().short())) else {
+                return err("unlock the wallet first");
+            };
+            own = format!("https://genoryn.io/explorer#/address/{short}");
+            own.as_str()
+        }
         "explorer" => "https://genoryn.io/explorer",
         "website" => "https://genoryn.io/",
         "docs" => "https://genoryn.io/docs",
@@ -909,7 +1040,7 @@ async fn serve(
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(Settings {
             mode: "light".into(),
-            nodes: vec!["https://genoryn.io".into()],
+            nodes: vec![PUBLIC_NODE.into()],
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
@@ -929,6 +1060,7 @@ async fn serve(
         update: Mutex::new(None),
         update_status: Mutex::new(String::new()),
         vault,
+        published: Mutex::new(None),
     });
 
     // Full-node mode: our node starts with the wallet.
@@ -1030,6 +1162,8 @@ async fn serve(
         .route("/api/open", post(open_link))
         .route("/api/proof", post(payment_proof))
         .route("/api/stats", get(net_stats))
+        .route("/api/blocks", get(recent_blocks))
+        .route("/api/published", get(published))
         .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))
         .with_state(app.clone());
@@ -1167,10 +1301,14 @@ mod window {
                     event: WindowEvent::CloseRequested,
                     ..
                 } => match &app {
-                    // Stop the server (and its node/miner); the watcher then posts Quit.
+                    // While mining, closing the window keeps everything running in the
+                    // background (the desktop icon reopens it; Quit stops it). Otherwise stop
+                    // the server (and its node); the watcher then posts Quit.
                     Some(a) => {
                         window.set_visible(false);
-                        a.quit.notify_one();
+                        if !a.miner_running() {
+                            a.quit.notify_one();
+                        }
                     }
                     None => *flow = ControlFlow::Exit,
                 },

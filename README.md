@@ -24,12 +24,18 @@
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/images/wallet.webp" alt="Wallet: balance, short address and private send"></td>
-    <td width="33%"><img src="docs/images/mining.webp" alt="Mining: share of the network, expected earnings and accruing rewards"></td>
-    <td width="33%"><img src="docs/images/proofs.webp" alt="History with payment proofs"></td>
+    <td width="50%"><img src="docs/images/wallet.webp" alt="Wallet overview: network hashrate, estimated miners, mining share, rewards and live charts"></td>
+    <td width="50%"><img src="docs/images/wallets.webp" alt="Wallets tab: several wallets with their own passwords and one total"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Private send &amp; receive</sub></td>
+    <td align="center"><sub>Live network and mining overview</sub></td>
+    <td align="center"><sub>Several wallets, one total</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/mining.webp" alt="Mining: share of the network, expected earnings and accruing rewards"></td>
+    <td width="50%"><img src="docs/images/proofs.webp" alt="History with a verified payment proof"></td>
+  </tr>
+  <tr>
     <td align="center"><sub>Proportional GPU / CPU mining</sub></td>
     <td align="center"><sub>Payment proofs</sub></td>
   </tr>

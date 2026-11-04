@@ -304,9 +304,37 @@ impl NodeClient {
             .http
             .post(format!("{}/v1/address", self.base))
             .body(address.to_string())
-            .send()?;
-        let v: serde_json::Value = r.json()?;
+            .send()
+            .context("node unreachable")?;
+        let ok = r.status().is_success();
+        let v: serde_json::Value = r.json().unwrap_or_default();
+        if !ok {
+            bail!("{}", v["error"].as_str().unwrap_or("the node refused the address"));
+        }
         Ok(v["short"].as_str().context("short")?.to_string())
+    }
+
+    /// Whether this node resolves the short address.
+    pub fn resolves(&self, short: &str) -> Result<bool> {
+        let r = self
+            .http
+            .get(format!("{}/v1/address/{}", self.base, short.trim()))
+            .send()
+            .context("node unreachable")?;
+        match r.status().as_u16() {
+            200 => Ok(true),
+            404 => Ok(false),
+            s => bail!("HTTP {s}"),
+        }
+    }
+
+    /// The latest `count` block summaries, newest first; informational.
+    pub fn blocks(&self, count: u32) -> Result<serde_json::Value> {
+        Ok(self.get(&format!("/v1/blocks?count={}", count.min(100)))?.json()?)
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base
     }
 }
 

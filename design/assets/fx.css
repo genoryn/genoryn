@@ -118,6 +118,18 @@ html[data-fx="low"] .drift { animation: none !important; }
 .gk-tip b { display: block; font: 600 13px var(--font-mono); color: var(--text-primary); }
 .gk-tip span { color: var(--text-secondary); }
 .loading .gk-chart { opacity: .5; }
+/* Colour tones: put data-tone on a chart or any ancestor. */
+[data-tone="cyan"] { --tone: #3fdcff; } [data-tone="green"] { --tone: #3ee597; } [data-tone="amber"] { --tone: #ffbb4d; }
+[data-tone="violet"] { --tone: #a98dff; } [data-tone="pink"] { --tone: #ff74b6; } [data-tone="blue"] { --tone: #6a95ff; }
+[data-theme="light"] [data-tone="cyan"] { --tone: #0a8fb0; } [data-theme="light"] [data-tone="green"] { --tone: #12925a; }
+[data-theme="light"] [data-tone="amber"] { --tone: #b86e00; } [data-theme="light"] [data-tone="violet"] { --tone: #6a4fd8; }
+[data-theme="light"] [data-tone="pink"] { --tone: #c62e7a; } [data-theme="light"] [data-tone="blue"] { --tone: #2f5fd6; }
+[data-tone] .gk-line { stroke: var(--tone); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tone) 55%, transparent)); }
+[data-tone] .gk-stop-a { stop-color: var(--tone); stop-opacity: .34; }
+[data-tone] .gk-stop-b { stop-color: var(--tone); }
+[data-tone] .gk-bar { fill: var(--tone); opacity: .8; }
+[data-tone] .gk-dot, [data-tone] .gk-last { stroke: var(--tone); }
+[data-tone] .gk-target { stroke: color-mix(in srgb, var(--tone) 70%, var(--text-tertiary)); }
 .gk-range { display: inline-flex; gap: 2px; padding: 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-inset); overflow-x: auto; max-width: 100%; scrollbar-width: none; }
 .gk-range::-webkit-scrollbar { display: none; }
 .gk-range button { background: transparent; border: 0; color: var(--text-secondary); font: 600 12.5px var(--font-sans); letter-spacing: .04em; padding: 8px 12px; min-height: 36px; border-radius: 8px; cursor: pointer; }
