@@ -29,8 +29,10 @@
 		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 		reverse_proxy 127.0.0.1:30334 {
 			flush_interval -1
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Real-IP {remote_host}
+			# The origin accepts web traffic only from Cloudflare (firewall), so the client
+			# address Cloudflare reports is trustworthy; the node budgets requests by it.
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
 		}
 	}
 	handle {
