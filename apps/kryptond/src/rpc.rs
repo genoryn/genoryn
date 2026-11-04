@@ -70,6 +70,7 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/tx", post(submit_tx))
         .route("/v1/mempool", get(mempool))
         .route("/v1/fee", get(fee_estimate))
+        .route("/v1/rawtx/{txid}", get(raw_pending_tx))
         .route("/v1/peers", get(peers))
         .route("/v1/address", post(publish_address))
         .route("/v1/address/{short}", get(resolve_address))
@@ -503,6 +504,21 @@ async fn submit_tx(State(n): S, body: Bytes) -> R<Json<Value>> {
     Ok(Json(json!({ "txid": hex::encode(id) })))
 }
 
+/// A pending (mempool) transaction in its binary encoding, so wallets can see incoming
+/// payments and check payment proofs before the next block. Confirmed transactions are
+/// part of their block (`/v1/rawblock`).
+async fn raw_pending_tx(State(n): S, Path(x): Path<String>) -> R<Response> {
+    let id = parse_hash(&x)?;
+    let bytes = n
+        .mempool
+        .lock()
+        .txs
+        .get(&id)
+        .map(|e| e.tx.to_bytes())
+        .ok_or_else(|| nf("not in the mempool"))?;
+    Ok(binary(bytes))
+}
+
 /// Fee suggestions per KB (a transfer is about 100 KB): mined within about 1, 3 and 12
 /// blocks given the current backlog. Fees are a market; these are only estimates.
 async fn fee_estimate(State(n): S) -> Json<Value> {
@@ -910,8 +926,9 @@ async fn address_info(State(n): S, Path(a): Path<String>) -> R<Json<Value>> {
     })))
 }
 
-/// The node's own chain as a proof source (it validated every block itself).
-struct ChainProof(Arc<krypton_store::Chain>);
+/// The node's own chain as a proof source (it validated every block itself), plus the
+/// transaction from its mempool when the proof is about a pending payment.
+struct ChainProof(Arc<krypton_store::Chain>, Option<Transaction>);
 impl krypton_wallet_core::proof::ProofSource for ChainProof {
     fn tx_height(&self, txid: &Hash32) -> anyhow::Result<Option<u64>> {
         self.0.tx_height(txid)
@@ -933,6 +950,9 @@ impl krypton_wallet_core::proof::ProofSource for ChainProof {
     }
     fn tip_height(&self) -> anyhow::Result<u64> {
         Ok(self.0.tip().height())
+    }
+    fn pending_tx(&self, txid: &Hash32) -> anyhow::Result<Option<Transaction>> {
+        Ok(self.1.clone().filter(|t| t.txid() == *txid))
     }
     fn resolve_recipient(&self, short: &str) -> anyhow::Result<Option<String>> {
         let (_, id) = Address::parse_short(short)?;
@@ -965,10 +985,11 @@ async fn verify_payment(State(n): S, Json(r): Json<ProofReq>) -> R<Json<Value>> 
         None => None,
     };
     let chain = n.chain.clone();
+    let pending = n.mempool.lock().txs.get(&p.txid).map(|e| e.tx.clone());
     let rep = tokio::task::spawn_blocking(move || {
         krypton_wallet_core::proof::verify(
             &p,
-            &ChainProof(chain.clone()),
+            &ChainProof(chain.clone(), pending),
             recipient.as_ref(),
             &chain.pow,
         )

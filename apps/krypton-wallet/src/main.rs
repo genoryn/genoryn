@@ -113,6 +113,30 @@ struct App {
     vault: vault::Vault,
     /// Last "where does my short address resolve" check: (short, when, result).
     published: Mutex<Option<(String, std::time::Instant, Value)>>,
+    /// Pending transactions fetched from the node (the whole pool, fetched once each).
+    mempool: Mutex<std::collections::HashMap<krypton_core::Hash32, krypton_core::types::Transaction>>,
+}
+
+/// The node's pending transactions as (all fetched, ids still in the pool). The whole
+/// pool is downloaded, a bounded number of new transactions per round, so the node
+/// cannot tell which of them a wallet is interested in.
+pub(crate) type Pool = (Vec<krypton_core::types::Transaction>, Vec<krypton_core::Hash32>);
+
+fn mempool_snapshot(a: &App, src: &Multi) -> Option<Pool> {
+    let c = src.0.first()?;
+    let ids = c.mempool_ids().ok()?;
+    let missing: Vec<_> = {
+        let mut cache = a.mempool.lock();
+        cache.retain(|k, _| ids.contains(k));
+        ids.iter().filter(|id| !cache.contains_key(*id)).take(40).copied().collect()
+    };
+    for id in missing {
+        if let Ok(Some(tx)) = c.pending_tx(&id) {
+            a.mempool.lock().insert(id, tx);
+        }
+    }
+    let txs = a.mempool.lock().values().cloned().collect();
+    Some((txs, ids))
 }
 
 impl App {
@@ -348,6 +372,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
         let owner = w
             .as_ref()
             .map(|w| hex::encode(krypton_crypto::field::digest_to_bytes(&w.address().owner)));
+        let incoming = w.as_ref().map(|w| w.incoming().to_vec()).unwrap_or_default();
         let (address, short, balance, synced, history) = match w.as_ref() {
             Some(w) => (
                 Some(w.address().encode()),
@@ -402,6 +427,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "address": address,
             "short": short,
             "owner": owner,
+            "incoming": incoming,
             "balance": balance,
             "synced_height": synced,
             "history": history,
@@ -771,19 +797,36 @@ async fn history_page(
             })
             .collect();
         items.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
-        let total = items.len();
+        // Payments to us still in the mempool come first, marked pending.
+        let incoming: Vec<Value> = w
+            .incoming()
+            .iter()
+            .filter(|_| matches!(kind, "all" | "in" | "pending"))
+            .filter(|i| {
+                needle.is_empty()
+                    || i.memo.to_lowercase().contains(&needle)
+                    || i.txid.contains(&needle)
+            })
+            .map(|i| {
+                json!({
+                    "txid": i.txid, "height": null, "amount": i.value, "fee": 0, "memo": i.memo,
+                    "to": null, "time": i.seen, "provable": false, "kind": "in", "incoming": true,
+                })
+            })
+            .collect();
+        let total = incoming.len() + items.len();
         let limit = q.limit.unwrap_or(15).clamp(1, 100);
-        let page: Vec<Value> = items
+        let page: Vec<Value> = incoming
             .into_iter()
-            .skip(q.offset.unwrap_or(0))
-            .take(limit)
-            .map(|e| {
+            .chain(items.into_iter().map(|e| {
                 json!({
                     "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
                     "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
                     "kind": if mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
                 })
-            })
+            }))
+            .skip(q.offset.unwrap_or(0))
+            .take(limit)
             .collect();
         Ok(json!({
             "total": total,
@@ -1453,6 +1496,7 @@ async fn serve(
         update_status: Mutex::new(String::new()),
         vault,
         published: Mutex::new(None),
+        mempool: Mutex::new(std::collections::HashMap::new()),
     });
 
     // Full-node mode: our node starts with the wallet.
@@ -1515,12 +1559,16 @@ async fn serve(
                 let src = Multi(sources);
                 // Lock order everywhere: registry, then active wallet, then others.
                 let reg = a.vault.reg.lock().clone();
+                let pool = mempool_snapshot(&a, &src);
                 if let Some(mut g) = a.wallet.try_lock()
                     && let Some(w) = g.as_mut()
                 {
                     match src.cross_check().and_then(|_| w.sync(&src, |_, _| {})) {
                         Ok(_) => a.last_error.lock().clear(),
                         Err(e) => *a.last_error.lock() = format!("sync: {e}"),
+                    }
+                    if let Some((txs, ids)) = &pool {
+                        w.scan_mempool(txs, ids);
                     }
                     // Name the wallet by what it is, not by what was active before we
                     // got it (a switch may have happened in between).
@@ -1536,7 +1584,7 @@ async fn serve(
                         *a.account.lock() = c.miner_account(&owner).ok();
                     }
                 }
-                vault::sync_others(&a, &src);
+                vault::sync_others(&a, &src, pool.as_ref());
             })
             .await;
         }

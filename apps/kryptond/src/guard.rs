@@ -59,6 +59,7 @@ impl Class {
                 || p.starts_with("/v1/flyclient")
                 || p.starts_with("/v1/mmrproof")
                 || p.starts_with("/v1/rawblock")
+                || p.starts_with("/v1/rawtx")
                 || p.starts_with("/v1/witness")
                 || p.starts_with("/v1/frontier")
                 || p.starts_with("/v1/address-info")

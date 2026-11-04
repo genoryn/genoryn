@@ -113,7 +113,9 @@
     out.innerHTML = '<p class="muted">Checking…</p>';
     post("/v1/verify-payment", { proof: document.getElementById("pf").value.trim(), address: document.getElementById("pfa").value.trim() || null }).then(function (r) {
       var txid = /^[0-9a-f]{64}$/.test(r.txid) ? r.txid : "", h = Number(r.height) || 0;
-      var head = r.recipient_confirmed === false
+      var head = r.pending
+        ? '<p class="warn"><b>Payment pending.</b> The payment was sent and is waiting in the mempool, but it is not in a block yet. Check again after the next block (about a minute): only a confirmed payment is final.</p>'
+        : r.recipient_confirmed === false
         ? '<p class="bad"><b>Not a payment to that address.</b> The transaction exists, but it did not pay the address you entered.</p>'
         : r.recipient_verified
           ? '<p class="ok"><b>Valid payment proof.</b> The payment below went to the recipient shown.</p>'
@@ -122,7 +124,8 @@
         ["Amount", "<b>" + gk.gnr(r.value) + " GNR</b>"],
         ["Recipient", '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === false ? ' <span class="bad">· does not match</span>' : r.recipient_verified ? ' <span class="ok">· verified</span>' : ' <span class="warn">· unverified</span>')],
         ["Memo", gk.esc(r.memo) || "—"], ["Transaction", '<a class="mono" href="#/tx/' + txid + '">' + short(txid) + "</a>"],
-        ["Block", '<a href="#/block/' + h + '">' + h + "</a> · " + (Number(r.confirmations) || 0) + " confirmations"], ["Time", new Date(Number(r.time) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
+        r.pending ? ["Block", '<span class="warn">pending · waiting in the mempool</span>'] : ["Block", '<a href="#/block/' + h + '">' + h + "</a> · " + (Number(r.confirmations) || 0) + " confirmations"],
+        ["Time", r.pending ? "not mined yet" : new Date(Number(r.time) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
       ]);
     }).catch(function (e) { out.innerHTML = '<p class="bad"><b>Not valid:</b> ' + gk.esc(e.message) + "</p>"; });
   };

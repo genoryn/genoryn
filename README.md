@@ -162,6 +162,11 @@ proof** (or `verify-payment`) and see the amount, memo, recipient, block and con
 checked against the chain. The proof discloses the one-time key of that single output and
 nothing else: not your balance, your other payments or your keys.
 
+A proof works the moment you send. Until the next block it verifies as **pending** (sent,
+waiting in the mempool, not final yet), and then as confirmed. The recipient's wallet also
+shows the payment as **incoming, pending** before the block. Wallets download the whole
+mempool, so nodes can't tell which transaction is whose.
+
 ## Recovery phrase and addresses
 
 A new wallet shows **24 words, each with a two-digit number** (`orbit-42 river-07 …`):

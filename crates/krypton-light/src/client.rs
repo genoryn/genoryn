@@ -379,6 +379,38 @@ impl NodeClient {
         self.get(&format!("/v1/blocks?count={}", count.min(100)))?.json()
     }
 
+    /// Ids of the transactions waiting in the node's mempool (informational).
+    pub fn mempool_ids(&self) -> Result<Vec<Hash32>> {
+        let v: serde_json::Value = self.get("/v1/mempool")?.json()?;
+        Ok(v["txs"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|t| t["txid"].as_str())
+                    .filter_map(|s| hex::decode(s).ok()?.try_into().ok())
+                    .take(2000)
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    /// A transaction still in the node's mempool (None if it is not there, or the
+    /// node is older than 1.0.9).
+    pub fn pending_tx(&self, txid: &Hash32) -> Result<Option<krypton_core::types::Transaction>> {
+        let r = self
+            .http
+            .get(format!("{}/v1/rawtx/{}", self.base, hex::encode(txid)))
+            .send()
+            .context("node unreachable")?;
+        if r.status().as_u16() == 404 {
+            return Ok(None);
+        }
+        anyhow::ensure!(r.status().is_success(), "pending transaction: HTTP {}", r.status());
+        let tx = krypton_core::types::Transaction::from_bytes(&read_limited(r, 1 << 20)?)?;
+        anyhow::ensure!(tx.txid() == *txid, "the node returned another transaction");
+        Ok(Some(tx))
+    }
+
     /// Fee suggestions per KB from the node's mempool (None for nodes before 1.0.7).
     pub fn fee_rates(&self) -> Result<Option<FeeRates>> {
         let r = self

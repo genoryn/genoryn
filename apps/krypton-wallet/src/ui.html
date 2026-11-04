@@ -321,6 +321,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
+        <div class="row hidden" id="bIncRow">Incoming, not confirmed yet<b id="bInc">0</b></div>
         <p id="busy" class="warn"></p>
       </div>
       <div class="glass card">
@@ -636,7 +637,7 @@ function renderWallets(){
     return `<div class="wrow${w.active?' active':''}${w.unlocked?' open':''}" role="listitem">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
       <div class="wn"><b>${esc(w.name)}${w.active?' <span class="pill">active</span>':''}</b><span>${w.short?esc(w.short.slice(0,30))+'…':'address appears after the first unlock'}</span></div>
-      <div class="wb">${b?gnr(b.total)+' <small>GNR'+(Number(b.pending)||Number(b.immature)?' · '+gnr(b.spendable)+' spendable':'')+'</small>':'<small>hidden while locked</small>'}</div>
+      <div class="wb">${b?gnr(b.total)+' <small>GNR'+(Number(b.pending)||Number(b.immature)?' · '+gnr(b.spendable)+' spendable':'')+(Number(w.incoming)?' · +'+gnr(w.incoming)+' incoming':'')+'</small>':'<small>hidden while locked</small>'}</div>
       <div class="ws">${unl?`<span class="wunl"><input type="password" id="wpw" placeholder="Password of “${esc(w.name)}”" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlockOne('${id}');if(event.key==='Escape'){WV.unlocking=null;renderWallets()}"><button class="btn btn-primary" onclick="unlockOne('${id}')">Unlock</button></span>`:status}</div>
       <div class="wa">
         ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')">Lock</button>`:(unl?'':`<button class="btn btn-primary" onclick="WV.unlocking='${id}';renderWallets();setTimeout(()=>$('wpw')&&$('wpw').focus(),0)">Unlock</button>`)}
@@ -672,7 +673,7 @@ function renderSwitcher(){
   $('swList').innerHTML=list.map(w=>`<button type="button" class="sw-it${w.active?' on':''}" role="option" aria-selected="${!!w.active}" onclick="pickWallet('${esc(w.id)}')">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
       <span class="swn"><b>${esc(w.name)}</b><small>${w.short?esc(w.short.slice(0,26))+'…':'address after first unlock'}</small></span>
-      <i>${w.balance?gnr(w.balance.total):'—'}<small>${w.active?'active':(w.unlocked?'unlocked':'locked')}</small></i></button>`).join('')||'<div class="wempty">No wallet matches.</div>';
+      <i>${w.balance?gnr(w.balance.total):'—'}<small>${Number(w.incoming)?'+'+gnr(w.incoming)+' incoming':(w.active?'active':(w.unlocked?'unlocked':'locked'))}</small></i></button>`).join('')||'<div class="wempty">No wallet matches.</div>';
 }
 async function pickWallet(id){ closeSwitcher(); if(S.active&&S.active.id===id) return; await useWallet(id); }
 $('swQ').oninput=e=>{ WV.sq=e.target.value.trim(); renderSwitcher(); };
@@ -820,6 +821,7 @@ function renderOvKpis(){
 const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
 const fmtTime=t=>t?new Date(t*1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
 const KIND={in:'Received', out:'Sent', mining:'Mining reward'};
+const SEEN_IN=new Set();
 async function loadHistory(){
   H.stale=false; const my=++H.seq; let r;
   try{ r=await api(`/api/history?offset=${H.page*H.per}&limit=${H.per}&kind=${H.kind}&q=${encodeURIComponent(H.q)}`); }catch(e){ return; }
@@ -828,7 +830,7 @@ async function loadHistory(){
   const s=r.sums||{};
   $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
   $('hsFees').textContent=Number(s.fees)?'· fees '+gnr(s.fees):''; $('hsCount').textContent=fmtN(r.all);
-  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="Block">${h.height!=null?fmtN(h.height):'<span class=warn>pending</span>'}</td><td data-label="Time" class="t">${fmtTime(h.time)}</td><td data-label="Type"><span class="ty ${h.kind}">${KIND[h.kind]}</span></td><td data-label="Amount" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable&&h.height!=null?`<button class="btn" onclick="makeProof('${esc(h.txid)}')">Proof</button>`:''}</td></tr>`).join('')
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="Block">${h.height!=null?fmtN(h.height):'<span class=warn>pending</span>'}</td><td data-label="Time" class="t">${fmtTime(h.time)}</td><td data-label="Type"><span class="ty ${h.kind}">${h.incoming?'Incoming · pending':KIND[h.kind]}</span></td><td data-label="Amount" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable?`<button class="btn" onclick="makeProof('${esc(h.txid)}')" title="${h.height==null?'Works now; it shows as pending until the next block':'Prove this payment'}">Proof</button>`:''}</td></tr>`).join('')
     || `<tr><td colspan=7 class=muted>${r.all?'Nothing matches this filter.':'No transactions yet'}</td></tr>`;
   pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, r.total===1?'entry':'entries');
 }
@@ -889,8 +891,9 @@ function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button')
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
-async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); const head=r.recipient_confirmed||r.recipient_verified?'<p class="ok"><b>Valid payment proof</b></p>':'<p class="warn"><b>Real payment, recipient not verified</b> · the sender wrote the recipient below; ask them to publish their short address, or check it in the recipient\'s wallet</p>';
-    box.innerHTML=head+`<div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':(r.recipient_verified?'the recipient above (verified)':'unverified recipient: ask them to confirm in their wallet')}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.height} · ${r.confirmations} confirmations</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
+async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); const head=r.pending?'<p class="warn"><b>Payment pending</b> · sent and waiting in the mempool, not in a block yet. Check again after the next block (about a minute); only then is it final.</p>'
+      :r.recipient_confirmed||r.recipient_verified?'<p class="ok"><b>Valid payment proof</b></p>':'<p class="warn"><b>Real payment, recipient not verified</b> · the sender wrote the recipient below; ask them to publish their short address, or check it in the recipient\'s wallet</p>';
+    box.innerHTML=head+`<div class="row">Amount<b>${gnr(r.value)} GNR</b></div><div class="row">Recipient<b class="mono">${esc(r.recipient.slice(0,24))}…</b></div><div class="row">Paid to<b>${r.recipient_confirmed?'this wallet':(r.recipient_verified?'the recipient above (verified)':'unverified recipient: ask them to confirm in their wallet')}</b></div><div class="row">Memo<b>${esc(r.memo)||'-'}</b></div><div class="row">Block<b>${r.pending?'pending · in the mempool':fmtN(r.height)+' · '+fmtN(r.confirmations)+' confirmations'}</b></div>`; }catch(e){ box.innerHTML=`<p class="bad">${esc(e.message)}</p>`; } show('proofRes'); }
 let netDash=null;
 function initNetDash(){ if(netDash||!window.GKCharts) { if(netDash) netDash.reload(); return; }
   netDash = GKCharts.dashboard($('netDash'), r=>api('/api/stats?range='+r), (s)=>{
@@ -952,7 +955,10 @@ async function refresh(){
   if(tip){ const ok = v!=null && v>=tip.height-1; $('sync').innerHTML = ok ? `<span class="dot"></span> verified · block ${v}` : `<span class="dot live"></span> syncing ${v??0}/${tip.height}`; $('sync').className='badge '+(ok?'ok':'warn');
     $('cH').textContent=tip.height; $('cP').textContent=tip.peers; $('cR').textContent=rate(tip.hashrate); $('cS').textContent=gnr(tip.supply)+' GNR'; } else { $('sync').textContent='no node reachable'; $('sync').className='badge warn'; }
   $('cV').textContent=v??'-'; $('cN').textContent=S.node_running?'running':'not running';
-  const hk=S.short+'|'+v+'|'+(S.history||[]).length; if(hk!==H.key){ H.key=hk; if(!$('tab-history').classList.contains('hidden')) loadHistory(); else H.stale=true; }
+  const inc=S.incoming||[], incSum=inc.reduce((a,i)=>a+Number(i.value||0),0);
+  $('bIncRow').classList.toggle('hidden',!incSum); $('bInc').textContent='+'+gnr(incSum);
+  for(const i of inc){ if(!SEEN_IN.has(i.txid)){ SEEN_IN.add(i.txid); toast('Incoming payment: +'+gnr(i.value)+' GNR'+(i.memo?' · “'+i.memo+'”':'')+' · pending, confirms with the next block'); } }
+  const hk=S.short+'|'+v+'|'+(S.history||[]).length+'|'+inc.length; if(hk!==H.key){ H.key=hk; if(!$('tab-history').classList.contains('hidden')) loadHistory(); else H.stale=true; }
   $('aVer2').textContent=S.version||''; $('aWallets').textContent=(S.wallet_count||0)+' ('+((S.wallet_names||[]).filter(w=>w.unlocked).length)+' unlocked)';
   $('aMode').textContent=S.settings?(S.settings.mode==='full'?'Full node':'Light (verified)'):'-'; $('aNode').textContent=S.node_running?'running':'not running';
   $('aUpd').textContent=S.update?(S.update.version+' available'):'up to date';

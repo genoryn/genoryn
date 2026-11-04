@@ -9,7 +9,7 @@
 
 use anyhow::{Context, Result, bail, ensure};
 use krypton_core::address::{Address, base32_decode, base32_encode, open_disclosed_note};
-use krypton_core::types::{Block, BlockHeader, tx_root};
+use krypton_core::types::{Block, BlockHeader, Transaction, tx_root};
 use krypton_core::{ChainParams, Hash32, Network};
 use krypton_crypto::field::digest_from_bytes;
 use krypton_crypto::hash::tagged;
@@ -102,6 +102,10 @@ pub trait ProofSource {
         pow: &Verifier,
     ) -> Result<BlockHeader>;
     fn tip_height(&self) -> Result<u64>;
+    /// The transaction if it is still waiting in the mempool (not confirmed yet).
+    fn pending_tx(&self, _txid: &Hash32) -> Result<Option<Transaction>> {
+        Ok(None)
+    }
     /// The full address published for a short address, if the source keeps a directory.
     /// The caller checks that it hashes to the short address.
     fn resolve_recipient(&self, _short: &str) -> Result<Option<String>> {
@@ -124,6 +128,9 @@ pub struct PaymentReport {
     /// The short address is chosen by the prover, so it means nothing when false.
     pub recipient_verified: bool,
     pub time: u64,
+    /// Seen in the mempool but not in a block yet: the payment is real but not final
+    /// (it may still be dropped or expire). `height` and `confirmations` are 0.
+    pub pending: bool,
 }
 
 pub fn verify(
@@ -133,9 +140,15 @@ pub fn verify(
     pow: &Verifier,
 ) -> Result<PaymentReport> {
     let params = proof.network.params();
-    let height = src
-        .tx_height(&proof.txid)?
-        .context("the transaction is not confirmed on this chain")?;
+    let Some(height) = src.tx_height(&proof.txid)? else {
+        // Not in a block yet: a payment still waiting in the mempool can be shown as
+        // pending (amount and memo open with the proof), never as final.
+        let tx = src.pending_tx(&proof.txid)?.context(
+            "this payment is not on the chain or waiting in the mempool: it was never sent, was dropped or expired",
+        )?;
+        anyhow::ensure!(tx.txid() == proof.txid, "the node returned another transaction");
+        return report(proof, &tx, src, recipient, 0, 0, 0, true);
+    };
     let block = src.raw_block(height)?;
     let header = src.proven_header(height, &params, pow)?;
     ensure!(
@@ -147,6 +160,31 @@ pub fn verify(
         .iter()
         .find(|t| t.txid() == proof.txid)
         .context("transaction not in its block")?;
+    let tip = src.tip_height()?;
+    report(
+        proof,
+        tx,
+        src,
+        recipient,
+        height,
+        tip.saturating_sub(height) + 1,
+        header.timestamp,
+        false,
+    )
+}
+
+/// Opens the disclosed output of `tx` and checks the named recipient.
+#[allow(clippy::too_many_arguments)]
+fn report(
+    proof: &PaymentProof,
+    tx: &Transaction,
+    src: &impl ProofSource,
+    recipient: Option<&Address>,
+    height: u64,
+    confirmations: u64,
+    time: u64,
+    pending: bool,
+) -> Result<PaymentReport> {
     let out = tx
         .outputs
         .get(proof.output as usize)
@@ -168,17 +206,17 @@ pub fn verify(
             .flatten()
             .and_then(|s| Address::decode(&s).ok())
             .is_some_and(|a| paid(&a));
-    let tip = src.tip_height()?;
     Ok(PaymentReport {
         txid: hex::encode(proof.txid),
         height,
-        confirmations: tip.saturating_sub(height) + 1,
+        confirmations,
         value: note.value,
         memo: note.memo_text(),
         recipient: proof.recipient_short(),
         recipient_confirmed,
         recipient_verified,
-        time: header.timestamp,
+        time,
+        pending,
     })
 }
 
@@ -228,5 +266,8 @@ impl ProofSource for krypton_light::client::NodeClient {
     }
     fn resolve_recipient(&self, short: &str) -> Result<Option<String>> {
         Ok(self.resolve_short(short).ok())
+    }
+    fn pending_tx(&self, txid: &Hash32) -> Result<Option<Transaction>> {
+        self.pending_tx(txid)
     }
 }

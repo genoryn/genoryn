@@ -156,6 +156,8 @@ pub struct Cached {
     pub balance: Balance,
     pub short: String,
     pub synced: Option<u64>,
+    /// Payments to this wallet waiting in the mempool.
+    pub incoming: u64,
 }
 
 #[derive(Default)]
@@ -191,6 +193,7 @@ impl Vault {
                 balance: w.balance(),
                 short: w.address().short(),
                 synced: w.synced_height(),
+                incoming: w.incoming().iter().map(|i| i.value).sum(),
             },
         );
     }
@@ -290,8 +293,15 @@ pub fn expire(app: &App) {
 }
 
 /// Syncs the unlocked non-active wallets, one at a time, without holding locks the UI needs.
-pub fn sync_others(app: &App, src: &Multi) {
+pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
     let Ok(tip) = src.tip_height() else { return };
+    // Pending incoming payments are checked every round; a full sync only after a block.
+    if let Some((txs, live)) = pool {
+        for (id, w) in app.vault.others.lock().iter_mut() {
+            w.scan_mempool(txs, live);
+            app.vault.note(id, w);
+        }
+    }
     let ids: Vec<String> = app
         .vault
         .others
@@ -346,6 +356,7 @@ pub async fn list(State(app): S, h: HeaderMap) -> Response {
                 "balance_is_last_known": c.is_some() && !open,
                 "short": c.map(|c| c.short.clone()),
                 "synced": c.and_then(|c| c.synced),
+                "incoming": c.map(|c| c.incoming).unwrap_or(0),
             })
         })
         .collect();

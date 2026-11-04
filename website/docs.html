@@ -253,6 +253,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
           <li>The verifier's wallet (<b>Verify a payment proof</b>, or <code>verify-payment</code>) finds the transaction's block and checks it against the chain.</li>
           <li>It decrypts exactly that output with the disclosed key and checks that it commits to the recipient's owner tag.</li>
           <li>It shows amount, memo, recipient, block and confirmations, and whether the payment went to the verifying wallet itself.</li>
+          <li>Before the next block the proof already works and verifies as <b>pending</b> (found in the mempool, not final yet). The recipient's wallet likewise lists the payment as <b>incoming, pending</b> until it is mined.</li>
         </ol>
         <p>The proof reveals nothing else: not the sender's balance, other notes, change or keys. Only the sender (who made the key) and the recipient can produce one. A 128-bit checksum rejects incomplete or altered proofs.</p>
       </section>
@@ -319,6 +320,7 @@ sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux, systemd, CPU 
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/tx</code></td><td data-label="Description">Submit a transaction (binary body)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/mempool</code></td><td data-label="Description">Pool size and entries</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/fee</code></td><td data-label="Description">Fee estimates per KB (economy, normal, fast) from the backlog</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/rawtx/{txid}</code></td><td data-label="Description">A pending (mempool) transaction, binary</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/nullifier/{hex}</code></td><td data-label="Description">Spent height or null</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/compact?from&amp;count</code></td><td data-label="Description">Compact blocks for wallets (binary)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/frontier/{height}</code></td><td data-label="Description">Note-tree frontier (every 64 blocks, binary)</td></tr>

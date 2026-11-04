@@ -159,6 +159,21 @@ pub struct Wallet {
     pow: std::sync::OnceLock<krypton_pow::Verifier>,
     /// Last tip verified by proof of work.
     verified_tip: Option<BlockHeader>,
+    /// Payments to us seen in the mempool, not in a block yet (not saved: they are
+    /// shown as "incoming, pending" and become ordinary notes once mined).
+    incoming: Vec<Incoming>,
+}
+
+/// A payment to this wallet waiting in the mempool.
+#[derive(Debug, Clone, Serialize)]
+pub struct Incoming {
+    pub txid: String,
+    #[serde(skip)]
+    pub cm: Hash32,
+    pub value: u64,
+    pub memo: String,
+    /// When this wallet first saw it (unix seconds).
+    pub seen: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -222,6 +237,7 @@ impl Wallet {
             verifier: None,
             pow: std::sync::OnceLock::new(),
             verified_tip: None,
+            incoming: Vec::new(),
         };
         w.save()?;
         Ok(w)
@@ -239,6 +255,7 @@ impl Wallet {
             verifier: None,
             pow: std::sync::OnceLock::new(),
             verified_tip: None,
+            incoming: Vec::new(),
         };
         // Checkpoints written by an older format or for an abandoned chain cannot be
         // trusted: drop the chain-derived state and rescan (keys are unaffected).
@@ -263,6 +280,51 @@ impl Wallet {
     }
 
     /// Payment proof for one of our sends (see [`proof`]).
+    /// Looks for payments to us among pending transactions. Wallets fetch the whole pool,
+    /// so the node learns nothing about which transactions are theirs. `live` are the
+    /// ids still in the pool: entries that left it or were mined are dropped.
+    /// Returns how many incoming payments are new.
+    pub fn scan_mempool(&mut self, txs: &[Transaction], live: &[Hash32]) -> usize {
+        let owner = self.keys.spend.owner;
+        let live: std::collections::HashSet<String> = live.iter().map(hex::encode).collect();
+        let mut kept: Vec<Incoming> = std::mem::take(&mut self.incoming)
+            .into_iter()
+            .filter(|i| live.contains(&i.txid) && !self.state.notes.iter().any(|n| n.cm == i.cm))
+            .collect();
+        let mut new = 0;
+        for tx in txs {
+            let id = hex::encode(tx.txid());
+            // Our own sends (and their change) are already in the history.
+            if !live.contains(&id) || self.state.history.iter().any(|h| h.txid == id) {
+                continue;
+            }
+            for o in &tx.outputs {
+                if kept.iter().any(|i| i.cm == o.cm) || self.state.notes.iter().any(|n| n.cm == o.cm) {
+                    continue;
+                }
+                if let Some(note) = try_decrypt_note(&self.keys.kem, &owner, &o.cm, &o.ciphertext)
+                    && note.value > 0
+                {
+                    kept.push(Incoming {
+                        txid: id.clone(),
+                        cm: o.cm,
+                        value: note.value,
+                        memo: note.memo_text(),
+                        seen: krypton_core::now(),
+                    });
+                    new += 1;
+                }
+            }
+        }
+        self.incoming = kept;
+        new
+    }
+
+    /// Payments to us waiting in the mempool (see [`Wallet::scan_mempool`]).
+    pub fn incoming(&self) -> &[Incoming] {
+        &self.incoming
+    }
+
     pub fn payment_proof(&self, txid: &str) -> Result<String> {
         let h = self
             .state
