@@ -333,6 +333,17 @@ impl NodeClient {
         Ok(self.get(&format!("/v1/blocks?count={}", count.min(100)))?.json()?)
     }
 
+    /// Peers, mempool and supply summaries for dashboards; informational.
+    pub fn peers(&self) -> Result<serde_json::Value> {
+        Ok(self.get("/v1/peers")?.json()?)
+    }
+    pub fn mempool(&self) -> Result<serde_json::Value> {
+        Ok(self.get("/v1/mempool")?.json()?)
+    }
+    pub fn supply(&self) -> Result<serde_json::Value> {
+        Ok(self.get("/v1/supply")?.json()?)
+    }
+
     pub fn base_url(&self) -> &str {
         &self.base
     }

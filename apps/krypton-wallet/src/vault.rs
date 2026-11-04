@@ -248,7 +248,15 @@ pub fn expire(app: &App) {
 
 /// Syncs the unlocked non-active wallets, one at a time, without holding locks the UI needs.
 pub fn sync_others(app: &App, src: &Multi) {
-    let ids: Vec<String> = app.vault.others.lock().keys().cloned().collect();
+    let Ok(tip) = src.tip_height() else { return };
+    let ids: Vec<String> = app
+        .vault
+        .others
+        .lock()
+        .iter()
+        .filter(|(_, w)| w.synced_height().is_none_or(|h| h < tip))
+        .map(|(id, _)| id.clone())
+        .collect();
     for id in ids {
         let Some(mut w) = app.vault.others.lock().remove(&id) else {
             continue;

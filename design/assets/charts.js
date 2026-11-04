@@ -208,6 +208,7 @@
       block_time: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0) + " s"; }, target: 60, targetLabel: "target 60 s", label: "Block time" },
       shares: { kind: "area", fmt: function (v) { return v.toFixed(1); }, target: 32, targetLabel: "expected 32", label: "Shares per block" },
       miners: { kind: "bars", fmt: function (v) { return String(Math.round(v)); }, integer: true, label: "Active miners" },
+      txs: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0); }, label: "Transactions per block" },
       issued: { kind: "area", fmt: function (v, axis) { v = v / 1e8; return axis ? fmtNum(v) : v.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " GNR"; }, label: "GNR issued" }
     };
     function load(range) {

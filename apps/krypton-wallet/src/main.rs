@@ -537,6 +537,122 @@ async fn publish(State(app): S, h: HeaderMap) -> Response {
     }
 }
 
+#[derive(Deserialize)]
+struct HistQ {
+    offset: Option<usize>,
+    limit: Option<usize>,
+    kind: Option<String>,
+    q: Option<String>,
+}
+
+/// One page of the active wallet's history, newest first, with filters and totals.
+async fn history_page(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<HistQ>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let g = a
+            .wallet
+            .try_lock_for(std::time::Duration::from_secs(5))
+            .context("the wallet is busy syncing; try again in a few seconds")?;
+        let w = g.as_ref().context("unlock the wallet first")?;
+        let kind = q.kind.as_deref().unwrap_or("all");
+        let needle = q.q.as_deref().unwrap_or("").trim().to_lowercase();
+        let mining = |e: &krypton_wallet_core::HistoryEntry| e.txid.starts_with("payout:");
+        let (mut received, mut sent, mut mined, mut fees) = (0i128, 0i128, 0i128, 0u64);
+        for e in w.history() {
+            if mining(e) {
+                mined += e.amount;
+            } else if e.amount < 0 {
+                sent += e.amount;
+                fees += e.fee;
+            } else {
+                received += e.amount;
+            }
+        }
+        let mut items: Vec<_> = w
+            .history()
+            .iter()
+            .filter(|e| match kind {
+                "in" => e.amount >= 0 && !mining(e),
+                "out" => e.amount < 0,
+                "mining" => mining(e),
+                "pending" => e.height.is_none(),
+                _ => true,
+            })
+            .filter(|e| {
+                needle.is_empty()
+                    || e.memo.to_lowercase().contains(&needle)
+                    || e.txid.to_lowercase().contains(&needle)
+                    || e.to.as_deref().is_some_and(|t| t.to_lowercase().contains(&needle))
+                    || e.height.is_some_and(|h| h.to_string() == needle)
+            })
+            .collect();
+        items.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
+        let total = items.len();
+        let limit = q.limit.unwrap_or(15).clamp(1, 100);
+        let page: Vec<Value> = items
+            .into_iter()
+            .skip(q.offset.unwrap_or(0))
+            .take(limit)
+            .map(|e| {
+                json!({
+                    "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
+                    "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
+                    "kind": if mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
+                })
+            })
+            .collect();
+        Ok(json!({
+            "total": total,
+            "items": page,
+            "all": w.history().len(),
+            "sums": {"received": received, "sent": sent, "mining": mined, "fees": fees},
+        }))
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+#[derive(Deserialize)]
+struct ChainQ {
+    what: String,
+}
+
+/// Read-only network summaries (peers, mempool, supply) from the first data source.
+async fn chain_info(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<ChainQ>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let c = a.sources()?.into_iter().next().context("no node configured")?;
+        match q.what.as_str() {
+            "peers" => c.peers(),
+            "mempool" => c.mempool(),
+            "supply" => c.supply(),
+            _ => Err(anyhow!("unknown request")),
+        }
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
 /// Where the active wallet's short address resolves (cached for ten minutes).
 async fn published(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
@@ -602,8 +718,17 @@ fn for_each_target(a: &App, f: impl Fn(&NodeClient) -> Result<bool> + Sync) -> V
     })
 }
 
+#[derive(Deserialize)]
+struct CountQ {
+    count: Option<u32>,
+}
+
 /// The latest blocks from the first data source, for the overview.
-async fn recent_blocks(State(app): S, h: HeaderMap) -> Response {
+async fn recent_blocks(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<CountQ>,
+) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
@@ -613,7 +738,7 @@ async fn recent_blocks(State(app): S, h: HeaderMap) -> Response {
             .into_iter()
             .next()
             .context("no node configured")?
-            .blocks(14)
+            .blocks(q.count.unwrap_or(14).clamp(1, 100))
     })
     .await
     {
@@ -1164,6 +1289,8 @@ async fn serve(
         .route("/api/stats", get(net_stats))
         .route("/api/blocks", get(recent_blocks))
         .route("/api/published", get(published))
+        .route("/api/history", get(history_page))
+        .route("/api/chain", get(chain_info))
         .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))
         .with_state(app.clone());

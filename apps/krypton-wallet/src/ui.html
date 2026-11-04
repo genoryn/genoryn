@@ -87,23 +87,51 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .blk:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:16px;height:2px;background:linear-gradient(90deg,var(--line-strong),var(--line))}
 .blk b{display:block;font:600 15px var(--font-mono)}.blk span{display:block;font-size:11.5px;color:var(--text-tertiary);margin-top:2px}
 .blk .bm{display:flex;justify-content:space-between;gap:6px;margin-top:8px;font:400 11.5px var(--font-mono);color:var(--text-secondary)}
-.blk .bf{height:4px;border-radius:99px;margin-top:8px;background:var(--bg-inset);overflow:hidden}.blk .bf i{display:block;height:100%;background:#a98dff}
-.blk.mine{border-color:#3ee597;box-shadow:0 0 0 1px #3ee59755,0 0 22px #3ee59733,0 10px 24px rgba(0,0,0,.25)}
-.blk.mine .tag{position:absolute;top:-9px;right:10px;padding:1px 7px;border-radius:99px;font-size:10.5px;font-weight:600;background:#3ee597;color:#05140c}
+.blk .bf{height:4px;border-radius:99px;margin-top:8px;background:var(--bg-inset);overflow:hidden}.blk .bf i{display:block;height:100%;background:var(--text-primary);opacity:.75}
+.blk.mine{border-color:var(--text-primary);box-shadow:0 0 0 1px var(--line-strong),0 0 22px var(--neon-soft),0 10px 24px rgba(0,0,0,.25)}
+.blk.mine .tag{position:absolute;top:-9px;right:10px;padding:1px 7px;border-radius:99px;font-size:10.5px;font-weight:600;background:var(--text-primary);color:var(--bg-solid)}
 .blk.new{animation:blkin .7s cubic-bezier(.2,.7,.2,1)}@keyframes blkin{from{opacity:0;transform:translateX(-24px) rotateY(-30deg)}}
 @media (max-width:1000px){.ov-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.ov-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:640px){.ov-kpis{grid-template-columns:1fr 1fr}.ov-grid{grid-template-columns:1fr}.ov-grid .wide{grid-column:auto}}
 @media (prefers-reduced-motion:reduce){.ov,.blk,.ov-kpi{transition:none}.blk{transform:none}.blk.new{animation:none}}
 .chip-btn{cursor:pointer;font:inherit;font-size:12px}.chip-btn .ic{width:14px;height:14px}.chip-btn b{color:var(--text-primary);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis}
-.wlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;margin-top:18px}
-.wcard{display:flex;flex-direction:column;gap:6px;transition:transform .2s,border-color .2s}
-.wcard.active{border-color:var(--status-success-line);box-shadow:0 0 0 1px var(--status-success-line) inset}
-.wcard h3{display:flex;align-items:center;gap:8px;margin:0;font-size:16px;overflow-wrap:anywhere}.wcard h3 .ic{width:16px;height:16px;flex:none}
-.wcard .wbal{font:700 28px/1.2 var(--font-display);margin-top:4px}.wcard .wbal small{font:500 14px var(--font-sans);color:var(--text-secondary)}
-.wcard .wst{font-size:12.5px;color:var(--text-tertiary)}
-.wcard .wacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:10px}.wcard .wacts .btn{padding:6px 11px;font-size:13px}
-.wcard .wunl{display:flex;gap:8px;width:100%}.wcard .wunl input{margin:0;flex:1;min-width:0}
-.pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--status-success-line);color:var(--text-secondary)}
+.pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--text-primary)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}.toolbar input,.toolbar select{margin:0;width:auto}.toolbar input[type=search]{flex:1;min-width:200px}
+.seg{display:inline-flex;gap:2px;padding:4px;border-radius:12px;border:1px solid var(--line);background:var(--bg-inset);overflow-x:auto;scrollbar-width:none;max-width:100%}
+.seg button{background:transparent;border:0;color:var(--text-secondary);font:600 12.5px var(--font-sans);padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--bg-raised);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--line-strong)}.seg em{font-style:normal;color:var(--text-tertiary);margin-left:3px}
+.pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;color:var(--text-secondary);font-size:13px}
+.pager .pg{display:flex;gap:4px;flex-wrap:wrap}.pager button{min-width:34px;height:34px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:var(--bg-inset);color:var(--text-secondary);font:600 13px var(--font-mono);cursor:pointer}
+.pager button.on{background:var(--text-primary);color:var(--bg-solid);border-color:var(--text-primary)}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{padding:0 4px;align-self:center}
+.wtop{display:grid;grid-template-columns:1.4fr 1fr;gap:26px;align-items:start}
+.add-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.wrows{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.wrow{display:grid;grid-template-columns:22px minmax(0,1.5fr) 150px minmax(0,1.1fr) 176px;align-items:center;gap:14px;padding:11px 6px;border-bottom:1px solid var(--line);transition:background .15s}
+.wrow:hover{background:var(--bg-inset)}.wrow.active{background:linear-gradient(90deg,var(--bg-inset),transparent)}
+.wrow .ic{width:17px;height:17px;color:var(--text-secondary)}.wrow.open .ic{color:var(--text-primary)}
+.wn{min-width:0}.wn b{display:flex;align-items:center;gap:7px;font:600 14.5px var(--font-sans);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.wn span{display:block;font:400 12px var(--font-mono);color:var(--text-tertiary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.wb{text-align:right;font:500 15px var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}.wb small{display:block;font:400 11.5px var(--font-sans);color:var(--text-tertiary)}
+.ws{font-size:12.5px;color:var(--text-secondary);min-width:0}.ws .wunl{display:flex;gap:6px}.ws .wunl input{margin:0;min-width:0;flex:1;padding:7px 10px;font-size:13px}.ws .wunl .btn{padding:6px 11px;font-size:13px}
+.wa{display:flex;gap:6px;justify-content:flex-end}.wa .btn{padding:6px 10px;font-size:12.5px}
+.wmenu{position:relative}.wmenu .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:6;display:flex;flex-direction:column;min-width:150px;padding:6px;border-radius:12px}
+.wmenu .menu button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;color:var(--text-primary);font:500 13.5px var(--font-sans);cursor:pointer}.wmenu .menu button:hover{background:var(--bg-inset)}
+.wempty{padding:26px 8px;text-align:center;color:var(--text-tertiary)}
+.hsums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.htable td.t{white-space:nowrap;color:var(--text-secondary)}.ty{display:inline-block;padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-size:11.5px;color:var(--text-secondary);white-space:nowrap}.ty.mining{border-color:var(--line-strong);color:var(--text-primary)}
+.kpis-8{grid-template-columns:repeat(4,minmax(0,1fr))}
+.netdash-grid .wide2{grid-column:1/-1}
+.finders{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;font-size:12.5px}.frow span{font-family:var(--font-mono);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.frow b{font:500 12.5px var(--font-mono)}
+.frow i{grid-column:1/-1;height:5px;border-radius:99px;background:var(--bg-inset);overflow:hidden}.frow i s{display:block;height:100%;background:var(--text-primary);opacity:.55;text-decoration:none}.frow.you span{color:var(--text-primary)}.frow.you i s{opacity:1;box-shadow:0 0 8px var(--neon-soft)}
+.btable td{font-size:13px}.btable td.mono{font-family:var(--font-mono)}
+.about-hero{display:flex;gap:28px;align-items:center;padding:34px 34px 30px;margin-bottom:14px}.about-hero img{width:118px;height:118px;border-radius:28px;flex:none;box-shadow:0 0 40px var(--neon-soft)}
+.eyebrow-s{display:inline-flex;gap:8px;align-items:center;font:600 12px var(--font-sans);letter-spacing:1.4px;text-transform:uppercase;color:var(--text-secondary)}.eyebrow-s b{font:500 12px var(--font-mono);letter-spacing:0;padding:2px 8px;border:1px solid var(--line-strong);border-radius:99px;color:var(--text-primary)}
+.about-title{margin:10px 0 10px;font:700 clamp(24px,3.2vw,36px)/1.12 var(--font-display);letter-spacing:-.3px}
+.about-motto{margin:14px 0 0;font:700 13px var(--font-display);letter-spacing:2.2px;color:var(--text-primary)}
+.about-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media (max-width:1380px){h1 small{display:none}}
+@media (max-width:900px){.wtop{grid-template-columns:1fr}.hsums,.about-facts{grid-template-columns:1fr 1fr}.wrow{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"i n b" "s s s" "a a a"}.wrow>.ic{grid-area:i}.wn{grid-area:n}.wb{grid-area:b}.ws{grid-area:s}.wa{grid-area:a;justify-content:flex-start}}
+@media (max-width:640px){.add-grid{grid-template-columns:1fr}.about-hero{flex-direction:column;align-items:flex-start;padding:24px}.about-hero img{width:84px;height:84px}.toolbar input[type=search]{min-width:100%}}
 .wsplit{display:flex;gap:6px;height:8px;border-radius:99px;overflow:hidden;margin:14px 0 4px;background:var(--bg-inset)}.wsplit i{display:block;height:100%;background:var(--text-secondary);opacity:.35;min-width:3px}.wsplit i:nth-child(odd){opacity:.6}
 pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .hero-note{font-size:13px;color:var(--text-tertiary);margin-top:12px}
@@ -260,34 +288,61 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     </section>
     </div>
     <div id="tab-wallets" class="hidden">
-      <div class="grid">
-        <div class="glass card">
+      <div class="glass card wtop">
+        <div class="wtop-main">
           <h2><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>All wallets</h2>
           <div class="big"><span id="tTotal" class="num">0</span> <small>GNR in total</small></div>
           <div id="tSplit" class="wsplit" aria-hidden="true"></div>
+          <p id="tNote" class="hero-note"></p>
+        </div>
+        <div class="wtop-side">
           <div class="row">Spendable<b id="tSpend">0</b></div>
           <div class="row">Pending<b id="tPend">0</b></div>
           <div class="row">Maturing<b id="tImm">0</b></div>
           <div class="row">Wallets<b id="tCount">0</b></div>
-          <p id="tNote" class="hero-note"></p>
-          <div class="row-flex"><button class="btn" onclick="lockAll()"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock all wallets</button></div>
-        </div>
-        <div class="glass card">
-          <h2>Add a wallet</h2>
-          <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
-          <label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings">
-          <label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password">
-          <div id="addRestore" class="hidden">
-            <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
-            <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
-          </div>
-          <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button></div>
+          <div class="row-flex" style="margin-top:12px"><button class="btn btn-primary" onclick="toggleAdd()"><span aria-hidden="true">+</span>&nbsp;Add wallet</button><button class="btn" onclick="lockAll()"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock all</button></div>
         </div>
       </div>
-      <div id="wList" class="wlist"></div>
+      <div id="addPanel" class="glass card hidden" style="margin-top:14px">
+        <h2>Add a wallet</h2>
+        <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
+        <div class="add-grid">
+          <div><label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings"></div>
+          <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"></div>
+        </div>
+        <div id="addRestore" class="hidden">
+          <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
+          <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
+        </div>
+        <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button><button class="btn" onclick="toggleAdd(false)">Cancel</button></div>
+      </div>
+      <div class="glass card" style="margin-top:14px">
+        <div class="toolbar">
+          <input id="wQ" type="search" placeholder="Search by name or address" aria-label="Search wallets">
+          <div class="seg" id="wFilter" role="group" aria-label="Filter"><button type="button" data-f="all" class="on">All <em id="wnAll"></em></button><button type="button" data-f="open">Unlocked <em id="wnOpen"></em></button><button type="button" data-f="locked">Locked <em id="wnLocked"></em></button></div>
+          <select id="wSort" aria-label="Sort"><option value="added">Order added</option><option value="name">Name A–Z</option><option value="bal">Balance, highest first</option><option value="open">Unlocked first</option></select>
+        </div>
+        <div class="wrows" id="wList" role="list"></div>
+        <div class="pager" id="wPager"></div>
+      </div>
     </div>
     <div id="tab-history" class="hidden">
-      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>History</h2><table><thead><tr><th>Block</th><th>Amount</th><th>Memo</th><th>To</th><th>Proof</th></tr></thead><tbody id="hist"></tbody></table></div>
+      <div class="hsums" id="hSums">
+        <div class="glass kpi"><b id="hsIn">-</b><span>Received</span></div>
+        <div class="glass kpi"><b id="hsMine">-</b><span>Mining rewards</span></div>
+        <div class="glass kpi"><b id="hsOut">-</b><span>Sent <em id="hsFees"></em></span></div>
+        <div class="glass kpi"><b id="hsCount">-</b><span>Transactions</span></div>
+      </div>
+      <div class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>History</h2>
+        <div class="toolbar">
+          <div class="seg" id="hKind" role="group" aria-label="Filter"><button type="button" data-k="all" class="on">All</button><button type="button" data-k="in">Received</button><button type="button" data-k="out">Sent</button><button type="button" data-k="mining">Mining</button><button type="button" data-k="pending">Pending</button></div>
+          <input id="hQ" type="search" placeholder="Search memo, txid, address or block" aria-label="Search history">
+          <select id="hPer" aria-label="Rows per page"><option value="15">15 per page</option><option value="30">30 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select>
+        </div>
+        <table class="htable"><thead><tr><th>Block</th><th>Time</th><th>Type</th><th>Amount</th><th>Memo</th><th>To</th><th>Proof</th></tr></thead><tbody id="hist"></tbody></table>
+        <div class="pager" id="hPager"></div>
+      </div>
       <div class="grid" style="margin-top:18px">
         <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Payment proof</h2>
           <p class="muted">Prove that you paid someone: press <b>Proof</b> next to a payment above and send them the text. It reveals only that one payment (amount, memo, recipient), nothing else about your wallet.</p>
@@ -330,11 +385,15 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <div id="tab-network" class="hidden">
     <div class="netdash" id="netDash" data-default-range="24h">
       <div class="netdash-head">
-        <div class="kpis">
+        <div class="kpis kpis-8">
           <div class="glass kpi"><b id="kRate">-</b><span>Network hashrate</span></div>
           <div class="glass kpi"><b id="kMiners">-</b><span>Estimated miners <em id="kGpus"></em></span></div>
           <div class="glass kpi"><b id="kIssued">-</b><span>GNR issued</span></div>
           <div class="glass kpi"><b id="kLeft">-</b><span>GNR remaining</span></div>
+          <div class="glass kpi"><b id="kHeight">-</b><span>Block height</span></div>
+          <div class="glass kpi"><b id="kBt">-</b><span>Average block time <em>(last 10)</em></span></div>
+          <div class="glass kpi"><b id="kDiff">-</b><span>Difficulty</span></div>
+          <div class="glass kpi"><b id="kPool">-</b><span>Mempool <em id="kPoolB"></em></span></div>
         </div>
         <div class="gk-range" role="group" aria-label="Time range"><button type="button" data-range="1h">1H</button><button type="button" data-range="6h">6H</button><button type="button" data-range="24h">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button></div>
       </div>
@@ -344,6 +403,25 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="glass card"><div class="gk-card-head"><h3>Active miners</h3><b id="cMiners2">-</b></div><div data-chart="miners"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>Difficulty</h3></div><div data-chart="difficulty"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>GNR issued</h3></div><div data-chart="issued"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Block time</h3><b id="cBt2">-</b></div><div data-chart="block_time"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Shares per block</h3></div><div data-chart="shares"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Transactions per block</h3></div><div data-chart="txs"></div></div>
+      </div>
+    </div>
+    <div class="netdash-grid" style="margin-top:14px">
+      <div class="glass card"><div class="gk-card-head"><h3>Emission</h3><b id="eSub">-</b></div>
+        <div class="row">Block reward<b id="eReward">-</b></div>
+        <div class="row">Next halving<b id="eHalv">-</b></div>
+        <div class="row">Blocks until halving<b id="eLeft">-</b></div>
+        <div class="row">Issued so far<b id="ePct">-</b></div>
+        <div class="row">Issued per day (now)<b id="eDay">-</b></div>
+        <div class="ov-bar" data-tone="mono" style="margin-top:14px"><i id="eBar"></i></div>
+      </div>
+      <div class="glass card"><div class="gk-card-head"><h3>Block finders</h3><b id="fCount">-</b></div><div id="finders" class="finders"></div></div>
+      <div class="glass card"><div class="gk-card-head"><h3>Peers</h3><b id="pCount">-</b></div><div id="peers" class="finders"></div></div>
+      <div class="glass card wide2"><div class="gk-card-head"><h3>Latest blocks</h3><b id="nbTip">-</b></div>
+        <table class="btable"><thead><tr><th>Block</th><th>Time</th><th>Shares</th><th>Txs</th><th>Size</th><th>Reward</th><th>Found by</th></tr></thead><tbody id="nbRows"></tbody></table>
+        <div class="pager" id="nbPager"></div>
       </div>
     </div>
     <div class="grid" style="margin-top:18px">
@@ -364,16 +442,50 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <label for="revealPass">Show recovery phrase (enter password)</label><input id="revealPass" type="password" autocomplete="current-password"><button class="btn" onclick="reveal()">Reveal</button>
       <div id="revealWords" class="words"></div>
     </div>
-    <div id="tab-about" class="grid hidden">
+    <div id="tab-about" class="hidden">
+      <div class="glass about-hero">
+        <img src="/assets/genoryn-mark-dark.svg" alt="">
+        <div>
+          <span class="eyebrow-s">Genoryn Krypton <b id="aVer2">-</b></span>
+          <h2 class="about-title">Quantum-resistant, private-by-default money.</h2>
+          <p class="muted">Every transfer is shielded by a zk-STARK proof, and no elliptic curve protects your coins. Created by the pseudonymous Zarazi Sokani, open source under MIT or Apache-2.0. No company, foundation or person controls the protocol.</p>
+          <p class="about-motto">PRIVACY IS NOT A CRIME. IT'S A RIGHT.</p>
+        </div>
+      </div>
+      <div class="about-facts">
+        <div class="glass kpi"><b>21,000,000</b><span>Maximum supply (GNR)</span></div>
+        <div class="glass kpi"><b>5 GNR</b><span>Block reward, halving every 2.1M blocks</span></div>
+        <div class="glass kpi"><b>60 s</b><span>Target block time</span></div>
+        <div class="glass kpi"><b>0 %</b><span>Premine, founder or dev fee</span></div>
+      </div>
+      <div class="grid">
       <div class="glass card">
-        <h2><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg>About</h2>
-        <div class="about-mark"><img src="/assets/genoryn-mark-dark.svg" alt=""><div><b>Genoryn Krypton</b><span>Quantum-resistant, private-by-default money</span></div></div>
-        <p class="muted">Every transfer is shielded by a zk-STARK proof and no elliptic curve protects your coins. Created by the pseudonymous Zarazi Sokani; open source under MIT or Apache-2.0. No company, foundation or person controls the protocol.</p>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg>This installation</h2>
         <div class="row">Version<b id="aVer">-</b></div>
         <div class="row">Network<b id="aNet">-</b></div>
         <div class="row">Genesis<b id="aGen" title="">-</b></div>
-        <div class="row">Block reward<b>5 GNR · halving every 2,100,000 blocks</b></div>
-        <div class="row">Maximum supply<b>21,000,000 GNR</b></div>
+        <div class="row">Wallets in this app<b id="aWallets">-</b></div>
+        <div class="row">Connection mode<b id="aMode">-</b></div>
+        <div class="row">Own node<b id="aNode">-</b></div>
+        <div class="row">Updates<b id="aUpd">-</b></div>
+      </div>
+      <div class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg>Protocol</h2>
+        <div class="row">Proof of work<b>KryptoHash v1 (memory-bandwidth bound)</b></div>
+        <div class="row">Rewards<b>Proportional to shares (≈32 per block)</b></div>
+        <div class="row">Payouts<b>Every <span id="aPay">360</span> blocks · spendable after <span id="aMat">100</span></b></div>
+        <div class="row">Launch<b>Anchored to Bitcoin block 974,438</b></div>
+        <div class="row">Notes tree<b>Depth 40 · at most 2 inputs per transfer</b></div>
+        <div class="row">Fee<b>0.002 GNR per transfer</b></div>
+      </div>
+      <div class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Cryptography</h2>
+        <div class="row">Spend proofs<b>zk-STARK (Rescue-Prime, SHA3)</b></div>
+        <div class="row">Note encryption<b>ML-KEM-1024 + X25519</b></div>
+        <div class="row">Network transport<b>ML-KEM-768 + X25519</b></div>
+        <div class="row">Releases<b>ML-DSA-87 + SLH-DSA</b></div>
+        <div class="row">Wallet file<b>Argon2id 256 MiB + XChaCha20</b></div>
+        <div class="row">Recovery phrase<b>24 words + numbers · 384 bits</b></div>
       </div>
       <div class="glass card">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>Explore</h2>
@@ -386,6 +498,14 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
           <button class="btn" onclick="openLink('releases')"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Releases</button>
         </div>
         <p class="hero-note">Your keys and balance never leave this computer; the explorer only shows public chain data.</p>
+      </div>
+      <div class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Open source</h2>
+        <p class="muted">Every line of the node, wallet and miner is public and reproducible. Releases are signed with a hybrid post-quantum key; this app checks that signature before it installs an update.</p>
+        <div class="row">License<b>MIT or Apache-2.0</b></div>
+        <div class="row">Release key<b>e4567fb116258bdd</b></div>
+        <div class="row">Source<b>github.com/genoryn/genoryn</b></div>
+      </div>
       </div>
     </div>
   </section>
@@ -422,39 +542,58 @@ function renderWallets(){
   const t=W.total||{}; $('tTotal').textContent=gnr(t.total); $('tSpend').textContent=gnr(t.spendable); $('tPend').textContent=gnr(t.pending); $('tImm').textContent=gnr(t.immature);
   const open=W.wallets.filter(w=>w.unlocked).length; $('tCount').textContent=W.wallets.length+' · '+open+' unlocked';
   $('tNote').textContent = W.unknown ? W.unknown+' wallet'+(W.unknown>1?'s have':' has')+' not been unlocked since the app started, so '+(W.unknown>1?'they are':'it is')+' not in the total yet. Unlock '+(W.unknown>1?'them':'it')+' once to include '+(W.unknown>1?'them':'it')+'.' : 'Locked wallets count with their last known balance. Unlocked wallets stay open for '+(W.unlock_hours||24)+' hours, then lock themselves.';
-  const sum=Number(t.total||0); $('tSplit').innerHTML = sum>0 ? W.wallets.filter(w=>w.balance&&Number(w.balance.total)>0).map(w=>`<i style="flex:${Number(w.balance.total)}" title="${esc(w.name)}: ${gnr(w.balance.total)} GNR"></i>`).join('') : '';
-  const keep={}; let focus=null; document.querySelectorAll('#wList input').forEach(i=>{ keep[i.id]=i.value; if(i===document.activeElement) focus=i.id; });
-  $('wList').innerHTML = W.wallets.map(w=>{ const id=esc(w.id), b=w.balance;
-    const status = w.unlocked ? 'Unlocked · locks itself in '+dur(w.locks_in) : (b ? 'Locked · last known balance' : 'Locked');
-    return `<div class="glass card wcard${w.active?' active':''}">
-      <h3><svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>${esc(w.name)}${w.active?' <span class="pill">active</span>':''}</h3>
-      <div class="mono muted" style="font-size:12.5px">${w.short?esc(w.short.slice(0,22))+'…':'address appears after the first unlock'}</div>
-      <div class="wbal">${b?gnr(b.total)+' <small>GNR</small>':'<small>balance hidden while locked</small>'}</div>
-      ${b&&(Number(b.pending)||Number(b.immature))?`<div class="wst">${gnr(b.spendable)} spendable${Number(b.pending)?' · '+gnr(b.pending)+' pending':''}${Number(b.immature)?' · '+gnr(b.immature)+' maturing':''}</div>`:''}
-      <div class="wst">${status}</div>
-      <div class="wacts">
-        ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Lock</button>`:`<span class="wunl"><input type="password" id="p-${id}" placeholder="Password of this wallet" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlockOne('${id}')"><button class="btn btn-primary" onclick="unlockOne('${id}')">Unlock</button></span>`}
-        ${w.active?'':`<button class="btn" onclick="useWallet('${id}')">Use this wallet</button>`}
-        <button class="btn" onclick="renameW('${id}')">Rename</button>
-        <button class="btn" onclick="removeW('${id}')">Remove</button>
-      </div></div>`; }).join('');
-  Object.entries(keep).forEach(([k,v])=>{ const i=$(k); if(i) i.value=v; }); if(focus&&$(focus)) $(focus).focus();
+  const sum=Number(t.total||0); $('tSplit').innerHTML = sum>0 ? W.wallets.filter(w=>w.balance&&Number(w.balance.total)>0).sort((a,b)=>b.balance.total-a.balance.total).slice(0,24).map(w=>`<i style="flex:${Number(w.balance.total)}" title="${esc(w.name)}: ${gnr(w.balance.total)} GNR"></i>`).join('') : '';
+  const all=W.wallets, nOpen=all.filter(w=>w.unlocked).length;
+  $('wnAll').textContent=all.length; $('wnOpen').textContent=nOpen; $('wnLocked').textContent=all.length-nOpen;
+  const q=WV.q.toLowerCase();
+  let list=all.map((w,i)=>({...w,i})).filter(w=>(WV.f==='all'||(WV.f==='open')===!!w.unlocked) && (!q||w.name.toLowerCase().includes(q)||(w.short||'').toLowerCase().includes(q)));
+  const bal=w=>w.balance?Number(w.balance.total):-1;
+  if(WV.sort==='name') list.sort((a,b)=>a.name.localeCompare(b.name)); else if(WV.sort==='bal') list.sort((a,b)=>bal(b)-bal(a)); else if(WV.sort==='open') list.sort((a,b)=>(b.unlocked?1:0)-(a.unlocked?1:0)||a.i-b.i);
+  const pages=Math.max(1,Math.ceil(list.length/WV.per)); WV.page=Math.min(WV.page,pages-1);
+  const keep=$('wpw')?$('wpw').value:'', hadFocus=document.activeElement&&document.activeElement.id==='wpw';
+  $('wList').innerHTML = list.length ? list.slice(WV.page*WV.per,(WV.page+1)*WV.per).map(w=>{ const id=esc(w.id), b=w.balance, unl=WV.unlocking===w.id;
+    const status = w.unlocked ? 'Unlocked · locks in '+dur(w.locks_in) : (b ? 'Locked · last known balance' : 'Locked');
+    return `<div class="wrow${w.active?' active':''}${w.unlocked?' open':''}" role="listitem">
+      <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
+      <div class="wn"><b>${esc(w.name)}${w.active?' <span class="pill">active</span>':''}</b><span>${w.short?esc(w.short.slice(0,30))+'…':'address appears after the first unlock'}</span></div>
+      <div class="wb">${b?gnr(b.total)+' <small>GNR'+(Number(b.pending)||Number(b.immature)?' · '+gnr(b.spendable)+' spendable':'')+'</small>':'<small>hidden while locked</small>'}</div>
+      <div class="ws">${unl?`<span class="wunl"><input type="password" id="wpw" placeholder="Password of “${esc(w.name)}”" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlockOne('${id}');if(event.key==='Escape'){WV.unlocking=null;renderWallets()}"><button class="btn btn-primary" onclick="unlockOne('${id}')">Unlock</button></span>`:status}</div>
+      <div class="wa">
+        ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')">Lock</button>`:(unl?'':`<button class="btn btn-primary" onclick="WV.unlocking='${id}';renderWallets();setTimeout(()=>$('wpw')&&$('wpw').focus(),0)">Unlock</button>`)}
+        ${w.active?'':`<button class="btn" onclick="useWallet('${id}')">Use</button>`}
+        <span class="wmenu"><button class="btn" aria-label="More actions" onclick="event.stopPropagation();WV.menu=WV.menu==='${id}'?null:'${id}';renderWallets()">⋯</button>${WV.menu===w.id?`<span class="menu glass float"><button onclick="renameW('${id}')">Rename</button>${w.short?`<button onclick="copyText('${esc(w.short)}')">Copy short address</button>`:''}<button onclick="removeW('${id}')">Remove from app</button></span>`:''}</span>
+      </div></div>`; }).join('') : `<div class="wempty">${all.length?'No wallet matches this search.':'No wallets yet.'}</div>`;
+  if($('wpw')){ $('wpw').value=keep; if(hadFocus) $('wpw').focus(); }
+  pager($('wPager'), WV.page, pages, list.length, WV.per, p=>{ WV.page=p; renderWallets(); }, 'wallets');
 }
+const WV={q:'', f:'all', sort:'added', page:0, per:20, unlocking:null, menu:null};
+document.addEventListener('click', e=>{ if(WV.menu&&!e.target.closest('.wmenu')){ WV.menu=null; renderWallets(); } });
+function toggleAdd(on){ const p=$('addPanel'); const show_=on===undefined?p.classList.contains('hidden'):on; p.classList.toggle('hidden',!show_); if(show_) $('addName').focus(); }
+/* Shared pager: « ‹ 1 … 4 5 6 … 12 › » plus "21–40 of 230". */
+function pager(el, page, pages, total, per, go, noun){
+  if(!el) return; if(total<=per){ el.innerHTML = total?`<span>${total} ${noun}</span>`:''; return; }
+  const nums=[]; for(let i=0;i<pages;i++) if(i<1||i>=pages-1||Math.abs(i-page)<=1) nums.push(i); else if(nums[nums.length-1]!=='…') nums.push('…');
+  el.innerHTML=`<span>${page*per+1}–${Math.min(total,(page+1)*per)} of ${total} ${noun}</span><span class="pg"><button data-p="${page-1}" ${page?'':'disabled'} aria-label="Previous page">‹</button>${nums.map(n=>n==='…'?'<span class="gap">…</span>':`<button data-p="${n}" class="${n===page?'on':''}">${n+1}</button>`).join('')}<button data-p="${page+1}" ${page<pages-1?'':'disabled'} aria-label="Next page">›</button></span>`;
+  el.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>go(Number(b.dataset.p)));
+}
+$('wQ').oninput=e=>{ WV.q=e.target.value.trim(); WV.page=0; renderWallets(); };
+$('wSort').onchange=e=>{ WV.sort=e.target.value; WV.page=0; renderWallets(); };
+document.querySelectorAll('#wFilter button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#wFilter button').forEach(x=>x.classList.toggle('on',x===b)); WV.f=b.dataset.f; WV.page=0; renderWallets(); });
 const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).find(w=>w.id===id) || {}).name || 'this wallet';
-async function unlockOne(id){ const i=$('p-'+id); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
+async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
 async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function lockAll(){ if(!confirm('Lock all wallets? Each one asks for its own password again. The miner keeps running.')) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function useWallet(id){ try{ await api('/api/wallets/use',{id}); toast('Switched to “'+wname(id)+'”'); }catch(e){ toast(e.message,true) } await refresh(); loadWallets(); }
-async function renameW(id){ const n=prompt('New name for “'+wname(id)+'”', wname(id)); if(n==null||!n.trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function renameW(id){ WV.menu=null; const n=prompt('New name for “'+wname(id)+'”', wname(id)); if(n==null||!n.trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function removeW(id){
-  const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
+  WV.menu=null; const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
   if(!confirm('Remove “'+n+'” from this app?\n\nNothing is deleted: the wallet file is moved to the "removed" folder next to your other wallets, and its coins stay on the chain. You can add it back at any time with its 24 words, so make sure you have them.'+(paysMiner?'\n\nThe running miner pays this wallet and keeps doing so until you restart it.':''))) return;
   try{ await api('/api/wallets/remove',{id}); toast('“'+n+'” removed from the app'); }catch(e){ toast(e.message,true) } await loadWallets(); refresh();
 }
 function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?'Restore wallet':'Create new wallet'; $('addMode').textContent=restoreMode?'Create a new one instead':'Restore from recovery phrase'; }
 async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass').value; if(!name) return toast('Give the wallet a name', true); if(p.length<12) return toast('Use at least 12 characters for the password', true);
   const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
-  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
+  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; refresh(); }catch(e){ toast(e.message,true) } }
 async function send(){ const b=$('sendBtn'); b.disabled=true; window.fxBusy=true; try{ const r = await api('/api/send',{to:$('to').value, amount:$('amount').value, memo:$('memo').value}); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) } window.fxBusy=false; b.disabled=false; refresh(); }
@@ -534,6 +673,58 @@ function renderOvKpis(){
   $('oIssued').textContent=gnr(iss).replace(/\.\d+$/,''); $('oIssuedSub').textContent=(iss/mx*100).toFixed(4)+' % of 21,000,000';
   $('oIssBar').style.width=Math.max(1,iss/mx*100)+'%';
 }
+/* ---- History: paged, filtered, searched on the wallet side ---- */
+const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
+const fmtTime=t=>t?new Date(t*1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
+const KIND={in:'Received', out:'Sent', mining:'Mining reward'};
+async function loadHistory(){
+  H.stale=false; const my=++H.seq; let r;
+  try{ r=await api(`/api/history?offset=${H.page*H.per}&limit=${H.per}&kind=${H.kind}&q=${encodeURIComponent(H.q)}`); }catch(e){ return; }
+  if(my!==H.seq) return;
+  const pages=Math.max(1,Math.ceil(r.total/H.per)); if(r.total&&H.page>=pages){ H.page=pages-1; return loadHistory(); }
+  const s=r.sums||{};
+  $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
+  $('hsFees').textContent=Number(s.fees)?'· fees '+gnr(s.fees):''; $('hsCount').textContent=fmtN(r.all);
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="Block">${h.height!=null?fmtN(h.height):'<span class=warn>pending</span>'}</td><td data-label="Time" class="t">${fmtTime(h.time)}</td><td data-label="Type"><span class="ty ${h.kind}">${KIND[h.kind]}</span></td><td data-label="Amount" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable&&h.height!=null?`<button class="btn" onclick="makeProof('${esc(h.txid)}')">Proof</button>`:''}</td></tr>`).join('')
+    || `<tr><td colspan=7 class=muted>${r.all?'Nothing matches this filter.':'No transactions yet'}</td></tr>`;
+  pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, r.total===1?'entry':'entries');
+}
+document.querySelectorAll('#hKind button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#hKind button').forEach(x=>x.classList.toggle('on',x===b)); H.kind=b.dataset.k; H.page=0; loadHistory(); });
+let hqT=null; $('hQ').oninput=e=>{ clearTimeout(hqT); hqT=setTimeout(()=>{ H.q=e.target.value.trim(); H.page=0; loadHistory(); }, 250); };
+$('hPer').onchange=e=>{ H.per=Number(e.target.value); H.page=0; loadHistory(); };
+
+/* ---- Network: emission, block finders, peers, latest blocks ---- */
+const NX={t:0, blocks:[], page:0, per:10};
+function finderName(m){ return S.owner&&m===S.owner ? 'You · '+((S.active||{}).name||'this wallet') : 'miner '+m.slice(0,10)+'…'; }
+async function loadNetExtras(){
+  NX.t=Date.now();
+  const [sup,pool,peers,bl]=await Promise.all(['supply','mempool','peers'].map(w=>api('/api/chain?what='+w).catch(()=>null)).concat([api('/api/blocks?count=100').catch(()=>null)]));
+  const tip=(S.tip||{}).height||0;
+  if(sup){ const left=Math.max(0,sup.next_halving_height-sup.height), pct=sup.issued/sup.max_supply*100;
+    $('eReward').textContent=gnr(sup.subsidy).replace(/\.0+$/,'')+' GNR'; $('eSub').textContent=gnr(sup.subsidy).replace(/\.0+$/,'')+' GNR / block';
+    $('eHalv').textContent='block '+fmtN(sup.next_halving_height)+' · ≈ '+(left*60/31557600).toFixed(1)+' years'; $('eLeft').textContent=fmtN(left);
+    $('ePct').textContent=pct.toFixed(4)+' % · '+gnr(sup.issued).replace(/\.\d+$/,'')+' GNR'; $('eDay').textContent='≈ '+fmtN(sup.subsidy*1440/1e8)+' GNR';
+    $('eBar').style.width=Math.max(1,(sup.height%sup.halving_interval)/sup.halving_interval*100)+'%'; }
+  if(pool){ $('kPool').textContent=fmtN(pool.count)+' tx'; $('kPoolB').textContent=pool.bytes?'('+(pool.bytes/1024).toFixed(1)+' KB)':'(empty)'; }
+  if(peers){ const inb=peers.filter(p=>p.inbound).length, by={}; peers.forEach(p=>by[p.agent]=(by[p.agent]||0)+1);
+    $('pCount').textContent=peers.length+' · '+inb+' in · '+(peers.length-inb)+' out'; const mx=Math.max(1,...Object.values(by));
+    $('peers').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([a,n])=>`<div class="frow"><span>${esc(a)}</span><b>${n}</b><i><s style="width:${n/mx*100}%"></s></i></div>`).join('')||'<p class="muted">No peers reported.</p>'; }
+  if(bl&&bl.length){ NX.blocks=bl; const c={}; bl.forEach(b=>c[b.miner]=(c[b.miner]||0)+1);
+    const rows=Object.entries(c).sort((a,b)=>b[1]-a[1]), mx=rows[0][1], top=rows.slice(0,7), rest=rows.slice(7).reduce((a,r)=>a+r[1],0);
+    $('fCount').textContent=bl.length+' blocks · '+rows.length;
+    $('finders').innerHTML=top.map(([m,n])=>`<div class="frow${S.owner&&m===S.owner?' you':''}"><span title="${esc(m)}">${esc(finderName(m))}</span><b>${n} · ${(n/bl.length*100).toFixed(0)} %</b><i><s style="width:${n/mx*100}%"></s></i></div>`).join('')+(rest?`<div class="frow"><span>${rows.length-7} others</span><b>${rest} · ${(rest/bl.length*100).toFixed(0)} %</b><i><s style="width:${rest/mx*100}%"></s></i></div>`:'');
+    const n=Math.min(10,bl.length-1); $('kBt').textContent=n>0?Math.round((bl[0].timestamp-bl[n].timestamp)/n)+' s':'-'; $('cBt2').textContent=$('kBt').textContent;
+    renderNetBlocks(); }
+  $('kHeight').textContent=fmtN(tip||(bl&&bl[0]&&bl[0].height)); if(S.tip&&S.tip.difficulty) $('kDiff').textContent=GKCharts.fmtNum(Number(S.tip.difficulty));
+}
+function renderNetBlocks(){
+  const bl=NX.blocks, pages=Math.max(1,Math.ceil(bl.length/NX.per)); NX.page=Math.min(NX.page,pages-1);
+  $('nbTip').textContent='#'+fmtN(bl[0].height);
+  $('nbRows').innerHTML=bl.slice(NX.page*NX.per,(NX.page+1)*NX.per).map(b=>`<tr><td data-label="Block" class="mono">#${fmtN(b.height)}</td><td data-label="Time">${ago(b.timestamp)}</td><td data-label="Shares" class="mono">${b.shares}</td><td data-label="Txs" class="mono">${b.txs}</td><td data-label="Size" class="mono">${(b.size/1024).toFixed(1)} KB</td><td data-label="Reward" class="mono">${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')} GNR</td><td data-label="Found by" class="mono">${S.owner&&b.miner===S.owner?'<b>you</b>':esc(b.miner.slice(0,12))+'…'}</td></tr>`).join('');
+  pager($('nbPager'), NX.page, pages, bl.length, NX.per, p=>{ NX.page=p; renderNetBlocks(); }, 'blocks');
+}
+setInterval(()=>{ if(!document.hidden && !$('tab-network').classList.contains('hidden') && Date.now()-NX.t>30000) loadNetExtras(); }, 5000);
+
 function renderOvBlocks(){
   const bl=OV.blocks||[]; if(!bl.length) return; const own=S.owner, first=!OV.seen.size;
   $('ovTip').textContent='#'+fmtN(bl[0].height);
@@ -551,7 +742,7 @@ async function reveal(){ try{ const r = await api('/api/reveal',{password:$('rev
 async function quitApp(){ if(!confirm('Quit Genoryn Krypton? The miner and your own node stop too.')) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
 const TABS=['wallet','wallets','history','mining','network','security','about'];
-function goTab(t){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network') initNetDash(); if(t==='wallets') loadWallets(); }
+function goTab(t){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='wallets') loadWallets(); if(t==='history') loadHistory(); }
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
@@ -596,7 +787,10 @@ async function refresh(){
   if(tip){ const ok = v!=null && v>=tip.height-1; $('sync').innerHTML = ok ? `<span class="dot"></span> verified · block ${v}` : `<span class="dot live"></span> syncing ${v??0}/${tip.height}`; $('sync').className='badge '+(ok?'ok':'warn');
     $('cH').textContent=tip.height; $('cP').textContent=tip.peers; $('cR').textContent=rate(tip.hashrate); $('cS').textContent=gnr(tip.supply)+' GNR'; } else { $('sync').textContent='no node reachable'; $('sync').className='badge warn'; }
   $('cV').textContent=v??'-'; $('cN').textContent=S.node_running?'running':'not running';
-  $('hist').innerHTML=(S.history||[]).map(h=>`<tr><td data-label="Block">${h.height??'<span class=warn>pending</span>'}</td><td data-label="Amount" class="amt"><span class="${h.amount<0?'bad':'ok'}">${h.amount<0?'-':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable&&h.height!=null?`<button class="btn" onclick="makeProof('${esc(h.txid)}')">Proof</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class=muted>No transactions yet</td></tr>';
+  const hk=S.short+'|'+v+'|'+(S.history||[]).length; if(hk!==H.key){ H.key=hk; if(!$('tab-history').classList.contains('hidden')) loadHistory(); else H.stale=true; }
+  $('aVer2').textContent=S.version||''; $('aWallets').textContent=(S.wallet_count||0)+' ('+((S.wallet_names||[]).filter(w=>w.unlocked).length)+' unlocked)';
+  $('aMode').textContent=S.settings?(S.settings.mode==='full'?'Full node':'Light (verified)'):'-'; $('aNode').textContent=S.node_running?'running':'not running';
+  $('aUpd').textContent=S.update?(S.update.version+' available'):'up to date'; $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
   const m=S.miner||{}; $('mStat').textContent=m.running?'mining':'stopped'; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';

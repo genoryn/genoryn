@@ -98,7 +98,8 @@ krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 4
           <li><b>Overview</b>: under the balance, live tiles and charts for network hashrate, estimated miners, block time, shares, difficulty, GNR issued, your mining share and rewards, plus the latest blocks with the ones you found marked.</li>
           <li><b>Background mining</b>: while the miner runs, closing the window keeps the wallet, node and miner running; the desktop icon opens it again and <b>Quit</b> stops everything.</li>
           <li><b>Recovery</b>: 24 words with their numbers (384-bit entropy, checksummed) restore everything, and older 24-word phrases restore too; the wallet file is encrypted with Argon2id (256 MiB) and XChaCha20-Poly1305.</li>
-          <li><b>Several wallets</b>: the Wallets tab holds any number of wallets, each with its own 24 words and password, and shows their total. An unlocked wallet stays open for 24 hours, then locks itself and asks for its password again; the miner keeps running. Removing a wallet moves its file to a <code>removed</code> folder, and its 24 words bring it back.</li>
+          <li><b>History</b>: paged (15 to 100 entries per page), with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals.</li>
+          <li><b>Several wallets</b>: the Wallets tab holds any number of wallets (a paged list with search, filters and sorting), each with its own 24 words and password, and shows their total. An unlocked wallet stays open for 24 hours, then locks itself and asks for its password again; the miner keeps running. Removing a wallet moves its file to a <code>removed</code> folder, and its 24 words bring it back.</li>
         </ul>
         <p>A transaction spends at most two notes. When a payment needs more, the wallet merges notes automatically in parallel rounds (one block per round) and then pays.</p>
       </section>
