@@ -48,7 +48,7 @@ nav.tabs button .ic{opacity:.72;transition:opacity .2s}nav.tabs button.on .ic,na
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
 .card{padding:22px}
 .card h2{margin:0 0 14px;font:600 12px/1 var(--font-sans);text-transform:uppercase;letter-spacing:1.4px;color:var(--text-secondary)}
-.big{font:700 44px/1.1 var(--font-display);letter-spacing:-.5px}.big small{font:500 16px var(--font-sans);color:var(--text-secondary)}
+.big{font:700 44px/1.1 var(--font-display);letter-spacing:-.5px;max-width:100%}.big .num{white-space:nowrap;display:inline-block;max-width:100%}.big small{font:500 16px var(--font-sans);color:var(--text-secondary)}
 .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);color:var(--text-secondary)}.row b{color:var(--text-primary);font:400 14px var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
 label{display:block;color:var(--text-secondary);font-size:13.5px;margin-top:10px}
 input,select,textarea{margin:6px 0 10px}
@@ -444,7 +444,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
           <p class="hero-note">Keep the wallet running until a swap is done. Nobody holds your coins: not genoryn.io, not the other person.</p>
         </div>
       </div>
-      <div class="glass card" style="margin-top:18px"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><div id="swList"><p class="muted">No swaps yet.</p></div></div>
+      <div class="glass card" style="margin-top:18px"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><div id="swapList"><p class="muted">No swaps yet.</p></div></div>
       <div class="grid" style="margin-top:18px">
         <div class="glass card"><h2>Bitcoin connection</h2>
           <div class="row">Bitcoin network<b id="swNet">-</b></div>
@@ -672,6 +672,10 @@ function renderValue(){
 }
 function setShowVal(on){ VAL.show=on; try{ localStorage.setItem('gk-showval', on?'1':'0'); }catch(e){} renderValue(); }
 function setKwh(v){ v=Number(v); if(v>0&&v<10){ VAL.kwh=v; try{ localStorage.setItem('gk-kwh', String(v)); }catch(e){} renderValue(); } }
+/* Shrinks a big number until it fits its card (long balances such as 1,022.05775374). */
+function fitBig(el){ if(!el) return; const box=el.parentElement; el.style.fontSize='';
+  const avail=box.clientWidth, w=el.scrollWidth; if(avail>0 && w>avail){ const fs=parseFloat(getComputedStyle(el).fontSize); el.style.fontSize=Math.max(18, Math.floor(fs*avail/w))+'px'; } }
+window.addEventListener('resize', ()=>{ fitBig($('bal')); fitBig($('rUnpaid')); });
 function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast float '+(bad?'bad':''); setTimeout(()=>t.classList.add('hidden'), 6000); }
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
 let adding=false, restoreMode=false, W=null;
@@ -971,7 +975,7 @@ async function loadSwaps(first){
   $('swNet').textContent=SW.btc_network==='main'?'Bitcoin':SW.btc_network;
   if(first&&!swInit){ swInit=true; $('swBackend').value=SW.btc_backend||''; }
   const list=SW.swaps||[];
-  $('swList').innerHTML=list.length?list.map(swapCard).join(''):'<p class="muted">No swaps yet. Create a request to buy GNR, or paste a request code to sell.</p>';
+  $('swapList').innerHTML=list.length?list.map(swapCard).join(''):'<p class="muted">No swaps yet. Create a request to buy GNR, or paste a request code to sell.</p>';
 }
 function swapCard(s){
   const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
@@ -1071,6 +1075,7 @@ async function refresh(){
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
   const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
+  fitBig($('bal'));
   $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
   $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
@@ -1094,7 +1099,7 @@ async function refresh(){
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';
   $('mDay').textContent=m.running&&m.hashrate>0?'≈ '+Number(m.expected_per_day||0).toLocaleString(undefined,{maximumFractionDigits:2})+' GNR / day':'-';
   const rw=S.rewards; $('pInt').textContent=S.payout_interval||360;
-  $('rUnpaid').textContent=gnr(rw?rw.unpaid:0);
+  $('rUnpaid').textContent=gnr(rw?rw.unpaid:0); fitBig($('rUnpaid'));
   $('rNext').textContent=rw&&rw.next_payout_height?('block '+rw.next_payout_height+(tip?' (in ~'+Math.max(0,rw.next_payout_height-tip.height)+' min)':'')):'with your next share';
   $('rRecent').textContent=rw?rw.shares_recent:'-'; $('rBlocks').textContent=rw?rw.shares_recent_blocks||60:60;
   renderValue();
