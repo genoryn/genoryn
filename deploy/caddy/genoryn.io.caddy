@@ -23,6 +23,20 @@
 	request_body /v1/tx {
 		max_size 8MB
 	}
+	# The BTC price in dollars for the GNR market price, fetched by this server so visitors'
+	# browsers never contact a third party (connect-src stays 'self').
+	handle /v1/btc-price {
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		header Cache-Control "public, max-age=120"
+		rewrite * /api/v1/prices
+		reverse_proxy https://mempool.space {
+			header_up Host mempool.space
+			header_up -X-Forwarded-For
+			header_up -X-Real-IP
+			header_up -CF-Connecting-IP
+			header_up -Cookie
+		}
+	}
 	# Public node API for light wallets, explorers and miners (mainnet; testnet would be 31334).
 	@api path /v1/* /rpc
 	handle @api {

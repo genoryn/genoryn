@@ -125,6 +125,8 @@ pub struct Node {
     /// Our own transactions in the stem phase: (txid, first seen).
     stem: Mutex<Vec<(Hash32, Instant)>>,
     pub listen_port: u16,
+    /// Swap offers, mailboxes and the market price (`/v1/swap/...`).
+    pub board: crate::swapboard::Board,
 }
 
 impl Node {
@@ -154,6 +156,7 @@ impl Node {
             share_counts: Mutex::new(HashMap::new()),
             stem: Mutex::new(Vec::new()),
             listen_port,
+            board: Default::default(),
         })
     }
 

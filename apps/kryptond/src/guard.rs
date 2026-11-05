@@ -49,7 +49,9 @@ impl Class {
         match (method == Method::POST, p) {
             (true, "/v1/tx") => Class::Tx,
             (true, "/v1/verify-payment") => Class::Proof,
-            (true, "/v1/address") => Class::Address,
+            (true, "/v1/address") | (true, "/v1/swap/offers") | (true, "/v1/swap/trade") => {
+                Class::Address
+            }
             (true, "/v1/mining/template") => Class::Template,
             (true, "/v1/mining/submit") => Class::Submit,
             (true, _) => Class::Rpc,

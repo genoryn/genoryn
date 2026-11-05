@@ -126,7 +126,9 @@ impl Network {
                     hash: "8d650ee7c81cf920bd24ae4aaa3997bb7fcf4bba0e3ffa8205d388a75484a68d",
                     difficulty: 40_547_978_637,
                 }),
-                lock_height: u64::MAX,
+                // Atomic swaps (lock spends) activate here: announced with 1.0.13, about a
+                // day after its release, so wallets and nodes update first.
+                lock_height: 3_300,
             },
             Self::Testnet => ChainParams {
                 network: self,

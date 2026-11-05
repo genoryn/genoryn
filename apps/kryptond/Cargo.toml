@@ -16,6 +16,7 @@ krypton-store.workspace = true
 krypton-p2p.workspace = true
 krypton-light.workspace = true
 krypton-wallet-core.workspace = true
+krypton-swap = { path = "../../crates/krypton-swap" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

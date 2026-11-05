@@ -27,6 +27,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
 mod assets;
+mod board;
 mod swaps;
 mod update;
 mod vault;
@@ -81,6 +82,9 @@ struct Settings {
     /// Bitcoin network for swaps (`bitcoin`, `signet`, `regtest`); default per GNR network.
     #[serde(default)]
     btc_network: Option<String>,
+    /// Report completed swaps (amounts and hash lock only) for the market price.
+    #[serde(default)]
+    share_prices: Option<bool>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -464,6 +468,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "balance": balance,
             "swaps_open": swaps_open,
             "swap_locked": swap_locked,
+            "market": board::cached_market(),
             "synced_height": synced,
             "history": history,
             "settings": s,
@@ -1078,6 +1083,7 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
         s.auto_update = cur.auto_update;
         s.btc_backend = cur.btc_backend.clone();
         s.btc_network = cur.btc_network.clone();
+        s.share_prices = cur.share_prices;
     }
     *app.settings.lock() = s;
     match app.save_settings() {
@@ -1548,6 +1554,7 @@ async fn serve(
             auto_update: false,
             btc_backend: None,
             btc_network: None,
+            share_prices: None,
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
@@ -1715,6 +1722,10 @@ async fn serve(
         .route("/api/swap/accept", post(swaps::accept))
         .route("/api/swap/receive", post(swaps::receive))
         .route("/api/swap/decode", post(swaps::decode))
+        .route("/api/board", get(board::list))
+        .route("/api/board/publish", post(board::publish))
+        .route("/api/board/take", post(board::take))
+        .route("/api/board/cancel", post(board::cancel))
         .route("/api/swap/settings", post(swaps::settings))
         .with_state(app.clone());
     let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {

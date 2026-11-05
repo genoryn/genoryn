@@ -5,6 +5,7 @@ mod mempool;
 mod node;
 mod rpc;
 mod stats;
+mod swapboard;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -74,6 +75,7 @@ async fn main() -> Result<()> {
         env!("CARGO_PKG_VERSION"),
         dir.display()
     );
+    let trades = dir.join("swap-trades.json");
     let chain = Arc::new(tokio::task::spawn_blocking(move || Chain::open(&dir, network)).await??);
     let tip = chain.tip();
     tracing::info!(height = tip.height(), tip = %hex::encode(tip.hash), genesis = %hex::encode(chain.genesis.hash()), "chain loaded");
@@ -99,6 +101,7 @@ async fn main() -> Result<()> {
         max_per_ip: 4,
     });
     let node = node::Node::new(chain, net, listen.map(|l| l.port()).unwrap_or(0));
+    node.board.set_path(trades);
     let n2 = node.clone();
     tokio::spawn(async move { n2.run(rx).await });
 

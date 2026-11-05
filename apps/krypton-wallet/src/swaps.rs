@@ -35,7 +35,7 @@ pub fn btc_network(a: &App) -> krypton_swap::bitcoin::Network {
     }
 }
 
-fn backend_spec(a: &App) -> String {
+pub(crate) fn backend_spec(a: &App) -> String {
     // Release the settings lock first: btc_network takes it again.
     let set = a.settings.lock().btc_backend.clone();
     set.filter(|s| !s.trim().is_empty())
@@ -46,7 +46,7 @@ fn backend_spec(a: &App) -> String {
 }
 
 /// Why swaps cannot be used on this network yet, if they cannot.
-fn inactive(a: &App, w: Option<&Wallet>) -> Option<String> {
+pub(crate) fn inactive(a: &App, w: Option<&Wallet>) -> Option<String> {
     let at = a.network.params().lock_height;
     let tip = w.and_then(|w| w.synced_height()).unwrap_or(0);
     (tip.saturating_add(1) < at).then(|| {
@@ -280,7 +280,9 @@ pub async fn settings(
 
 /// Background round, with the active wallet already synced and locked by the caller.
 pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types::Transaction]) {
-    if engine::load(w).iter().all(|s| s.stage.finished()) || inactive(a, Some(w)).is_some() {
+    crate::board::refresh_market(a);
+    let idle = engine::load(w).iter().all(|s| s.stage.finished()) && !crate::board::has_work(w);
+    if idle || inactive(a, Some(w)).is_some() {
         return;
     }
     let Ok(backend) = btc::connect(&backend_spec(a)) else {
@@ -301,6 +303,7 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
     if let Err(x) = e.step(mempool) {
         *a.last_error.lock() = format!("swaps: {x}");
     }
+    crate::board::tick(a, &mut e);
 }
 
 pub fn active_count(w: &Wallet) -> usize {

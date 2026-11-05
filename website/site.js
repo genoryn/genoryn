@@ -85,6 +85,23 @@
     var put = function (sel, text) { document.querySelectorAll(sel).forEach(function (el) { el.textContent = text; }); };
     put("[data-cost]", e ? GKValue.usd(e.usd) : "—");
     put("[data-cost-kwh]", "$" + kwh.toFixed(2));
+    // The market price (median of completed swaps) replaces the estimate once it exists.
+    var mk = gk.mk || {}, btc = Number(gk.btcUsd) || 0;
+    var sat = function (p) { return (p >= 100 ? Math.round(p).toLocaleString("en-US") : Number(p).toPrecision(3)) + " sat"; };
+    var dollars = function (p) { return btc > 0 ? " (" + GKValue.usd(p * btc / 1e8) + ")" : ""; };
+    put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) + " · " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") : "no swaps yet");
+    put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));
+    var market = !!(mk.price && btc > 0);
+    put("[data-main]", market ? GKValue.usd(mk.price * btc / 1e8) : e ? GKValue.usd(e.usd) : "—");
+    put("[data-vlabel]", market ? "Market price" : "Reference value");
+    document.querySelectorAll("[data-vnote]").forEach(function (el) {
+      if (el.dataset.orig == null) el.dataset.orig = el.innerHTML;
+      if (market) {
+        el.textContent = "Median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + " completed on the wallet's offer board in the last 24 hours: " + sat(mk.price) + " per GNR. People set this price themselves with their offers; nobody quotes it.";
+      } else {
+        el.innerHTML = el.dataset.orig;
+      }
+    });
     if (!e) return;
     put("[data-cost-rate]", gk.rate(info.hashrate));
     put("[data-cost-gpus]", "≈ " + (e.gpus < 10 ? e.gpus.toFixed(1) : Math.round(e.gpus).toLocaleString("en-US")) + " " + GKValue.REF.name);
@@ -97,7 +114,12 @@
   };
   if (document.querySelector("[data-cost]")) {
     var lastInfo = null;
-    var loadCost = function () { gk.api("/v1/info").then(function (i) { lastInfo = i; gk.value(i); }).catch(function () {}); };
+    var loadCost = function () {
+      var info = gk.api("/v1/info");
+      var mk = gk.api("/v1/swap/market").then(function (m) { gk.mk = m.market; }).catch(function () {});
+      var btc = gk.api("/v1/btc-price").then(function (p) { gk.btcUsd = p.USD; }).catch(function () {});
+      info.then(function (i) { lastInfo = i; return Promise.all([mk, btc]).then(function () { gk.value(i); }); }).catch(function () {});
+    };
     loadCost();
     setInterval(function () { if (!document.hidden) loadCost(); }, 60000);
     var kwhIn = document.getElementById("kwh");

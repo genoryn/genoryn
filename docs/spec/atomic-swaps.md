@@ -7,8 +7,10 @@ Status: **implemented, live on devnet, not active on mainnet.** Implemented and 
 * the swap engine;
 * the wallet's **Swap** tab.
 
-On mainnet, lock spends need a hard fork at an announced height (`lock_height`). Until
-then the Swap tab explains this and stays disabled.
+On mainnet, lock spends activate at **block 3,300** (`lock_height`), a hard fork announced
+with release 1.0.13. Nodes older than 1.0.13 reject blocks with lock spends from that height
+on, so every node and miner must update first. Until then the Swap tab explains this and
+stays disabled. The offer board and the market price are part of 1.0.13 too.
 
 ## Goal
 
@@ -75,7 +77,7 @@ Funding needs no special wallet support. The GNR wallet shows the HTLC address a
 amount, and the user pays it from any Bitcoin wallet. Claim and refund are signed by the GNR
 wallet with the swap key and sent to an address the user chooses.
 
-## GNR side: lock notes (implemented, not active on mainnet)
+## GNR side: lock notes (implemented; mainnet from block 3,300)
 
 Every GNR transaction is a shielded transfer. A note can only be spent by proving knowledge of
 its owner's secret key inside the zk-STARK (`spend-circuit.md`). Rescue hashes are not
@@ -133,12 +135,12 @@ lock: { terms, mode: Claim { secret: s } | Refund }
 * **What becomes public:** the terms and `s` of the swap input, which link the GNR spend to the
   Bitcoin HTLC (the Bitcoin side is public anyway). The amount and both parties' GNR addresses
   stay private.
-* **Activation:** `lock_height` is 0 on devnet and not set (`u64::MAX`) on testnet and
-  mainnet. Mainnet activation is a hard fork at a height announced at least two weeks ahead.
-  The in-app updater ships it, and nodes that do not upgrade stop following the chain at that
-  height. The same upgrade can fix the reward-timing items R-1 and R-2 from the
-  [2026-11-05 audit](../audit/2026-11-05-security-audit.md). Until activation, wallets refuse to
-  create lock notes.
+* **Activation:** `lock_height` is 0 on devnet, 3,300 on mainnet (announced with 1.0.13) and
+  not set (`u64::MAX`) on testnet. Mainnet activation is a hard fork. The in-app updater
+  ships it, and nodes that do not upgrade reject blocks with lock spends from that height. The
+  reward-timing items R-1 and R-2 from the
+  [2026-11-05 audit](../audit/2026-11-05-security-audit.md) are not part of this upgrade; they
+  need their own. Until activation, wallets refuse to create lock notes.
 * **Tests:**
   * Circuit (`krypton-zk`): a lock proof binds its lock owner. A lock proof does not pass as
     an ordinary spend or as a spend of another lock, and an ordinary proof does not pass as a
@@ -220,14 +222,35 @@ Bitcoin Core regtest node.
 * **Fees.** The GNR seller pays the bitcoin claim fee and the BTC seller the GNR claim fee, plus
   each side's funding. The wallet shows them before anything is locked.
 
-## Finding a counterparty
+## Offer board and market price (implemented)
 
-genoryn.io will run an **offer board**: public offers (side, amount range, price, expiry) and an
-encrypted message relay between the two wallets. Messages are encrypted to the other party's
-post-quantum GNR address, so the board only sees ciphertext. It never holds keys or coins and
-cannot take part in a swap. Anyone can run another board, and two people can also swap by
-exchanging the terms directly.
+Every node serves an offer board under `/v1/swap/` (genoryn.io for mainnet wallets). Its
+code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.rs`.
 
+* **Offers:** side (sell or buy GNR), amounts, expiry (at most 24 h) and a one-time hybrid
+  X25519 + ML-KEM-1024 key. The key is derived from the wallet's swap seed and is used for
+  nothing else, so offers cannot be linked to an address or to each other. A hash of a secret
+  lets only the maker cancel the offer.
+* **Mailboxes:** messages are sealed to the recipient's offer key, and carry the sender's key
+  for the reply. The board stores ciphertext for a day under `inbox = H(key)`.
+* **What travels:** taking an offer starts a swap, and the two wallets send each other the
+  request, accept and deposit codes through the mailboxes by themselves. A wallet accepts
+  only a request with exactly the offer's amounts, and an offer is taken once. The only
+  manual step left is the buyer paying the bitcoin into the contract address.
+* **Spam:** offers, messages and trade reports carry an 18-bit proof of work, and there are
+  per-client limits, caps on offers, messages and inbox size, and expiry. Offers and messages
+  live in memory.
+* **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
+  default; the setting `share_prices` turns it off). The board accepts a report only if a
+  claim with that hash lock is on its own chain, and it counts each hash once.
+  * The price is the volume-weighted median of the last 24 hours in sat per GNR, which a few
+    odd trades cannot move. The best sell and buy offers are shown next to it.
+  * The wallet and genoryn.io convert it to dollars with the BTC price, which genoryn.io
+    fetches from mempool.space, so visitors' browsers contact no third party.
+  * Until swaps exist, both fall back to the cost-to-mine estimate and say so.
+* **Known limit:** the GNR amount of a trade cannot be checked on chain (it is private). Wash
+  trades (someone trading with themselves at a made-up price) are possible, as on any
+  exchange. The median and the trade count shown next to the price limit their effect.
 ## Plan
 
 | Phase | Work | Status |
@@ -235,5 +258,5 @@ exchanging the terms directly.
 | 0 | Bitcoin HTLC, claim, refund, secret extraction, timelock rules, seed derivation, tests against Bitcoin Core's interpreter | **done** |
 | 1 | GNR lock notes: circuit, transaction v2, consensus and mempool rules, wallet lock, claim, refund and recovery | **done**, active on devnet |
 | 2 | Swap engine (codes, state machine, Esplora and Bitcoin Core clients, encrypted swap state) and the Swap tab | **done**, tested on devnet + Bitcoin regtest |
-| 3 | Offer board and encrypted message relay on genoryn.io, so codes need no copy and paste | next |
-| 4 | Review of the circuit change, public testnet (signet) swaps, then the mainnet activation height | before mainnet |
+| 3 | Offer board, sealed mailboxes and the market price from completed swaps | **done** |
+| 4 | Mainnet activation at block 3,300 (release 1.0.13); first swaps with small amounts; an independent review of the circuit change | **scheduled** |

@@ -414,6 +414,7 @@ impl Timing {
     }
 }
 
+pub mod board;
 pub mod btc;
 pub mod engine;
 

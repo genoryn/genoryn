@@ -83,6 +83,18 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/address-info/{addr}", get(address_info))
         .route("/v1/verify-payment", post(verify_payment))
         .route("/v1/ws", get(ws))
+        .route(
+            "/v1/swap/offers",
+            get(crate::swapboard::offers).post(crate::swapboard::post_offer),
+        )
+        .route(
+            "/v1/swap/offers/cancel",
+            post(crate::swapboard::cancel_offer),
+        )
+        .route("/v1/swap/inbox", post(crate::swapboard::post_message))
+        .route("/v1/swap/inbox/{id}", get(crate::swapboard::inbox))
+        .route("/v1/swap/trade", post(crate::swapboard::post_trade))
+        .route("/v1/swap/market", get(crate::swapboard::market))
         .route("/rpc", post(json_rpc))
         .with_state(node.clone())
         .layer(tower_http::limit::RequestBodyLimitLayer::new(

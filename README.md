@@ -257,9 +257,17 @@ Peer-to-peer **BTC ⇄ GNR atomic swaps**, with no exchange or custody, are buil
 * GNR lock notes, with consensus and circuit support;
 * a swap engine that claims and refunds by itself.
 
-They are tested end to end between two wallets and a Bitcoin Core node. Lock spends are
-active on devnet. On mainnet they switch on with a hard fork at a height announced in
-advance; see [docs/spec/atomic-swaps.md](docs/spec/atomic-swaps.md).
+They are tested end to end between two wallets and a Bitcoin Core node. The Swap tab's
+**offer board** lets anyone publish an offer at their own price or take someone else's. The
+two wallets then pass the swap codes to each other through sealed mailboxes on the board.
+
+**Market price:** the wallet and genoryn.io show the volume-weighted median of the swaps
+completed in the last 24 hours. Until swaps exist, they show the cost to mine one GNR
+instead, and say so.
+
+**Activation:** lock spends activate on mainnet at **block 3,300**. This is a hard fork
+announced with 1.0.13, so update your wallet and node before then. See
+[docs/spec/atomic-swaps.md](docs/spec/atomic-swaps.md).
 
 ## Repository layout
 
