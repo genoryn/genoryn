@@ -47,7 +47,7 @@ textarea { resize: vertical; font-family: var(--font-mono); font-size: 13px; }
 .btn:hover { background: var(--bg-hover); border-color: var(--line-strong); }
 .btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: transparent; }
 .btn-primary:hover { background: var(--btn-primary-bg); box-shadow: 0 0 0 1px var(--neon), 0 0 24px var(--neon-soft); }
-.btn:disabled { opacity: .55; cursor: wait; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring) !important; }
 
 /* Neon, used sparingly. */

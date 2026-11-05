@@ -1095,7 +1095,9 @@ function renderBook(){
   const act=o=>{
     if(BDV.tab==='mine') return o.taken?'<span class="pill">taken</span>':o.expired?'<span class="pill">expired</span>':`<button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button>`;
     if(o.mine) return '<span class="pill">yours</span>';
-    return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" ${SW.active?'':'disabled title="Swaps start at the network upgrade"'} onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${o.side==='sell_gnr'?'Buy':'Sell'}</button>`;
+    const label=o.side==='sell_gnr'?'Buy':'Sell';
+    if(!SW.active) return `<button class="btn" title="Swaps start at the network upgrade" onclick="bdNotYet()">${label}</button>`;
+    return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${label}</button>`;
   };
   $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="mono">${fmtSat(o.price)}<span class="muted">${satUsd(o.price)}</span></td><td class="mono">${esc(o.gnr_text)}</td><td class="mono">${esc(o.btc_text)}</td><td class="mono">${vs(o.price)}</td><td>${o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
@@ -1135,6 +1137,13 @@ async function boardTake(id, side, g, b){
     input:{placeholder:'bc1q…', max:100}});
   if(!addr) return;
   try{ await api('/api/board/take',{id, address:String(addr).trim()}); toast('Swap started: follow it under Your swaps'); loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
+}
+/* Before activation: explain instead of a dead button. */
+function bdNotYet(){
+  const at=Number(((SW.reason||'').match(/block (\d+)/)||[])[1])||0, h=Number(S.synced_height||(S.tip&&S.tip.height)||0);
+  const left=at&&h?Math.max(0,at-h-1):null;
+  ask({title:'Swaps start at block '+(at?at.toLocaleString():'3,300'), icon:'swap', ok:'OK', hideCancel:true,
+    body:`<p class="mtext">${left!=null?`That is <b>${left.toLocaleString()} blocks</b> from now, about <b>${Math.ceil(left/60)} hours</b>. `:''}Until then you can publish your own offers (they already count for the market price), and they can be taken as soon as swaps are live. Keep the wallet updated and running.</p>`});
 }
 async function boardCancel(id){ try{ await api('/api/board/cancel',{id}); toast('Offer cancelled'); loadBoard(); }catch(e){ toast(e.message,true) } }
 async function swapSettings(){ try{ const r=await api('/api/swap/settings',{backend:$('swBackend').value.trim()}); $('swBackend').value=r.btc_backend; toast('Saved'); loadSwaps(); }catch(e){ toast(e.message,true) } }
