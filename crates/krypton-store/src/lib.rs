@@ -1327,7 +1327,7 @@ impl Chain {
     ) -> std::result::Result<(), CoreError> {
         let st = consensus::check_tx_structure(tx)?;
         let view = self.view().map_err(|_| CoreError::Invalid("storage"))?;
-        consensus::check_transfer_state(&view, tx, self.tip().height() + 1)?;
+        consensus::check_transfer_state(&self.params, &view, tx, self.tip().height() + 1)?;
         consensus::verify_proof(tx, &st)
     }
 
@@ -1337,7 +1337,7 @@ impl Chain {
         tx: &krypton_core::Transaction,
     ) -> std::result::Result<(), CoreError> {
         let view = self.view().map_err(|_| CoreError::Invalid("storage"))?;
-        consensus::check_transfer_state(&view, tx, self.tip().height() + 1)
+        consensus::check_transfer_state(&self.params, &view, tx, self.tip().height() + 1)
     }
 
     /// Coin supply issued through the tip.

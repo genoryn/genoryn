@@ -2473,7 +2473,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "krypton-core"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "hex",
  "krypton-crypto",
@@ -2485,13 +2485,14 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.21",
  "zeroize",
 ]
 
 [[package]]
 name = "krypton-crypto"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2514,7 +2515,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-light"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "hex",
@@ -2529,7 +2530,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-miner"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "clap",
@@ -2545,7 +2546,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-p2p"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "chacha20poly1305",
@@ -2563,7 +2564,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-pow"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "blake3",
  "cudarc",
@@ -2578,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-release"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "hex",
@@ -2589,7 +2590,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-sdk"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "krypton-core",
  "krypton-crypto",
@@ -2599,7 +2600,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-setup"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "eframe",
@@ -2612,7 +2613,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-store"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "krypton-core",
@@ -2629,17 +2630,30 @@ dependencies = [
 
 [[package]]
 name = "krypton-swap"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
+ "anyhow",
  "bitcoin",
+ "hex",
+ "krypton-core",
+ "krypton-crypto",
+ "krypton-light",
+ "krypton-pow",
+ "krypton-store",
+ "krypton-wallet-core",
+ "rand 0.8.8",
  "rand_core 0.6.4",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "zeroize",
 ]
 
 [[package]]
 name = "krypton-wallet"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "axum",
@@ -2649,6 +2663,7 @@ dependencies = [
  "krypton-crypto",
  "krypton-light",
  "krypton-pow",
+ "krypton-swap",
  "krypton-wallet-core",
  "parking_lot",
  "png 0.17.16",
@@ -2666,7 +2681,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-cli"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "clap",
@@ -2683,7 +2698,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-core"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "bip39",
@@ -2704,7 +2719,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-zk"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "krypton-crypto",
  "proptest",
@@ -2716,7 +2731,7 @@ dependencies = [
 
 [[package]]
 name = "kryptond"
-version = "1.0.10"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "axum",

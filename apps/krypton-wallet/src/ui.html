@@ -111,6 +111,14 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 @media (max-width:640px){.ov-kpis{grid-template-columns:1fr 1fr}.ov-grid{grid-template-columns:1fr}.ov-grid .wide{grid-column:auto}}
 @media (prefers-reduced-motion:reduce){.ov,.blk,.ov-kpi{transition:none}.blk{transform:none}.blk.new{animation:none}}
 .chip-btn{cursor:pointer;font:inherit;font-size:12px}.chip-btn .ic{width:14px;height:14px}.chip-btn b{color:var(--text-primary);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.swsteps{margin:0 0 12px;padding-left:20px;color:var(--text-secondary);font-size:13.5px;line-height:1.55}.swsteps li{margin:6px 0}.swsteps b{color:var(--text-primary)}
+.swbtn{margin-top:14px}.swap-off{margin-bottom:18px;border-color:var(--line-strong)}
+.tab-badge{font-style:normal;font-size:10.5px;font-weight:700;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:var(--text-primary);color:var(--bg-base,#000);display:inline-flex;align-items:center;justify-content:center;margin-left:6px}
+.swc{padding:16px;border:1px solid var(--line);border-radius:14px;margin-top:12px;background:var(--bg-inset)}
+.swc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.swc-head b{font:600 16px var(--font-sans)}.swc-head span{color:var(--text-secondary);font-size:13px}.swc-head .pill{margin-left:auto}
+.swc-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0 10px}.swc-steps i{font-style:normal;font-size:11px;color:var(--text-tertiary);border-top:2px solid var(--line);padding-top:6px;letter-spacing:.3px}.swc-steps i.on{color:var(--text-primary);border-color:var(--text-primary)}
+.swc-status{margin:6px 0 10px;font-size:14px}.swc .addr{margin:6px 0 8px;word-break:break-all;max-height:120px;overflow:auto}
+.swc details{margin-top:8px;font-size:13px}.swc summary{cursor:pointer;color:var(--text-secondary)}.swc-log{margin:8px 0 0;padding-left:18px;color:var(--text-secondary);font-size:12.5px}
 .pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--text-primary)}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}.toolbar input,.toolbar select{margin:0;width:auto}.toolbar input[type=search]{flex:1;min-width:200px}
 .seg{display:inline-flex;gap:2px;padding:4px;border-radius:12px;border:1px solid var(--line);background:var(--bg-inset);overflow-x:auto;scrollbar-width:none;max-width:100%}
@@ -196,6 +204,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <symbol id="i-mining" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
   <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M10.9 7 6.1 16M13.1 7l4.8 9M7.3 18h9.4"/></symbol>
   <symbol id="i-security" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></symbol>
   <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/></symbol>
   <symbol id="i-explorer" viewBox="0 0 24 24"><path d="M12 2.8 20 7.3v9.4L12 21.2 4 16.7V7.3Z"/><path d="M4 7.3 12 12l8-4.7M12 12v9.2"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
@@ -266,6 +275,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <nav class="tabs glass" aria-label="Wallet sections">
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
+      <button class="rail" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swap</span><em class="tab-badge hidden" id="swBadge"></em></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
       <button class="rail" data-tab="security"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><span>Security</span></button>
@@ -324,6 +334,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
+        <div class="row hidden" id="bLockRow">Locked in swaps<b id="bLock">0</b></div>
         <div class="row hidden" id="bIncRow">Incoming, not confirmed yet<b id="bInc">0</b></div>
         <p id="busy" class="warn"></p>
       </div>
@@ -404,6 +415,42 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
           <label for="proofIn">Paste a payment proof (<code>gnrpay1…</code>)</label><textarea id="proofIn" style="min-height:76px"></textarea>
           <button class="btn btn-primary" onclick="verifyProof()">Verify</button>
           <div id="proofRes" class="hidden" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="tab-swap" class="hidden">
+      <div class="glass card swap-off hidden" id="swOff"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Atomic swaps are coming</h2><p class="muted" id="swOffWhy"></p></div>
+      <div class="grid">
+        <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Buy GNR with bitcoin</h2>
+          <p class="muted">You pay bitcoin, the other person locks GNR. Either both of you get paid, or both get your own coins back.</p>
+          <label for="swGnr">GNR you receive</label><input id="swGnr" inputmode="decimal" placeholder="100" autocomplete="off">
+          <label for="swBtc">Bitcoin you pay (BTC)</label><input id="swBtc" inputmode="decimal" placeholder="0.001" autocomplete="off">
+          <label for="swRef">Your Bitcoin address for a refund</label><input id="swRef" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
+          <button class="btn btn-primary swbtn" onclick="swapRequest()">Create request code</button>
+        </div>
+        <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg>Paste a swap code</h2>
+          <p class="muted">Codes start with <code>gks1</code>: a request from someone who wants to buy your GNR, or the next code of a swap in progress.</p>
+          <label for="swCode">Swap code</label><textarea id="swCode" class="mono" spellcheck="false" style="min-height:96px"></textarea>
+          <div id="swPayRow" class="hidden"><label for="swPay">Your Bitcoin address to receive the bitcoin</label><input id="swPay" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"></div>
+          <button class="btn btn-primary swbtn" onclick="swapCode()">Continue</button>
+        </div>
+        <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>How it works</h2>
+          <ol class="swsteps">
+            <li><b>Request.</b> The buyer creates a request code and sends it to the seller.</li>
+            <li><b>Accept.</b> The seller pastes it and sends back an accept code.</li>
+            <li><b>Deposit.</b> The buyer pays the bitcoin into the contract address shown here and sends the deposit code.</li>
+            <li><b>Automatic.</b> The wallets finish alone: the seller locks GNR, the buyer claims it, the seller takes the bitcoin with the secret that claim reveals. If anyone stops, timeouts refund both.</li>
+          </ol>
+          <p class="hero-note">Keep the wallet running until a swap is done. Nobody holds your coins: not genoryn.io, not the other person.</p>
+        </div>
+      </div>
+      <div class="glass card" style="margin-top:18px"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><div id="swList"><p class="muted">No swaps yet.</p></div></div>
+      <div class="grid" style="margin-top:18px">
+        <div class="glass card"><h2>Bitcoin connection</h2>
+          <div class="row">Bitcoin network<b id="swNet">-</b></div>
+          <label for="swBackend">Bitcoin data source</label><input id="swBackend" class="mono" spellcheck="false" autocomplete="off">
+          <p class="hero-note">An Esplora API (mempool.space by default; it can see which swap addresses this wallet looks up) or your own Bitcoin Core node: <code>rpc:http://user:password@127.0.0.1:8332</code>. Leave empty for the default.</p>
+          <button class="btn" onclick="swapSettings()">Save</button>
         </div>
       </div>
     </div>
@@ -910,8 +957,58 @@ async function saveSettings(){ const mode=[...document.getElementsByName('mode')
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
-const TABS=['wallet','history','mining','network','security','about'];
-function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); }
+const TABS=['wallet','history','swap','mining','network','security','about'];
+function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); }
+/* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
+let SW={swaps:[]}, swInit=false;
+const SW_STEPS=['Request','Accept','Deposit','Lock','Claim','Done'];
+const SW_AT={requested:1,accepted:2,await_deposit:2,deposited:3,locked:4,claiming:5,done:6,refunding:4,refunded:6,failed:2};
+const SW_LABEL={requested:'Waiting for accept',accepted:'Waiting for deposit code',await_deposit:'Pay the deposit',deposited:'Deposit made',locked:'GNR locked',claiming:'Claiming',done:'Done',refunding:'Refunding',refunded:'Refunded',failed:'Stopped'};
+async function loadSwaps(first){
+  try{ SW=await api('/api/swaps'); }catch(e){ return; }
+  $('swOffWhy').textContent=SW.reason||''; $('swOff').classList.toggle('hidden', !!SW.active);
+  document.querySelectorAll('#tab-swap .swbtn').forEach(b=>b.disabled=!SW.active);
+  $('swNet').textContent=SW.btc_network==='main'?'Bitcoin':SW.btc_network;
+  if(first&&!swInit){ swInit=true; $('swBackend').value=SW.btc_backend||''; }
+  const list=SW.swaps||[];
+  $('swList').innerHTML=list.length?list.map(swapCard).join(''):'<p class="muted">No swaps yet. Create a request to buy GNR, or paste a request code to sell.</p>';
+}
+function swapCard(s){
+  const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
+  const showCode=s.code&&['requested','accepted','deposited'].includes(s.stage)&&!(s.role==='gnr_seller'&&s.stage==='deposited');
+  const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
+  const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString()} · ${esc(m)}</li>`).join('');
+  return `<div class="swc"><div class="swc-head"><b>${buy?'Buy':'Sell'} ${esc(s.gnr_text)} GNR</b><span>for ${esc(s.btc_text)} BTC</span><span class="pill">${esc(SW_LABEL[s.stage]||s.stage)}</span></div>
+    <div class="swc-steps">${SW_STEPS.map((n,i)=>`<i class="${i<at?'on':''}">${n}</i>`).join('')}</div>
+    <p class="swc-status">${esc(s.status)}</p>
+    ${showCode?`<label>Send this code to the other person</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">Copy code</button>`:''}
+    ${s.stage==='await_deposit'&&s.htlc_address?`<label>Pay exactly ${esc(s.btc_text)} BTC to this contract address</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy address</button>`:''}
+    <details><summary>Details</summary>
+      ${row('You receive',s.receive_text)}${row('Your Bitcoin address',s.btc_address)}${row('Contract address',s.htlc_address)}
+      ${row('GNR refund from block',s.gnr_refund_height)}${row('Bitcoin refund after block',s.btc_refund_height)}
+      ${row('Deposit',s.deposit?s.deposit.txid+':'+s.deposit.vout:'')}${row('Our bitcoin transaction',s.btc_spend)}${row('Swap id',s.id)}
+      <ol class="swc-log">${log}</ol></details></div>`;
+}
+async function swapRequest(){
+  const gnrA=$('swGnr').value.trim(), btcA=$('swBtc').value.trim(), addr=$('swRef').value.trim();
+  if(!gnrA||!btcA||!addr) return toast('Enter both amounts and your Bitcoin refund address',true);
+  if(!await ask({title:'Create a swap request?', icon:'swap', ok:'Create request',
+    body:`<p class="mtext">You will receive <b>${esc(gnrA)} GNR</b> for <b>${esc(btcA)} BTC</b>. Nothing is paid yet: you pay the bitcoin only after the seller accepts, into a contract that refunds you if they never lock their GNR.</p>`})) return;
+  try{ await api('/api/swap/request',{gnr:gnrA, btc:btcA, address:addr}); toast('Request created: copy the code below'); loadSwaps(); }catch(e){ toast(e.message,true) }
+}
+async function swapCode(){
+  const code=$('swCode').value.trim(); if(!code) return toast('Paste a swap code',true);
+  try{ await api('/api/swap/receive',{code}); $('swCode').value=''; toast('Swap updated'); loadSwaps(); return; }
+  catch(e){ if(!/^REQUEST:/.test(e.message)) return toast(e.message,true); }
+  let m; try{ m=await api('/api/swap/decode',{code}); }catch(e){ return toast(e.message,true); }
+  const pay=$('swPay').value.trim();
+  if(!pay){ show('swPayRow'); $('swPay').focus(); return toast('Someone wants to buy your GNR: enter your Bitcoin address to receive the bitcoin, then press Continue'); }
+  if(!await ask({title:'Sell '+m.gnr_text+' GNR for '+m.btc_text+' BTC?', icon:'swap', ok:'Accept',
+    body:`<p class="mtext">Your wallet locks the GNR only after the buyer's bitcoin deposit has confirmed. The bitcoin goes to <span class="mono">${esc(pay)}</span>. If the buyer never claims, the GNR comes back to you automatically.</p>`})) return;
+  try{ await api('/api/swap/accept',{code, address:pay}); $('swCode').value=''; hide('swPayRow'); toast('Accepted: send the accept code to the buyer'); loadSwaps(); }catch(e){ toast(e.message,true) }
+}
+async function swapSettings(){ try{ const r=await api('/api/swap/settings',{backend:$('swBackend').value.trim()}); $('swBackend').value=r.btc_backend; toast('Saved'); loadSwaps(); }catch(e){ toast(e.message,true) } }
+setInterval(()=>{ if(!document.hidden && !$('tab-swap').classList.contains('hidden')) loadSwaps(); }, 8000);
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
@@ -974,6 +1071,8 @@ async function refresh(){
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
   const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
+  $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
+  $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;
   if(tip){ const ok = v!=null && v>=tip.height-1; $('sync').innerHTML = ok ? `<span class="dot"></span> verified · block ${v}` : `<span class="dot live"></span> syncing ${v??0}/${tip.height}`; $('sync').className='badge '+(ok?'ok':'warn');

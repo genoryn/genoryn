@@ -1,6 +1,7 @@
 //! Blocks, headers and transactions with canonical encodings.
 
 use crate::codec::{Reader, Writer};
+use crate::lock::LockSpend;
 use crate::params::{MAX_BLOCK_BYTES, MAX_PROOF_BYTES};
 use crate::{CoreError, Hash32, Result};
 use krypton_crypto::field::{Digest, digest_from_bytes, digest_from_uniform};
@@ -8,6 +9,8 @@ use krypton_crypto::hash::{tagged, tagged_parts};
 use krypton_zk::SpendPublic;
 
 pub const TX_VERSION: u16 = 1;
+/// Lock spends (atomic swaps): version 1 plus a [`LockSpend`] for input 0.
+pub const TX_VERSION_LOCK: u16 = 2;
 pub const HEADER_VERSION: u32 = 1;
 pub const MEMO_LEN: usize = 128;
 pub const NOTE_PLAINTEXT_LEN: usize = 8 + 32 + MEMO_LEN;
@@ -134,6 +137,9 @@ pub struct Transaction {
     pub mint: u64,
     /// Last height at which the transaction may be mined (coinbase: its height).
     pub expiry_height: u64,
+    /// Input 0 spends a lock note (version 2 only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lock: Option<LockSpend>,
     #[serde(with = "hex::serde")]
     pub proof: Vec<u8>,
 }
@@ -153,6 +159,9 @@ impl Transaction {
             w.raw(&o.cm).bytes(&o.ciphertext);
         }
         w.u64(self.fee).u64(self.mint).u64(self.expiry_height);
+        if let Some(l) = &self.lock {
+            l.encode(w);
+        }
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut w = Writer::default();
@@ -174,15 +183,24 @@ impl Transaction {
             Ok(Output { cm, ciphertext })
         };
         let outputs = [out()?, out()?];
+        let fee = r.u64()?;
+        let mint = r.u64()?;
+        let expiry_height = r.u64()?;
+        let lock = if version == TX_VERSION_LOCK {
+            Some(LockSpend::decode(r)?)
+        } else {
+            None
+        };
         Ok(Self {
             version,
             kind,
             anchor,
             nullifiers,
             outputs,
-            fee: r.u64()?,
-            mint: r.u64()?,
-            expiry_height: r.u64()?,
+            fee,
+            mint,
+            expiry_height,
+            lock,
             proof: r.bytes(MAX_PROOF_BYTES)?,
         })
     }
@@ -216,6 +234,7 @@ impl Transaction {
             fee: self.fee,
             mint: self.mint,
             sighash: self.sighash(),
+            lock_owner: self.lock.as_ref().map(|l| l.terms.owner()),
         })
     }
     pub fn size(&self) -> usize {

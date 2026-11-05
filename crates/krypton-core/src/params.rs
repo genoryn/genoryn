@@ -42,6 +42,9 @@ pub struct ChainParams {
     /// they are shown and refuse headers above it with far less difficulty, so a server
     /// cannot present a cheap low-difficulty chain. Not a consensus rule.
     pub checkpoint: Option<Checkpoint>,
+    /// First height at which lock spends (atomic swaps) are valid. `u64::MAX` until an
+    /// activation height is announced: older nodes reject them, so this is a hard fork.
+    pub lock_height: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -123,6 +126,7 @@ impl Network {
                     hash: "8d650ee7c81cf920bd24ae4aaa3997bb7fcf4bba0e3ffa8205d388a75484a68d",
                     difficulty: 40_547_978_637,
                 }),
+                lock_height: u64::MAX,
             },
             Self::Testnet => ChainParams {
                 network: self,
@@ -144,6 +148,7 @@ impl Network {
                 payout_interval: 360,
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:31333"],
                 checkpoint: None,
+                lock_height: u64::MAX,
             },
             Self::Devnet => ChainParams {
                 network: self,
@@ -162,6 +167,7 @@ impl Network {
                 payout_interval: 4,
                 seeds: &[],
                 checkpoint: None,
+                lock_height: 0,
             },
         }
     }

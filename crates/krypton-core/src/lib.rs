@@ -7,6 +7,7 @@ pub mod codec;
 pub mod consensus;
 pub mod difficulty;
 pub mod emission;
+pub mod lock;
 pub mod mmr;
 pub mod params;
 pub mod reward;

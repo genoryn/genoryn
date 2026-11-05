@@ -9,12 +9,19 @@ fn note_input(sk: u64, value: u64, pos: u64) -> InputWitness {
         pos,
         path,
         dummy: false,
+        lock: false,
     }
 }
 
-/// Two real inputs at different positions sharing one tree root.
 fn valid_witness() -> SpendWitness {
+    witness(false)
+}
+
+/// Two real inputs at different positions sharing one tree root; input 0 is a lock
+/// note if `lock`.
+fn witness(lock: bool) -> SpendWitness {
     let mut a = note_input(11, 700, 5);
+    a.lock = lock;
     let mut b = note_input(12, 300, 6);
     // Positions 5 and 6 share all ancestors from level 2 upward: build consistent paths.
     let leaves_left = [rand_digest(), rand_digest()]; // positions 4 and 7
@@ -171,6 +178,90 @@ fn forged_unbalanced_spend_fails() {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| prover.prove(trace)));
     if let Ok(Ok(proof)) = result {
         assert!(verify(&public, &proof.to_bytes()).is_err());
+    }
+}
+
+fn forged_proof_fails(w: &SpendWitness, public: &SpendPublic) {
+    let trace = build_trace(w);
+    let prover = SpendProver {
+        options: proof_options(),
+        public: public.clone(),
+    };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| prover.prove(trace)));
+    if let Ok(Ok(proof)) = result {
+        assert!(verify(public, &proof.to_bytes()).is_err());
+    }
+}
+
+#[test]
+fn lock_spend_proves_and_binds_the_lock_owner() {
+    let w = witness(true);
+    let (public, proof) = prove(&w).expect("prove");
+    let k = w.inputs[0].keys();
+    assert_eq!(public.lock_owner, Some(rescue::lock_owner_of(&k.ak, &k.nk)));
+    assert_ne!(public.lock_owner, Some(k.owner));
+    verify(&public, &proof).expect("verify");
+    // The same proof is not an ordinary spend, nor a spend of another lock note.
+    let mut p = public.clone();
+    p.lock_owner = None;
+    assert!(verify(&p, &proof).is_err());
+    let mut p = public.clone();
+    p.lock_owner.as_mut().unwrap()[2] += Felt::ONE;
+    assert!(verify(&p, &proof).is_err());
+    // An ordinary proof does not pass as a lock spend.
+    let (public, proof) = prove(&valid_witness()).unwrap();
+    let mut p = public.clone();
+    p.lock_owner = Some(SpendKeys::from_sk(rescue::scalar(11)).owner);
+    assert!(verify(&p, &proof).is_err());
+}
+
+#[test]
+fn lock_witness_rules() {
+    let mut w = witness(true);
+    w.inputs[1].lock = true;
+    assert!(matches!(prove(&w), Err(ZkError::Witness(_))));
+    let mut w = coinbase_witness();
+    w.inputs[0].lock = true;
+    assert!(matches!(prove(&w), Err(ZkError::Witness(_))));
+}
+
+/// Whoever knows a lock note's key cannot take it with an ordinary spend: the note
+/// recomputes under the OWNER domain to a commitment that is not in the tree.
+#[test]
+fn ordinary_spend_of_a_lock_note_fails() {
+    let mut w = witness(true);
+    w.inputs[0].lock = false;
+    assert!(prove(&w).is_err());
+    let public = w.public();
+    assert_eq!(public.lock_owner, None);
+    forged_proof_fails(&w, &public);
+}
+
+/// A lock statement whose trace hashes the owner under OWNER is rejected.
+#[test]
+fn lock_statement_with_ordinary_owner_hash_fails() {
+    let w = valid_witness();
+    let mut public = w.public();
+    public.lock_owner = Some(w.inputs[0].keys().owner);
+    forged_proof_fails(&w, &public);
+}
+
+fn coinbase_witness() -> SpendWitness {
+    let owner = SpendKeys::from_sk(rescue::scalar(7)).owner;
+    SpendWitness {
+        inputs: [InputWitness::dummy(), InputWitness::dummy()],
+        outputs: [
+            OutputWitness {
+                owner,
+                value: 500_000_000,
+                rcm: rand_digest(),
+            },
+            OutputWitness::dummy(),
+        ],
+        root: ZERO_DIGEST,
+        fee: 0,
+        mint: 500_000_000,
+        sighash: rand_digest(),
     }
 }
 

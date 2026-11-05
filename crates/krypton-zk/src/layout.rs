@@ -126,6 +126,9 @@ pub const K_PROGRAM: [CycleSpec; 8] = [
     },
 ];
 
+/// The cycle of [`K_PROGRAM`] that hashes the input owner (domain `LOCK_OWNER` for
+/// input 0 of a lock spend).
+pub const OWNER_CYCLE: usize = 2;
 pub const NULLIFIER_ROW: usize = 5 * CYCLE + CYCLE - 1;
 pub const OUTPUT_CM_ROW: usize = 7 * CYCLE + CYCLE - 1;
 

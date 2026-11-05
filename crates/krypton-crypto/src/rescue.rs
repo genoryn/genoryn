@@ -19,6 +19,9 @@ pub mod domain {
     pub const NOTE_BODY: u64 = 0x4b52_0006;
     pub const MERKLE: u64 = 0x4b52_0007;
     pub const SIGHASH: u64 = 0x4b52_0008;
+    /// Owner tag of a lock note (atomic swaps). Ordinary spends hash owners under
+    /// `OWNER`, so they can never spend a lock note.
+    pub const LOCK_OWNER: u64 = 0x4b52_0009;
     /// Added to `NULLIFIER` for dummy (zero-value) inputs so they can never
     /// collide with the nullifier of a real note.
     pub const DUMMY_OFFSET: u64 = 0x0100_0000;
@@ -64,6 +67,10 @@ impl SpendKeys {
 
 pub fn owner_of(ak: &Digest, nk: &Digest) -> Digest {
     hash2(domain::OWNER, ak, nk)
+}
+
+pub fn lock_owner_of(ak: &Digest, nk: &Digest) -> Digest {
+    hash2(domain::LOCK_OWNER, ak, nk)
 }
 
 /// Note commitment: `cm = H(CM; H(BODY; owner, [value,0,0,0]), rcm)`.

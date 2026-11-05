@@ -206,8 +206,12 @@ pub fn check_share_pow(pow: &Verifier, s: &BlockHeader) -> Result<()> {
 /// Structure checks that need no chain state. Returns the proof statement.
 pub fn check_tx_structure(tx: &Transaction) -> Result<SpendPublic> {
     let bad = |m| Err(CoreError::Invalid(m));
-    if tx.version != TX_VERSION {
-        return bad("unsupported transaction version");
+    match (tx.version, &tx.lock) {
+        (TX_VERSION, None) => {}
+        (TX_VERSION_LOCK, Some(l)) => {
+            l.check([&tx.outputs[0].cm, &tx.outputs[1].cm], tx.expiry_height)?
+        }
+        _ => return bad("unsupported transaction version"),
     }
     if tx
         .outputs
@@ -239,9 +243,17 @@ pub fn verify_proof(tx: &Transaction, st: &SpendPublic) -> Result<()> {
 }
 
 /// State checks for a transfer to be included at `height`.
-pub fn check_transfer_state(view: &impl StateView, tx: &Transaction, height: u64) -> Result<()> {
+pub fn check_transfer_state(
+    p: &ChainParams,
+    view: &impl StateView,
+    tx: &Transaction,
+    height: u64,
+) -> Result<()> {
     if tx.expiry_height != 0 && tx.expiry_height < height {
         return Err(CoreError::Invalid("transaction expired"));
+    }
+    if let Some(l) = &tx.lock {
+        l.check_height(height, p.lock_height)?;
     }
     match view.anchor_height(&tx.anchor) {
         Some(h) if h + ANCHOR_WINDOW >= height => {}
@@ -336,7 +348,7 @@ pub fn check_block(
     let mut seen = std::collections::HashSet::new();
     let mut fees: u64 = 0;
     for t in &b.txs {
-        check_transfer_state(view, t, h.height)?;
+        check_transfer_state(p, view, t, h.height)?;
         fees = fees
             .checked_add(t.fee)
             .ok_or(CoreError::Invalid("fee overflow"))?;

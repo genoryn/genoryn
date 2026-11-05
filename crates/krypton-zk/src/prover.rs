@@ -43,6 +43,9 @@ pub struct InputWitness {
     /// Sibling hashes from the leaf level upward.
     pub path: Vec<Digest>,
     pub dummy: bool,
+    /// A lock note (atomic swap; input 0 only): its owner tag is hashed under
+    /// `LOCK_OWNER` instead of `OWNER`.
+    pub lock: bool,
 }
 
 impl InputWitness {
@@ -55,13 +58,23 @@ impl InputWitness {
             pos: OsRng.next_u64() & ((1 << DEPTH) - 1),
             path: (0..DEPTH).map(|_| rand_digest()).collect(),
             dummy: true,
+            lock: false,
         }
     }
     pub fn keys(&self) -> SpendKeys {
         SpendKeys::from_sk(self.sk)
     }
+    /// The owner tag committed in the note.
+    pub fn owner(&self) -> Digest {
+        let k = self.keys();
+        if self.lock {
+            rescue::lock_owner_of(&k.ak, &k.nk)
+        } else {
+            k.owner
+        }
+    }
     pub fn commitment(&self) -> Digest {
-        rescue::note_commitment(&self.keys().owner, self.value, &self.rcm)
+        rescue::note_commitment(&self.owner(), self.value, &self.rcm)
     }
     pub fn nullifier(&self) -> Digest {
         let nk = self.keys().nk;
@@ -112,10 +125,16 @@ impl SpendWitness {
             fee: self.fee,
             mint: self.mint,
             sighash: self.sighash,
+            lock_owner: self.inputs[0].lock.then(|| self.inputs[0].owner()),
         }
     }
 
     fn check(&self) -> Result<(), ZkError> {
+        if self.inputs[1].lock || (self.inputs[0].lock && self.inputs[0].dummy) {
+            return Err(ZkError::Witness(
+                "only input 0 may be a lock note, and not a dummy",
+            ));
+        }
         for i in &self.inputs {
             if i.path.len() != DEPTH {
                 return Err(ZkError::Witness("path length"));
@@ -201,8 +220,9 @@ fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
         let inp = &w.inputs[lane];
         let keys = inp.keys();
         let out = outs[lane];
+        let owner = inp.owner();
         let o_t = rescue::hash2(domain::NOTE_BODY, &out.owner, &rescue::scalar(out.value));
-        let t = rescue::hash2(domain::NOTE_BODY, &keys.owner, &rescue::scalar(inp.value));
+        let t = rescue::hash2(domain::NOTE_BODY, &owner, &rescue::scalar(inp.value));
         let cm = inp.commitment();
 
         // Registers.
@@ -213,7 +233,7 @@ fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
         put(&mut reg, R_SK, &keys.sk);
         put(&mut reg, R_AK, &keys.ak);
         put(&mut reg, R_NK, &keys.nk);
-        put(&mut reg, R_OWNER, &keys.owner);
+        put(&mut reg, R_OWNER, &owner);
         put(&mut reg, R_T, &t);
         put(&mut reg, R_CM, &cm);
         put(&mut reg, R_RCM, &inp.rcm);
@@ -238,6 +258,9 @@ fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
         };
         for (k, spec) in K_PROGRAM.iter().enumerate() {
             let mut dom = spec.domain;
+            if k == OWNER_CYCLE && inp.lock {
+                dom = domain::LOCK_OWNER;
+            }
             if spec.dummy_domain && inp.dummy {
                 dom += domain::DUMMY_OFFSET;
             }

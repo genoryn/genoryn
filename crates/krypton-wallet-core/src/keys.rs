@@ -30,6 +30,9 @@ pub struct Keys {
     pub kem: kem::SecretKey,
     pub signing: sign::MlDsaKey,
     pub account: u32,
+    /// Root of every atomic-swap key and secret (Bitcoin keys, swap secrets, lock
+    /// outputs), so swaps can be finished after restoring from the phrase.
+    pub swap_seed: Zeroizing<[u8; 64]>,
 }
 
 fn words() -> &'static [&'static str; 2048] {
@@ -179,6 +182,7 @@ impl Keys {
             kem: kem::SecretKey::from_seed(&kem_seed),
             signing: sign::MlDsaKey::from_seed(&sig_seed),
             account,
+            swap_seed: derive::<64>(seed.as_ref(), &ctx("swap")),
         })
     }
     pub fn address(&self) -> Address {

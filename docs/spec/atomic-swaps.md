@@ -1,9 +1,14 @@
 # BTC ⇄ GNR atomic swaps
 
-Status: **in development.** The Bitcoin side is implemented and tested
-(`crates/krypton-swap`). The GNR side needs a consensus upgrade (lock notes, below) that is
-not active yet. Nothing here can be used on mainnet until that upgrade is announced and
-activated.
+Status: **implemented, live on devnet, not active on mainnet.** Implemented and tested so far:
+
+* the Bitcoin HTLC (`crates/krypton-swap`);
+* GNR lock notes (consensus, circuit and wallet);
+* the swap engine;
+* the wallet's **Swap** tab.
+
+On mainnet, lock spends need a hard fork at an announced height (`lock_height`). Until
+then the Swap tab explains this and stays disabled.
 
 ## Goal
 
@@ -70,75 +75,139 @@ Funding needs no special wallet support. The GNR wallet shows the HTLC address a
 amount, and the user pays it from any Bitcoin wallet. Claim and refund are signed by the GNR
 wallet with the swap key and sent to an address the user chooses.
 
-## GNR side: lock notes (consensus upgrade)
+## GNR side: lock notes (implemented, not active on mainnet)
 
 Every GNR transaction is a shielded transfer. A note can only be spent by proving knowledge of
 its owner's secret key inside the zk-STARK (`spend-circuit.md`). Rescue hashes are not
 homomorphic, so there is no "scriptless" trick that would let a secret revealed on Bitcoin unlock
-a GNR note. GNR needs a small, explicit hash and time lock:
+a GNR note. GNR has a small, explicit hash and time lock instead (`crates/krypton-core/src/lock.rs`).
 
-**Lock note.** A normal note whose owner field is
-
-```
-terms    = H(LOCK_TERMS; H(LOCK_HASH; h[0..16], h[16..32]), [T_gnr, 0, 0, 0])
-parties  = H(LOCK_PARTIES; owner_claim, owner_refund)
-nk_lock  = H(NK_LOCK; terms, parties)
-owner    = H(LOCK_OWNER; terms, parties)
-```
-
-Here `owner_claim` and `owner_refund` are ordinary GNR owners (`H(OWNER; ak, nk)`), and `h` is
-split into 32-bit limbs so it fits the field. Creating a lock note is an ordinary transfer to
-`owner`. The note's encrypted memo carries the terms to the refund party, so the refund also
-works from the 24 words.
-
-**Spending it.** Transaction version 2 adds public fields to input 0:
+**Terms.** Both sides agree on
 
 ```
-lock: { hash: h, refund_height: T_gnr, mode: Claim { secret: s } | Refund }
+terms = (h, T_gnr, claim_outputs[2], refund_outputs[2])
 ```
 
-* **Consensus checks (outside the proof):**
-  * Claim: `SHA-256(s) = h`, and `expiry_height < T_gnr`, so a claim can never be mined at or
-    after `T_gnr`.
-  * Refund: the block height is at least `T_gnr`. The mempool holds refunds back until then.
-* **Circuit (StarkSpend v2):**
-  * New public inputs: the lock mode and `terms` (the verifier computes `terms` from `h` and
-    `T_gnr`).
-  * The circuit proves that input 0's note has owner `H(LOCK_OWNER; terms, parties)` for some
-    `parties`. It also proves that the prover knows the secret key of `owner_claim` (claim mode)
-    or `owner_refund` (refund mode).
-  * The nullifier uses `nk_lock`, so a claim and a refund of the same note have the **same**
-    nullifier, and at most one of them can ever be mined.
-  * All other inputs and outputs are unchanged. Amounts, the outputs' owners and the other
-    party's identity stay hidden.
-* **What becomes public:** `h`, `s` and `T_gnr` for the swap input, which links the GNR claim to
-  the Bitcoin HTLC (the Bitcoin side is public anyway). The GNR amount and both parties' GNR
-  addresses stay private.
-* **Activation:** a hard fork at a height announced at least two weeks ahead. The in-app updater
-  ships it. Nodes that do not upgrade stop following the chain at that height. The same upgrade
-  can fix the reward-timing items R-1 and R-2 from the
-  [2026-11-05 audit](../audit/2026-11-05-security-audit.md).
+where `h` is the hash lock, `T_gnr` the refund height and the outputs are the two note
+commitments a claim, respectively a refund, must create. The claimer chooses the claim
+outputs and the refunder the refund outputs, so only each of them knows the openings.
 
-  Until activation, wallets must not create lock notes: the v1 circuit cannot spend them.
+**Lock note.** Its key and commitment randomness are derived from the terms, so both sides
+can compute them:
+
+```
+sk    = SHA3("Krypton/lock/sk/v1"  ‖ terms) → field
+rcm   = SHA3("Krypton/lock/rcm/v1" ‖ terms) → field
+owner = H(LOCK_OWNER; AK(sk), NK(sk))
+cm    = NoteCommit(owner, value, rcm)
+```
+
+Ordinary spends hash owners under the `OWNER` domain, so **no ordinary transaction can spend
+a lock note**, not even by someone who knows `sk`. Creating a lock note is an ordinary
+transfer. Its memo carries the terms to the refunder: tag, swap number, `T_gnr`, the refund
+fee, `h` and the claim outputs. The refund outputs follow from the wallet seed, so a refund
+works from the 24 words alone.
+
+**Spending it.** Transaction version 2 appends the public `lock` field (terms and mode) to the
+signed body:
+
+```
+lock: { terms, mode: Claim { secret: s } | Refund }
+```
+
+* **Circuit.** For input 0 the owner is hashed under `LOCK_OWNER` and must equal the
+  public `lock_owner`, which the verifier computes from the terms; input 0 cannot be a dummy.
+  This is the only change. Ordinary spends keep exactly the statement, constraints and proofs
+  they had, so every existing proof stays valid.
+* **Consensus (outside the proof):**
+  * Claim: `SHA-256(s) = h`, `0 < expiry_height < T_gnr` (a claim can never be mined at or
+    after `T_gnr`), and the outputs are exactly `claim_outputs`.
+  * Refund: the block height is at least `T_gnr`, and the outputs are exactly `refund_outputs`.
+    The mempool holds refunds back until then.
+  * Lock spends are valid only from `lock_height` on.
+* **One spend only.** Claim and refund spend the same note with the same key, so they have the
+  same nullifier, and at most one of them can ever be mined.
+* **Nobody else can redirect the coins.** Anyone who learns the terms could build the key, but
+  the outputs are fixed by consensus, and only their creator knows how to open them. A third
+  party cannot even build a valid proof.
+* **What becomes public:** the terms and `s` of the swap input, which link the GNR spend to the
+  Bitcoin HTLC (the Bitcoin side is public anyway). The amount and both parties' GNR addresses
+  stay private.
+* **Activation:** `lock_height` is 0 on devnet and not set (`u64::MAX`) on testnet and
+  mainnet. Mainnet activation is a hard fork at a height announced at least two weeks ahead.
+  The in-app updater ships it, and nodes that do not upgrade stop following the chain at that
+  height. The same upgrade can fix the reward-timing items R-1 and R-2 from the
+  [2026-11-05 audit](../audit/2026-11-05-security-audit.md). Until activation, wallets refuse to
+  create lock notes.
+* **Tests:**
+  * Circuit (`krypton-zk`): a lock proof binds its lock owner. A lock proof does not pass as
+    an ordinary spend or as a spend of another lock, and an ordinary proof does not pass as a
+    lock spend. Two forgeries fail: an ordinary spend of a lock note, and a lock statement
+    whose trace uses the ordinary owner hash.
+  * Consensus (`krypton-core`): the claim and refund rules, and activation.
+  * Wallet (`krypton-wallet-core`), end to end on devnet with real proofs: lock, claim, the
+    secret seen in the mempool by the other side, a replayed claim rejected, an early refund
+    refused, a late claim refused, and a refund by a wallet restored from its phrase.
+
+## The swap in the wallet (implemented)
+
+`krypton_swap::engine` runs inside the desktop wallet. The two people exchange three codes
+(`gks1…`, copy and paste, later through the offer board). Everything else the wallets do on
+their own, every 15 seconds while the wallet runs:
+
+| Code | From → to | Carries |
+|---|---|---|
+| Request | BTC buyer → GNR seller | amounts, `h`, the buyer's bitcoin refund key, its GNR claim outputs |
+| Accept | GNR seller → buyer | the seller's bitcoin claim key, the full GNR terms (refund height, refund outputs) |
+| Deposit | buyer → seller | the bitcoin refund height and the deposit outpoint |
+
+Because the accept code fixes the GNR terms, the buyer's wallet knows the lock note in
+advance and finds it on chain by itself. The engine then:
+
+1. **Seller:** waits for the deposit's confirmations and checks the timelocks, then locks
+   the GNR.
+2. **Buyer:** waits for the lock's confirmations, then claims the GNR. The claim publishes
+   the secret.
+3. **Seller:** reads the secret from the mempool, or from the block, and claims the bitcoin.
+4. **Timeouts:**
+   * If nobody claims, the seller refunds the GNR at `T_gnr`.
+   * If the GNR is not claimed, the buyer refunds the bitcoin once nLockTime is final.
+   * The buyer counts a swap as received only when its own claim output appears. A lock that
+     was refunded under a pending claim falls back to the bitcoin refund.
+
+Bitcoin is read through Esplora (mempool.space by default) or a Bitcoin Core node over RPC. On
+GNR mainnet the Bitcoin network is always Bitcoin mainnet. Swaps are stored inside the
+encrypted wallet file.
+
+**Tests** (`crates/krypton-swap/tests/engine.rs`) run two wallets against a GNR devnet chain
+with real proofs and a simulated Bitcoin chain. That chain runs every transaction through
+Bitcoin Core's interpreter and enforces nLockTime. The cases:
+
+* a completed swap;
+* the secret taken from a block when the mempool was missed;
+* both sides refunding when nobody claims.
+
+`genoryn-ref/qa/swap_e2e.ps1` runs the same swap between two desktop wallets and a real
+Bitcoin Core regtest node.
 
 ## Safety rules the wallet enforces
 
-* **Timelocks** (`Timelocks::check`): when the GNR lock expires, at least 12 hours must remain on
+* **Timelocks** (`Timing::check`): when the GNR lock expires, at least 12 hours must remain on
   the bitcoin lock. Bitcoin blocks are counted fast (8 min) and GNR blocks slow (90 s), so a
-  burst of bitcoin blocks or slow GNR blocks cannot squeeze the GNR seller's window. The default
-  plan is 288 bitcoin blocks (≈ 48 h) and 720 GNR blocks (≈ 12 h).
+  burst of bitcoin blocks or slow GNR blocks cannot squeeze the GNR seller's window. On
+  mainnet, bitcoin is locked for at least 288 blocks (≈ 48 h) and the GNR lock window is about
+  720 blocks (≈ 12 h). Test networks use short locks (`Timing::TEST`).
 * **Claim deadline:** the BTC seller claims the GNR at least 120 blocks (≈ 2 h) before `T_gnr`.
   Otherwise the GNR seller could refund the GNR and claim the bitcoin with the secret seen in the
   mempool.
-* **Confirmations:** the GNR seller waits for the bitcoin deposit to confirm (1 block for small
-  amounts, 3–6 for large ones). The BTC seller waits for the GNR lock to be deep enough that
-  rewriting it would cost more than the trade (30 GNR blocks by default, more for large amounts).
-  GNR's hashrate is small today, so this is the main limit on swap size.
-* **Amounts and addresses** are checked against the agreed terms before each step. Any mismatch
-  aborts and refunds.
-* **Crash safety:** swap state is stored encrypted next to the wallet after every step. Keys and
-  secrets come from the seed, so a restored wallet can finish or refund any swap it finds on
-  either chain.
+* **Confirmations:** the GNR seller waits for 2 bitcoin confirmations. The BTC seller waits for
+  30 GNR confirmations on the lock, so that rewriting it would cost more than the trade. GNR's
+  hashrate is small today, so this is the main limit on swap size.
+* **Amounts, keys, outputs and networks** are checked against the agreed terms before each step.
+  A request for another network, or a lock that pays other outputs, is refused.
+* **Crash safety:** swaps are saved in the encrypted wallet file after every step. Keys, secrets
+  and outputs come from the seed, and a lock note's memo carries its terms, so a restored wallet
+  can still refund its GNR.
 
 ## Known limits
 
@@ -163,8 +232,8 @@ exchanging the terms directly.
 
 | Phase | Work | Status |
 |---|---|---|
-| 0 | Bitcoin HTLC, claim, refund, secret extraction, timelock rules, seed derivation, tests against Bitcoin Core's interpreter | **done** (`crates/krypton-swap`) |
-| 1 | GNR lock notes: StarkSpend v2, transaction v2, consensus and mempool rules, tests on devnet | next |
-| 2 | Wallet swap engine (state machine, Esplora client, encrypted swap state) and the Swap tab; end-to-end swaps on Bitcoin signet and GNR devnet | after 1 |
-| 3 | Offer board and message relay on genoryn.io | after 2 |
-| 4 | Review of the circuit change, public testnet swaps, then the mainnet activation height | before mainnet |
+| 0 | Bitcoin HTLC, claim, refund, secret extraction, timelock rules, seed derivation, tests against Bitcoin Core's interpreter | **done** |
+| 1 | GNR lock notes: circuit, transaction v2, consensus and mempool rules, wallet lock, claim, refund and recovery | **done**, active on devnet |
+| 2 | Swap engine (codes, state machine, Esplora and Bitcoin Core clients, encrypted swap state) and the Swap tab | **done**, tested on devnet + Bitcoin regtest |
+| 3 | Offer board and encrypted message relay on genoryn.io, so codes need no copy and paste | next |
+| 4 | Review of the circuit change, public testnet (signet) swaps, then the mainnet activation height | before mainnet |

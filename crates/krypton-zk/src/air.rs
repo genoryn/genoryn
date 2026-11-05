@@ -11,6 +11,10 @@
 //! and for each output j `cm_out_j = NoteCommit(owner_j, w_j, rcm_j)`; all values are
 //! below 2^60 and `v_0 + v_1 + mint = w_0 + w_1 + fee`. The sighash is absorbed into
 //! the Fiat-Shamir transcript, binding the proof to one exact transaction.
+//!
+//! Lock spends (atomic swaps, `lock_owner` set): input 0 is a real note whose owner is
+//! `H(LOCK_OWNER; AK(sk_0), NK(sk_0))` and equals the public `lock_owner`. Which outputs
+//! the note may pay is enforced by consensus, outside the proof.
 
 use crate::layout::*;
 use krypton_crypto::field::{Digest, Felt};
@@ -30,11 +34,13 @@ pub struct SpendPublic {
     pub fee: u64,
     pub mint: u64,
     pub sighash: Digest,
+    /// Owner tag of the lock note spent by input 0 (lock spends only).
+    pub lock_owner: Option<Digest>,
 }
 
 impl ToElements<Felt> for SpendPublic {
     fn to_elements(&self) -> Vec<Felt> {
-        let mut v = Vec::with_capacity(26);
+        let mut v = Vec::with_capacity(31);
         v.extend_from_slice(&self.root);
         for d in self.nullifiers.iter().chain(self.output_cms.iter()) {
             v.extend_from_slice(d);
@@ -42,6 +48,11 @@ impl ToElements<Felt> for SpendPublic {
         v.push(Felt::new(self.fee));
         v.push(Felt::new(self.mint));
         v.extend_from_slice(&self.sighash);
+        // Ordinary spends keep exactly the statement they always had.
+        if let Some(o) = &self.lock_owner {
+            v.push(Felt::new(domain::LOCK_OWNER));
+            v.extend_from_slice(o);
+        }
         v
     }
 }
@@ -124,9 +135,14 @@ where
         let r = REG[lane];
         for (k, spec) in K_PROGRAM.iter().enumerate() {
             let start = p[P_START + k];
+            let dom = if lane == 0 && k == OWNER_CYCLE && pubs.lock_owner.is_some() {
+                domain::LOCK_OWNER
+            } else {
+                spec.domain
+            };
             s.push(
                 || {
-                    let mut d = c(spec.domain);
+                    let mut d = c(dom);
                     if spec.dummy_domain {
                         d += c(domain::DUMMY_OFFSET) * cur[r + R_DUMMY];
                     }
@@ -267,7 +283,8 @@ impl Air for SpendAir {
         let row = vec![Felt::ZERO; WIDTH];
         let per = vec![Felt::ZERO; NUM_PERIODIC];
         constraints::<Felt, _>(&mut d, &row, &row, &per, &pub_inputs);
-        let context = AirContext::new(trace_info, d.0, 20, options);
+        let n = assertions(&pub_inputs).len();
+        let context = AirContext::new(trace_info, d.0, n, options);
         Self {
             context,
             pub_inputs,
@@ -296,30 +313,42 @@ impl Air for SpendAir {
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Felt>> {
-        let mut a = Vec::with_capacity(20);
-        for m in 0..4 {
-            a.push(Assertion::single(RA + m, 0, Felt::ZERO));
-        }
-        for lane in 0..2 {
-            for j in 0..4 {
-                a.push(Assertion::single(
-                    K_LANE[lane] + 4 + j,
-                    NULLIFIER_ROW,
-                    self.pub_inputs.nullifiers[lane][j],
-                ));
-                a.push(Assertion::single(
-                    K_LANE[lane] + 4 + j,
-                    OUTPUT_CM_ROW,
-                    self.pub_inputs.output_cms[lane][j],
-                ));
-            }
-        }
-        a
+        assertions(&self.pub_inputs)
     }
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Felt>> {
         periodic_columns()
     }
+}
+
+fn assertions(pubs: &SpendPublic) -> Vec<Assertion<Felt>> {
+    let mut a = Vec::with_capacity(25);
+    for m in 0..4 {
+        a.push(Assertion::single(RA + m, 0, Felt::ZERO));
+    }
+    for lane in 0..2 {
+        for j in 0..4 {
+            a.push(Assertion::single(
+                K_LANE[lane] + 4 + j,
+                NULLIFIER_ROW,
+                pubs.nullifiers[lane][j],
+            ));
+            a.push(Assertion::single(
+                K_LANE[lane] + 4 + j,
+                OUTPUT_CM_ROW,
+                pubs.output_cms[lane][j],
+            ));
+        }
+    }
+    // Registers are constant over the active region, so row 0 pins them for the
+    // whole program: input 0 is the lock note itself and not a dummy.
+    if let Some(o) = &pubs.lock_owner {
+        for j in 0..4 {
+            a.push(Assertion::single(REG[0] + R_OWNER + j, 0, o[j]));
+        }
+        a.push(Assertion::single(REG[0] + R_DUMMY, 0, Felt::ZERO));
+    }
+    a
 }
 
 pub fn periodic_columns() -> Vec<Vec<Felt>> {

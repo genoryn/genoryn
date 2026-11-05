@@ -417,6 +417,170 @@ fn mine_sync_send_receive() {
     );
 }
 
+fn new_wallet(dir: &Path, name: &str, mnemonic: &str) -> Wallet {
+    Wallet::create(
+        &dir.join(name),
+        "password-x",
+        mnemonic,
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap()
+}
+
+fn mine_until(src: &Local, to: &Address, height: u64) {
+    while src.chain.tip().height() < height {
+        mine(src, to);
+    }
+}
+
+/// The GNR side of an atomic swap end to end, with real proofs on a devnet chain:
+/// lock, claim (the secret becomes public), a refund, and a refund by a wallet
+/// restored from its recovery phrase.
+#[test]
+fn atomic_swap_lock_claim_and_refund() {
+    use krypton_core::lock::sha256;
+    use swap::LockRole;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let phrase_a = keys::new_mnemonic();
+    let mut a = new_wallet(dir.path(), "gnr-seller.wallet", &phrase_a);
+    let mut b = new_wallet(dir.path(), "btc-seller.wallet", &keys::new_mnemonic());
+    let (addr_a, addr_b) = (a.address(), b.address());
+    for _ in 0..12 {
+        mine(&src, &addr_a);
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+
+    // Swap 1: the BTC seller holds the secret and names its claim outputs.
+    let secret = [0x5a; 32];
+    let value = 2_000_000;
+    let (claim_fee, refund_fee) = (DEFAULT_FEE, DEFAULT_FEE);
+    let claim_outputs = b.claim_outputs(1, value, claim_fee).unwrap();
+    let refund_height = chain.tip().height() + 60;
+    let before = a.balance().total;
+    let (_, terms) = a
+        .lock_funds(
+            &src,
+            1,
+            sha256(&secret),
+            refund_height,
+            claim_outputs,
+            value,
+            refund_fee,
+            DEFAULT_FEE,
+        )
+        .unwrap();
+    let cm = b.watch_lock(1, terms.clone(), value, claim_fee).unwrap();
+    assert_eq!(cm, terms.commitment(value));
+    // Terms that do not pay B's own claim outputs are refused.
+    let mut other = terms.clone();
+    other.claim_outputs.swap(0, 1);
+    assert!(b.watch_lock(1, other, value, claim_fee).is_err());
+    mine(&src, &addr_a);
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.locked_balance(), value);
+    assert!(
+        a.balance().total
+            <= before - value - DEFAULT_FEE + chain.params.payout_interval * 5 * emission::COIN
+    );
+    assert!(b.locks()[0].position.is_some() && b.locks()[0].height.is_some());
+    assert_eq!(a.locks()[0].position, b.locks()[0].position);
+
+    // Wrong secret, wrong role and an early refund are refused.
+    assert!(b.claim_lock(&src, &cm, [1; 32]).is_err());
+    assert!(a.claim_lock(&src, &cm, secret).is_err());
+    assert!(a.refund_lock(&src, &cm).is_err());
+
+    let b_before = b.balance().total;
+    b.claim_lock(&src, &cm, secret).unwrap();
+    // The GNR seller learns the secret from the mempool, before the block.
+    let pool = src.pool.borrow().clone();
+    let live: Vec<Hash32> = pool.iter().map(|t| t.txid()).collect();
+    a.scan_mempool(&pool, &live);
+    assert_eq!(a.locks()[0].secret, Some(secret));
+    let claim = pool[0].clone();
+    assert!(claim.lock.is_some());
+    mine(&src, &addr_a);
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(b.balance().total, b_before + value - claim_fee);
+    assert!(
+        b.notes()
+            .iter()
+            .any(|n| n.value == value - claim_fee && n.memo == "swap 1: GNR received")
+    );
+    assert!(a.locks()[0].spent_height.is_some() && b.locks()[0].spent_height.is_some());
+    assert_eq!(a.locked_balance(), 0);
+    assert!(
+        chain.check_mempool_tx(&claim).is_err(),
+        "a lock is spent once"
+    );
+    assert!(a.refund_lock(&src, &cm).is_err());
+
+    // Swap 2: nobody claims; the GNR seller refunds from the refund height on.
+    let claim_outputs = b.claim_outputs(2, value, claim_fee).unwrap();
+    let refund_height = chain.tip().height() + 25;
+    let (_, terms2) = a
+        .lock_funds(
+            &src,
+            2,
+            sha256(&[0x77; 32]),
+            refund_height,
+            claim_outputs,
+            value,
+            refund_fee,
+            DEFAULT_FEE,
+        )
+        .unwrap();
+    let cm2 = b.watch_lock(2, terms2.clone(), value, claim_fee).unwrap();
+    mine(&src, &addr_b);
+
+    // A wallet restored from the phrase finds the lock and its terms on its own.
+    let mut restored = new_wallet(dir.path(), "restored.wallet", &phrase_a);
+    restored.sync(&src, |_, _| {}).unwrap();
+    let rec = restored
+        .locks()
+        .iter()
+        .find(|l| l.cm == cm2)
+        .expect("lock recovered");
+    assert_eq!(rec.role, LockRole::Refunder);
+    assert_eq!(rec.terms, terms2);
+    assert_eq!(rec.fee, refund_fee);
+    assert!(
+        restored.refund_lock(&src, &cm2).is_err(),
+        "not before the refund height"
+    );
+
+    mine_until(&src, &addr_b, refund_height - 1);
+    b.sync(&src, |_, _| {}).unwrap();
+    assert!(
+        b.claim_lock(&src, &cm2, [0x77; 32]).is_err(),
+        "too late to claim"
+    );
+    restored.sync(&src, |_, _| {}).unwrap();
+    let r_before = restored.balance().total;
+    restored.refund_lock(&src, &cm2).unwrap();
+    mine(&src, &addr_b);
+    restored.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(restored.balance().total, r_before + value - refund_fee);
+    assert_eq!(restored.locked_balance(), 0);
+    a.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(
+        a.locked_balance(),
+        0,
+        "the original wallet sees the refund too"
+    );
+}
+
 #[test]
 fn expired_sends_release_their_notes() {
     let dir = tempfile::tempdir().unwrap();

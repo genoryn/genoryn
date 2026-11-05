@@ -311,27 +311,36 @@ fn bad_terms_are_refused() {
 
 #[test]
 fn timelocks() {
-    let t = Timelocks::plan(900_000, 1_700);
-    assert_eq!(t.check(900_000, 1_700), Ok(()));
+    let m = Timing::MAINNET;
+    let t = m.plan(900_000, 1_700);
+    assert_eq!(
+        t,
+        Timelocks {
+            btc_refund_height: 900_288,
+            gnr_refund_height: 2_420
+        }
+    );
+    assert_eq!(m.check(&t, 900_000, 1_700), Ok(()));
     // The GNR seller arrives late: GNR lock still fine, but much of the bitcoin lock is gone.
-    assert!(t.check(900_200, 1_700).is_err());
+    assert!(m.check(&t, 900_200, 1_700).is_err());
     // The GNR lock nearly expired.
-    assert!(t.check(900_000, 2_330).is_err());
+    assert!(m.check(&t, 900_000, 2_300).is_err());
     // Bitcoin lock shorter than the GNR lock.
     let bad = Timelocks {
         btc_refund_height: 900_072,
         gnr_refund_height: 2_420,
     };
-    assert!(bad.check(900_000, 1_700).is_err());
-    assert!(
-        Timelocks {
-            btc_refund_height: 899_000,
-            gnr_refund_height: 2_420
-        }
-        .check(900_000, 1_700)
-        .is_err()
-    );
-    assert!(t.may_claim_gnr(1_700));
-    assert!(t.may_claim_gnr(2_299));
-    assert!(!t.may_claim_gnr(2_300));
+    assert!(m.check(&bad, 900_000, 1_700).is_err());
+    let gone = Timelocks {
+        btc_refund_height: 899_000,
+        gnr_refund_height: 2_420,
+    };
+    assert!(m.check(&gone, 900_000, 1_700).is_err());
+    assert!(m.may_claim_gnr(&t, 1_700));
+    assert!(m.may_claim_gnr(&t, 2_299));
+    assert!(!m.may_claim_gnr(&t, 2_300));
+    let s = Timing::TEST;
+    assert_eq!(s.check(&s.plan(100, 50), 100, 50), Ok(()));
+    assert_eq!(Timing::for_network(Network::Bitcoin), m);
+    assert_eq!(Timing::for_network(Network::Regtest), s);
 }

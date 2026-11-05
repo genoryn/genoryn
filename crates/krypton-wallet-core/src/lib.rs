@@ -6,10 +6,13 @@
 pub mod file;
 pub mod keys;
 pub mod proof;
+pub mod swap;
 
 use anyhow::{Context, Result, bail, ensure};
 use keys::Keys;
-use krypton_core::address::{Address, NotePlain, encrypt_note, memo_from_str, try_decrypt_note};
+use krypton_core::address::{
+    Address, NotePlain, decrypt_note_unchecked, encrypt_note, memo_from_str, try_decrypt_note,
+};
 use krypton_core::reward;
 use krypton_core::tree::Frontier;
 use krypton_core::types::*;
@@ -147,6 +150,12 @@ struct State {
     /// Genesis hash (hex) of the chain the notes and checkpoints belong to.
     #[serde(default)]
     genesis: Option<String>,
+    /// Lock notes of atomic swaps this wallet funds or may claim.
+    #[serde(default)]
+    locks: Vec<swap::LockRecord>,
+    /// Application records stored (encrypted) with the wallet, e.g. swaps in progress.
+    #[serde(default)]
+    app: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 pub struct Wallet {
@@ -228,6 +237,8 @@ impl Wallet {
             history: vec![],
             checkpoints: vec![],
             genesis: None,
+            locks: vec![],
+            app: Default::default(),
         };
         let w = Self {
             keys,
@@ -272,6 +283,7 @@ impl Wallet {
         self.state.checkpoints.clear();
         self.state.genesis = None;
         self.verifier = None;
+        self.lock_rollback(0, 0, true);
     }
 
     pub fn save(&self) -> Result<()> {
@@ -285,6 +297,7 @@ impl Wallet {
     /// ids still in the pool: entries that left it or were mined are dropped.
     /// Returns how many incoming payments are new.
     pub fn scan_mempool(&mut self, txs: &[Transaction], live: &[Hash32]) -> usize {
+        self.learn_secrets(txs);
         let owner = self.keys.spend.owner;
         let live: std::collections::HashSet<String> = live.iter().map(hex::encode).collect();
         let mut kept: Vec<Incoming> = std::mem::take(&mut self.incoming)
@@ -363,6 +376,16 @@ impl Wallet {
             p.network.as_str()
         );
         proof::verify_for(&p, src, Some(&self.address()), self.pow())
+    }
+
+    /// A record the application keeps in the (encrypted) wallet file.
+    pub fn app_data(&self, key: &str) -> Option<&serde_json::Value> {
+        self.state.app.get(key)
+    }
+
+    pub fn set_app_data(&mut self, key: &str, v: serde_json::Value) -> Result<()> {
+        self.state.app.insert(key.to_string(), v);
+        self.save()
     }
 
     pub fn mnemonic(&self) -> Zeroizing<String> {
@@ -571,6 +594,14 @@ impl Wallet {
                 n.pending_spend = None;
             }
         }
+        for l in self.state.locks.iter_mut() {
+            if l.pending_spend
+                .as_ref()
+                .is_some_and(|t| expired.contains(t))
+            {
+                l.pending_spend = None;
+            }
+        }
     }
 
     /// Steps back until our checkpoint matches the source's chain.
@@ -609,6 +640,7 @@ impl Wallet {
                 n.position = None;
             }
         }
+        self.lock_rollback(fork, tree_size, false);
         // Receipts after the fork are found again while rescanning; own sends become pending.
         self.state.history.retain(|h| {
             let receipt = h.txid.starts_with("payout:") || h.txid.starts_with("note:");
@@ -661,10 +693,19 @@ impl Wallet {
             });
         }
         for o in &b.outputs {
+            self.lock_mined(&o.cm, height);
             if self.state.notes.iter().any(|n| n.cm == o.cm) {
                 continue;
             }
-            if let Some(note) = try_decrypt_note(&self.keys.kem, &owner, &o.cm, &o.ciphertext) {
+            let Some(note) = decrypt_note_unchecked(&self.keys.kem, &o.cm, &o.ciphertext) else {
+                continue;
+            };
+            if digest_to_bytes(&rescue::note_commitment(&owner, note.value, &note.rcm)) != o.cm {
+                // Not our note, but possibly a lock note we funded (recovery from the phrase).
+                self.recover_lock(&note, &o.cm, height);
+                continue;
+            }
+            {
                 self.state.notes.push(OwnedNote {
                     cm: o.cm,
                     value: note.value,
@@ -710,7 +751,9 @@ impl Wallet {
             {
                 n.position = Some(b.leaf_start + i as u64);
             }
+            self.lock_position(cm, b.leaf_start + i as u64);
         }
+        report.spent_notes += self.lock_spent(&b.nullifiers, height);
         let nk = self.keys.spend.nk;
         for n in self
             .state
@@ -762,6 +805,12 @@ impl Wallet {
         );
         ensure!(self.verifier.is_some(), "sync the wallet first");
         let need = amount.checked_add(fee).context("amount overflow")?;
+        let chosen = self.select_notes(need)?;
+        self.spend_notes(src, &chosen, to, amount, fee, memo)
+    }
+
+    /// One or two spendable notes covering `need`.
+    fn select_notes(&self, need: u64) -> Result<Vec<OwnedNote>> {
         let mut spendable: Vec<&OwnedNote> = self
             .state
             .notes
@@ -774,49 +823,43 @@ impl Wallet {
             })
             .collect();
         spendable.sort_by_key(|n| std::cmp::Reverse(n.value));
-        let chosen: Vec<OwnedNote> = if let Some(one) =
-            spendable.iter().rev().find(|n| n.value >= need)
-        {
-            vec![(*one).clone()]
-        } else if spendable.len() >= 2 && spendable[0].value + spendable[1].value >= need {
-            vec![spendable[0].clone(), spendable[1].clone()]
-        } else {
-            let total: u64 = spendable.iter().map(|n| n.value).sum();
-            if total >= need {
+        Ok(
+            if let Some(one) = spendable.iter().rev().find(|n| n.value >= need) {
+                vec![(*one).clone()]
+            } else if spendable.len() >= 2 && spendable[0].value + spendable[1].value >= need {
+                vec![spendable[0].clone(), spendable[1].clone()]
+            } else {
+                let total: u64 = spendable.iter().map(|n| n.value).sum();
+                if total >= need {
+                    bail!(
+                        "NEEDS_CONSOLIDATION: funds are split across many notes; a transaction spends at most two, so merge them first"
+                    );
+                }
                 bail!(
-                    "NEEDS_CONSOLIDATION: funds are split across many notes; a transaction spends at most two, so merge them first"
+                    "insufficient spendable funds: have {}, need {}",
+                    emission::format_amount(total),
+                    emission::format_amount(need)
                 );
-            }
-            bail!(
-                "insufficient spendable funds: have {}, need {}",
-                emission::format_amount(total),
-                emission::format_amount(need)
-            );
-        };
-        self.spend_notes(src, &chosen, to, amount, fee, memo)
+            },
+        )
     }
 
-    fn spend_notes(
-        &mut self,
+    /// Input witnesses for `chosen` at one common root, which must be the note root of
+    /// our verified tip; padded with a dummy input to two.
+    fn input_witnesses(
+        &self,
         src: &impl ChainSource,
         chosen: &[OwnedNote],
-        to: &Address,
-        amount: u64,
-        fee: u64,
-        memo: &str,
-    ) -> Result<Hash32> {
+    ) -> Result<(Vec<InputWitness>, Digest)> {
         let verifier = self.verifier.as_ref().context("sync the wallet first")?;
-        let tip = verifier.last.height;
-        let need = amount.checked_add(fee).context("amount overflow")?;
         ensure!(
             !chosen.is_empty() && chosen.len() <= 2,
             "a transaction spends one or two notes"
         );
-        // Witnesses at one common, locally verified root.
         let mut inputs = Vec::new();
         let mut root = None;
         for n in chosen {
-            let pos = n.position.expect("position");
+            let pos = n.position.context("note not in the tree yet")?;
             let (path, r) = src.witness(pos)?;
             if let Some(prev) = root {
                 ensure!(
@@ -832,6 +875,7 @@ impl Wallet {
                 pos,
                 path,
                 dummy: false,
+                lock: false,
             });
         }
         let root = root.expect("root");
@@ -842,6 +886,26 @@ impl Wallet {
         if inputs.len() == 1 {
             inputs.push(InputWitness::dummy());
         }
+        Ok((inputs, root))
+    }
+
+    fn spend_notes(
+        &mut self,
+        src: &impl ChainSource,
+        chosen: &[OwnedNote],
+        to: &Address,
+        amount: u64,
+        fee: u64,
+        memo: &str,
+    ) -> Result<Hash32> {
+        let tip = self
+            .verifier
+            .as_ref()
+            .context("sync the wallet first")?
+            .last
+            .height;
+        let need = amount.checked_add(fee).context("amount overflow")?;
+        let (inputs, root) = self.input_witnesses(src, chosen)?;
         let in_sum: u64 = chosen.iter().map(|n| n.value).sum();
         let change = in_sum - need;
         let me = self.address();
@@ -883,6 +947,7 @@ impl Wallet {
             fee,
             mint: 0,
             expiry_height: tip + 120,
+            lock: None,
             proof: vec![],
         };
         let w = SpendWitness {
@@ -1051,6 +1116,9 @@ impl Wallet {
     pub fn reset_pending(&mut self) -> Result<()> {
         for n in self.state.notes.iter_mut() {
             n.pending_spend = None;
+        }
+        for l in self.state.locks.iter_mut() {
+            l.pending_spend = None;
         }
         self.save()
     }

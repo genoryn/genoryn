@@ -27,6 +27,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
 mod assets;
+mod swaps;
 mod update;
 mod vault;
 
@@ -74,6 +75,12 @@ struct Settings {
     /// Install signed updates as soon as they are found (otherwise offer them).
     #[serde(default)]
     auto_update: bool,
+    /// Bitcoin connection for swaps: `esplora:<url>` or `rpc:<url>` (default per network).
+    #[serde(default)]
+    btc_backend: Option<String>,
+    /// Bitcoin network for swaps (`bitcoin`, `signet`, `regtest`); default per GNR network.
+    #[serde(default)]
+    btc_network: Option<String>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -397,6 +404,8 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             .as_ref()
             .map(|w| hex::encode(krypton_crypto::field::digest_to_bytes(&w.address().owner)));
         let incoming = w.as_ref().map(|w| w.incoming().to_vec()).unwrap_or_default();
+        let swaps_open = w.as_ref().map(swaps::active_count).unwrap_or(0);
+        let swap_locked = w.as_ref().map(|w| w.locked_balance()).unwrap_or(0);
         let (address, short, balance, synced, history) = match w.as_ref() {
             Some(w) => (
                 Some(w.address().encode()),
@@ -453,6 +462,8 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "owner": owner,
             "incoming": incoming,
             "balance": balance,
+            "swaps_open": swaps_open,
+            "swap_locked": swap_locked,
             "synced_height": synced,
             "history": history,
             "settings": s,
@@ -1060,8 +1071,14 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
         }
     }
     let mut s = s;
-    // The update preference has its own switch; saving nodes must not reset it.
-    s.auto_update = app.settings.lock().auto_update;
+    // The update preference and the swap connection have their own forms; saving nodes
+    // must not reset them.
+    {
+        let cur = app.settings.lock();
+        s.auto_update = cur.auto_update;
+        s.btc_backend = cur.btc_backend.clone();
+        s.btc_network = cur.btc_network.clone();
+    }
     *app.settings.lock() = s;
     match app.save_settings() {
         Ok(()) => Json(json!({"ok": true})).into_response(),
@@ -1529,6 +1546,8 @@ async fn serve(
             mode: "light".into(),
             nodes: vec![PUBLIC_NODE.into()],
             auto_update: false,
+            btc_backend: None,
+            btc_network: None,
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
@@ -1623,6 +1642,8 @@ async fn serve(
                     if let Some((txs, ids)) = &pool {
                         w.scan_mempool(txs, ids);
                     }
+                    let txs = pool.as_ref().map(|p| p.0.as_slice()).unwrap_or(&[]);
+                    swaps::tick(&a, w, &src, txs);
                     // Name the wallet by what it is, not by what was active before we
                     // got it (a switch may have happened in between).
                     let fp = vault::fingerprint(w);
@@ -1689,6 +1710,12 @@ async fn serve(
         .route("/api/chain", get(chain_info))
         .route("/api/update", post(install_update))
         .route("/api/verify-proof", post(verify_proof))
+        .route("/api/swaps", get(swaps::list))
+        .route("/api/swap/request", post(swaps::request))
+        .route("/api/swap/accept", post(swaps::accept))
+        .route("/api/swap/receive", post(swaps::receive))
+        .route("/api/swap/decode", post(swaps::decode))
+        .route("/api/swap/settings", post(swaps::settings))
         .with_state(app.clone());
     let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
         Ok(l) => l,

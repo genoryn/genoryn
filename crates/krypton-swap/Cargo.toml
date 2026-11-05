@@ -1,6 +1,6 @@
 [package]
 name = "krypton-swap"
-description = "BTC <-> GNR atomic swaps: the hash time-locked contract on Bitcoin, its claim and refund"
+description = "BTC <-> GNR atomic swaps: the Bitcoin HTLC, the swap protocol and its engine"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,22 @@ authors.workspace = true
 
 [dependencies]
 bitcoin = "0.32"
+krypton-core.workspace = true
+krypton-wallet-core.workspace = true
+anyhow.workspace = true
+hex.workspace = true
+rand.workspace = true
 rand_core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 zeroize.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 
 [dev-dependencies]
 bitcoin = { version = "0.32", features = ["bitcoinconsensus"] }
+krypton-store.workspace = true
+krypton-light = { workspace = true, features = ["client"] }
+krypton-pow.workspace = true
+krypton-crypto.workspace = true
+tempfile.workspace = true

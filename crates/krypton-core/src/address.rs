@@ -209,13 +209,34 @@ pub fn encrypt_note_disclosable(
     to: &Address,
     note: &NotePlain,
 ) -> Result<(Hash32, Vec<u8>, zeroize::Zeroizing<[u8; 32]>)> {
-    let cm = digest_to_bytes(&rescue::note_commitment(&to.owner, note.value, &note.rcm));
-    let (ct, ss) =
-        kem::encapsulate(&to.kem).map_err(|_| CoreError::Invalid("encapsulation failed"))?;
+    encrypt_note_for(&to.kem, &to.owner, note)
+}
+
+/// Encrypts `note` to `kem` with its commitment under `owner`. Lock notes are committed
+/// under the lock's owner tag and encrypted to the refunder, who recovers them from the
+/// recovery phrase with [`decrypt_note_unchecked`].
+pub fn encrypt_note_for(
+    kem: &kem::PublicKey,
+    owner: &Digest,
+    note: &NotePlain,
+) -> Result<(Hash32, Vec<u8>, zeroize::Zeroizing<[u8; 32]>)> {
+    let cm = digest_to_bytes(&rescue::note_commitment(owner, note.value, &note.rcm));
+    let (ct, ss) = kem::encapsulate(kem).map_err(|_| CoreError::Invalid("encapsulation failed"))?;
     let mut out = ct;
     out.extend_from_slice(&aead::seal(&ss, &nonce_for(&cm), &cm, &note.to_bytes()));
     debug_assert_eq!(out.len(), NOTE_CIPHERTEXT_LEN);
     Ok((cm, out, ss))
+}
+
+/// Decrypts an output without checking whose note it is. The caller must check that
+/// the note re-commits to `cm` under the owner it expects.
+pub fn decrypt_note_unchecked(sk: &kem::SecretKey, cm: &Hash32, ct: &[u8]) -> Option<NotePlain> {
+    if ct.len() != NOTE_CIPHERTEXT_LEN {
+        return None;
+    }
+    let (kct, body) = ct.split_at(kem::CIPHERTEXT_LEN);
+    let ss = sk.decapsulate(kct).ok()?;
+    NotePlain::from_bytes(&aead::open(&ss, &nonce_for(cm), cm, body).ok()?)
 }
 
 /// Opens an output with its disclosed one-time key; the note must re-commit to `cm`
@@ -250,13 +271,7 @@ pub fn try_decrypt_note(
     cm: &Hash32,
     ct: &[u8],
 ) -> Option<NotePlain> {
-    if ct.len() != NOTE_CIPHERTEXT_LEN {
-        return None;
-    }
-    let (kct, body) = ct.split_at(kem::CIPHERTEXT_LEN);
-    let ss = sk.decapsulate(kct).ok()?;
-    let pt = aead::open(&ss, &nonce_for(cm), cm, body).ok()?;
-    let note = NotePlain::from_bytes(&pt)?;
+    let note = decrypt_note_unchecked(sk, cm, ct)?;
     (digest_to_bytes(&rescue::note_commitment(owner, note.value, &note.rcm)) == *cm).then_some(note)
 }
 
