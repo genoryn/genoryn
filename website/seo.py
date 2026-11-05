@@ -5,7 +5,7 @@ import json
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.13"
+VERSION = "1.0.14"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum crypto, private cryptocurrency, "
@@ -25,6 +25,9 @@ PAGES = {
     "get": {"path": "/get.html", "file": "get.html", "priority": "0.9", "freq": "daily",
             "og_title": "Get Genoryn Krypton (GNR): mine it today",
             "og_desc": "No premine, no presale: GNR is earned by mining on GPU or CPU. Reference value from the cost of mining; exchanges and BTC atomic swaps to come."},
+    "market": {"path": "/market.html", "file": "market.html", "priority": "0.9", "freq": "always",
+               "og_title": "GNR market: live offers and price of Genoryn Krypton",
+               "og_desc": "Live offer board and market price of GNR from atomic swaps with bitcoin. No exchange, no custody: people set the price."},
     "download": {"path": "/download.html", "file": "download.html", "priority": "0.9", "freq": "weekly",
                  "og_title": "Download the Genoryn Krypton wallet for Windows and Linux",
                  "og_desc": "Quantum-resistant private wallet with built-in miner and optional full node. Windows installer, Linux packages, source code."},

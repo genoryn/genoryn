@@ -206,12 +206,18 @@ fn engine_for<'a>(
     }
 }
 
-fn with_engine<T>(a: &App, f: impl FnOnce(&mut Engine<'_, Multi>, &str) -> Result<T>) -> Result<T> {
+/// Runs `f` with the active wallet's swap engine. Publishing an offer works before swaps
+/// activate (offers already make a price); anything that starts a swap needs `active`.
+fn with_engine<T>(
+    a: &App,
+    active: bool,
+    f: impl FnOnce(&mut Engine<'_, Multi>, &str) -> Result<T>,
+) -> Result<T> {
     let src = Multi(a.sources()?);
     let backend = krypton_swap::btc::connect(&crate::swaps::backend_spec(a))?;
     let mut guard = a.wallet.lock();
     let w = guard.as_mut().context("wallet locked")?;
-    if let Some(why) = crate::swaps::inactive(a, Some(w)) {
+    if active && let Some(why) = crate::swaps::inactive(a, Some(w)) {
         bail!(why);
     }
     let blocks = |h: u64| -> Result<Vec<krypton_core::types::Transaction>> {
@@ -597,6 +603,11 @@ pub fn tick(a: &App, e: &mut Engine<'_, Multi>) {
     }
 }
 
+/// Swaps whose codes travel through the board.
+pub fn linked_ids(w: &Wallet) -> std::collections::HashSet<String> {
+    load(w).links.into_iter().map(|l| l.swap_id).collect()
+}
+
 /// Whether this wallet has anything on the board to watch.
 pub fn has_work(w: &Wallet) -> bool {
     let st = load(w);
@@ -630,16 +641,20 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "mine": mine.contains(&&o.id),
             })
         };
+        // Fresh from the board (an offer just published shows at once), with the cached
+        // BTC price.
+        let mut market = get(&base, "/v1/swap/market").unwrap_or_else(|_| cached_market());
+        market["btc_usd"] = cached_market()["btc_usd"].clone();
         Ok(json!({
             "board": base,
             "offers": offers.iter().map(view).collect::<Vec<_>>(),
-            "my_offers": st.offers.iter().rev().take(20).map(|m| {
+            "my_offers": st.offers.iter().rev().take(200).map(|m| {
                 let mut v = view(&m.offer);
                 v["taken"] = json!(m.taken); v["cancelled"] = json!(m.cancelled);
                 v["expired"] = json!(m.offer.expires <= t);
                 v
             }).collect::<Vec<_>>(),
-            "market": cached_market(),
+            "market": market,
         }))
     })
     .await
@@ -671,7 +686,7 @@ pub async fn publish(
         let sats = Amount::from_str_in(r.btc.trim(), Denomination::Bitcoin)
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
             .to_sat();
-        with_engine(&a, |e, base| {
+        with_engine(&a, false, |e, base| {
             publish_offer(e, base, r.side, gnr, sats, &r.address)
         })
     })
@@ -693,7 +708,8 @@ pub async fn take(axum::extract::State(app): S, h: HeaderMap, Json(r): Json<Take
         return x;
     }
     let a = app.clone();
-    match blocking(move || with_engine(&a, |e, base| take_offer(e, base, &r.id, &r.address))).await
+    match blocking(move || with_engine(&a, true, |e, base| take_offer(e, base, &r.id, &r.address)))
+        .await
     {
         Ok(id) => Json(json!({"id": id})).into_response(),
         Err(e) => err(e),

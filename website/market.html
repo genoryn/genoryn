@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GNR Market — Live Offer Board and Price · Genoryn Krypton</title>
+<meta name="description" content="The live GNR offer board: buy and sell offers, the market price from completed BTC ⇄ GNR atomic swaps, and the cost to mine for reference. No exchange, no custody.">
+<!--SEO:market-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="market">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head"><span class="eyebrow">Market · live</span><h1 class="h2 glow">GNR market</h1>
+    <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p></div>
+
+  <section class="mk-kpis">
+    <div class="glass kpi"><b id="mkPrice">—</b><span id="mkPriceL">Market price per GNR</span></div>
+    <div class="glass kpi"><b id="mkAsk">—</b><span>Best sell offer <em id="mkAskN"></em></span></div>
+    <div class="glass kpi"><b id="mkBid">—</b><span>Best buy offer <em id="mkBidN"></em></span></div>
+    <div class="glass kpi"><b id="mkVol">—</b><span>Swaps · volume (24 h)</span></div>
+    <div class="glass kpi"><b data-cost>—</b><span>Cost to mine one GNR (at <span data-cost-kwh>$0.15</span>/kWh)</span></div>
+  </section>
+
+  <section class="mk-book">
+    <div class="glass card">
+      <div class="mk-head"><h2 class="h3">Sell offers</h2><span class="muted" id="mkSellN"></span></div>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Expires</th></tr></thead><tbody id="mkSell"></tbody></table>
+      <div class="mk-pager" id="mkSellP"></div>
+    </div>
+    <div class="glass card">
+      <div class="mk-head"><h2 class="h3">Buy offers</h2><span class="muted" id="mkBuyN"></span></div>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Expires</th></tr></thead><tbody id="mkBuy"></tbody></table>
+      <div class="mk-pager" id="mkBuyP"></div>
+    </div>
+  </section>
+
+  <section class="mk-book">
+    <div class="glass card">
+      <h2 class="h3">Recent swaps</h2>
+      <table class="mk-table"><thead><tr><th>When</th><th>Price per GNR</th><th>GNR</th><th>BTC</th></tr></thead><tbody id="mkRecent"></tbody></table>
+    </div>
+    <div class="glass card">
+      <h2 class="h3">How to trade</h2>
+      <ol class="mk-steps">
+        <li><b>Get the wallet</b> from the <a href="/download.html">download page</a> and keep it running.</li>
+        <li>Open <b>Swap</b>: take an offer from the board, or publish your own at any price.</li>
+        <li><b>The wallets do the rest.</b> The buyer pays bitcoin into a contract, and the seller's GNR is locked only after that deposit confirms. Either both get paid, or both get their coins back.</li>
+      </ol>
+      <p class="muted mk-fine"><b>How the price is computed:</b> the volume-weighted median of the swaps completed in the last 24 hours. Before the first swap, the median of the open buy and sell offers, so the first offer already sets a price. It is shown in sat and in dollars at the current BTC price. A swap only counts if its claim is on chain.</p>
+      <p class="muted mk-fine"><b>Cost to mine</b> is shown for reference: the electricity the whole network spends per GNR at today's hashrate, assuming RTX 5090-class GPUs. With more miners it rises, because the same 7,200 GNR a day take more electricity. It is not a price.</p>
+      <p class="muted mk-fine" id="mkLive">Swaps on mainnet activate at block 3,300.</p>
+    </div>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/value.js" defer></script>
+<script src="/site.js" defer></script>
+<script src="/market.js" defer></script>
+</body>
+</html>

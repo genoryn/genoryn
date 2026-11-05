@@ -61,8 +61,28 @@ pub(crate) fn inactive(a: &App, w: Option<&Wallet>) -> Option<String> {
     })
 }
 
-fn view(s: &Swap) -> Value {
+fn view(s: &Swap, via_board: bool) -> Value {
     let mut v = serde_json::to_value(s).unwrap_or_default();
+    if via_board {
+        // The board carries the codes: there is nothing to copy or send by hand.
+        v["code"] = Value::Null;
+        v["via_board"] = json!(true);
+        let st = match s.stage {
+            Stage::Requested => {
+                Some("Request sent through the board; waiting for the seller's answer.")
+            }
+            Stage::Accepted => {
+                Some("Accepted through the board; waiting for the buyer's bitcoin deposit.")
+            }
+            Stage::Deposited if s.role == engine::Role::BtcSeller => {
+                Some("Deposit seen; the seller is told through the board and locks the GNR next.")
+            }
+            _ => None,
+        };
+        if let Some(t) = st {
+            v["status"] = json!(t);
+        }
+    }
     v["gnr_text"] = json!(format_amount(s.gnr));
     v["btc_text"] = json!(Amount::from_sat(s.sats).to_string_in(Denomination::Bitcoin));
     v["receive_text"] = json!(match s.role {
@@ -107,9 +127,13 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     }
     let g = app.wallet.lock();
     let swaps = g.as_ref().map(engine::load).unwrap_or_default();
+    let linked = g.as_ref().map(crate::board::linked_ids).unwrap_or_default();
     let why = inactive(&app, g.as_ref());
     drop(g);
-    let mut swaps: Vec<Value> = swaps.iter().map(view).collect();
+    let mut swaps: Vec<Value> = swaps
+        .iter()
+        .map(|s| view(s, linked.contains(&s.id)))
+        .collect();
     swaps.reverse();
     Json(json!({
         "active": why.is_none(),
@@ -147,7 +171,7 @@ pub async fn request(
     })
     .await
     {
-        Ok(s) => Json(view(&s)).into_response(),
+        Ok(s) => Json(view(&s, false)).into_response(),
         Err(e) => err(e),
     }
 }
@@ -203,7 +227,7 @@ pub async fn accept(
     })
     .await
     {
-        Ok(s) => Json(view(&s)).into_response(),
+        Ok(s) => Json(view(&s, false)).into_response(),
         Err(e) => err(e),
     }
 }
@@ -225,7 +249,7 @@ pub async fn receive(
     })
     .await
     {
-        Ok(s) => Json(view(&s)).into_response(),
+        Ok(s) => Json(view(&s, false)).into_response(),
         Err(e) => err(e),
     }
 }
@@ -279,10 +303,14 @@ pub async fn settings(
 }
 
 /// Background round, with the active wallet already synced and locked by the caller.
+/// Whether a wallet has swaps in progress or offers on the board to watch.
+pub fn has_work(w: &Wallet) -> bool {
+    !engine::load(w).iter().all(|s| s.stage.finished()) || crate::board::has_work(w)
+}
+
 pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types::Transaction]) {
     crate::board::refresh_market(a);
-    let idle = engine::load(w).iter().all(|s| s.stage.finished()) && !crate::board::has_work(w);
-    if idle || inactive(a, Some(w)).is_some() {
+    if !has_work(w) || inactive(a, Some(w)).is_some() {
         return;
     }
     let Ok(backend) = btc::connect(&backend_spec(a)) else {

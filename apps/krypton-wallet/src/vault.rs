@@ -329,6 +329,25 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         remember_fp(app, &id, &w);
         put_back(app, &id, w);
     }
+    // Swaps and offers of every unlocked wallet advance too, not only the active one's
+    // (so two wallets of this computer can even trade with each other).
+    let txs = pool.map(|p| p.0.as_slice()).unwrap_or(&[]);
+    let busy: Vec<String> = app
+        .vault
+        .others
+        .lock()
+        .iter()
+        .filter(|(_, w)| crate::swaps::has_work(w))
+        .map(|(id, _)| id.clone())
+        .collect();
+    for id in busy {
+        let Some(mut w) = app.vault.others.lock().remove(&id) else {
+            continue;
+        };
+        app.vault.syncing.lock().insert(id.clone());
+        crate::swaps::tick(app, &mut w, src, txs);
+        put_back(app, &id, w);
+    }
 }
 
 // ---- HTTP handlers ----

@@ -267,8 +267,15 @@ impl Trade {
 /// The market from the board's data.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
-    /// Volume-weighted median price of the window's verified trades (sat per GNR).
+    /// The market price (sat per GNR): the volume-weighted median of the window's verified
+    /// swaps, or, while there are none, of the open offers (buy and sell together).
     pub price: Option<f64>,
+    /// `swaps` or `offers`: what `price` was computed from.
+    pub source: Option<String>,
+    /// Volume-weighted median of the open offers alone.
+    pub offers_price: Option<f64>,
+    pub asks: usize,
+    pub bids: usize,
     pub trades: usize,
     pub volume_gnr: u64,
     pub last_price: Option<f64>,
@@ -316,8 +323,19 @@ pub fn market(trades: &[(Trade, u64)], offers: &[Offer], now: u64) -> Market {
         .filter(|o| o.side == Side::BuyGnr)
         .map(Offer::price)
         .max_by(f64::total_cmp);
+    let swaps = weighted_median(recent.iter().map(|t| (t.price(), t.gnr)).collect());
+    let book = weighted_median(offers.iter().map(|o| (o.price(), o.gnr)).collect());
+    let (price, source) = match (swaps, book) {
+        (Some(p), _) => (Some(p), Some("swaps".to_string())),
+        (None, Some(p)) => (Some(p), Some("offers".to_string())),
+        _ => (None, None),
+    };
     Market {
-        price: weighted_median(recent.iter().map(|t| (t.price(), t.gnr)).collect()),
+        price,
+        source,
+        offers_price: book,
+        asks: offers.iter().filter(|o| o.side == Side::SellGnr).count(),
+        bids: offers.iter().filter(|o| o.side == Side::BuyGnr).count(),
         trades: recent.len(),
         volume_gnr: recent.iter().map(|t| t.gnr).sum(),
         last_price: last,
@@ -411,6 +429,18 @@ mod tests {
         assert_eq!(m.price, Some(5_100.0));
         assert_eq!(m.best_ask, Some(6_000.0));
         assert_eq!(m.best_bid, Some(4_000.0));
+        assert_eq!(m.source.as_deref(), Some("swaps"));
+        assert_eq!((m.asks, m.bids), (1, 1));
         assert_eq!(weighted_median(vec![]), None);
+        // No swaps yet: the first offer already sets a price, more offers a median.
+        let one = market(&[], &offers[..1], 1_000);
+        assert_eq!(
+            (one.price, one.source.as_deref()),
+            (Some(6_000.0), Some("offers"))
+        );
+        let mut book = offers.clone();
+        book.push(offer(Side::SellGnr, 300_000_000, 15_000));
+        assert_eq!(market(&[], &book, 1_000).price, Some(5_000.0));
+        assert_eq!(market(&[], &[], 1_000).price, None);
     }
 }

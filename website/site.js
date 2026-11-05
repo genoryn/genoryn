@@ -97,7 +97,10 @@
     document.querySelectorAll("[data-vnote]").forEach(function (el) {
       if (el.dataset.orig == null) el.dataset.orig = el.innerHTML;
       if (market) {
-        el.textContent = "Median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + " completed on the wallet's offer board in the last 24 hours: " + sat(mk.price) + " per GNR. People set this price themselves with their offers; nobody quotes it.";
+        var from = mk.source === "swaps"
+          ? "Median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + " completed in the last 24 hours"
+          : "Median of the " + ((mk.asks || 0) + (mk.bids || 0)) + " open offer" + ((mk.asks || 0) + (mk.bids || 0) === 1 ? "" : "s") + " on the offer board (no swaps yet)";
+        el.textContent = from + ": " + sat(mk.price) + " per GNR. People set this price themselves; nobody quotes it. Cost to mine one GNR today: " + (e ? GKValue.usd(e.usd) : "—") + ".";
       } else {
         el.innerHTML = el.dataset.orig;
       }
@@ -111,8 +114,10 @@
     var oneGpu = e.gnrPerDay / Math.max(e.gpus, 1);
     put("[data-gpu-gnr]", "≈ " + oneGpu.toLocaleString("en-US", { maximumFractionDigits: oneGpu < 10 ? 2 : 0 }) + " GNR a day");
     put("[data-gpu-usd]", GKValue.usd(GKValue.REF.watts / 1000 * 24 * kwh) + " a day");
+    // What a GPU's daily GNR is worth: at the market price when there is one.
+    put("[data-gpu-value]", market ? GKValue.usd(oneGpu * mk.price * btc / 1e8) + " a day at the market price" : "no market price yet");
   };
-  if (document.querySelector("[data-cost]")) {
+  if (document.querySelector("[data-cost], [data-main]")) {
     var lastInfo = null;
     var loadCost = function () {
       var info = gk.api("/v1/info");

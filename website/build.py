@@ -32,7 +32,7 @@ def main():
         if f.is_file() and "dist" not in f.parts:
             h.update(f.read_bytes())
     ver = h.hexdigest()[:10]
-    asset_ref = re.compile(r'((?:href|src)="|srcset="|, )(/(?:assets/[^"\s,?]+|site\.css|site\.js|explorer\.js))')
+    asset_ref = re.compile(r'((?:href|src)="|srcset="|, )(/(?:assets/[^"\s,?]+|site\.css|site\.js|explorer\.js|market\.js))')
     for page in ROOT.glob("*.html"):
         if page.name.startswith("_"):
             continue
@@ -43,7 +43,7 @@ def main():
         html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
         html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
         (DIST / page.name).write_text(html, encoding="utf-8")
-    for f in ["site.css", "site.js", "explorer.js"]:
+    for f in ["site.css", "site.js", "explorer.js", "market.js"]:
         shutil.copy(ROOT / f, DIST / f)
     (DIST / "sitemap.xml").write_text(seo.sitemap(), encoding="utf-8")
     (DIST / "robots.txt").write_text(seo.ROBOTS, encoding="utf-8")
