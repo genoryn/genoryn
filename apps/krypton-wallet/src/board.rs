@@ -29,6 +29,9 @@ struct MyOffer {
     btc_address: String,
     taken: bool,
     cancelled: bool,
+    /// Put back on the board after its swap ended before anything was locked.
+    #[serde(default)]
+    republished: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,6 +51,9 @@ struct Link {
     n: u32,
     peer: String,
     sent: Vec<String>,
+    /// The other side was told this swap ended (cancelled or expired).
+    #[serde(default)]
+    gone_sent: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -275,6 +281,7 @@ fn publish_offer(
         btc_address: btc_address.trim().into(),
         taken: false,
         cancelled: false,
+        republished: false,
     });
     save(e.wallet, &st)?;
     Ok(offer)
@@ -341,6 +348,7 @@ fn take_offer(
                 n,
                 peer: offer.key.clone(),
                 sent: vec![hash(&code)],
+                gone_sent: false,
             });
         }
         // The maker buys GNR: we sell, and the maker answers with its request.
@@ -470,11 +478,58 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             }
         }
     }
+    // Swaps that ended before anything was locked (cancelled or expired): tell the other
+    // side, and put our own offer back on the board while it is still current.
+    let mut again: Vec<MyOffer> = Vec::new();
+    for l in st.links.iter_mut() {
+        let Some(s) = swaps.iter().find(|s| s.id == l.swap_id) else {
+            continue;
+        };
+        if !s.ended_unlocked() {
+            continue;
+        }
+        if !l.gone_sent {
+            let key = key_of(e.wallet, l.n);
+            if send_note(
+                &base,
+                &l.peer,
+                &key,
+                &Note::Gone {
+                    offer: l.offer.clone(),
+                },
+            )
+            .is_ok()
+            {
+                l.gone_sent = true;
+            }
+        }
+        if let Some(m) = st
+            .offers
+            .iter_mut()
+            .find(|m| m.offer.id == l.offer && m.taken && !m.republished)
+        {
+            m.republished = true;
+            if m.offer.expires > t + 900 {
+                again.push(m.clone());
+            }
+        }
+    }
     let n = st.seen.len();
     if n > 1000 {
         st.seen.drain(..n - 1000);
     }
-    save(e.wallet, &st)
+    save(e.wallet, &st)?;
+    for m in again {
+        let _ = publish_offer(
+            e,
+            &base,
+            m.offer.side,
+            m.offer.gnr,
+            m.offer.sats,
+            &m.btc_address,
+        );
+    }
+    Ok(())
 }
 
 fn handle(
@@ -524,6 +579,7 @@ fn handle(
                     n,
                     peer: from.into(),
                     sent: vec![],
+                    gone_sent: false,
                 });
                 return Ok(());
             }
@@ -551,6 +607,7 @@ fn handle(
                     n,
                     peer: from.into(),
                     sent: vec![],
+                    gone_sent: false,
                 });
                 return Ok(());
             }
@@ -581,6 +638,7 @@ fn handle(
                 n,
                 peer: from.into(),
                 sent: vec![],
+                gone_sent: false,
             });
             Ok(())
         }
@@ -591,6 +649,19 @@ fn handle(
                 .filter(|x| x.n == n && x.offer.id == offer)
             {
                 tk.gone = true;
+            }
+            // The other side of a swap in progress cancelled (or let it expire): end ours
+            // too while nothing is locked. Once coins are locked, the timelocks decide.
+            for l in st
+                .links
+                .iter_mut()
+                .filter(|l| l.n == n && l.peer == from && l.offer == offer)
+            {
+                l.gone_sent = true;
+                let _ = e.cancel(
+                    &l.swap_id,
+                    "The other side cancelled the swap. Nothing was locked.",
+                );
             }
             Ok(())
         }

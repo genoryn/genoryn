@@ -27,6 +27,8 @@ use std::str::FromStr;
 
 pub const CODE_PREFIX: &str = "gks1";
 const STORE_KEY: &str = "swaps";
+/// A swap whose bitcoin deposit has not arrived this long after it started is given up.
+pub const DEPOSIT_TIMEOUT_SECS: u64 = 3 * 3600;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -61,6 +63,34 @@ pub enum Stage {
 impl Stage {
     pub fn finished(self) -> bool {
         matches!(self, Stage::Done | Stage::Refunded | Stage::Failed)
+    }
+}
+
+impl Swap {
+    /// Whether this side can still walk away: nothing of anyone's is locked yet.
+    pub fn cancellable(&self) -> bool {
+        match self.role {
+            Role::BtcSeller => matches!(self.stage, Stage::Requested | Stage::AwaitDeposit),
+            Role::GnrSeller => self.stage == Stage::Accepted,
+        }
+    }
+    /// Ended (cancelled or expired) before this side locked anything: no bitcoin deposit
+    /// (BTC seller), no GNR lock (GNR seller).
+    pub fn ended_unlocked(&self) -> bool {
+        self.stage == Stage::Failed
+            && match self.role {
+                Role::BtcSeller => self.deposit.is_none(),
+                Role::GnrSeller => self.lock_cm.is_none(),
+            }
+    }
+    /// A given-up BTC seller swap whose contract address is still watched, in case the
+    /// bitcoin is paid anyway: it is then refunded at the timelock.
+    fn watching(&self) -> bool {
+        self.role == Role::BtcSeller
+            && self.stage == Stage::Failed
+            && self.deposit.is_none()
+            && self.btc_refund_height.is_some()
+            && self.btc_claim_pub.is_some()
     }
 }
 
@@ -531,19 +561,85 @@ impl<G: ChainSource> Engine<'_, G> {
         Ok(s)
     }
 
+    /// Gives up a swap before anything is locked. `why` is shown to the user. A BTC seller
+    /// whose deposit has already arrived cannot cancel: that bitcoin refunds at the timelock.
+    pub fn cancel(&mut self, id: &str, why: &str) -> Result<Swap> {
+        let mut swaps = load(self.wallet);
+        let s = swaps
+            .iter_mut()
+            .find(|s| s.id == id)
+            .context("no such swap")?;
+        ensure!(
+            s.cancellable(),
+            "this swap can no longer be cancelled: coins are locked, and the timelocks return them"
+        );
+        if s.role == Role::BtcSeller
+            && s.stage == Stage::AwaitDeposit
+            && let Ok(addr) = s.htlc_address()
+            && !self.btc.outputs(&addr)?.is_empty()
+        {
+            bail!(
+                "the bitcoin deposit has already arrived; the swap continues, or the bitcoin refunds after block {}",
+                s.btc_refund_height.unwrap_or(0)
+            );
+        }
+        s.stage = Stage::Failed;
+        s.code = None;
+        s.say(why);
+        let out = s.clone();
+        save(self.wallet, &swaps)?;
+        Ok(out)
+    }
+
     /// Advances every swap as far as the chains allow. `mempool` are pending GNR
     /// transactions (claims there reveal secrets early).
     pub fn step(&mut self, mempool: &[Transaction]) -> Result<Vec<Swap>> {
         self.wallet.learn_secrets(mempool);
         let mut swaps = load(self.wallet);
-        if swaps.iter().all(|s| s.stage.finished()) {
+        if swaps.iter().all(|s| s.stage.finished() && !s.watching()) {
             return Ok(swaps);
         }
         let btc_tip = self.btc.tip()?;
         let gnr_tip = self.gnr_tip()?;
+        let t = now();
         let mut changed = false;
-        for s in swaps.iter_mut().filter(|s| !s.stage.finished()) {
+        for s in swaps.iter_mut() {
             let before = (s.stage, s.status.clone());
+            // Nothing locked and no deposit for hours: give up (the GNR seller's lock window
+            // would run out anyway).
+            // The GNR seller waits an hour longer, so a deposit made at the last minute still
+            // finds it.
+            let limit = DEPOSIT_TIMEOUT_SECS + if s.role == Role::GnrSeller { 3600 } else { 0 };
+            if s.cancellable() && s.created + limit < t {
+                s.stage = Stage::Failed;
+                s.code = None;
+                s.say("Expired: no bitcoin deposit within 3 hours. Nothing was locked.");
+            }
+            // Paid after all, into a given-up swap: refund it at the timelock.
+            if s.watching()
+                && btc_tip < s.btc_refund_height.unwrap_or(0) + 1_000
+                && let Ok(addr) = s.htlc_address()
+                && let Some(u) = self
+                    .btc
+                    .outputs(&addr)
+                    .ok()
+                    .and_then(|v| v.into_iter().next())
+            {
+                s.deposit = Some(Deposit {
+                    txid: u.outpoint.txid.to_string(),
+                    vout: u.outpoint.vout,
+                    sats: u.value.to_sat(),
+                });
+                s.stage = Stage::Deposited;
+                s.say(format!(
+                    "A deposit arrived after the swap ended; it refunds after block {}.",
+                    s.btc_refund_height.unwrap_or(0)
+                ));
+            }
+            if s.stage.finished() {
+                changed |= before != (s.stage, s.status.clone());
+                continue;
+            }
             let r = match s.role {
                 Role::BtcSeller => self.step_btc_seller(s, btc_tip, gnr_tip),
                 Role::GnrSeller => self.step_gnr_seller(s, btc_tip, gnr_tip),

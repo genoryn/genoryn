@@ -448,6 +448,97 @@ fn both_sides_refund_when_nobody_claims() {
     assert!(btc.received(&btc_addr(2)) > SATS - 2_000);
 }
 
+/// Request, accept, receive: the buyer now waits for its own deposit.
+fn agreed(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) -> Address {
+    let req = b
+        .engine(src, btc, chain)
+        .request(GNR, SATS, &btc_addr(2).to_string())
+        .unwrap();
+    let acc = a
+        .engine(src, btc, chain)
+        .accept(req.code.as_ref().unwrap(), &btc_addr(1).to_string())
+        .unwrap();
+    b.engine(src, btc, chain)
+        .receive(acc.code.as_ref().unwrap())
+        .unwrap()
+        .htlc_address()
+        .unwrap()
+}
+
+#[test]
+fn cancel_before_deposit_and_pay_anyway_refunds() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let htlc = agreed(&mut a, &mut b, &src, &btc, &chain);
+    // Both sides may walk away while nothing is locked.
+    let id = b.swap().id;
+    let s = b
+        .engine(&src, &btc, &chain)
+        .cancel(&id, "Cancelled by you.")
+        .unwrap();
+    assert_eq!(s.stage, Stage::Failed);
+    assert!(a.swap().cancellable());
+    let s = a
+        .engine(&src, &btc, &chain)
+        .cancel(&id, "The other side cancelled.")
+        .unwrap();
+    assert_eq!(s.stage, Stage::Failed);
+    assert!(
+        a.engine(&src, &btc, &chain).cancel(&id, "again").is_err(),
+        "already over"
+    );
+    // The buyer pays anyway: its wallet still watches the contract and refunds at the timelock.
+    btc.pay(&htlc, SATS);
+    btc.mine();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Deposited, "{}", b.swap().status);
+    while btc.tip().unwrap() < b.swap().btc_refund_height.unwrap() {
+        btc.mine();
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
+    assert!(btc.received(&btc_addr(2)) > SATS - 2_000);
+}
+
+#[test]
+fn no_cancel_after_deposit_and_expiry_without_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let htlc = agreed(&mut a, &mut b, &src, &btc, &chain);
+    btc.pay(&htlc, SATS);
+    let id = b.swap().id;
+    assert!(
+        b.engine(&src, &btc, &chain).cancel(&id, "x").is_err(),
+        "the deposit arrived"
+    );
+    // A second swap that nobody pays expires after three hours, on both sides.
+    let htlc2 = agreed(&mut a, &mut b, &src, &btc, &chain);
+    let _ = htlc2;
+    for side in [&mut a, &mut b] {
+        let mut v = load(&side.wallet);
+        for s in v.iter_mut().filter(|s| s.deposit.is_none()) {
+            s.created -= krypton_swap::engine::DEPOSIT_TIMEOUT_SECS + 3_700;
+        }
+        krypton_swap::engine::save(&mut side.wallet, &v).unwrap();
+        side.engine(&src, &btc, &chain).step(&[]).unwrap();
+        let s = side.swap();
+        assert_eq!(s.stage, Stage::Failed, "{}", s.status);
+        assert!(s.status.starts_with("Expired"), "{}", s.status);
+    }
+}
+
 #[test]
 fn codes_roundtrip_and_reject_garbage() {
     use krypton_swap::engine::Msg;

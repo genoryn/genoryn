@@ -205,6 +205,13 @@ Bitcoin Core regtest node.
 * **Confirmations:** the GNR seller waits for 2 bitcoin confirmations. The BTC seller waits for
   30 GNR confirmations on the lock, so that rewriting it would cost more than the trade. GNR's
   hashrate is small today, so this is the main limit on swap size.
+* **Cancel and expiry:** either side can cancel while nothing is locked: the buyer before its
+  bitcoin deposit, the seller before the deposit code arrives.
+  * **Expiry:** a swap whose deposit has not arrived 3 hours after it started ends by itself.
+    The seller waits one hour longer, so a last-minute deposit still finds it.
+  * **Board swaps:** the other side is told, and a maker's offer goes back on the board.
+  * **Paid anyway:** a cancelled buyer's wallet keeps watching the contract address. If the
+    bitcoin is paid after all, it is refunded at the timelock.
 * **Amounts, keys, outputs and networks** are checked against the agreed terms before each step.
   A request for another network, or a lock that pays other outputs, is refused.
 * **Crash safety:** swaps are saved in the encrypted wallet file after every step. Keys, secrets

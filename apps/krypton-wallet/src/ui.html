@@ -14,7 +14,12 @@
 <link rel="stylesheet" href="/assets/fx.css">
 <style>
 header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:12px 22px;border-radius:0;border-width:0 0 1px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;flex:none}
+header .badge{flex:none;white-space:nowrap}
+@media (max-width:1500px){h1 small,#totUsd{display:none}}
+@media (max-width:1300px){header .btn .lbl{display:none}header .btn .ic{margin-right:0}}
+@media (max-width:1150px){#netBadge{display:none!important}}
+@media (max-width:980px){#totBadge{display:none!important}}
 .brand img{width:34px;height:34px;border-radius:9px;flex:none}
 h1{font:700 18px/1.1 var(--font-display);margin:0;letter-spacing:.2px;white-space:nowrap}h1 small{color:var(--text-secondary);font:500 13px var(--font-sans);margin-left:6px}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--text-secondary);background:var(--bg-inset);white-space:nowrap}
@@ -203,6 +208,59 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   td::before{content:attr(data-label);color:var(--text-tertiary)}
   .toast{left:12px;right:12px;bottom:12px}
 }
+/* ---- Swap tab (market, order book, trade panel, swaps) ---- */
+.swap-off{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}.swap-off .ic{width:22px;height:22px;flex:none;margin-top:2px}.swap-off p{margin:4px 0 0}
+.mk-hero{display:grid;grid-template-columns:minmax(220px,1.5fr) repeat(4,minmax(0,1fr));gap:0;padding:0;margin-bottom:18px;overflow:hidden}
+.mk-hero>div{padding:18px 20px;min-width:0}.mk-hero>div+div{border-left:1px solid var(--line)}
+.mk-price b{display:block;font:700 clamp(28px,3.4vw,40px)/1.1 var(--font-display);letter-spacing:-.5px;margin:6px 0 4px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mk-sub{font-size:13px;color:var(--text-primary)}.mk-sub .muted{color:var(--text-tertiary)}
+.mk-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-primary);margin-right:7px;vertical-align:1px;box-shadow:0 0 0 0 rgba(255,255,255,.5);animation:mkPulse 2.4s ease-out infinite}
+@keyframes mkPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--text-primary) 45%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.mk-stat{display:flex;flex-direction:column;justify-content:center;gap:6px}.mk-stat span{font-size:12px;color:var(--text-tertiary)}.mk-stat em{font-style:normal}.mk-stat b{font:600 16px var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.bd-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.bd-head h2{margin:0}.bd-host{font-size:12px}
+.bd-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:14px 0 10px}
+.bd-filters{display:flex;gap:8px;flex-wrap:wrap}.bd-filters input,.bd-filters select{width:auto;margin:0;height:38px;padding:0 12px;font-size:13px}.bd-filters input{width:96px}
+.bd-tablewrap{overflow-x:auto;margin:0 -6px}
+.bd-table{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:13.5px}
+.bd-table th{font-size:11.5px;font-weight:500;color:var(--text-tertiary);text-align:left;padding:6px 10px;letter-spacing:.3px}
+.bd-table th.r,.bd-table td.r{text-align:right}
+.bd-table td{padding:10px;white-space:nowrap;position:relative;background:transparent}
+.bd-table tbody tr{transition:background .18s}
+.bd-table tbody tr:hover td{background:var(--bg-inset)}
+.bd-table tbody tr td:first-child{border-radius:10px 0 0 10px}.bd-table tbody tr td:last-child{border-radius:0 10px 10px 0;text-align:right}
+.bd-table td.p b{font-family:var(--font-mono);font-weight:600}.bd-table td.p span{display:block;font-size:11.5px;color:var(--text-tertiary);margin-top:2px}
+.bd-depth{position:absolute;inset:3px auto 3px 0;background:linear-gradient(90deg,color-mix(in srgb,var(--text-primary) 9%,transparent),transparent);border-radius:10px;pointer-events:none;transition:width .5s var(--ease,ease)}
+.bd-table td.mono{font-family:var(--font-mono)}
+.bd-table td[colspan]{text-align:left!important;color:var(--text-tertiary);padding:22px 10px}
+.bd-up{color:var(--text-primary)}.bd-dn{color:var(--text-tertiary)}
+.bd-table .btn{height:32px;padding:0 14px;font-size:12.5px}
+.bd-side{position:sticky;top:84px}
+.bd-trade h2{margin-bottom:12px}
+.bd-sideseg{display:grid;grid-template-columns:1fr 1fr;width:100%;margin-bottom:6px}.bd-sideseg button{padding:10px 0;font-size:13.5px}
+.unit-in{display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--bg-inset);transition:border-color .2s,box-shadow .2s}
+.unit-in:focus-within{border-color:var(--line-strong);box-shadow:0 0 0 3px color-mix(in srgb,var(--text-primary) 8%,transparent)}
+.unit-in input{border:0;background:transparent;margin:0;flex:1;min-width:0;font:600 17px var(--font-mono);box-shadow:none}
+.unit-in input:focus{outline:none;box-shadow:none}
+.unit-in span{padding:0 14px;color:var(--text-tertiary);font-size:12.5px;font-weight:600;letter-spacing:.5px}
+.linkbtn{background:none;border:0;padding:6px 0 0;color:var(--text-secondary);font:500 12.5px var(--font-sans);cursor:pointer;text-decoration:underline;text-underline-offset:3px}.linkbtn:hover{color:var(--text-primary)}
+.bd-preview{margin:14px 0 4px;padding:12px 14px;border-radius:12px;border:1px dashed var(--line-strong);display:grid;gap:3px}
+.bd-preview span{font-size:11.5px;color:var(--text-tertiary);letter-spacing:.3px}.bd-preview b{font:600 18px var(--font-mono)}.bd-preview em{font-style:normal;font-size:12.5px;color:var(--text-secondary)}
+.bdpub{width:100%;margin-top:14px;height:46px}
+.bd-minelist{margin-top:14px}.bd-mine{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px}.bd-mine span{flex:1}.bd-mine .btn{height:30px;padding:0 12px;font-size:12px}
+.sw-mine{margin-top:18px}.sw-past{margin-top:14px}.sw-past summary{cursor:pointer;color:var(--text-secondary);font-size:13px}.sw-past em{font-style:normal;color:var(--text-tertiary)}
+.bd-direct{margin-top:14px}
+.swc{animation:fadeUp .35s var(--ease,ease) both}
+.swc-steps i{transition:color .5s,border-color .5s}
+.swc-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.swc-acts .muted{font-size:12.5px}
+@media (max-width:1180px){.mk-hero{grid-template-columns:1fr 1fr}.mk-hero>div+div{border-left:0;border-top:1px solid var(--line)}.mk-price{grid-column:1/-1}.bd-layout{grid-template-columns:1fr}.bd-side{position:static}}
+/* ---- Motion: light and optional ---- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.tab-in{animation:fadeUp .32s var(--ease,ease) both}
+.num-bump{animation:numBump .9s ease-out}
+@keyframes numBump{0%{text-shadow:0 0 0 transparent}30%{text-shadow:0 0 18px color-mix(in srgb,var(--text-primary) 55%,transparent)}100%{text-shadow:0 0 0 transparent}}
+.tot-badge b{font-family:var(--font-mono);font-weight:600}.tot-badge .muted{margin-left:4px}
+@media (prefers-reduced-motion:reduce){.tab-in,.swc,.num-bump,.mk-dot{animation:none}.bd-depth,.swc-steps i{transition:none}}
 </style>
 </head>
 <body>
@@ -229,6 +287,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <div class="brand"><img src="/assets/genoryn-mark-dark.svg" alt="Genoryn"><h1>Genoryn Krypton <small>wallet</small></h1></div>
   <span id="net" class="badge"></span>
   <button id="wChip" class="badge chip-btn hidden" aria-haspopup="dialog" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
+  <span id="totBadge" class="badge tot-badge hidden" title="All wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>Σ&nbsp;<b id="totGnr">-</b>&nbsp;GNR<span id="totUsd" class="muted"></span></span>
   <span class="spacer"></span>
   <span id="netBadge" class="badge net-badge hidden" title="Estimated miners (payout addresses active in ~6 h) · network hashrate"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
@@ -427,42 +486,61 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       </div>
     </div>
     <div id="tab-swap" class="hidden">
-      <div class="glass card swap-off hidden" id="swOff"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Atomic swaps are coming</h2><p class="muted" id="swOffWhy"></p></div>
-      <div class="kpis bd-kpis">
-        <div class="glass kpi"><b id="bdPrice">-</b><span id="bdPriceL">Market price</span></div>
-        <div class="glass kpi"><b id="bdAsk">-</b><span>Best sell offer <em id="bdAskN"></em></span></div>
-        <div class="glass kpi"><b id="bdBid">-</b><span>Best buy offer <em id="bdBidN"></em></span></div>
-        <div class="glass kpi"><b id="bdVol">-</b><span>Swaps · volume (24 h)</span></div>
-      </div>
-      <div class="bd-layout">
-        <div class="glass card bd-book">
-          <div class="gk-card-head"><h3><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Offer board</h3><b id="bdBoard" class="muted"></b></div>
-          <div class="toolbar bd-tools">
-            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="sell" class="on">Sell offers <em id="bdTabS">0</em></button><button type="button" data-t="buy">Buy offers <em id="bdTabB">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
-            <select id="bdSort" aria-label="Sort"><option value="price">Best price first</option><option value="big">Largest first</option><option value="small">Smallest first</option><option value="soon">Expiring soon</option></select>
-            <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
-            <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
-            <select id="bdPerPage" aria-label="Offers per page"><option value="25">25 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select>
-          </div>
-          <table class="htable bd-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>vs market</th><th>Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
-          <div class="pager" id="bdPager"></div>
-          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking one starts a swap, and the two wallets pass the codes to each other through the board, sealed so the board cannot read them. <b>Market price</b>: the median of the swaps completed in the last 24 hours; before the first swap, the median of the open offers. People set it themselves.</p>
+      <div class="glass card swap-off hidden" id="swOff"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><div><b>Atomic swaps are coming</b><p class="muted" id="swOffWhy"></p></div></div>
+      <section class="glass card mk-hero">
+        <div class="mk-price">
+          <span class="eyebrow-s"><span class="mk-dot"></span>GNR market price</span>
+          <b id="bdUsd">-</b>
+          <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
         </div>
-        <div class="bd-side">
-          <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Publish an offer</h2>
-            <div class="seg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
-            <label for="bdGnr">GNR</label><input id="bdGnr" inputmode="decimal" placeholder="100" autocomplete="off">
-            <label for="bdBtc">For bitcoin (BTC)</label>
-            <div class="bd-btcrow"><input id="bdBtc" inputmode="decimal" placeholder="0.001" autocomplete="off"><button type="button" class="btn" id="bdUseMkt" onclick="bdUseMarket()">At market price</button></div>
-            <p class="hero-note" id="bdPer">Set any price you like: the market price comes from what people offer and trade.</p>
+        <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
+        <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
+        <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
+        <div class="mk-stat"><span>Swaps · volume, 24 h</span><b id="bdVol">-</b></div>
+      </section>
+      <div class="bd-layout">
+        <section class="glass card bd-book">
+          <div class="bd-head">
+            <h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Offer board</h2>
+            <span class="muted mono bd-host" id="bdBoard"></span>
+          </div>
+          <div class="bd-tools">
+            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="sell" class="on">Sell offers <em id="bdTabS">0</em></button><button type="button" data-t="buy">Buy offers <em id="bdTabB">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
+            <div class="bd-filters">
+              <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
+              <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
+              <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
+              <select id="bdPerPage" aria-label="Offers per page"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+            </div>
+          </div>
+          <div class="bd-tablewrap">
+            <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
+          </div>
+          <div class="pager" id="bdPager"></div>
+          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking one starts a swap, and the two wallets pass the codes through the board themselves, sealed so the board cannot read them. <b>Market price</b>: the median of the swaps of the last 24 hours. Before the first swap, it is the median of the open offers. People set it.</p>
+        </section>
+        <aside class="bd-side">
+          <section class="glass card bd-trade">
+            <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
+            <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
+            <label for="bdGnr">Amount</label>
+            <div class="unit-in"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span>GNR</span></div>
+            <label for="bdBtc">For</label>
+            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span>BTC</span></div>
+            <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
+            <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
             <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
             <button class="btn btn-primary bdpub" onclick="boardPublish()">Publish for 24 hours</button>
             <div id="bdMine" class="bd-minelist"></div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
-      <div class="glass card" style="margin-top:18px"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><div id="swapList"><p class="muted">No swaps yet.</p></div></div>
-      <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes (without the board)</summary>
+      <section class="glass card sw-mine">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
+        <div id="swapList"><p class="muted">No swaps yet.</p></div>
+        <details class="sw-past hidden" id="swPastBox"><summary>Past swaps <em id="swPastN"></em></summary><div id="swapPast"></div></details>
+      </section>
+      <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes</summary>
         <div class="grid" style="margin-top:14px">
           <div class="glass card"><h2>Buy GNR with bitcoin</h2>
             <p class="muted">You pay bitcoin, the other person locks GNR. Either both of you get paid, or both get your own coins back.</p>
@@ -484,18 +562,18 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
               <li><b>Deposit.</b> The buyer pays the bitcoin into the contract address shown here and sends the deposit code.</li>
               <li><b>Automatic.</b> The wallets finish alone: the seller locks GNR, the buyer claims it, the seller takes the bitcoin with the secret that claim reveals. If anyone stops, timeouts refund both.</li>
             </ol>
-            <p class="hero-note">On the board all of this happens by itself. Keep the wallet running until a swap is done. Nobody holds your coins: not genoryn.io, not the other person.</p>
+            <p class="hero-note">On the board all of this happens by itself. A swap whose bitcoin deposit does not arrive within 3 hours ends by itself; before the deposit, either side can cancel.</p>
           </div>
         </div>
       </details>
-      <div class="grid" style="margin-top:18px">
-        <div class="glass card"><h2>Bitcoin connection</h2>
+      <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg>Bitcoin connection</summary>
+        <div style="margin-top:12px;max-width:620px">
           <div class="row">Bitcoin network<b id="swNet">-</b></div>
           <label for="swBackend">Bitcoin data source</label><input id="swBackend" class="mono" spellcheck="false" autocomplete="off">
           <p class="hero-note">An Esplora API (mempool.space by default; it can see which swap addresses this wallet looks up) or your own Bitcoin Core node: <code>rpc:http://user:password@127.0.0.1:8332</code>. Leave empty for the default.</p>
           <button class="btn" onclick="swapSettings()">Save</button>
         </div>
-      </div>
+      </details>
     </div>
     <div id="tab-mining" class="grid hidden">
       <div class="glass card">
@@ -721,6 +799,24 @@ function setShowVal(on){ VAL.show=on; try{ localStorage.setItem('gk-showval', on
 function fitBig(el){ if(!el) return; const box=el.parentElement; el.style.fontSize='';
   const avail=box.clientWidth, w=el.scrollWidth; if(avail>0 && w>avail){ const fs=parseFloat(getComputedStyle(el).fontSize); el.style.fontSize=Math.max(18, Math.floor(fs*avail/w))+'px'; } }
 window.addEventListener('resize', ()=>{ fitBig($('bal')); fitBig($('rUnpaid')); });
+/* The card can appear (or fonts arrive) after the number was set: refit then, so it never wraps. */
+if(window.ResizeObserver) new ResizeObserver(()=>fitBig($('bal'))).observe($('bal').parentElement);
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>fitBig($('bal')));
+/* Numbers that count up to their new value (balances). The size is fitted to the final text
+   first, and every frame keeps the same number of decimals, so nothing jumps or wraps. */
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+let refreshN=0;
+function animNum(el, gori){
+  if(!el) return; const to=Number(gori||0), from=el._v; el._v=to;
+  const fin=gnr(to), dec=(fin.split(/[.,]/)[1]||'').length;
+  const fmt=v=>(v/1e8).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec});
+  cancelAnimationFrame(el._raf); el.textContent=fin; if(el.id==='bal') fitBig(el);
+  if(RM || from===to || (from==null && to===0)) return;
+  const a=from==null?0:from, t0=performance.now(), ms=from==null?1100:700;
+  if(from!=null && to>from){ el.classList.remove('num-bump'); void el.offsetWidth; el.classList.add('num-bump'); }
+  const step=t=>{ const k=Math.min(1,(t-t0)/ms), e=1-Math.pow(1-k,3); el.textContent=k<1?fmt(a+(to-a)*e):fin; if(k<1) el._raf=requestAnimationFrame(step); };
+  el._raf=requestAnimationFrame(step);
+}
 function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast float '+(bad?'bad':''); setTimeout(()=>t.classList.add('hidden'), 6000); }
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
 let adding=false, restoreMode=false, W=null;
@@ -772,6 +868,9 @@ function renderBar(){
   if(!W) return; const t=W.total||{}, n=W.wallets.length, open=W.wallets.filter(w=>w.unlocked).length;
   $('wbTotal').textContent=gnr(t.total)+' GNR'; $('wbCount').textContent=n+' wallet'+(n===1?'':'s')+' · '+open+' unlocked'+(W.unknown?' · '+W.unknown+' not counted yet':'');
   $('swTotal').textContent=gnr(t.total)+' GNR'; renderValue();
+  // Header: every wallet together, at the market price when there is one.
+  const tb=$('totBadge'); tb.classList.toggle('hidden', n<2 || t.total==null);
+  if(n>=2){ animNum($('totGnr'), t.total||0); const p=perGnr(); $('totUsd').textContent=p!=null&&VAL.show?' ≈ '+GKValue.usd((t.total||0)/1e8*p).replace(/^≈ /,''):''; tb.title='All '+n+' wallets'+(W.unknown?' ('+W.unknown+' not counted yet)':''); }
   if(!$('switcher').classList.contains('hidden')) renderSwitcher();
 }
 function toggleAll(on){ const p=$('allWallets'), show_=on===undefined?p.classList.contains('hidden'):on;
@@ -819,7 +918,14 @@ const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).f
 async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
 async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function lockAll(){ if(!await ask({title:'Lock all wallets?', icon:'lock', ok:'Lock all', body:'<p class="mtext">Each wallet asks for its own password again. The miner keeps running.</p>'})) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
-async function useWallet(id){ try{ await api('/api/wallets/use',{id}); toast('Switched to “'+wname(id)+'”'); }catch(e){ toast(e.message,true) } await refresh(); loadWallets(); }
+async function useWallet(id){
+  try{ await api('/api/wallets/use',{id}); toast('Switched to “'+wname(id)+'”'); }catch(e){ toast(e.message,true); return; }
+  // Everything shown belongs to the new wallet now: drop what was loaded for the old one.
+  hide('proofOut'); hide('proofBtns'); BD={}; SW={swaps:[]};
+  await refresh(); loadWallets();
+  const vis=t=>!$('tab-'+t).classList.contains('hidden');
+  if(vis('history')) loadHistory(); if(vis('swap')) loadSwaps(); if(vis('network')) loadNetExtras();
+}
 async function renameW(id){ WV.menu=null; renderWallets(); const n=await ask({title:'Rename wallet', icon:'wallet', ok:'Save', input:{value:wname(id), max:40, placeholder:'Wallet name'}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function removeW(id){
   WV.menu=null; const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
@@ -1007,7 +1113,9 @@ async function reveal(){ try{ const r = await api('/api/reveal',{password:$('rev
 async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
 const TABS=['wallet','history','swap','mining','network','security','about'];
-function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); }
+function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t);
+  const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='wallet') fitBig($('bal')); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=['Request','Accept','Deposit','Lock','Claim','Done'];
@@ -1019,12 +1127,22 @@ async function loadSwaps(first){
   document.querySelectorAll('#tab-swap .swbtn').forEach(b=>b.disabled=!SW.active);
   $('swNet').textContent=SW.btc_network==='main'?'Bitcoin':SW.btc_network;
   if(first&&!swInit){ swInit=true; $('swBackend').value=SW.btc_backend||''; }
-  const list=SW.swaps||[];
+  const list=SW.swaps||[], live=list.filter(s=>!s.finished), past=list.filter(s=>s.finished);
   loadBoard();
-  $('swapList').innerHTML=list.length?list.map(swapCard).join(''):'<p class="muted">No swaps yet. Create a request to buy GNR, or paste a request code to sell.</p>';
+  $('swCount').textContent=live.length?live.length+' in progress':'';
+  $('swapList').innerHTML=live.length?live.map(swapCard).join(''):'<p class="muted">No swap in progress. Take an offer from the board, or publish your own.</p>';
+  $('swPastBox').classList.toggle('hidden', !past.length); $('swPastN').textContent='('+past.length+')';
+  $('swapPast').innerHTML=past.slice(0,50).map(swapCard).join('');
+}
+const swLeft=s=>{ const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?h+' h '+m+' min':m+' min'; };
+async function swapCancel(id){
+  if(!await ask({title:'Cancel this swap?', icon:'swap', ok:'Cancel swap', cancel:'Keep it', danger:true,
+    body:'<p class="mtext">Nothing is locked yet, so nobody loses anything. If you are the buyer, <b>do not pay the bitcoin</b> after cancelling (if you do anyway, your wallet refunds it at the timelock). The other side is told through the board.</p>'})) return;
+  try{ await api('/api/swap/cancel',{id}); toast('Swap cancelled'); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 function swapCard(s){
   const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
+  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel('${esc(s.id)}')">Cancel swap</button><span class="muted">${s.expires_in!=null?'Ends by itself in '+swLeft(s.expires_in)+' if no bitcoin deposit arrives.':''}</span></div>`:'';
   const showCode=s.code&&['requested','accepted','deposited'].includes(s.stage)&&!(s.role==='gnr_seller'&&s.stage==='deposited');
   const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
   const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString()} · ${esc(m)}</li>`).join('');
@@ -1033,6 +1151,7 @@ function swapCard(s){
     <p class="swc-status">${esc(s.status)}</p>
     ${showCode?`<label>Send this code to the other person</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">Copy code</button>`:''}
     ${s.stage==='await_deposit'&&s.htlc_address?`<label>Pay exactly ${esc(s.btc_text)} BTC to this contract address</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy address</button>`:''}
+    ${acts}
     <details><summary>Details</summary>
       ${row('You receive',s.receive_text)}${row('Your Bitcoin address',s.btc_address)}${row('Contract address',s.htlc_address)}
       ${row('GNR refund from block',s.gnr_refund_height)}${row('Bitcoin refund after block',s.btc_refund_height)}
@@ -1069,10 +1188,13 @@ async function loadBoard(){
   try{ BD=await api('/api/board'); }catch(e){ return; }
   const m=bdMkt();
   $('bdBoard').textContent=(BD.board||'').replace(/^https?:\/\//,'');
-  $('bdPrice').textContent=m.price!=null?fmtSat(m.price):'no offers yet';
-  $('bdPriceL').textContent=(m.source==='swaps'?'Market price · '+m.trades+' swaps, 24 h':m.source==='offers'?'Market price · from '+((m.asks||0)+(m.bids||0))+' offers':'Market price')+satUsd(m.price);
+  const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
+  $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtSat(m.price)):'No offers yet';
+  $('bdPrice').textContent=m.price!=null?fmtSat(m.price)+' per GNR':'Publish the first offer: it sets the first price.';
+  $('bdPriceL').textContent=m.source==='swaps'?'· median of '+m.trades+' swap'+(m.trades===1?'':'s')+', 24 h':m.source==='offers'?'· median of '+n+' offer'+(n===1?'':'s'):'';
   $('bdAsk').textContent=fmtSat(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtSat(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
+  $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
   $('bdVol').textContent=(m.trades||0)+' · '+gnr(m.volume_gnr||0).replace(/\.?0+$/,'')+' GNR';
   renderBook(); renderMine(); bdPer();
 }
@@ -1099,13 +1221,14 @@ function renderBook(){
     if(!SW.active) return `<button class="btn" title="Swaps start at the network upgrade" onclick="bdNotYet()">${label}</button>`;
     return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${label}</button>`;
   };
-  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="mono">${fmtSat(o.price)}<span class="muted">${satUsd(o.price)}</span></td><td class="mono">${esc(o.gnr_text)}</td><td class="mono">${esc(o.btc_text)}</td><td class="mono">${vs(o.price)}</td><td>${o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
+  const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
+  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${list.length} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(list.length?`<span>${list.length} offer${list.length===1?'':'s'}</span>`:'');
 }
 function renderMine(){
   const open=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired);
-  $('bdMine').innerHTML=open.length?`<label>Your open offers</label>`+open.slice(0,5).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?'Selling':'Buying'} ${esc(o.gnr_text)} GNR · ${fmtSat(o.price)}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button></div>`).join('')+(open.length>5?`<p class="hero-note">and ${open.length-5} more under Mine</p>`:''):'';
+  $('bdMine').innerHTML=open.length?`<label>Your open offers</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?'Selling':'Buying'} ${esc(o.gnr_text)} GNR · ${fmtSat(o.price)}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">and ${open.length-3} more under Mine</button>`:''):'';
 }
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
@@ -1115,9 +1238,10 @@ $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
 document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?'Your Bitcoin address to receive the bitcoin':'Your Bitcoin address for a refund'; bdPer(); });
 function bdPer(){
   const g=Number($('bdGnr').value), b=Number($('bdBtc').value), mp=bdMkt().price;
-  if(!(g>0&&b>0)){ $('bdPer').textContent=mp?'Market price now: '+fmtSat(mp)+' per GNR'+satUsd(mp)+'. Set any price you like.':'Set any price you like: your offer can set the first market price.'; return; }
+  if(!(g>0&&b>0)){ $('bdPerP').textContent='-'; $('bdPer').textContent=mp?'Market price now: '+fmtSat(mp)+satUsd(mp)+'. Set any price you like.':'Set any price you like: your offer can set the first market price.'; return; }
   const p=b*1e8/g, d=mp?((p/mp-1)*100):null;
-  $('bdPer').textContent='Your price: '+fmtSat(p)+' per GNR'+satUsd(p)+(d!=null?` · ${d>=0?'+':''}${d.toFixed(1)}% vs market`:'');
+  $('bdPerP').textContent=fmtSat(p)+satUsd(p);
+  $('bdPer').textContent=d!=null?`${d>=0?'+':''}${d.toFixed(1)}% vs the market price`:'No market price yet: yours will be the first.';
 }
 function bdUseMarket(){ const mp=bdMkt().price, g=Number($('bdGnr').value); if(!mp) return toast('There is no market price yet: you set the first one',true); if(!(g>0)) return toast('Enter the GNR amount first',true); $('bdBtc').value=(g*mp/1e8).toFixed(8).replace(/0+$/,'').replace(/\.$/,''); bdPer(); }
 $('bdGnr').oninput=bdPer; $('bdBtc').oninput=bdPer;
@@ -1209,8 +1333,8 @@ async function refresh(){
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
-  const b=S.balance||{}; $('bal').textContent=gnr(b.total); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
-  fitBig($('bal'));
+  const b=S.balance||{}; animNum($('bal'), b.total||0); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
+  if(++refreshN%3===0) loadWallets();
   $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
   $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;

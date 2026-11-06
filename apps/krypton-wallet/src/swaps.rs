@@ -95,6 +95,16 @@ fn view(s: &Swap, via_board: bool) -> Value {
     });
     v["htlc_address"] = json!(s.htlc_address().ok().map(|a| a.to_string()));
     v["finished"] = json!(s.stage.finished());
+    v["cancellable"] = json!(s.cancellable());
+    if s.cancellable() {
+        let grace = if s.role == engine::Role::GnrSeller {
+            3600
+        } else {
+            0
+        };
+        let end = s.created + engine::DEPOSIT_TIMEOUT_SECS + grace;
+        v["expires_in"] = json!(end.saturating_sub(krypton_core::now()));
+    }
     v
 }
 
@@ -181,6 +191,29 @@ pub struct CodeReq {
     code: String,
     #[serde(default)]
     address: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct IdReq {
+    id: String,
+}
+
+/// Cancels a swap before anything is locked; the board tells the other side.
+pub async fn cancel(axum::extract::State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Response {
+    if let Err(x) = check_open(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        run(&a, |e| {
+            e.cancel(&r.id, "Cancelled by you. Nothing was locked.")
+        })
+    })
+    .await
+    {
+        Ok(s) => Json(view(&s, false)).into_response(),
+        Err(e) => err(e),
+    }
 }
 
 /// What a code says, before acting on it (the Accept dialog shows the amounts).

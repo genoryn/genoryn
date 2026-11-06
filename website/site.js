@@ -92,6 +92,11 @@
     put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) + " · " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") : "no swaps yet");
     put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));
     var market = !!(mk.price && btc > 0);
+    var nOffers = (mk.asks || 0) + (mk.bids || 0);
+    put("[data-mk-usd]", market ? GKValue.usd(mk.price * btc / 1e8) : mk.price ? sat(mk.price) : "no offers yet");
+    put("[data-mk-sat]", mk.price ? sat(mk.price) + " per GNR" : "be the first to make an offer");
+    put("[data-mk-src]", mk.source === "swaps" ? "median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + ", last 24 h"
+      : mk.source === "offers" ? "median of " + nOffers + " open offer" + (nOffers === 1 ? "" : "s") : "set by people on the offer board");
     put("[data-main]", market ? GKValue.usd(mk.price * btc / 1e8) : e ? GKValue.usd(e.usd) : "—");
     put("[data-vlabel]", market ? "Market price" : "Reference value");
     document.querySelectorAll("[data-vnote]").forEach(function (el) {

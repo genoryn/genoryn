@@ -400,37 +400,28 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
     }
     let a = app.clone();
     let v = blocking(move || {
-        let Some(w) = a.wallet.try_lock() else {
-            return Ok(json!({"working": true, "unlocked": true, "exists": true, "busy": a.busy.lock().clone(), "network": a.network.as_str()}));
+        // While the active wallet is busy (syncing, a swap round), show its last snapshot
+        // instead of stalling the page: a freshly picked wallet appears at once.
+        let wv = match a.wallet.try_lock() {
+            Some(w) => match w.as_ref() {
+                Some(w) => {
+                    let v = wallet_view(w);
+                    remember_view(w, &v);
+                    v
+                }
+                None => Value::Null,
+            },
+            None => {
+                match active_view(&a) {
+                    Some(v) => v,
+                    None => {
+                        return Ok(json!({"working": true, "unlocked": true, "exists": true, "busy": a.busy.lock().clone(), "network": a.network.as_str()}));
+                    }
+                }
+            }
         };
         let s = a.settings.lock().clone();
-        let owner = w
-            .as_ref()
-            .map(|w| hex::encode(krypton_crypto::field::digest_to_bytes(&w.address().owner)));
-        let incoming = w.as_ref().map(|w| w.incoming().to_vec()).unwrap_or_default();
-        let swaps_open = w.as_ref().map(swaps::active_count).unwrap_or(0);
-        let swap_locked = w.as_ref().map(|w| w.locked_balance()).unwrap_or(0);
-        let (address, short, balance, synced, history) = match w.as_ref() {
-            Some(w) => (
-                Some(w.address().encode()),
-                Some(w.address().short()),
-                Some(w.balance()),
-                w.synced_height(),
-                w.history()
-                    .iter()
-                    .rev()
-                    .take(100)
-                    .map(|h| {
-                        json!({
-                            "txid": h.txid, "height": h.height, "amount": h.amount, "fee": h.fee,
-                            "memo": h.memo, "to": h.to, "time": h.time, "provable": h.disclosure.is_some(),
-                        })
-                    })
-                    .collect::<Vec<_>>(),
-            ),
-            None => (None, None, None, None, vec![]),
-        };
-        drop(w);
+        let address = wv["address"].as_str().map(str::to_string);
         let info = a
             .sources()
             .ok()
@@ -462,15 +453,15 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "wallet_count": reg.wallets.len(),
             "wallet_names": reg.wallets.iter().map(|e| json!({"id": e.id, "name": e.name, "unlocked": a.vault.locks_in(&e.id).is_some()})).collect::<Vec<_>>(),
             "address": address,
-            "short": short,
-            "owner": owner,
-            "incoming": incoming,
-            "balance": balance,
-            "swaps_open": swaps_open,
-            "swap_locked": swap_locked,
+            "short": wv["short"],
+            "owner": wv["owner"],
+            "incoming": wv["incoming"],
+            "balance": wv["balance"],
+            "swaps_open": wv["swaps_open"],
+            "swap_locked": wv["swap_locked"],
             "market": board::cached_market(),
-            "synced_height": synced,
-            "history": history,
+            "synced_height": wv["synced_height"],
+            "history": wv["history"],
             "settings": s,
             "tip": info,
             "node_running": node_running,
@@ -491,6 +482,57 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
         Ok(v) => Json(v).into_response(),
         Err(e) => err(e),
     }
+}
+
+/// The wallet-specific part of `/api/state`.
+fn wallet_view(w: &Wallet) -> Value {
+    let history: Vec<Value> = w
+        .history()
+        .iter()
+        .rev()
+        .take(100)
+        .map(|h| {
+            json!({
+                "txid": h.txid, "height": h.height, "amount": h.amount, "fee": h.fee,
+                "memo": h.memo, "to": h.to, "time": h.time, "provable": h.disclosure.is_some(),
+            })
+        })
+        .collect();
+    json!({
+        "address": w.address().encode(),
+        "short": w.address().short(),
+        "owner": hex::encode(krypton_crypto::field::digest_to_bytes(&w.address().owner)),
+        "incoming": w.incoming(),
+        "balance": w.balance(),
+        "swaps_open": swaps::active_count(w),
+        "swap_locked": w.locked_balance(),
+        "synced_height": w.synced_height(),
+        "history": history,
+    })
+}
+
+/// Last view of every wallet this session, by wallet fingerprint. Keyed by fingerprint so
+/// storing needs no registry lock (callers may hold a wallet lock) and a switch in between
+/// cannot file a view under the wrong wallet.
+fn views() -> &'static Mutex<std::collections::HashMap<String, Value>> {
+    static V: std::sync::OnceLock<Mutex<std::collections::HashMap<String, Value>>> =
+        std::sync::OnceLock::new();
+    V.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+fn remember_view(w: &Wallet, v: &Value) {
+    views().lock().insert(vault::fingerprint(w), v.clone());
+}
+
+/// The last view of the active wallet (no wallet lock needed).
+fn active_view(a: &App) -> Option<Value> {
+    let active = a.vault.active_id();
+    let fp = a.vault.reg.lock().get(&active).map(|e| e.fp.clone())?;
+    views().lock().get(&fp).cloned()
+}
+
+pub(crate) fn snapshot(w: &Wallet) {
+    remember_view(w, &wallet_view(w));
 }
 
 #[derive(Deserialize)]
@@ -1649,8 +1691,10 @@ async fn serve(
                     if let Some((txs, ids)) = &pool {
                         w.scan_mempool(txs, ids);
                     }
+                    snapshot(w);
                     let txs = pool.as_ref().map(|p| p.0.as_slice()).unwrap_or(&[]);
                     swaps::tick(&a, w, &src, txs);
+                    snapshot(w);
                     // Name the wallet by what it is, not by what was active before we
                     // got it (a switch may have happened in between).
                     let fp = vault::fingerprint(w);
@@ -1722,6 +1766,7 @@ async fn serve(
         .route("/api/swap/accept", post(swaps::accept))
         .route("/api/swap/receive", post(swaps::receive))
         .route("/api/swap/decode", post(swaps::decode))
+        .route("/api/swap/cancel", post(swaps::cancel))
         .route("/api/board", get(board::list))
         .route("/api/board/publish", post(board::publish))
         .route("/api/board/take", post(board::take))

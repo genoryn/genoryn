@@ -309,6 +309,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         for (id, w) in app.vault.others.lock().iter_mut() {
             w.scan_mempool(txs, live);
             app.vault.note(id, w);
+            crate::snapshot(w);
         }
     }
     let ids: Vec<String> = app
@@ -327,6 +328,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         let _ = w.sync(src, |_, _| {});
         app.vault.note(&id, &w);
         remember_fp(app, &id, &w);
+        crate::snapshot(&w);
         put_back(app, &id, w);
     }
     // Swaps and offers of every unlocked wallet advance too, not only the active one's
@@ -346,6 +348,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         };
         app.vault.syncing.lock().insert(id.clone());
         crate::swaps::tick(app, &mut w, src, txs);
+        crate::snapshot(&w);
         put_back(app, &id, w);
     }
 }
