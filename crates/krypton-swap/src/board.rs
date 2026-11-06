@@ -299,8 +299,14 @@ pub fn weighted_median(mut v: Vec<(f64, u64)>) -> Option<f64> {
     v.sort_by(|a, b| a.0.total_cmp(&b.0));
     let total: u128 = v.iter().map(|x| x.1 as u128).sum();
     let mut acc = 0u128;
-    for (p, w) in &v {
+    for (i, (p, w)) in v.iter().enumerate() {
         acc += *w as u128;
+        if acc * 2 == total
+            && let Some((next, _)) = v.get(i + 1)
+        {
+            // Exactly half the volume on each side: the midpoint of the two middle prices.
+            return Some((p + next) / 2.0);
+        }
         if acc * 2 >= total {
             return Some(*p);
         }
@@ -487,5 +493,8 @@ mod tests {
             (Some(8_000.0), Some("pending"), 1)
         );
         assert_eq!(market(&[], &[], &taken, 1_000).price, Some(8_000.0));
+        // Two equal swaps at 1,000 and 10,000 sat: the midpoint, not the lower one.
+        assert_eq!(weighted_median(vec![(1_000.0, 10), (10_000.0, 10)]), Some(5_500.0));
+        assert_eq!(weighted_median(vec![(1_000.0, 10), (10_000.0, 11)]), Some(10_000.0));
     }
 }
