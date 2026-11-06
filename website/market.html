@@ -22,7 +22,7 @@
     <div class="glass kpi"><b id="mkPrice">—</b><span id="mkPriceL">Market price per GNR</span></div>
     <div class="glass kpi"><b id="mkAsk">—</b><span>Best sell offer <em id="mkAskN"></em></span></div>
     <div class="glass kpi"><b id="mkBid">—</b><span>Best buy offer <em id="mkBidN"></em></span></div>
-    <div class="glass kpi"><b id="mkVol">—</b><span>Swaps · volume (24 h)</span></div>
+    <div class="glass kpi"><b id="mkVol">—</b><span>Swaps (24 h)</span></div>
     <div class="glass kpi"><b data-cost>—</b><span>Cost to mine one GNR (at <span data-cost-kwh>$0.15</span>/kWh)</span></div>
   </section>
 
@@ -41,9 +41,15 @@
 
   <section class="mk-book">
     <div class="glass card">
+      <div class="mk-head"><h2 class="h3">Swaps in progress</h2><span class="muted" id="mkPendN"></span></div>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
+    </div>
+    <div class="glass card">
       <h2 class="h3">Recent swaps</h2>
       <table class="mk-table"><thead><tr><th>When</th><th>Price per GNR</th><th>GNR</th><th>BTC</th></tr></thead><tbody id="mkRecent"></tbody></table>
     </div>
+  </section>
+  <section class="mk-book mk-one">
     <div class="glass card">
       <h2 class="h3">How to trade</h2>
       <ol class="mk-steps">
@@ -51,7 +57,13 @@
         <li>Open <b>Swap</b>: take an offer from the board, or publish your own at any price.</li>
         <li><b>The wallets do the rest.</b> The buyer pays bitcoin into a contract, and the seller's GNR is locked only after that deposit confirms. Either both get paid, or both get their coins back.</li>
       </ol>
-      <p class="muted mk-fine"><b>How the price is computed:</b> the volume-weighted median of the swaps completed in the last 24 hours. Before the first swap, the median of the open buy and sell offers, so the first offer already sets a price. It is shown in sat and in dollars at the current BTC price. A swap only counts if its claim is on chain.</p>
+      <p class="muted mk-fine"><b>How the price is computed:</b> a volume-weighted median of everything people are doing on the board.</p>
+      <ul class="mk-steps">
+        <li><b>Swaps completed</b> in the last 24 hours count three times. A swap only counts if its claim is on chain.</li>
+        <li><b>Swaps in progress</b> count twice.</li>
+        <li><b>Open buy and sell offers</b> count once, so the first offer already sets a price.</li>
+      </ul>
+      <p class="muted mk-fine">The price is shown in sat and in dollars at the current BTC price.</p>
       <p class="muted mk-fine"><b>Cost to mine</b> is shown for reference: the electricity the whole network spends per GNR at today's hashrate, assuming RTX 5090-class GPUs. With more miners it rises, because the same 7,200 GNR a day take more electricity. It is not a price.</p>
       <p class="muted mk-fine" id="mkLive">Swaps on mainnet activate at block 3,300.</p>
     </div>

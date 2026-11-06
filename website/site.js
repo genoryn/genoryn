@@ -95,7 +95,8 @@
     var nOffers = (mk.asks || 0) + (mk.bids || 0);
     put("[data-mk-usd]", market ? GKValue.usd(mk.price * btc / 1e8) : mk.price ? sat(mk.price) : "no offers yet");
     put("[data-mk-sat]", mk.price ? sat(mk.price) + " per GNR" : "be the first to make an offer");
-    put("[data-mk-src]", mk.source === "swaps" ? "median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + ", last 24 h"
+    put("[data-mk-src]", mk.source === "swaps" ? "median of swaps, swaps in progress and offers"
+      : mk.source === "pending" ? "median of " + mk.pending + " swap" + (mk.pending === 1 ? "" : "s") + " in progress and " + nOffers + " offer" + (nOffers === 1 ? "" : "s")
       : mk.source === "offers" ? "median of " + nOffers + " open offer" + (nOffers === 1 ? "" : "s") : "set by people on the offer board");
     put("[data-main]", market ? GKValue.usd(mk.price * btc / 1e8) : e ? GKValue.usd(e.usd) : "—");
     put("[data-vlabel]", market ? "Market price" : "Reference value");

@@ -91,6 +91,7 @@ pub fn router(node: Arc<Node>) -> Router {
             "/v1/swap/offers/cancel",
             post(crate::swapboard::cancel_offer),
         )
+        .route("/v1/swap/progress", post(crate::swapboard::post_progress))
         .route("/v1/swap/inbox", post(crate::swapboard::post_message))
         .route("/v1/swap/inbox/{id}", get(crate::swapboard::inbox))
         .route("/v1/swap/trade", post(crate::swapboard::post_trade))

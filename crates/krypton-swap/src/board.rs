@@ -267,10 +267,10 @@ impl Trade {
 /// The market from the board's data.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
-    /// The market price (sat per GNR): the volume-weighted median of the window's verified
-    /// swaps, or, while there are none, of the open offers (buy and sell together).
+    /// The market price (sat per GNR): a volume-weighted median over the completed swaps of
+    /// the window, the swaps in progress and the open offers, in that order of weight.
     pub price: Option<f64>,
-    /// `swaps` or `offers`: what `price` was computed from.
+    /// The strongest kind of data the price rests on: `swaps`, `pending` or `offers`.
     pub source: Option<String>,
     /// Volume-weighted median of the open offers alone.
     pub offers_price: Option<f64>,
@@ -278,6 +278,11 @@ pub struct Market {
     pub bids: usize,
     pub trades: usize,
     pub volume_gnr: u64,
+    /// Swaps in progress (offers taken, not finished yet) and their GNR.
+    #[serde(default)]
+    pub pending: usize,
+    #[serde(default)]
+    pub pending_gnr: u64,
     pub last_price: Option<f64>,
     /// Cheapest sell offer and highest buy offer (sat per GNR).
     pub best_ask: Option<f64>,
@@ -303,7 +308,14 @@ pub fn weighted_median(mut v: Vec<(f64, u64)>) -> Option<f64> {
     v.last().map(|x| x.0)
 }
 
-pub fn market(trades: &[(Trade, u64)], offers: &[Offer], now: u64) -> Market {
+/// Weights of the three kinds of market data: what people paid counts most, what they are
+/// paying right now next, what they ask or bid least.
+pub const WEIGHT_SWAP: u64 = 3;
+pub const WEIGHT_PENDING: u64 = 2;
+pub const WEIGHT_OFFER: u64 = 1;
+
+/// `pending`: offers taken whose swaps are still in progress.
+pub fn market(trades: &[(Trade, u64)], offers: &[Offer], pending: &[Offer], now: u64) -> Market {
     let recent: Vec<&Trade> = trades
         .iter()
         .filter(|(_, at)| *at + PRICE_WINDOW_SECS > now)
@@ -323,21 +335,41 @@ pub fn market(trades: &[(Trade, u64)], offers: &[Offer], now: u64) -> Market {
         .filter(|o| o.side == Side::BuyGnr)
         .map(Offer::price)
         .max_by(f64::total_cmp);
-    let swaps = weighted_median(recent.iter().map(|t| (t.price(), t.gnr)).collect());
-    let book = weighted_median(offers.iter().map(|o| (o.price(), o.gnr)).collect());
-    let (price, source) = match (swaps, book) {
-        (Some(p), _) => (Some(p), Some("swaps".to_string())),
-        (None, Some(p)) => (Some(p), Some("offers".to_string())),
-        _ => (None, None),
+    let mut all: Vec<(f64, u64)> = Vec::new();
+    all.extend(
+        recent
+            .iter()
+            .map(|t| (t.price(), t.gnr.saturating_mul(WEIGHT_SWAP))),
+    );
+    all.extend(
+        pending
+            .iter()
+            .map(|o| (o.price(), o.gnr.saturating_mul(WEIGHT_PENDING))),
+    );
+    all.extend(
+        offers
+            .iter()
+            .map(|o| (o.price(), o.gnr.saturating_mul(WEIGHT_OFFER))),
+    );
+    let source = if !recent.is_empty() {
+        Some("swaps")
+    } else if !pending.is_empty() {
+        Some("pending")
+    } else if !offers.is_empty() {
+        Some("offers")
+    } else {
+        None
     };
     Market {
-        price,
-        source,
-        offers_price: book,
+        price: weighted_median(all),
+        source: source.map(str::to_string),
+        offers_price: weighted_median(offers.iter().map(|o| (o.price(), o.gnr)).collect()),
         asks: offers.iter().filter(|o| o.side == Side::SellGnr).count(),
         bids: offers.iter().filter(|o| o.side == Side::BuyGnr).count(),
         trades: recent.len(),
         volume_gnr: recent.iter().map(|t| t.gnr).sum(),
+        pending: pending.len(),
+        pending_gnr: pending.iter().map(|o| o.gnr).sum(),
         last_price: last,
         best_ask: ask,
         best_bid: bid,
@@ -424,7 +456,7 @@ mod tests {
             offer(Side::SellGnr, 100_000_000, 6_000),
             offer(Side::BuyGnr, 100_000_000, 4_000),
         ];
-        let m = market(&trades, &offers, 850 + PRICE_WINDOW_SECS);
+        let m = market(&trades, &offers, &[], 850 + PRICE_WINDOW_SECS);
         assert_eq!(m.trades, 4);
         assert_eq!(m.price, Some(5_100.0));
         assert_eq!(m.best_ask, Some(6_000.0));
@@ -433,14 +465,27 @@ mod tests {
         assert_eq!((m.asks, m.bids), (1, 1));
         assert_eq!(weighted_median(vec![]), None);
         // No swaps yet: the first offer already sets a price, more offers a median.
-        let one = market(&[], &offers[..1], 1_000);
+        let one = market(&[], &offers[..1], &[], 1_000);
         assert_eq!(
             (one.price, one.source.as_deref()),
             (Some(6_000.0), Some("offers"))
         );
         let mut book = offers.clone();
         book.push(offer(Side::SellGnr, 300_000_000, 15_000));
-        assert_eq!(market(&[], &book, 1_000).price, Some(5_000.0));
-        assert_eq!(market(&[], &[], 1_000).price, None);
+        assert_eq!(market(&[], &book, &[], 1_000).price, Some(5_000.0));
+        assert_eq!(market(&[], &[], &[], 1_000).price, None);
+        // A swap in progress counts twice as much as an offer of the same size.
+        let taken = vec![offer(Side::SellGnr, 100_000_000, 8_000)];
+        let m = market(
+            &[],
+            &[offer(Side::SellGnr, 100_000_000, 2_000)],
+            &taken,
+            1_000,
+        );
+        assert_eq!(
+            (m.price, m.source.as_deref(), m.pending),
+            (Some(8_000.0), Some("pending"), 1)
+        );
+        assert_eq!(market(&[], &[], &taken, 1_000).price, Some(8_000.0));
     }
 }

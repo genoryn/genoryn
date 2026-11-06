@@ -250,10 +250,15 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
-  * The price is the volume-weighted median of the last 24 hours in sat per GNR, which a few
-    odd trades cannot move. Before the first swap, it is the volume-weighted median of the open
-    buy and sell offers, so the first offer already sets a price. The best sell and buy offers
-    are shown next to it.
+  * The price is one volume-weighted median in sat per GNR, which a few odd entries cannot move.
+    Its inputs and their weights:
+    * swaps completed in the last 24 hours, ×3;
+    * swaps in progress, ×2: taken offers, which the maker moves to "in progress" with the
+      offer's cancel secret; they stay listed and priced, cannot be taken again, and leave
+      when the swap ends;
+    * open buy and sell offers, ×1, so the first offer already sets a price.
+
+    The best sell and buy offers are shown next to it.
   * The wallet values balances and mining earnings at this market price only. genoryn.io shows
     it as well, and keeps the cost to mine for reference. That cost rises with the hashrate,
     because the same 7,200 GNR a day then take more electricity.

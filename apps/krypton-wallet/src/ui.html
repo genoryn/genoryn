@@ -496,7 +496,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
         <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
         <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
-        <div class="mk-stat"><span>Swaps · volume, 24 h</span><b id="bdVol">-</b></div>
+        <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
       </section>
       <div class="bd-layout">
         <section class="glass card bd-book">
@@ -505,7 +505,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <span class="muted mono bd-host" id="bdBoard"></span>
           </div>
           <div class="bd-tools">
-            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="sell" class="on">Sell offers <em id="bdTabS">0</em></button><button type="button" data-t="buy">Buy offers <em id="bdTabB">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
+            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="sell" class="on">Sell offers <em id="bdTabS">0</em></button><button type="button" data-t="buy">Buy offers <em id="bdTabB">0</em></button><button type="button" data-t="pending">In progress <em id="bdTabP">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
             <div class="bd-filters">
               <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
               <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
@@ -787,7 +787,7 @@ function marketPerGnr(){ const m=S.market&&S.market.market, usd=Number(S.market&
 function perGnr(){ return marketPerGnr(); }
 function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
 function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0);
-  return m.source==='swaps' ? `market price · median of ${m.trades} swap${m.trades===1?'':'s'}, last 24 h` : `market price · from ${n} offer${n===1?'':'s'} on the board`; }
+  return m.source==='swaps' ? `market price · median of ${m.trades} swap${m.trades===1?'':'s'}, last 24 h` : m.source==='pending' ? `market price · from ${m.pending} swap${m.pending===1?'':'s'} in progress and ${n} offer${n===1?'':'s'}` : `market price · from ${n} offer${n===1?'':'s'} on the board`; }
 function renderValue(){
   const on=VAL.show && perGnr()!=null;
   $('bValL').textContent=marketLabel();
@@ -1191,17 +1191,17 @@ async function loadBoard(){
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
   $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtSat(m.price)):'No offers yet';
   $('bdPrice').textContent=m.price!=null?fmtSat(m.price)+' per GNR':'Publish the first offer: it sets the first price.';
-  $('bdPriceL').textContent=m.source==='swaps'?'· median of '+m.trades+' swap'+(m.trades===1?'':'s')+', 24 h':m.source==='offers'?'· median of '+n+' offer'+(n===1?'':'s'):'';
+  $('bdPriceL').textContent=m.source==='swaps'?'· median of swaps, swaps in progress and offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' offer'+(n===1?'':'s'):'';
   $('bdAsk').textContent=fmtSat(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtSat(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
-  $('bdVol').textContent=(m.trades||0)+' · '+gnr(m.volume_gnr||0).replace(/\.?0+$/,'')+' GNR';
+  $('bdVol').textContent=(m.trades||0)+' done · '+(m.pending||0)+' in progress';
   renderBook(); renderMine(); bdPer();
 }
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
-  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr'));
+  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr'));
   v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max; });
   const best = BDV.tab==='buy' ? (a,b)=>b.price-a.price : (a,b)=>a.price-b.price;
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
@@ -1210,11 +1210,12 @@ function bdList(){
 function renderBook(){
   const all=BD.offers||[];
   $('bdTabS').textContent=all.filter(o=>o.side==='sell_gnr').length; $('bdTabB').textContent=all.filter(o=>o.side==='buy_gnr').length;
-  $('bdTabM').textContent=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired).length;
+  $('bdTabM').textContent=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired).length; $('bdTabP').textContent=(BD.in_progress||[]).length;
   const list=bdList(), pages=Math.max(1,Math.ceil(list.length/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
   const rows=list.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), mp=bdMkt().price;
   const vs=p=>{ if(!mp) return '-'; const d=(p/mp-1)*100; return `<span class="${d>=0?'bd-up':'bd-dn'}">${d>=0?'+':''}${d.toFixed(1)}%</span>`; };
   const act=o=>{
+    if(o.pending) return '<span class="pill">in progress</span>';
     if(BDV.tab==='mine') return o.taken?'<span class="pill">taken</span>':o.expired?'<span class="pill">expired</span>':`<button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button>`;
     if(o.mine) return '<span class="pill">yours</span>';
     const label=o.side==='sell_gnr'?'Buy':'Sell';
@@ -1222,7 +1223,7 @@ function renderBook(){
     return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${label}</button>`;
   };
   const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
-  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
+  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${list.length} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(list.length?`<span>${list.length} offer${list.length===1?'':'s'}</span>`:'');
 }

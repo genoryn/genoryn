@@ -12,7 +12,7 @@ use krypton_core::lock::LockMode;
 use krypton_swap::board::{self, Envelope, Offer, Trade};
 use parking_lot::Mutex;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -23,10 +23,15 @@ const MAX_MESSAGES: usize = 5_000;
 const MESSAGE_SECS: u64 = 24 * 3600;
 const MAX_TRADES: usize = 20_000;
 const TRADE_KEEP_SECS: u64 = 30 * 24 * 3600;
+/// A swap in progress is shown at most this long (the longest timelocks end before).
+const PENDING_SECS: u64 = 48 * 3600;
 
 #[derive(Default)]
 struct Inner {
     offers: HashMap<String, Offer>,
+    /// Offers taken whose swaps are in progress (shown and priced, no longer takeable),
+    /// with when they were taken.
+    pending: HashMap<String, (Offer, u64)>,
     inbox: HashMap<String, VecDeque<(u64, String)>>,
     messages: usize,
     trades: Vec<(Trade, u64)>,
@@ -61,6 +66,7 @@ impl Board {
 
     fn expire(i: &mut Inner, t: u64) {
         i.offers.retain(|_, o| o.expires > t);
+        i.pending.retain(|_, (_, at)| *at + PENDING_SECS > t);
         let mut n = 0;
         i.inbox.retain(|_, q| {
             q.retain(|(at, _)| at + MESSAGE_SECS > t);
@@ -90,6 +96,11 @@ impl Board {
             && let Ok(s) = serde_json::from_slice::<Saved>(&b)
         {
             i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
+            i.pending = s
+                .pending
+                .into_iter()
+                .map(|(o, at)| (o.id.clone(), (o, at)))
+                .collect();
             i.inbox = s
                 .inbox
                 .into_iter()
@@ -120,6 +131,7 @@ impl Board {
         };
         let s = Saved {
             offers: i.offers.values().cloned().collect(),
+            pending: i.pending.values().cloned().collect(),
             inbox: i
                 .inbox
                 .iter()
@@ -135,6 +147,8 @@ impl Board {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Saved {
     offers: Vec<Offer>,
+    #[serde(default)]
+    pending: Vec<(Offer, u64)>,
     inbox: Vec<(String, Vec<(u64, String)>)>,
 }
 
@@ -169,7 +183,52 @@ pub async fn offers(State(node): S) -> Response {
     Board::expire(&mut i, now());
     let mut v: Vec<&Offer> = i.offers.values().collect();
     v.sort_by(|a, b| a.price().total_cmp(&b.price()));
-    Json(json!({"offers": v, "now": now()})).into_response()
+    let mut p: Vec<Value> = i
+        .pending
+        .values()
+        .map(|(o, at)| json!({"id": o.id, "side": o.side, "gnr": o.gnr, "sats": o.sats, "since": at}))
+        .collect();
+    p.sort_by_key(|x| std::cmp::Reverse(x["since"].as_u64()));
+    Json(json!({"offers": v, "in_progress": p, "now": now()})).into_response()
+}
+
+#[derive(Deserialize)]
+pub struct ProgressReq {
+    offer: Offer,
+    secret: String,
+}
+
+/// The maker of a taken offer moves it to "in progress": still shown and priced, no
+/// longer takeable. Only the maker can, with the offer's cancel secret.
+pub async fn post_progress(State(node): S, Json(r): Json<ProgressReq>) -> Response {
+    let Some(secret) = hex::decode(&r.secret)
+        .ok()
+        .and_then(|b| <[u8; 32]>::try_from(b).ok())
+    else {
+        return bad("bad secret");
+    };
+    let o = r.offer;
+    if o.cancel != board::cancel_hash(&secret) {
+        return bad("wrong cancel secret");
+    }
+    // Everything but the expiry: the swap may run past the offer's 24 hours.
+    if let Err(e) = o.validate(
+        node.chain.params.network.as_str(),
+        o.expires.saturating_sub(1),
+    ) {
+        return bad(e);
+    }
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    Board::expire(&mut i, now());
+    if i.pending.len() >= MAX_OFFERS && !i.pending.contains_key(&o.id) {
+        return bad("the board is full; try again later");
+    }
+    i.offers.remove(&o.id);
+    let at = i.pending.get(&o.id).map(|x| x.1).unwrap_or_else(now);
+    i.pending.insert(o.id.clone(), (o, at));
+    node.board.save_board(&i);
+    Json(json!({"ok": true})).into_response()
 }
 
 pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
@@ -205,9 +264,14 @@ pub async fn cancel_offer(State(node): S, Json(r): Json<CancelReq>) -> Response 
     };
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
-    match i.offers.get(&r.id) {
+    let found = i
+        .offers
+        .get(&r.id)
+        .or_else(|| i.pending.get(&r.id).map(|x| &x.0));
+    match found {
         Some(o) if o.cancel == board::cancel_hash(&secret) => {
             i.offers.remove(&r.id);
+            i.pending.remove(&r.id);
             node.board.save_board(&i);
             Json(json!({"ok": true})).into_response()
         }
@@ -295,7 +359,8 @@ pub async fn market(State(node): S) -> Response {
     let t = now();
     Board::expire(&mut i, t);
     let offers: Vec<Offer> = i.offers.values().cloned().collect();
-    let m = board::market(&i.trades, &offers, t);
+    let pending: Vec<Offer> = i.pending.values().map(|x| x.0.clone()).collect();
+    let m = board::market(&i.trades, &offers, &pending, t);
     let recent: Vec<_> = i
         .trades
         .iter()

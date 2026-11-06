@@ -1,6 +1,6 @@
 /* genoryn.io/market: the live offer board and market price, read from the node's /v1/swap API. */
 (function () {
-  var PER = 20, page = { sell: 0, buy: 0 }, data = { offers: [], market: {}, recent: [], btc: 0, now: 0 };
+  var PER = 20, page = { sell: 0, buy: 0 }, data = { offers: [], pending: [], market: {}, recent: [], btc: 0, now: 0 };
   var $ = function (id) { return document.getElementById(id); };
   var sat = function (p) { return p == null ? "—" : (p >= 100 ? Math.round(p).toLocaleString("en-US") : Number(p).toPrecision(3)) + " sat"; };
   var usd = function (p) { return data.btc > 0 && p != null ? GKValue.usd(p * data.btc / 1e8) : ""; };
@@ -30,11 +30,19 @@
   function render() {
     var m = data.market || {};
     $("mkPrice").textContent = m.price != null ? sat(m.price) : "no offers yet";
-    $("mkPriceL").textContent = (m.source === "swaps" ? "Market price · " + m.trades + " swaps, 24 h" : m.source === "offers" ? "Market price · from " + ((m.asks || 0) + (m.bids || 0)) + " offers" : "Market price per GNR") + (m.price != null && data.btc ? " · " + usd(m.price) : "");
+    var nOff = (m.asks || 0) + (m.bids || 0);
+    $("mkPriceL").textContent = (m.source === "swaps" ? "Market price · swaps, swaps in progress and offers"
+      : m.source === "pending" ? "Market price · " + m.pending + " swap" + (m.pending === 1 ? "" : "s") + " in progress, " + nOff + " offer" + (nOff === 1 ? "" : "s")
+      : m.source === "offers" ? "Market price · from " + nOff + " offer" + (nOff === 1 ? "" : "s") : "Market price per GNR") + (m.price != null && data.btc ? " · " + usd(m.price) : "");
     $("mkAsk").textContent = sat(m.best_ask); $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
     $("mkBid").textContent = sat(m.best_bid); $("mkBidN").textContent = m.bids ? "(" + m.bids + ")" : "";
-    $("mkVol").textContent = (m.trades || 0) + " · " + gnr(m.volume_gnr || 0) + " GNR";
+    $("mkVol").textContent = (m.trades || 0) + " done · " + (m.pending || 0) + " in progress";
     table("sell"); table("buy");
+    $("mkPendN").textContent = data.pending.length ? data.pending.length + " running" : "";
+    $("mkPend").innerHTML = data.pending.length ? data.pending.map(function (o) {
+      var p = price(o);
+      return "<tr><td class=\"mono\">" + sat(p) + " <span class=\"muted\">" + usd(p) + "</span></td><td class=\"mono\">" + gnr(o.gnr) + "</td><td class=\"mono\">" + btc(o.sats) + "</td><td>" + ago(Math.max(0, data.now - (o.since || data.now))) + " ago</td></tr>";
+    }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No swap running right now.</td></tr>";
     $("mkRecent").innerHTML = data.recent.length ? data.recent.map(function (t) {
       return "<tr><td>" + ago(Math.max(0, data.now - t.at)) + " ago</td><td class=\"mono\">" + sat(t.price) + " <span class=\"muted\">" + usd(t.price) + "</span></td><td class=\"mono\">" + gnr(t.gnr) + "</td><td class=\"mono\">" + btc(t.sats) + "</td></tr>";
     }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No swaps yet.</td></tr>";
@@ -47,7 +55,7 @@
       gk.api("/v1/btc-price").catch(function () { return {}; }),
       gk.api("/v1/info").catch(function () { return null; })
     ]).then(function (r) {
-      data.offers = r[0].offers || []; data.now = r[0].now || Date.now() / 1000;
+      data.offers = r[0].offers || []; data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
       data.market = r[1].market || {}; data.recent = r[1].recent || [];
       data.btc = Number(r[2].USD) || 0;
       var info = r[3];

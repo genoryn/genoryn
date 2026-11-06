@@ -32,6 +32,22 @@ struct MyOffer {
     /// Put back on the board after its swap ended before anything was locked.
     #[serde(default)]
     republished: bool,
+    /// Shown on the board as "in progress" while its swap runs (it counts for the price),
+    /// and taken off again once the swap is over.
+    #[serde(default)]
+    pending_sent: bool,
+    #[serde(default)]
+    pending_cleared: bool,
+}
+
+/// Moves a taken offer to "in progress" on the board.
+fn announce_pending(base: &str, m: &MyOffer) -> bool {
+    post(
+        base,
+        "/v1/swap/progress",
+        &json!({"offer": m.offer, "secret": m.cancel_secret}),
+    )
+    .is_ok()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -282,6 +298,8 @@ fn publish_offer(
         taken: false,
         cancelled: false,
         republished: false,
+        pending_sent: false,
+        pending_cleared: false,
     });
     save(e.wallet, &st)?;
     Ok(offer)
@@ -478,6 +496,30 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             }
         }
     }
+    // Our taken offers: shown as "in progress" while their swap runs, removed when it ends.
+    for m in st
+        .offers
+        .iter_mut()
+        .filter(|m| m.taken && !m.pending_cleared)
+    {
+        let Some(l) = st.links.iter().find(|l| l.offer == m.offer.id) else {
+            continue;
+        };
+        let over = swaps
+            .iter()
+            .find(|s| s.id == l.swap_id)
+            .is_none_or(|s| s.stage.finished());
+        if over {
+            let gone = post(
+                &base,
+                "/v1/swap/offers/cancel",
+                &json!({"id": m.offer.id, "secret": m.cancel_secret}),
+            );
+            m.pending_cleared = gone.is_ok();
+        } else if !m.pending_sent {
+            m.pending_sent = announce_pending(&base, m);
+        }
+    }
     // Swaps that ended before anything was locked (cancelled or expired): tell the other
     // side, and put our own offer back on the board while it is still current.
     let mut again: Vec<MyOffer> = Vec::new();
@@ -567,11 +609,7 @@ fn handle(
                 );
                 let addr = mo.btc_address.clone();
                 mo.taken = true;
-                let _ = post(
-                    base,
-                    "/v1/swap/offers/cancel",
-                    &json!({"id": mo.offer.id, "secret": mo.cancel_secret}),
-                );
+                mo.pending_sent = announce_pending(base, mo);
                 let s = e.accept(&code, &addr)?;
                 st.links.push(Link {
                     swap_id: s.id,
@@ -625,11 +663,7 @@ fn handle(
                 return send_note(base, from, key, &Note::Gone { offer });
             }
             mo.taken = true;
-            let _ = post(
-                base,
-                "/v1/swap/offers/cancel",
-                &json!({"id": mo.offer.id, "secret": mo.cancel_secret}),
-            );
+            mo.pending_sent = announce_pending(base, mo);
             let (gnr, sats, addr) = (mo.offer.gnr, mo.offer.sats, mo.btc_address.clone());
             let s = e.request(gnr, sats, &addr)?;
             st.links.push(Link {
@@ -699,7 +733,30 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     let a = app.clone();
     match blocking(move || {
         let base = board_url(&a);
-        let offers = list_offers(&base).unwrap_or_default();
+        let raw = get(&base, "/v1/swap/offers").unwrap_or_default();
+        let offers: Vec<Offer> = serde_json::from_value(raw["offers"].clone()).unwrap_or_default();
+        let t0 = now();
+        let in_progress: Vec<Value> = raw["in_progress"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mut p| {
+                let (g, s) = (
+                    p["gnr"].as_u64().unwrap_or(0),
+                    p["sats"].as_u64().unwrap_or(0),
+                );
+                p["gnr_text"] = json!(format_amount(g));
+                p["btc_text"] = json!(Amount::from_sat(s).to_string_in(Denomination::Bitcoin));
+                p["price"] = json!(if g > 0 {
+                    s as f64 / (g as f64 / 1e8)
+                } else {
+                    0.0
+                });
+                p["age"] = json!(t0.saturating_sub(p["since"].as_u64().unwrap_or(t0)));
+                p
+            })
+            .collect();
         let st = a.wallet.lock().as_ref().map(load).unwrap_or_default();
         let mine: Vec<&String> = st.offers.iter().map(|o| &o.offer.id).collect();
         let t = now();
@@ -719,6 +776,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         Ok(json!({
             "board": base,
             "offers": offers.iter().map(view).collect::<Vec<_>>(),
+            "in_progress": in_progress,
             "my_offers": st.offers.iter().rev().take(200).map(|m| {
                 let mut v = view(&m.offer);
                 v["taken"] = json!(m.taken); v["cancelled"] = json!(m.cancelled);

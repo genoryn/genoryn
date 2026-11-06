@@ -308,3 +308,4 @@ main { overflow-x: clip; }
 .hero-price .hp-sep { color: var(--text-tertiary); }
 @media (max-width: 720px) { .hero-price { min-width: 0; width: 100%; } }
 .hero-price + .hero-ctas { margin-top: 22px; }
+.mk-one { grid-template-columns: 1fr; }
