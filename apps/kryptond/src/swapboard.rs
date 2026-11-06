@@ -76,11 +76,33 @@ impl Board {
             return;
         }
         i.loaded = true;
-        if let Some(p) = self.path.lock().as_ref()
-            && let Ok(b) = std::fs::read(p)
+        let Some(p) = self.path.lock().clone() else {
+            return;
+        };
+        if let Ok(b) = std::fs::read(&p)
             && let Ok(t) = serde_json::from_slice::<Vec<(Trade, u64)>>(&b)
         {
             i.trades = t;
+        }
+        // Offers and sealed messages survive restarts too (a node update must not drop
+        // them, or a swap in progress could lose a code).
+        if let Ok(b) = std::fs::read(p.with_file_name("swap-board.json"))
+            && let Ok(s) = serde_json::from_slice::<Saved>(&b)
+        {
+            i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
+            i.inbox = s
+                .inbox
+                .into_iter()
+                .map(|(k, v)| (k, v.into_iter().collect()))
+                .collect();
+        }
+        Board::expire(i, now());
+    }
+
+    fn write(path: &std::path::Path, b: Vec<u8>) {
+        let tmp = path.with_extension("tmp");
+        if std::fs::write(&tmp, b).is_ok() {
+            let _ = std::fs::rename(tmp, path);
         }
     }
 
@@ -88,12 +110,32 @@ impl Board {
         if let Some(p) = self.path.lock().as_ref()
             && let Ok(b) = serde_json::to_vec(&i.trades)
         {
-            let tmp = p.with_extension("tmp");
-            if std::fs::write(&tmp, b).is_ok() {
-                let _ = std::fs::rename(tmp, p);
-            }
+            Board::write(p, b);
         }
     }
+
+    fn save_board(&self, i: &Inner) {
+        let Some(p) = self.path.lock().clone() else {
+            return;
+        };
+        let s = Saved {
+            offers: i.offers.values().cloned().collect(),
+            inbox: i
+                .inbox
+                .iter()
+                .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
+                .collect(),
+        };
+        if let Ok(b) = serde_json::to_vec(&s) {
+            Board::write(&p.with_file_name("swap-board.json"), b);
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Saved {
+    offers: Vec<Offer>,
+    inbox: Vec<(String, Vec<(u64, String)>)>,
 }
 
 /// Scans new blocks for lock claims (their hash locks prove a swap completed).
@@ -123,6 +165,7 @@ type S = State<Arc<Node>>;
 
 pub async fn offers(State(node): S) -> Response {
     let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
     Board::expire(&mut i, now());
     let mut v: Vec<&Offer> = i.offers.values().collect();
     v.sort_by(|a, b| a.price().total_cmp(&b.price()));
@@ -134,6 +177,7 @@ pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
         return bad(e);
     }
     let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
     Board::expire(&mut i, now());
     if i.offers.len() >= MAX_OFFERS {
         return bad("the board is full; try again later");
@@ -142,6 +186,7 @@ pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
         return bad("an offer with this id exists");
     }
     i.offers.insert(o.id.clone(), o);
+    node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
 }
 
@@ -159,9 +204,11 @@ pub async fn cancel_offer(State(node): S, Json(r): Json<CancelReq>) -> Response 
         return bad("bad secret");
     };
     let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
     match i.offers.get(&r.id) {
         Some(o) if o.cancel == board::cancel_hash(&secret) => {
             i.offers.remove(&r.id);
+            node.board.save_board(&i);
             Json(json!({"ok": true})).into_response()
         }
         Some(_) => bad("wrong cancel secret"),
@@ -174,6 +221,7 @@ pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
         return bad(x);
     }
     let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
     if i.messages >= MAX_MESSAGES {
@@ -188,6 +236,7 @@ pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
     }
     q.push_back((t, e.data));
     i.messages += 1;
+    node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
 }
 
@@ -196,6 +245,7 @@ pub async fn inbox(State(node): S, Path(id): Path<String>) -> Response {
         return bad("bad inbox");
     }
     let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
     Board::expire(&mut i, now());
     let msgs: Vec<_> = i
         .inbox
