@@ -250,8 +250,10 @@ fn publish_offer(
     gnr: u64,
     sats: u64,
     btc_address: &str,
+    secs: u64,
 ) -> Result<Offer> {
     engine::btc_address(btc_address, e.btc_network)?;
+    let secs = secs.clamp(15 * 60, board::MAX_OFFER_SECS);
     ensure!(sats >= 10_000, "offer at least 10,000 sat");
     ensure!(
         gnr > 2 * krypton_wallet_core::DEFAULT_FEE,
@@ -278,7 +280,7 @@ fn publish_offer(
         gnr,
         sats,
         key: hex::encode(key.public().to_bytes()),
-        expires: now() + board::MAX_OFFER_SECS,
+        expires: now() + secs,
         cancel: board::cancel_hash(&secret),
         nonce: 0,
     };
@@ -319,7 +321,9 @@ pub fn available(w: &Wallet) -> u64 {
 }
 
 /// Tells the board this wallet is online for its open offers (at most every 45 s).
-fn ping(base: &str, st: &State) {
+/// Returns the ones the board no longer lists (it removed them: their maker was offline
+/// too long, or the price is too far from the market), so their GNR can be freed.
+fn ping(base: &str, st: &State) -> Vec<String> {
     static LAST: OnceLock<Mutex<std::collections::HashMap<String, Instant>>> = OnceLock::new();
     let t = now();
     let open: Vec<&MyOffer> = st
@@ -327,22 +331,33 @@ fn ping(base: &str, st: &State) {
         .iter()
         .filter(|m| !m.taken && !m.cancelled && m.offer.expires > t)
         .collect();
-    let Some(first) = open.first() else { return };
+    let Some(first) = open.first() else {
+        return vec![];
+    };
     let key = format!("{base}|{}", first.offer.id);
     let mut last = LAST.get_or_init(Default::default).lock();
     if last
         .get(&key)
         .is_some_and(|i| i.elapsed() < Duration::from_secs(45))
     {
-        return;
+        return vec![];
     }
     let items: Vec<Value> = open
         .iter()
         .take(500)
         .map(|m| json!({"id": m.offer.id, "secret": m.cancel_secret}))
         .collect();
-    if post(base, "/v1/swap/offers/ping", &json!({ "items": items })).is_ok() {
-        last.insert(key, Instant::now());
+    match post(base, "/v1/swap/offers/ping", &json!({ "items": items })) {
+        Ok(v) => {
+            last.insert(key, Instant::now());
+            v["missing"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        }
+        Err(_) => vec![],
     }
 }
 
@@ -454,7 +469,15 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
     let base = board_url(a);
     let mut st = load(e.wallet);
     let t = now();
-    ping(&base, &st);
+    // Offers the board removed are over: free their GNR.
+    let gone = ping(&base, &st);
+    for m in st
+        .offers
+        .iter_mut()
+        .filter(|m| !m.taken && gone.contains(&m.offer.id))
+    {
+        m.cancelled = true;
+    }
     let mut keys: Vec<u32> = st
         .offers
         .iter()
@@ -622,6 +645,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             m.offer.gnr,
             m.offer.sats,
             &m.btc_address,
+            m.offer.expires.saturating_sub(now()),
         );
     }
     Ok(())
@@ -903,6 +927,9 @@ pub struct PublishReq {
     gnr: String,
     btc: String,
     address: String,
+    /// How long the offer stays on the board, 1 to 24 hours (24 if not given).
+    #[serde(default)]
+    hours: Option<u64>,
     /// Confirms with the wallet's password (a sell offer commits GNR).
     #[serde(default)]
     password: String,
@@ -924,7 +951,15 @@ pub async fn publish(
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
             .to_sat();
         with_engine(&a, false, |e, base| {
-            publish_offer(e, base, r.side, gnr, sats, &r.address)
+            publish_offer(
+                e,
+                base,
+                r.side,
+                gnr,
+                sats,
+                &r.address,
+                r.hours.unwrap_or(24).clamp(1, 24) * 3600,
+            )
         })
     })
     .await

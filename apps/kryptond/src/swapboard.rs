@@ -29,6 +29,8 @@ const PENDING_SECS: u64 = 48 * 3600;
 const ONLINE_SECS: u64 = 120;
 /// Offers of makers not seen for this long stop counting for the price.
 const PRICED_SECS: u64 = 600;
+/// Offers of makers not seen for this long are removed: nobody could take them.
+const STALE_SECS: u64 = 30 * 60;
 
 #[derive(Default)]
 struct Inner {
@@ -74,6 +76,19 @@ impl Board {
     fn expire(i: &mut Inner, t: u64) {
         i.offers
             .retain(|_, o| o.expires > t && o.sats <= board::MAX_OFFER_SATS);
+        // Offers whose maker has been offline for half an hour, and offers priced far from
+        // the market, are dropped; their makers' wallets see that in their next ping and
+        // free the GNR. Swaps in progress are never touched.
+        let seen = &i.seen;
+        i.offers
+            .retain(|id, _| seen.get(id).is_some_and(|s| s + STALE_SECS > t));
+        if let Some(p) = current_market(i, t).price {
+            let f = board::MAX_PRICE_FACTOR;
+            i.offers.retain(|_, o| {
+                let q = o.price();
+                q <= p * f && q >= p / f
+            });
+        }
         i.pending.retain(|_, (_, at)| *at + PENDING_SECS > t);
         let ids: std::collections::HashSet<String> = i.offers.keys().cloned().collect();
         i.seen.retain(|id, _| ids.contains(id));
@@ -106,6 +121,9 @@ impl Board {
             && let Ok(s) = serde_json::from_slice::<Saved>(&b)
         {
             i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
+            // After a restart every maker gets the usual grace to show it is still online.
+            let t = now();
+            i.seen = i.offers.keys().map(|id| (id.clone(), t)).collect();
             i.pending = s
                 .pending
                 .into_iter()
@@ -323,8 +341,14 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
+    Board::expire(&mut i, t);
     let mut ok = 0;
+    let mut missing = vec![];
     for it in r.items {
+        if !i.offers.contains_key(&it.id) && !i.pending.contains_key(&it.id) {
+            missing.push(it.id);
+            continue;
+        }
         let Some(secret) = hex::decode(&it.secret)
             .ok()
             .and_then(|b| <[u8; 32]>::try_from(b).ok())
@@ -339,7 +363,7 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
             ok += 1;
         }
     }
-    Json(json!({"ok": true, "online": ok})).into_response()
+    Json(json!({"ok": true, "online": ok, "missing": missing})).into_response()
 }
 
 #[derive(Deserialize)]

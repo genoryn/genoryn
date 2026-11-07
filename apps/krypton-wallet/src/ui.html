@@ -278,6 +278,8 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .bd-live{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--status-success);box-shadow:0 0 0 3px color-mix(in srgb,var(--status-success) 18%,transparent)}
 .bd-live.off{background:var(--text-tertiary);box-shadow:none}
 .bd-table tr.bd-off td{opacity:.48}
+.bd-offl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);white-space:nowrap}.bd-offl em{font-style:normal;color:var(--text-tertiary)}
+#bdDur{width:100%;margin-bottom:10px}
 .mn-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px;perspective:1000px}
 .mn-kpi{position:relative;padding:16px 18px 14px;border-radius:var(--radius-lg);display:flex;flex-direction:column;gap:5px;min-width:0;overflow:hidden;transform-style:preserve-3d}
 .mn-kpi::after{content:"";position:absolute;inset:auto -30% -60% auto;width:70%;height:90%;background:radial-gradient(closest-side,color-mix(in srgb,var(--text-primary) 9%,transparent),transparent);pointer-events:none}
@@ -551,6 +553,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
               <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
               <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
               <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
+              <label class="bd-offl"><input type="checkbox" id="bdOffline"> Offline <em id="bdOffN"></em></label>
               <select id="bdPerPage" aria-label="Offers per page"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
             </div>
           </div>
@@ -571,7 +574,8 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
             <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
             <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
-            <button class="btn btn-primary bdpub" onclick="boardPublish()">Publish for 24 hours</button>
+            <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24" selected>24 hours</option></select>
+            <button class="btn btn-primary bdpub" id="bdPubBtn" onclick="boardPublish()">Publish for 24 hours</button>
             <div id="bdMine" class="bd-minelist"></div>
           </section>
         </aside>
@@ -1365,7 +1369,7 @@ async function swapCode(){
 }
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
-const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0};
+const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0, offline:false};
 /* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
 const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?v.toLocaleString(undefined,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
@@ -1395,7 +1399,7 @@ async function loadBoard(){
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
-  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr'));
+  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled&&!o.expired&&!o.taken) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(BDV.offline||o.online!==false||o.mine));
   v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max; });
   const best = BDV.tab==='buy' ? (a,b)=>b.price-a.price : (a,b)=>a.price-b.price;
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
@@ -1403,7 +1407,9 @@ function bdList(){
 }
 function renderBook(){
   const all=BD.offers||[];
-  $('bdTabS').textContent=all.filter(o=>o.side==='sell_gnr').length; $('bdTabB').textContent=all.filter(o=>o.side==='buy_gnr').length;
+  const shown=o=>BDV.offline||o.online!==false||o.mine;
+  $('bdTabS').textContent=all.filter(o=>o.side==='sell_gnr'&&shown(o)).length; $('bdTabB').textContent=all.filter(o=>o.side==='buy_gnr'&&shown(o)).length;
+  const off=all.filter(o=>o.online===false&&!o.mine).length; $('bdOffN').textContent=off?'('+off+')':''; $('bdOffline').closest('label').classList.toggle('hidden',!off&&!BDV.offline);
   $('bdTabM').textContent=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired).length; $('bdTabP').textContent=(BD.in_progress||[]).length;
   const list=bdList(), pages=Math.max(1,Math.ceil(list.length/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
   const rows=list.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), mp=bdMkt().price;
@@ -1430,6 +1436,8 @@ function renderMine(){
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
 $('bdPerPage').onchange=e=>{ BDV.per=Number(e.target.value); BDV.page=0; renderBook(); };
+$('bdOffline').onchange=e=>{ BDV.offline=e.target.checked; BDV.page=0; renderBook(); };
+$('bdDur').onchange=e=>{ const h=Number(e.target.value); $('bdPubBtn').textContent='Publish for '+h+(h===1?' hour':' hours'); };
 $('bdMin').oninput=e=>{ BDV.min=e.target.value; BDV.page=0; renderBook(); };
 $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
 document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?'Your Bitcoin address to receive the bitcoin':'Your Bitcoin address for a refund'; bdPer(); });
@@ -1451,11 +1459,11 @@ async function boardPublish(){
   if(!g||!b||!a) return toast('Enter both amounts and your Bitcoin address',true);
   const sell=bdSide==='sell_gnr';
   const when=SW.active?'':'<p class="mtext"><b>Swaps start at the network upgrade.</b> Until then your offer is listed and counts for the market price, and it can be taken once swaps are live.</p>';
-  const per=Number(b)*1e8/Number(g), far=bdFar(per), u=btcUsd();
+  const per=Number(b)*1e8/Number(g), far=bdFar(per), u=btcUsd(), hours=Number($('bdDur').value)||24;
   const farMsg=far?`<p class="mtext warn"><b>Check the price:</b> ${fmtPx(per)} per GNR is ${far>=1?Math.round(far).toLocaleString()+'× the':Math.round(1/far).toLocaleString()+'× below the'} market price (${fmtPx(bdMkt().price)}). ${sell?'Buyers are unlikely to take it.':'You would pay far more than the market.'}</p>`:'';
   const okP=await ask({pass:true, title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:far?'Publish anyway':'Publish', danger:!!far,
-    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere. When a buyer takes the offer, your wallet locks it for them on chain at once, and they pay only after that lock has confirmed. If they never pay, it comes back to you after about 32 hours. Cancel the offer to free it.':'When a seller takes it, they lock the GNR for you first; you pay only once that lock has confirmed, into the contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`}); const pw=takePass(); if(!okP) return;
-  try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a, password:pw}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
+    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}<p class="mtext">The offer stays on the board for ${hours} hour${hours===1?'':'s'} or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere. When a buyer takes the offer, your wallet locks it for them on chain at once, and they pay only after that lock has confirmed. If they never pay, it comes back to you after about 32 hours. Cancel the offer to free it.':'When a seller takes it, they lock the GNR for you first; you pay only once that lock has confirmed, into the contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`}); const pw=takePass(); if(!okP) return;
+  try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a, hours, password:pw}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
 }
 async function boardTake(id, side, g, b){
   const buy=side==='sell_gnr';

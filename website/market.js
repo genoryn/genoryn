@@ -11,7 +11,8 @@
 
   function table(kind) {
     var side = kind === "sell" ? "sell_gnr" : "buy_gnr";
-    var list = data.offers.filter(function (o) { return o.side === side; });
+    // Only offers whose maker is online: the others cannot be taken now.
+    var list = data.offers.filter(function (o) { return o.side === side && o.online !== false; });
     list.sort(function (a, b) { return kind === "sell" ? price(a) - price(b) : price(b) - price(a); });
     var pages = Math.max(1, Math.ceil(list.length / PER));
     page[kind] = Math.min(page[kind], pages - 1);
