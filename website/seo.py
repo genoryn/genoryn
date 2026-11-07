@@ -5,7 +5,7 @@ import json
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.22"
+VERSION = "1.0.23"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum crypto, private cryptocurrency, "
@@ -16,22 +16,22 @@ PAGES = {
     "home": {"path": "/", "file": "index.html", "priority": "1.0", "freq": "daily",
              "og_title": "Genoryn Krypton (GNR): quantum-resistant, private money you can mine today",
              "og_desc": "Fair launch, no premine, 21,000,000 GNR. zk-STARK shielded transfers, ML-KEM encryption, GPU and CPU mining, light wallet that verifies everything."},
-    "explorer": {"path": "/explorer.html", "file": "explorer.html", "priority": "0.8", "freq": "always",
+    "explorer": {"path": "/explorer", "file": "explorer.html", "priority": "0.8", "freq": "always",
                  "og_title": "Genoryn Krypton explorer: live blocks and network stats",
                  "og_desc": "Live Genoryn Krypton blocks, transactions, supply and hashrate. Shielded transfers reveal no amounts or addresses."},
-    "mining": {"path": "/mining.html", "file": "mining.html", "priority": "0.9", "freq": "weekly",
+    "mining": {"path": "/mining", "file": "mining.html", "priority": "0.9", "freq": "weekly",
                "og_title": "Mine Genoryn Krypton (GNR) on GPU or CPU",
                "og_desc": "5 GNR per block, fair launch, no premine. KryptoHash is GPU-first and CPU-capable: start mining from the wallet in one click."},
-    "get": {"path": "/get.html", "file": "get.html", "priority": "0.9", "freq": "daily",
+    "get": {"path": "/get", "file": "get.html", "priority": "0.9", "freq": "daily",
             "og_title": "Get Genoryn Krypton (GNR): mine it today",
-            "og_desc": "No premine, no presale: GNR is earned by mining on GPU or CPU. Reference value from the cost of mining; exchanges and BTC atomic swaps to come."},
-    "market": {"path": "/market.html", "file": "market.html", "priority": "0.9", "freq": "always",
+            "og_desc": "No premine, no presale: mine GNR on a GPU or CPU, or swap bitcoin for it on the offer board at the live market price."},
+    "market": {"path": "/market", "file": "market.html", "priority": "0.9", "freq": "always",
                "og_title": "GNR market: live offers and price of Genoryn Krypton",
                "og_desc": "Live offer board and market price of GNR from atomic swaps with bitcoin. No exchange, no custody: people set the price."},
-    "download": {"path": "/download.html", "file": "download.html", "priority": "0.9", "freq": "weekly",
+    "download": {"path": "/download", "file": "download.html", "priority": "0.9", "freq": "weekly",
                  "og_title": "Download the Genoryn Krypton wallet for Windows and Linux",
                  "og_desc": "Quantum-resistant private wallet with built-in miner and optional full node. Windows installer, Linux packages, source code."},
-    "docs": {"path": "/docs.html", "file": "docs.html", "priority": "0.8", "freq": "weekly",
+    "docs": {"path": "/docs", "file": "docs.html", "priority": "0.8", "freq": "weekly",
              "og_title": "Genoryn Krypton documentation",
              "og_desc": "Protocol, cryptography, emission, mining, light clients, node operation, REST and JSON-RPC API, SDKs and exchange integration."},
 }
@@ -44,7 +44,7 @@ WEBSITE = {"@type": "WebSite", "@id": SITE + "/#website", "name": NAME, "alterna
 APP = {"@type": "SoftwareApplication", "@id": SITE + "/#wallet", "name": "Genoryn Krypton Wallet",
        "applicationCategory": "FinanceApplication", "applicationSubCategory": "Cryptocurrency wallet and miner",
        "operatingSystem": "Windows 10, Windows 11, Linux", "softwareVersion": VERSION,
-       "downloadUrl": "https://github.com/genoryn/genoryn/releases/latest", "url": SITE + "/download.html",
+       "downloadUrl": "https://github.com/genoryn/genoryn/releases/latest", "url": SITE + "/download",
        "image": OG, "screenshot": SITE + "/assets/shots/wallet-1440.webp", "license": "https://opensource.org/licenses/MIT",
        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
        "featureList": ["Quantum-resistant zk-STARK shielded transfers", "Hybrid X25519 + ML-KEM-1024 encryption",
@@ -75,7 +75,7 @@ HOME_FAQ = [
 HOWTO = {"@type": "HowTo", "name": "How to mine Genoryn Krypton (GNR)", "totalTime": "PT5M",
          "tool": [{"@type": "HowToTool", "name": "NVIDIA or AMD GPU, or any x86-64 CPU"}],
          "step": [
-             {"@type": "HowToStep", "name": "Install the wallet", "text": "Download the Genoryn Krypton wallet for Windows or Linux.", "url": SITE + "/download.html"},
+             {"@type": "HowToStep", "name": "Install the wallet", "text": "Download the Genoryn Krypton wallet for Windows or Linux.", "url": SITE + "/download"},
              {"@type": "HowToStep", "name": "Create a wallet", "text": "Choose a password and write down the 24-word recovery phrase with its numbers."},
              {"@type": "HowToStep", "name": "Choose your hardware", "text": "In the Mining tab select Automatic, NVIDIA (CUDA), AMD/Intel (OpenCL) or CPU and set a CPU limit."},
              {"@type": "HowToStep", "name": "Start mining", "text": "Press Start mining. You earn in proportion to your hashrate; rewards are paid every 360 blocks and mature after 100 blocks."}]}

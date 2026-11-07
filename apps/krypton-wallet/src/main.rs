@@ -369,6 +369,28 @@ fn check_open(app: &Arc<App>, h: &HeaderMap) -> Result<(), Response> {
     Ok(())
 }
 
+/// Only requests addressed to this computer: a web page that points its own domain at
+/// 127.0.0.1 (DNS rebinding) is refused even before the session token is checked.
+async fn local_only(req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    let host = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("");
+    let name = host.rsplit_once(':').map_or(host, |(n, p)| {
+        if p.chars().all(|c| c.is_ascii_digit()) {
+            n
+        } else {
+            host
+        }
+    });
+    if name == "127.0.0.1" || name == "localhost" {
+        next.run(req).await
+    } else {
+        (StatusCode::FORBIDDEN, "not a local request").into_response()
+    }
+}
+
 fn err(e: impl std::fmt::Display) -> Response {
     (
         StatusCode::BAD_REQUEST,
@@ -636,6 +658,52 @@ struct SendReq {
     fee: Option<String>,
     /// economy, normal (default) or fast.
     speed: Option<String>,
+    /// The wallet's password: every send is confirmed with it.
+    #[serde(default)]
+    password: String,
+}
+
+/// Confirms an action that moves coins with the active wallet's password, so the session
+/// token alone (readable by programs of this user) cannot spend. After 5 wrong passwords
+/// it refuses for 5 minutes.
+pub(crate) fn confirm_password(app: &App, password: &str) -> Result<()> {
+    static FAILS: Mutex<(u32, Option<std::time::Instant>)> = Mutex::new((0, None));
+    {
+        let f = FAILS.lock();
+        if f.0 >= 5
+            && f.1
+                .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(300))
+        {
+            anyhow::bail!("too many wrong passwords; try again in a few minutes");
+        }
+    }
+    anyhow::ensure!(!password.is_empty(), "confirm with this wallet's password");
+    let path = app
+        .wallet
+        .lock()
+        .as_ref()
+        .context("wallet locked")?
+        .path()
+        .to_path_buf();
+    match krypton_wallet_core::file::FileKey::open(&path, password) {
+        Ok(_) => {
+            *FAILS.lock() = (0, None);
+            Ok(())
+        }
+        Err(_) => {
+            let mut f = FAILS.lock();
+            f.0 = if f
+                .1
+                .is_some_and(|t| t.elapsed() > std::time::Duration::from_secs(300))
+            {
+                1
+            } else {
+                f.0 + 1
+            };
+            f.1 = Some(std::time::Instant::now());
+            anyhow::bail!("wrong password")
+        }
+    }
 }
 
 /// The full address behind a short one: this app's own wallets first (they need no
@@ -754,6 +822,7 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
     }
     let a = app.clone();
     match blocking(move || {
+        confirm_password(&a, &r.password)?;
         let src = Multi(a.sources()?);
         src.cross_check()?;
         let to: String = r.to.split_whitespace().collect();
@@ -1804,7 +1873,8 @@ async fn serve(
         .route("/api/board/take", post(board::take))
         .route("/api/board/cancel", post(board::cancel))
         .route("/api/swap/settings", post(swaps::settings))
-        .with_state(app.clone());
+        .with_state(app.clone())
+        .layer(axum::middleware::from_fn(local_only));
     let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
         Ok(l) => l,
         Err(e) => {

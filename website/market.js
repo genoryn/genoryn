@@ -43,9 +43,31 @@
       var p = price(o);
       return "<tr><td class=\"mono\">" + sat(p) + " <span class=\"muted\">" + usd(p) + "</span></td><td class=\"mono\">" + gnr(o.gnr) + "</td><td class=\"mono\">" + btc(o.sats) + "</td><td>" + ago(Math.max(0, data.now - (o.since || data.now))) + " ago</td></tr>";
     }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No swap running right now.</td></tr>";
-    $("mkRecent").innerHTML = data.recent.length ? data.recent.map(function (t) {
-      return "<tr><td>" + ago(Math.max(0, data.now - t.at)) + " ago</td><td class=\"mono\">" + sat(t.price) + " <span class=\"muted\">" + usd(t.price) + "</span></td><td class=\"mono\">" + gnr(t.gnr) + "</td><td class=\"mono\">" + btc(t.sats) + "</td></tr>";
-    }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No swaps yet.</td></tr>";
+    var all = data.recent, vol = all.reduce(function (a, t) { return a + Number(t.gnr || 0); }, 0);
+    $("mkAll").textContent = all.length;
+    $("mkAllV").textContent = all.length ? "· " + gnr(vol) + " GNR" : "";
+    $("mkRecentN").textContent = all.length ? all.length + " shown" : "";
+    $("mkRecent").innerHTML = all.length ? all.map(card).join("") : "<p class=\"muted\">No completed swaps yet.</p>";
+  }
+
+  var esc = function (s) { return gk.esc(s); };
+  var short = function (h) { return h ? h.slice(0, 10) + "…" + h.slice(-8) : "—"; };
+  var when = function (t) { return t ? new Date(t * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }) : "—"; };
+  function card(t) {
+    var c = t.claim, kv = function (k, v, mono) { return "<div>" + k + "</div><div" + (mono ? " class=\"mono\"" : "") + ">" + v + "</div>"; };
+    var copy = function (v) { return "<span class=\"mk-hash\" title=\"" + esc(v) + "\">" + esc(short(v)) + "</span>"; };
+    return "<article class=\"glass mk-swap\">" +
+      "<div class=\"mk-swap-head\"><span class=\"hp-coins\" aria-hidden=\"true\">" + GKValue.coin("btc") + GKValue.coin("gnr") + "</span>" +
+      "<b>" + gnr(t.gnr) + " GNR</b><span class=\"muted\">for</span><b>" + btc(t.sats) + " BTC</b>" +
+      "<span class=\"mk-swap-p\">" + sat(t.price) + " per GNR <span class=\"muted\">" + usd(t.price) + "</span></span></div>" +
+      "<div class=\"kv mk-swap-kv\">" +
+      kv("Completed", c ? when(c.time) + " · " + ago(Math.max(0, data.now - c.time)) + " ago" : ago(Math.max(0, data.now - t.at)) + " ago") +
+      (c ? kv("GNR claim", "<a href=\"/explorer#/tx/" + esc(c.txid) + "\">" + esc(short(c.txid)) + "</a>", true) : "") +
+      (c ? kv("In block", "<a href=\"/explorer#/block/" + c.height + "\">#" + Number(c.height).toLocaleString("en-US") + "</a> · " + Number(t.confirmations || 0).toLocaleString("en-US") + " confirmations", true) : "") +
+      kv("Hash lock (SHA-256)", copy(t.hash), true) +
+      (c ? kv("Secret revealed", copy(c.secret), true) : "") +
+      (c ? kv("GNR refundable from", "block #" + Number(c.refund_height).toLocaleString("en-US") + " (not needed: claimed)", true) : "") +
+      "</div></article>";
   }
 
   function load() {
@@ -58,13 +80,6 @@
       data.offers = r[0].offers || []; data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
       data.market = r[1].market || {}; data.recent = r[1].recent || [];
       data.btc = Number(r[2].USD) || 0;
-      var info = r[3];
-      if (info) {
-        var left = 3300 - (info.height + 1);
-        $("mkLive").textContent = info.network === "mainnet" && left > 0
-          ? "Swaps on mainnet activate at block 3,300: about " + Math.ceil(left / 60) + " hours from now (block " + info.height.toLocaleString("en-US") + " today). Offers can already be published."
-          : "Swaps are live.";
-      }
       render();
     });
   }

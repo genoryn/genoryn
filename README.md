@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/genoryn/genoryn/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/genoryn/genoryn?style=flat-square&label=release&labelColor=000000&color=ffffff"></a>
-  <a href="https://genoryn.io/explorer.html"><img alt="Network" src="https://img.shields.io/badge/mainnet-live-ffffff?style=flat-square&labelColor=000000"></a>
+  <a href="https://genoryn.io/explorer"><img alt="Network" src="https://img.shields.io/badge/mainnet-live-ffffff?style=flat-square&labelColor=000000"></a>
   <img alt="Supply" src="https://img.shields.io/badge/supply-21%2C000%2C000%20GNR-ffffff?style=flat-square&labelColor=000000">
   <img alt="Premine" src="https://img.shields.io/badge/premine-none-ffffff?style=flat-square&labelColor=000000">
   <img alt="License" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-ffffff?style=flat-square&labelColor=000000">
@@ -17,8 +17,8 @@
   <a href="https://github.com/genoryn/genoryn/releases/latest"><b>Download for Windows</b></a> ·
   <a href="https://github.com/genoryn/genoryn/releases/latest"><b>Linux (.deb / .tar.gz)</b></a> ·
   <a href="https://genoryn.io">genoryn.io</a> ·
-  <a href="https://genoryn.io/explorer.html">Explorer</a> ·
-  <a href="https://genoryn.io/docs.html">Docs</a> ·
+  <a href="https://genoryn.io/explorer">Explorer</a> ·
+  <a href="https://genoryn.io/docs">Docs</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
@@ -251,38 +251,33 @@ Guides for exchanges, wallets and explorers: [docs/integration](docs/integration
 
 ## Getting GNR
 
-GNR is not traded on any exchange yet, and there was no presale. Today it is earned by
-mining. [genoryn.io/get](https://genoryn.io/get.html) and the wallet show a **reference
-value**: the electricity cost of mining one GNR at today's network hashrate, at your own
-price per kWh. This is not a market price; the wallet can hide it under
-Network → Display.
+GNR is not traded on any exchange, and there was no presale. It is earned by mining, or
+bought from another person with bitcoin in the wallet (the **Swap** tab).
 
-Peer-to-peer **BTC ⇄ GNR atomic swaps**, with no exchange or custody, are built into the wallet
-(the **Swap** tab). The pieces:
+Peer-to-peer **BTC ⇄ GNR atomic swaps**, with no exchange or custody:
 
 * the Bitcoin HTLC;
-* GNR lock notes, with consensus and circuit support;
-* a swap engine that claims and refunds by itself.
+* GNR lock notes, with consensus and circuit support (live on mainnet since block 3,300);
+* a swap engine that locks, claims and refunds by itself.
 
-They are tested end to end between two wallets and a Bitcoin Core node. The Swap tab's
-**offer board** lets anyone publish an offer at their own price or take someone else's. The
-two wallets then pass the swap codes to each other through sealed mailboxes on the board.
+**The GNR is locked first** (from 1.0.23). Taking an offer makes the seller's wallet lock
+the GNR on chain, payable only to the buyer. The buyer's wallet shows where to pay only after
+that lock has confirmed with exactly the agreed amount, so nobody can sell GNR they do not
+have. The seller then takes the bitcoin with its secret, and the buyer's wallet claims the
+GNR with that same secret. If anyone stops, timeouts refund both (the bitcoin after about
+6 hours, the GNR after about 32); no swap may last longer than a week.
 
-Taking an **online** offer starts the swap within seconds, with no approval: the maker's
-wallet answers by itself, and the GNR of an open sell offer is reserved in the maker's wallet
-so it is always there.
+The Swap tab's **offer board** lets anyone publish an offer or take someone else's; the two
+wallets pass the swap codes to each other through sealed mailboxes on the board, and an
+online maker's wallet answers within seconds. The board refuses offers more than 20× away
+from the market price or for more than 1,000 BTC.
 
-**Price:** the board's market price is a robust median of completed swaps (×3) and swaps in
-progress (×2), weighted by GNR and fading by half every 12 hours, plus the order book as a
-single point (the best online sell and buy prices with at least 1 GNR, weighing at most
-25 GNR), so offers above the cheapest one cannot move it, however many there are. The **GNR price** shown by the wallet and genoryn.io is that
-market price with the cost to mine one GNR at today's hashrate as its floor: above the cost
-the market alone decides; below it, `price = depth × market + (1 − depth) × cost to mine`, so
-only a deep market can price GNR under what it costs to make. More miners make every GNR
-costlier to produce, and the floor rises with them.
-
-**Activation:** lock spends activate on mainnet at **block 3,300**. This is a hard fork
-announced with 1.0.13, so update your wallet and node before then. See
+**Price:** the GNR price is the board's market price and nothing else: a robust median of
+completed swaps (×3) and swaps in progress (×2), weighted by GNR and fading by half every
+12 hours, plus the order book as a single point (the best online sell and buy prices with
+at least 1 GNR, weighing at most 25 GNR), so offers above the cheapest one cannot move it,
+however many there are. [genoryn.io/market](https://genoryn.io/market) lists every offer
+and every completed swap with what the chain shows of it. See
 [docs/spec/atomic-swaps.md](docs/spec/atomic-swaps.md).
 
 ## Repository layout

@@ -190,7 +190,7 @@
   }
   window.addEventListener("hashchange", route);
   stats(); route();
-  // Searches from the home page arrive as /explorer.html?q=…
+  // Searches from the home page arrive as /explorer?q=…
   var q0 = new URLSearchParams(location.search).get("q");
   if (q0 && document.getElementById("q")) {
     document.getElementById("q").value = q0.slice(0, 2000);

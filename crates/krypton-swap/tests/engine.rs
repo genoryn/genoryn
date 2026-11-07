@@ -99,6 +99,7 @@ struct BtcState {
     height: u32,
     utxos: HashMap<OutPoint, (TxOut, Option<u32>)>,
     spent: HashMap<OutPoint, Txid>,
+    txs: HashMap<Txid, Transaction>,
     mempool: Vec<Transaction>,
 }
 
@@ -163,6 +164,10 @@ impl BtcChain for MockBtc {
     fn is_spent(&self, op: &OutPoint) -> Result<bool> {
         Ok(self.inner.lock().unwrap().spent.contains_key(op))
     }
+    fn spender(&self, op: &OutPoint, _from: u32) -> Result<Option<Transaction>> {
+        let s = self.inner.lock().unwrap();
+        Ok(s.spent.get(op).and_then(|id| s.txs.get(id)).cloned())
+    }
     fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
         let mut s = self.inner.lock().unwrap();
         for i in &tx.input {
@@ -187,6 +192,7 @@ impl BtcChain for MockBtc {
                 .insert(OutPoint::new(id, n as u32), (o.clone(), None));
         }
         s.mempool.push(tx.clone());
+        s.txs.insert(id, tx.clone());
         Ok(id)
     }
     fn fee_rate(&self) -> Result<bitcoin::FeeRate> {
@@ -264,8 +270,13 @@ fn sync(src: &Local, sides: &mut [&mut Side]) {
 const GNR: u64 = 100_000_000;
 const SATS: u64 = 50_000;
 
-/// Request, accept and deposit: returns the HTLC address.
-fn open_swap(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) -> Address {
+fn mine_both(src: &Local, miner: &GnrAddress, a: &mut Side, b: &mut Side) {
+    mine(src, miner);
+    sync(src, &mut [a, b]);
+}
+
+/// Request and accept: the seller has sent its lock, the buyer waits for it.
+fn agreed(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) {
     let req = b
         .engine(src, btc, chain)
         .request(GNR, SATS, &btc_addr(2).to_string())
@@ -290,34 +301,65 @@ fn open_swap(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Cha
         .engine(src, btc, chain)
         .receive(acc.code.as_ref().unwrap())
         .unwrap();
-    assert_eq!(s.stage, Stage::AwaitDeposit);
-    let htlc = s.htlc_address().unwrap();
-    // Nothing happens before the deposit.
+    assert_eq!(s.stage, Stage::Accepted);
+    assert!(
+        s.htlc_address().is_err(),
+        "no payment address before the lock"
+    );
+}
+
+/// Until the buyer may pay: the seller locks, the lock confirms. Returns the address.
+fn locked(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) -> Address {
+    agreed(a, b, src, btc, chain);
+    let miner = a.wallet.address();
+    // The buyer sees nothing to pay until the seller's lock is on chain and confirmed.
     b.engine(src, btc, chain).step(&[]).unwrap();
-    assert_eq!(b.swap().stage, Stage::AwaitDeposit);
+    assert_eq!(b.swap().stage, Stage::Accepted);
+    a.engine(src, btc, chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Locked, "{}", a.swap().status);
+    assert_eq!(src.pool.borrow().len(), 1, "lock transaction sent");
+    assert!(
+        !a.swap().cancellable(),
+        "the seller cannot walk away once locked"
+    );
+    mine_both(src, &miner, a, b);
+    b.engine(src, btc, chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Accepted, "{}", b.swap().status);
+    assert!(
+        b.swap().status.contains("of 2 confirmations"),
+        "{}",
+        b.swap().status
+    );
+    mine_both(src, &miner, a, b);
+    b.engine(src, btc, chain).step(&[]).unwrap();
+    let s = b.swap();
+    assert_eq!(s.stage, Stage::AwaitDeposit, "{}", s.status);
+    assert!(s.pay_by.is_some());
+    s.htlc_address().unwrap()
+}
+
+/// The buyer pays and sends the deposit code; the seller records it.
+fn paid(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) -> Address {
+    let htlc = locked(a, b, src, btc, chain);
     btc.pay(&htlc, SATS);
     let s = b.engine(src, btc, chain).step(&[]).unwrap().pop().unwrap();
-    assert_eq!(s.stage, Stage::Deposited);
+    assert_eq!(s.stage, Stage::Deposited, "{}", s.status);
     let s = a
         .engine(src, btc, chain)
         .receive(s.code.as_ref().unwrap())
         .unwrap();
     assert_eq!(s.stage, Stage::Deposited);
-    // The GNR seller waits for a confirmation before locking anything.
-    a.engine(src, btc, chain).step(&[]).unwrap();
-    assert_eq!(a.swap().stage, Stage::Deposited);
-    assert!(src.pool.borrow().is_empty());
-    btc.mine();
-    a.engine(src, btc, chain).step(&[]).unwrap();
-    assert_eq!(a.swap().stage, Stage::Locked);
-    assert_eq!(src.pool.borrow().len(), 1, "lock transaction sent");
     htlc
 }
 
+fn new_chain(dir: &std::path::Path) -> Chain {
+    Chain::open(&dir.join("chain"), Network::Devnet).unwrap()
+}
+
 #[test]
-fn swap_completes() {
+fn swap_completes_gnr_first() {
     let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let chain = new_chain(dir.path());
     let src = Local {
         chain: &chain,
         pool: RefCell::new(vec![]),
@@ -326,26 +368,20 @@ fn swap_completes() {
     let (mut a, mut b) = setup(dir.path(), &chain, &src);
     let miner = a.wallet.address();
     let b_before = b.wallet.balance().total;
-    open_swap(&mut a, &mut b, &src, &btc, &chain);
+    paid(&mut a, &mut b, &src, &btc, &chain);
     assert_eq!(a.swap().role, Role::GnrSeller);
-
-    mine(&src, &miner);
-    sync(&src, &mut [&mut a, &mut b]);
-    b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_eq!(b.swap().stage, Stage::Locked, "{}", b.swap().status);
-    mine(&src, &miner);
-    sync(&src, &mut [&mut a, &mut b]);
-    b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_eq!(b.swap().stage, Stage::Claiming, "{}", b.swap().status);
-
-    // The secret reaches the GNR seller through the mempool; it claims the bitcoin.
-    let pool = src.pool.borrow().clone();
-    a.engine(&src, &btc, &chain).step(&pool).unwrap();
+    // The seller waits for a bitcoin confirmation, then takes it with its secret.
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Deposited);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
     assert!(btc.received(&btc_addr(1)) > SATS - 2_000);
-
-    mine(&src, &miner);
-    sync(&src, &mut [&mut a, &mut b]);
+    // The buyer reads the secret from that bitcoin transaction and claims the GNR.
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Claiming, "{}", b.swap().status);
+    assert!(b.swap().learned.is_some());
+    mine_both(&src, &miner, &mut a, &mut b);
     btc.mine();
     a.engine(&src, &btc, &chain).step(&[]).unwrap();
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
@@ -355,13 +391,13 @@ fn swap_completes() {
         b.wallet.balance().total,
         b_before + GNR - b.swap().claim_fee
     );
-    assert_eq!(btc.received(&btc_addr(2)), 0, "no refund to the BTC seller");
+    assert_eq!(btc.received(&btc_addr(2)), 0, "no refund to the buyer");
 }
 
 #[test]
-fn secret_from_a_block_when_the_mempool_was_missed() {
+fn a_seller_without_the_gnr_gets_nothing() {
     let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let chain = new_chain(dir.path());
     let src = Local {
         chain: &chain,
         pool: RefCell::new(vec![]),
@@ -369,24 +405,60 @@ fn secret_from_a_block_when_the_mempool_was_missed() {
     let btc = MockBtc::default();
     let (mut a, mut b) = setup(dir.path(), &chain, &src);
     let miner = a.wallet.address();
-    open_swap(&mut a, &mut b, &src, &btc, &chain);
-    for _ in 0..2 {
-        mine(&src, &miner);
-        sync(&src, &mut [&mut a, &mut b]);
+    // The seller accepts but never locks (it has no GNR, or walks away).
+    agreed(&mut a, &mut b, &src, &btc, &chain);
+    for _ in 0..4 {
+        mine_both(&src, &miner, &mut a, &mut b);
         b.engine(&src, &btc, &chain).step(&[]).unwrap();
+        assert_eq!(b.swap().stage, Stage::Accepted);
+        assert!(b.swap().htlc_address().is_err(), "never told where to pay");
     }
-    assert_eq!(b.swap().stage, Stage::Claiming);
-    mine(&src, &miner);
-    sync(&src, &mut [&mut a, &mut b]);
-    a.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
-    assert!(btc.received(&btc_addr(1)) > 0);
+    // After three hours the buyer's swap ends; nothing was ever paid.
+    let mut v = load(&b.wallet);
+    v[0].created -= krypton_swap::engine::DEPOSIT_TIMEOUT_SECS + 10;
+    krypton_swap::engine::save(&mut b.wallet, &v).unwrap();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Failed, "{}", b.swap().status);
+    assert_eq!(btc.broadcasts(), 0);
+    assert!(b.swap().deposit.is_none());
 }
 
 #[test]
-fn both_sides_refund_when_nobody_claims() {
+fn a_lock_of_less_gnr_is_not_paid() {
     let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    agreed(&mut a, &mut b, &src, &btc, &chain);
+    // A cheating seller locks half the amount under the agreed terms.
+    let mut v = load(&a.wallet);
+    v[0].gnr = GNR / 2;
+    krypton_swap::engine::save(&mut a.wallet, &v).unwrap();
+    // It cannot even make one: the claim outputs pin the buyer's amount, so a smaller
+    // lock does not balance and is refused.
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Accepted, "{}", a.swap().status);
+    assert!(src.pool.borrow().is_empty(), "no lock sent");
+    for _ in 0..4 {
+        mine_both(&src, &miner, &mut a, &mut b);
+        b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    }
+    assert_eq!(b.swap().stage, Stage::Accepted, "{}", b.swap().status);
+    assert!(
+        b.swap().htlc_address().is_err(),
+        "the buyer never pays for a smaller lock"
+    );
+}
+
+#[test]
+fn a_buyer_who_never_pays_costs_the_seller_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
     let src = Local {
         chain: &chain,
         pool: RefCell::new(vec![]),
@@ -394,13 +466,9 @@ fn both_sides_refund_when_nobody_claims() {
     let btc = MockBtc::default();
     let (mut a, mut b) = setup(dir.path(), &chain, &src);
     let miner = b.wallet.address();
-    open_swap(&mut a, &mut b, &src, &btc, &chain);
-    mine(&src, &miner);
-    a.wallet.sync(&src, |_, _| {}).unwrap();
-    let locked = a.wallet.locked_balance();
-    assert_eq!(locked, GNR);
+    locked(&mut a, &mut b, &src, &btc, &chain);
+    assert_eq!(a.wallet.locked_balance(), GNR);
     let a_before = a.wallet.balance().total;
-    // The BTC seller goes silent. The GNR seller refunds at the GNR refund height.
     let refund_at = a.swap().gnr_refund_height.unwrap();
     while chain.tip().height() + 1 < refund_at {
         mine(&src, &miner);
@@ -413,87 +481,67 @@ fn both_sides_refund_when_nobody_claims() {
     a.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert_eq!(a.swap().stage, Stage::Refunded, "{}", a.swap().status);
     assert_eq!(a.wallet.locked_balance(), 0);
-    // Mining payouts accrued earlier keep arriving too, so look for the refund note itself.
-    let refunded = GNR - a.swap().refund_fee.unwrap();
-    assert!(a.wallet.balance().total >= a_before + refunded);
-    assert!(
-        a.wallet
-            .notes()
-            .iter()
-            .any(|n| n.value == refunded && n.memo.ends_with("GNR refunded"))
-    );
-
-    // Back online too late, the BTC seller does not claim and refunds the bitcoin.
+    assert!(a.wallet.balance().total >= a_before + GNR - a.swap().refund_fee.unwrap());
+    // The buyer's payment window closed long ago.
+    let mut v = load(&b.wallet);
+    v[0].pay_by = Some(1);
+    krypton_swap::engine::save(&mut b.wallet, &v).unwrap();
     b.wallet.sync(&src, |_, _| {}).unwrap();
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_ne!(b.swap().stage, Stage::Claiming);
-    let refund_btc = b.swap().btc_refund_height.unwrap();
-    while btc.tip().unwrap() + 1 < refund_btc {
-        btc.mine();
-    }
-    b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_ne!(
-        b.swap().stage,
-        Stage::Refunding,
-        "not before nLockTime is final"
-    );
-    let n = btc.broadcasts();
-    btc.mine();
-    b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
-    assert_eq!(btc.broadcasts(), n + 1);
-    btc.mine();
-    b.engine(&src, &btc, &chain).step(&[]).unwrap();
-    assert_eq!(b.swap().stage, Stage::Refunded);
-    assert!(btc.received(&btc_addr(2)) > SATS - 2_000);
-}
-
-/// Request, accept, receive: the buyer now waits for its own deposit.
-fn agreed(a: &mut Side, b: &mut Side, src: &Local, btc: &MockBtc, chain: &Chain) -> Address {
-    let req = b
-        .engine(src, btc, chain)
-        .request(GNR, SATS, &btc_addr(2).to_string())
-        .unwrap();
-    let acc = a
-        .engine(src, btc, chain)
-        .accept(req.code.as_ref().unwrap(), &btc_addr(1).to_string())
-        .unwrap();
-    b.engine(src, btc, chain)
-        .receive(acc.code.as_ref().unwrap())
-        .unwrap()
-        .htlc_address()
-        .unwrap()
+    assert_eq!(b.swap().stage, Stage::Failed, "{}", b.swap().status);
 }
 
 #[test]
-fn cancel_before_deposit_and_pay_anyway_refunds() {
+fn a_seller_who_never_takes_the_bitcoin_refunds_the_buyer() {
     let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let chain = new_chain(dir.path());
     let src = Local {
         chain: &chain,
         pool: RefCell::new(vec![]),
     };
     let btc = MockBtc::default();
     let (mut a, mut b) = setup(dir.path(), &chain, &src);
-    let htlc = agreed(&mut a, &mut b, &src, &btc, &chain);
-    // Both sides may walk away while nothing is locked.
+    paid(&mut a, &mut b, &src, &btc, &chain);
+    btc.mine();
+    let refund_btc = b.swap().btc_refund_height.unwrap();
+    while btc.tip().unwrap() < refund_btc {
+        btc.mine();
+    }
+    // The seller went silent; the buyer's bitcoin comes back at the timelock.
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
+    btc.mine();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunded);
+    assert!(btc.received(&btc_addr(2)) > SATS - 2_000);
+    // Too late now for the seller: it does not take the (gone) bitcoin.
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_ne!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
+}
+
+#[test]
+fn pay_late_and_cancel_rules() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let htlc = locked(&mut a, &mut b, &src, &btc, &chain);
     let id = b.swap().id;
+    assert!(
+        a.engine(&src, &btc, &chain).cancel(&id, "x").is_err(),
+        "locked GNR"
+    );
+    // The buyer may still walk away before paying.
     let s = b
         .engine(&src, &btc, &chain)
         .cancel(&id, "Cancelled by you.")
         .unwrap();
     assert_eq!(s.stage, Stage::Failed);
-    assert!(a.swap().cancellable());
-    let s = a
-        .engine(&src, &btc, &chain)
-        .cancel(&id, "The other side cancelled.")
-        .unwrap();
-    assert_eq!(s.stage, Stage::Failed);
-    assert!(
-        a.engine(&src, &btc, &chain).cancel(&id, "again").is_err(),
-        "already over"
-    );
-    // The buyer pays anyway: its wallet still watches the contract and refunds at the timelock.
+    // Paid anyway: the wallet watches the contract and refunds at the timelock.
     btc.pay(&htlc, SATS);
     btc.mine();
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
@@ -503,40 +551,83 @@ fn cancel_before_deposit_and_pay_anyway_refunds() {
     }
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
-    assert!(btc.received(&btc_addr(2)) > SATS - 2_000);
 }
 
 #[test]
-fn no_cancel_after_deposit_and_expiry_without_one() {
+fn old_requests_and_unsafe_terms_are_refused() {
+    use krypton_swap::engine::Msg;
     let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let chain = new_chain(dir.path());
     let src = Local {
         chain: &chain,
         pool: RefCell::new(vec![]),
     };
     let btc = MockBtc::default();
     let (mut a, mut b) = setup(dir.path(), &chain, &src);
-    let htlc = agreed(&mut a, &mut b, &src, &btc, &chain);
-    btc.pay(&htlc, SATS);
-    let id = b.swap().id;
-    assert!(
-        b.engine(&src, &btc, &chain).cancel(&id, "x").is_err(),
-        "the deposit arrived"
-    );
-    // A second swap that nobody pays expires after three hours, on both sides.
-    let htlc2 = agreed(&mut a, &mut b, &src, &btc, &chain);
-    let _ = htlc2;
-    for side in [&mut a, &mut b] {
-        let mut v = load(&side.wallet);
-        for s in v.iter_mut().filter(|s| s.deposit.is_none()) {
-            s.created -= krypton_swap::engine::DEPOSIT_TIMEOUT_SECS + 3_700;
-        }
-        krypton_swap::engine::save(&mut side.wallet, &v).unwrap();
-        side.engine(&src, &btc, &chain).step(&[]).unwrap();
-        let s = side.swap();
-        assert_eq!(s.stage, Stage::Failed, "{}", s.status);
-        assert!(s.status.starts_with("Expired"), "{}", s.status);
-    }
+    let req = b
+        .engine(&src, &btc, &chain)
+        .request(GNR, SATS, &btc_addr(2).to_string())
+        .unwrap();
+    let Msg::Request2 {
+        id,
+        claim_outputs,
+        refund_pub,
+        ..
+    } = Msg::decode(req.code.as_ref().unwrap()).unwrap()
+    else {
+        panic!("a GNR-first request")
+    };
+    let old = Msg::Request {
+        id: id.clone(),
+        gnr_network: Network::Devnet,
+        btc_network: "regtest".into(),
+        gnr: GNR,
+        sats: SATS,
+        hash: [7; 32],
+        claim_fee: krypton_wallet_core::DEFAULT_FEE,
+        claim_outputs,
+        refund_pub,
+    };
+    let e = a
+        .engine(&src, &btc, &chain)
+        .accept(&old.encode(), &btc_addr(1).to_string())
+        .unwrap_err();
+    assert!(e.to_string().contains("older than 1.0.23"), "{e}");
+    // An accept whose GNR lock would last more than a week is refused by the buyer.
+    let tip = chain.tip().height();
+    let long = Msg::Accept2 {
+        id,
+        hash: [9; 32],
+        claim_pub: public_key(&derive_key(&[3; 64], 1)).to_string(),
+        gnr_refund_height: tip + 20_000,
+        refund_outputs: [
+            krypton_core::lock::HexCm([1; 32]),
+            krypton_core::lock::HexCm([2; 32]),
+        ],
+        refund_fee: krypton_wallet_core::DEFAULT_FEE,
+    };
+    let e = b
+        .engine(&src, &btc, &chain)
+        .receive(&long.encode())
+        .unwrap_err();
+    assert!(e.to_string().contains("week"), "{e}");
+    // The pay check: a week at most, and the GNR must outlast the bitcoin.
+    let t = Timing::MAINNET;
+    let ok = krypton_swap::Timelocks {
+        btc_refund_height: 1_036,
+        gnr_refund_height: 10_000 + 1_868,
+    };
+    assert!(t.check_pay(&ok, 1_000, 10_000).is_ok());
+    let short = krypton_swap::Timelocks {
+        gnr_refund_height: 10_000 + 900,
+        ..ok
+    };
+    assert!(t.check_pay(&short, 1_000, 10_000).is_err());
+    let week = krypton_swap::Timelocks {
+        gnr_refund_height: 10_000 + 11_000,
+        ..ok
+    };
+    assert!(t.check_pay(&week, 1_000, 10_000).is_err());
 }
 
 #[test]

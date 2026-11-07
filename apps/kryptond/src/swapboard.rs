@@ -42,8 +42,8 @@ struct Inner {
     inbox: HashMap<String, VecDeque<(u64, String)>>,
     messages: usize,
     trades: Vec<(Trade, u64)>,
-    /// Hash locks of claims seen on chain, and the highest block scanned for them.
-    claims: HashMap<String, u64>,
+    /// Claims of locked GNR seen on chain, by hash lock, and the highest block scanned.
+    claims: HashMap<String, Claim>,
     scanned: Option<u64>,
     loaded: bool,
 }
@@ -72,7 +72,8 @@ impl Board {
     }
 
     fn expire(i: &mut Inner, t: u64) {
-        i.offers.retain(|_, o| o.expires > t);
+        i.offers
+            .retain(|_, o| o.expires > t && o.sats <= board::MAX_OFFER_SATS);
         i.pending.retain(|_, (_, at)| *at + PENDING_SECS > t);
         let ids: std::collections::HashSet<String> = i.offers.keys().cloned().collect();
         i.seen.retain(|id, _| ids.contains(id));
@@ -174,14 +175,35 @@ fn scan_claims(node: &Node, i: &mut Inner) {
         if let Ok(Some(b)) = node.chain.block_at(h) {
             for t in &b.txs {
                 if let Some(l) = &t.lock
-                    && matches!(l.mode, LockMode::Claim { .. })
+                    && let LockMode::Claim { secret } = &l.mode
                 {
-                    i.claims.insert(hex::encode(l.terms.hash), h);
+                    i.claims.insert(
+                        hex::encode(l.terms.hash),
+                        Claim {
+                            height: h,
+                            time: b.header.timestamp,
+                            txid: hex::encode(t.txid()),
+                            secret: hex::encode(secret),
+                            refund_height: l.terms.refund_height,
+                        },
+                    );
                 }
             }
         }
         i.scanned = Some(h);
     }
+}
+
+/// What the GNR chain shows of a completed swap (its amounts are private).
+#[derive(Clone, serde::Serialize)]
+struct Claim {
+    height: u64,
+    time: u64,
+    txid: String,
+    /// The secret revealed by the claim (the same unlocks the bitcoin side).
+    secret: String,
+    /// The block from which the GNR could have been refunded instead.
+    refund_height: u64,
 }
 
 type S = State<Arc<Node>>;
@@ -263,6 +285,17 @@ pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
     }
     if i.offers.contains_key(&o.id) {
         return bad("an offer with this id exists");
+    }
+    // Joke prices fill the board without moving anyone: far from the market, refused.
+    if let Some(p) = current_market(&i, now()).price {
+        let q = o.price();
+        if q > p * board::MAX_PRICE_FACTOR || q < p / board::MAX_PRICE_FACTOR {
+            return bad(format!(
+                "this price is more than {}× away from the market price ({:.8} BTC per GNR); offers must stay within that range",
+                board::MAX_PRICE_FACTOR,
+                p / 1e8
+            ));
+        }
     }
     i.seen.insert(o.id.clone(), now());
     i.offers.insert(o.id.clone(), o);
@@ -413,12 +446,8 @@ pub async fn post_trade(State(node): S, Json(t): Json<Trade>) -> Response {
     }
 }
 
-pub async fn market(State(node): S) -> Response {
-    let mut i = node.board.inner.lock();
-    node.board.load(&mut i);
-    let t = now();
-    Board::expire(&mut i, t);
-    // Only offers that can be taken now count: their maker was online in the last minutes.
+/// The market now. Only offers that can be taken count: their maker was online lately.
+fn current_market(i: &Inner, t: u64) -> board::Market {
     let offers: Vec<Offer> = i
         .offers
         .values()
@@ -426,13 +455,31 @@ pub async fn market(State(node): S) -> Response {
         .cloned()
         .collect();
     let pending: Vec<(Offer, u64)> = i.pending.values().cloned().collect();
-    let m = board::market(&i.trades, &offers, &pending, t);
+    board::market(&i.trades, &offers, &pending, t)
+}
+
+pub async fn market(State(node): S) -> Response {
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let t = now();
+    Board::expire(&mut i, t);
+    let m = current_market(&i, t);
+    // Each swap with what the GNR chain shows of it: its claim, block, time and secret.
+    scan_claims(&node, &mut i);
+    let tip = node.chain.tip().height();
     let recent: Vec<_> = i
         .trades
         .iter()
         .rev()
-        .take(20)
-        .map(|(x, at)| json!({"at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price()}))
+        .take(50)
+        .map(|(x, at)| {
+            let c = i.claims.get(&x.hash);
+            json!({
+                "at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price(), "hash": x.hash,
+                "claim": c,
+                "confirmations": c.map(|c| tip + 1 - c.height),
+            })
+        })
         .collect();
     Json(json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS}))
         .into_response()

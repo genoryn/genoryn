@@ -110,8 +110,8 @@ impl Offer {
             "bad GNR amount"
         );
         ensure!(
-            self.sats >= 10_000 && self.sats <= 21_000_000 * 100_000_000,
-            "bad bitcoin amount"
+            self.sats >= 10_000 && self.sats <= MAX_OFFER_SATS,
+            "an offer is for 10,000 sat to 1,000 BTC"
         );
         ensure!(
             self.expires > now && self.expires <= now + MAX_OFFER_SECS + 60,
@@ -126,6 +126,11 @@ impl Offer {
         Ok(())
     }
 }
+
+/// The most bitcoin one offer (or reported swap) may be for.
+pub const MAX_OFFER_SATS: u64 = 1_000 * 100_000_000;
+/// The board refuses offers priced more than this factor above or below its market price.
+pub const MAX_PRICE_FACTOR: f64 = 20.0;
 
 pub fn cancel_hash(secret: &[u8; 32]) -> String {
     hex::encode(tagged("Krypton/board/cancel", secret))
@@ -252,7 +257,10 @@ impl Trade {
             self.hash.len() == 64 && hex::decode(&self.hash).is_ok(),
             "bad hash"
         );
-        ensure!(self.gnr > 0 && self.sats > 0, "bad amounts");
+        ensure!(
+            self.gnr > 0 && self.sats > 0 && self.sats <= MAX_OFFER_SATS,
+            "bad amounts"
+        );
         ensure!(
             pow_ok("Krypton/board/trade", &self.body(), self.nonce, POW_BITS),
             "missing proof of work"

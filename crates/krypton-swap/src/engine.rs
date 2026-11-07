@@ -1,20 +1,29 @@
 //! The swap protocol between two wallets and the steps each side takes on its own.
 //!
-//! Three codes pass between the two people (copy and paste, or a relay):
+//! **GNR first** (from 1.0.23, flow 2): the GNR is locked before anyone pays, so a buyer
+//! never sends bitcoin to someone who does not have the GNR. Three codes pass between the
+//! two people (copy and paste, or the offer board):
 //!
-//! 1. **Request** (BTC seller → GNR seller): amounts, the hash lock, the BTC seller's
-//!    refund key and its GNR claim outputs.
-//! 2. **Accept** (GNR seller → BTC seller): the GNR seller's bitcoin claim key and the
-//!    full GNR lock terms (refund height and refund outputs). The BTC seller's wallet now
-//!    knows the lock note and spots it on chain by itself.
-//! 3. **Funded** (BTC seller → GNR seller): the bitcoin refund height and the deposit.
+//! 1. **Request** (buyer → GNR seller): amounts, the buyer's bitcoin refund key and its
+//!    GNR claim outputs.
+//! 2. **Accept** (GNR seller → buyer): the hash lock (the seller holds the secret), the
+//!    seller's bitcoin claim key and the full GNR lock terms. The seller's wallet locks
+//!    the GNR at once; the buyer's wallet knows the lock note and spots it on chain.
+//! 3. **Funded** (buyer → GNR seller): sent once the buyer has paid. The buyer's wallet
+//!    shows where to pay only after the lock has confirmed with exactly the agreed amount,
+//!    payable only to the buyer, and lasting long enough.
 //!
-//! After that both wallets act alone: the GNR seller locks GNR once the deposit has
-//! confirmed, the BTC seller claims it (publishing the secret) once the lock has
-//! confirmed, the GNR seller claims the bitcoin with the secret. Timeouts refund both.
+//! Then the seller takes the bitcoin with the secret, which the buyer's wallet reads from
+//! that bitcoin transaction to claim the GNR. Timeouts refund both: the bitcoin after
+//! about 6 hours, the GNR after about 32. No swap may last longer than a week.
+//!
+//! Swaps started before 1.0.23 (flow 0: bitcoin first, the buyer holds the secret) finish
+//! as they began; new ones are never started that way.
 
 use crate::btc::BtcChain;
-use crate::{Funding, Htlc, Secret, Timelocks, Timing, derive_key, derive_secret, public_key};
+use crate::{
+    Funding, Htlc, MAX_SWAP_SECS, Secret, Timelocks, Timing, derive_key, derive_secret, public_key,
+};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use bitcoin::{Address, Amount, OutPoint, PublicKey, Txid};
 use krypton_core::Network;
@@ -29,6 +38,10 @@ pub const CODE_PREFIX: &str = "gks1";
 const STORE_KEY: &str = "swaps";
 /// A swap whose bitcoin deposit has not arrived this long after it started is given up.
 pub const DEPOSIT_TIMEOUT_SECS: u64 = 3 * 3600;
+/// The GNR-first flow.
+pub const FLOW_GNR_FIRST: u8 = 2;
+/// Wallets older than this answer only the bitcoin-first flow.
+pub const UPDATE_HINT: &str = "this swap code comes from a wallet older than 1.0.23; ask the other side to update (now the GNR is locked first, so nobody pays before the coins are there)";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -67,12 +80,23 @@ impl Stage {
 }
 
 impl Swap {
-    /// Whether this side can still walk away: nothing of anyone's is locked yet.
+    /// Whether this side can still walk away: nothing of its own is locked yet.
     pub fn cancellable(&self) -> bool {
-        match self.role {
-            Role::BtcSeller => matches!(self.stage, Stage::Requested | Stage::AwaitDeposit),
-            Role::GnrSeller => self.stage == Stage::Accepted,
+        match (self.role, self.flow) {
+            (Role::BtcSeller, FLOW_GNR_FIRST) => matches!(
+                self.stage,
+                Stage::Requested | Stage::Accepted | Stage::AwaitDeposit
+            ),
+            (Role::GnrSeller, FLOW_GNR_FIRST) => {
+                self.stage == Stage::Accepted && self.lock_cm.is_none()
+            }
+            (Role::BtcSeller, _) => matches!(self.stage, Stage::Requested | Stage::AwaitDeposit),
+            (Role::GnrSeller, _) => self.stage == Stage::Accepted,
         }
+    }
+    /// Started in the GNR-first flow.
+    pub fn gnr_first(&self) -> bool {
+        self.flow == FLOW_GNR_FIRST
     }
     /// Ended (cancelled or expired) before this side locked anything: no bitcoin deposit
     /// (BTC seller), no GNR lock (GNR seller).
@@ -99,6 +123,9 @@ pub struct Deposit {
     pub txid: String,
     pub vout: u32,
     pub sats: u64,
+    /// The bitcoin block that confirmed it, once known.
+    #[serde(default)]
+    pub height: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -136,11 +163,41 @@ pub struct Swap {
     pub status: String,
     pub log: Vec<(u64, String)>,
     pub created: u64,
+    /// 0: bitcoin first (before 1.0.23); 2: GNR first.
+    #[serde(default)]
+    pub flow: u8,
+    /// GNR-first buyer: pay before this time (unix seconds), or the swap ends unpaid.
+    #[serde(default)]
+    pub pay_by: Option<u64>,
+    /// GNR-first buyer: the secret, read from the seller's bitcoin claim.
+    #[serde(default)]
+    pub learned: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Msg {
+    /// GNR first: the buyer asks; no hash lock yet (the seller holds the secret).
+    Request2 {
+        id: String,
+        gnr_network: Network,
+        btc_network: String,
+        gnr: u64,
+        sats: u64,
+        claim_fee: u64,
+        claim_outputs: [HexCm; 2],
+        refund_pub: String,
+    },
+    /// GNR first: the seller's hash lock, bitcoin claim key and GNR lock terms.
+    Accept2 {
+        id: String,
+        #[serde(with = "hex::serde")]
+        hash: [u8; 32],
+        claim_pub: String,
+        gnr_refund_height: u64,
+        refund_outputs: [HexCm; 2],
+        refund_fee: u64,
+    },
     Request {
         id: String,
         gnr_network: Network,
@@ -187,7 +244,11 @@ impl Msg {
     }
     pub fn id(&self) -> &str {
         match self {
-            Msg::Request { id, .. } | Msg::Accept { id, .. } | Msg::Funded { id, .. } => id,
+            Msg::Request { id, .. }
+            | Msg::Accept { id, .. }
+            | Msg::Funded { id, .. }
+            | Msg::Request2 { id, .. }
+            | Msg::Accept2 { id, .. } => id,
         }
     }
 }
@@ -321,18 +382,16 @@ impl<G: ChainSource> Engine<'_, G> {
         let mut swaps = load(self.wallet);
         let index = Self::next_index(&swaps);
         let seed = *self.wallet.swap_seed();
-        let secret = derive_secret(&seed, index);
         let refund_pub = public_key(&derive_key(&seed, index));
         let claim_fee = DEFAULT_FEE;
         let claim_outputs = self.wallet.claim_outputs(index, gnr, claim_fee)?;
         let id = hex::encode(rand::random::<[u8; 16]>());
-        let msg = Msg::Request {
+        let msg = Msg::Request2 {
             id: id.clone(),
             gnr_network: self.wallet.network(),
             btc_network: net_name(self.btc_network),
             gnr,
             sats,
-            hash: secret.hash(),
             claim_fee,
             claim_outputs,
             refund_pub: refund_pub.to_string(),
@@ -345,7 +404,7 @@ impl<G: ChainSource> Engine<'_, G> {
             btc_network: net_name(self.btc_network),
             gnr,
             sats,
-            hash: secret.hash(),
+            hash: [0; 32],
             claim_fee,
             claim_outputs,
             btc_refund_pub: refund_pub.to_string(),
@@ -363,8 +422,11 @@ impl<G: ChainSource> Engine<'_, G> {
             status: String::new(),
             log: vec![],
             created: now(),
+            flow: FLOW_GNR_FIRST,
+            pay_by: None,
+            learned: None,
         };
-        s.say("Send the request code to the GNR seller and paste their answer here.");
+        s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
         save(self.wallet, &swaps)?;
         Ok(s)
@@ -374,20 +436,32 @@ impl<G: ChainSource> Engine<'_, G> {
     /// Returns the swap with the accept code for the BTC seller.
     pub fn accept(&mut self, code: &str, payout_address: &str) -> Result<Swap> {
         self.check_active()?;
-        let Msg::Request {
-            id,
-            gnr_network,
-            btc_network,
-            gnr,
-            sats,
-            hash,
-            claim_fee,
-            claim_outputs,
-            refund_pub,
-        } = Msg::decode(code)?
-        else {
-            bail!("this is not a swap request");
-        };
+        let (id, gnr_network, btc_network, gnr, sats, claim_fee, claim_outputs, refund_pub) =
+            match Msg::decode(code)? {
+                Msg::Request2 {
+                    id,
+                    gnr_network,
+                    btc_network,
+                    gnr,
+                    sats,
+                    claim_fee,
+                    claim_outputs,
+                    refund_pub,
+                } => (
+                    id,
+                    gnr_network,
+                    btc_network,
+                    gnr,
+                    sats,
+                    claim_fee,
+                    claim_outputs,
+                    refund_pub,
+                ),
+                Msg::Request { .. } => bail!(UPDATE_HINT),
+                _ => bail!("this is not a swap request"),
+            };
+        ensure!(sats >= 10_000, "a swap of at least 10,000 sat");
+        ensure!(gnr > 2 * DEFAULT_FEE, "the GNR amount is too small");
         ensure!(
             gnr_network == self.wallet.network(),
             "the request is for GNR {}",
@@ -426,10 +500,13 @@ impl<G: ChainSource> Engine<'_, G> {
                 && !claim_outputs.iter().any(|c| refund_outputs.contains(c)),
             "the request's claim outputs are invalid"
         );
-        // Room for the deposit to arrive and confirm before the lock window starts.
-        let gnr_refund_height = self.gnr_tip()? + self.timing.gnr_lock_blocks * 3 / 2;
-        let msg = Msg::Accept {
+        // We hold the secret and lock first; the lock lasts through the buyer's payment,
+        // the bitcoin lock and the buyer's window to claim.
+        let hash = derive_secret(&seed, index).hash();
+        let gnr_refund_height = self.gnr_tip()? + self.timing.gnr_lock2_blocks;
+        let msg = Msg::Accept2 {
             id: id.clone(),
+            hash,
             claim_pub: claim_pub.to_string(),
             gnr_refund_height,
             refund_outputs,
@@ -461,8 +538,11 @@ impl<G: ChainSource> Engine<'_, G> {
             status: String::new(),
             log: vec![],
             created: now(),
+            flow: FLOW_GNR_FIRST,
+            pay_by: None,
+            learned: None,
         };
-        s.say("Send the accept code to the BTC seller and wait for their deposit code.");
+        s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
         save(self.wallet, &swaps)?;
         Ok(s)
@@ -471,7 +551,7 @@ impl<G: ChainSource> Engine<'_, G> {
     /// Takes the other side's next code (accept or funded).
     pub fn receive(&mut self, code: &str) -> Result<Swap> {
         let msg = Msg::decode(code)?;
-        if matches!(msg, Msg::Request { .. }) {
+        if matches!(msg, Msg::Request { .. } | Msg::Request2 { .. }) {
             bail!("REQUEST: this is a new swap request; accept it to sell GNR");
         }
         let mut swaps = load(self.wallet);
@@ -481,6 +561,86 @@ impl<G: ChainSource> Engine<'_, G> {
             .context("no swap in this wallet matches the code")?;
         let mut s = swaps[i].clone();
         match msg {
+            Msg::Accept2 {
+                hash,
+                claim_pub,
+                gnr_refund_height,
+                refund_outputs,
+                refund_fee,
+                ..
+            } => {
+                ensure!(
+                    s.role == Role::BtcSeller && s.gnr_first() && s.stage == Stage::Requested,
+                    "this swap does not expect an accept code"
+                );
+                PublicKey::from_str(&claim_pub).context("bad claim key")?;
+                ensure!(hash != [0; 32], "bad hash lock");
+                let gnr_tip = self.gnr_tip()?;
+                let t = self.timing;
+                ensure!(
+                    gnr_refund_height >= gnr_tip + t.gnr_lock2_blocks * 9 / 10,
+                    "the GNR lock in the accept code expires too soon"
+                );
+                ensure!(
+                    (gnr_refund_height - gnr_tip) * 60 <= MAX_SWAP_SECS,
+                    "the GNR lock in the accept code lasts longer than a week"
+                );
+                ensure!(
+                    (krypton_wallet_core::MIN_FEE..=krypton_wallet_core::MAX_FEE)
+                        .contains(&refund_fee),
+                    "unusual refund fee in the accept code"
+                );
+                ensure!(
+                    !refund_outputs.iter().any(|c| s.claim_outputs.contains(c)),
+                    "the accept code's refund outputs are invalid"
+                );
+                let terms = LockTerms {
+                    hash,
+                    refund_height: gnr_refund_height,
+                    claim_outputs: s.claim_outputs,
+                    refund_outputs,
+                };
+                // Only a lock with exactly this amount, payable to our outputs, matches.
+                let cm = self.wallet.watch_lock(s.index, terms, s.gnr, s.claim_fee)?;
+                s.hash = hash;
+                s.btc_claim_pub = Some(claim_pub);
+                s.gnr_refund_height = Some(gnr_refund_height);
+                s.refund_outputs = Some(refund_outputs);
+                s.refund_fee = Some(refund_fee);
+                s.lock_cm = Some(hex::encode(cm));
+                s.stage = Stage::Accepted;
+                s.code = None;
+                s.say("Waiting for the seller to lock the GNR for you. You pay nothing before it is locked on chain.");
+            }
+            Msg::Accept { .. } if s.gnr_first() => bail!(UPDATE_HINT),
+            Msg::Funded {
+                btc_refund_height,
+                txid,
+                vout,
+                ..
+            } if s.gnr_first() => {
+                ensure!(
+                    s.role == Role::GnrSeller && matches!(s.stage, Stage::Accepted | Stage::Locked),
+                    "this swap does not expect a deposit code"
+                );
+                Txid::from_str(&txid).context("bad deposit txid")?;
+                let btc_tip = self.btc.tip()?;
+                ensure!(
+                    u64::from(btc_refund_height.saturating_sub(btc_tip)) * 600 <= MAX_SWAP_SECS,
+                    "the bitcoin lock lasts longer than a week"
+                );
+                s.btc_refund_height = Some(btc_refund_height);
+                s.htlc()?;
+                s.deposit = Some(Deposit {
+                    txid,
+                    vout,
+                    sats: s.sats,
+                    height: None,
+                });
+                s.stage = Stage::Deposited;
+                s.code = None;
+                s.say("The buyer paid. Checking the bitcoin deposit.");
+            }
             Msg::Accept {
                 claim_pub,
                 gnr_refund_height,
@@ -549,12 +709,13 @@ impl<G: ChainSource> Engine<'_, G> {
                     txid,
                     vout,
                     sats: s.sats,
+                    height: None,
                 });
                 s.stage = Stage::Deposited;
                 s.code = None;
                 s.say("Checking the bitcoin deposit.");
             }
-            Msg::Request { .. } => unreachable!("handled above"),
+            Msg::Request { .. } | Msg::Request2 { .. } => unreachable!("handled above"),
         }
         swaps[i] = s.clone();
         save(self.wallet, &swaps)?;
@@ -613,7 +774,21 @@ impl<G: ChainSource> Engine<'_, G> {
             if s.cancellable() && s.created + limit < t {
                 s.stage = Stage::Failed;
                 s.code = None;
-                s.say("Expired: no bitcoin deposit within 3 hours. Nothing was locked.");
+                s.say(if s.gnr_first() && s.role == Role::BtcSeller {
+                    "Expired before you paid: nothing was paid."
+                } else {
+                    "Expired: no bitcoin deposit within 3 hours. Nothing was locked."
+                });
+            }
+            // GNR first: the buyer pays within the window it was given, or not at all.
+            if s.gnr_first()
+                && s.stage == Stage::AwaitDeposit
+                && s.pay_by.is_some_and(|p| p < t)
+                && s.deposit.is_none()
+            {
+                s.stage = Stage::Failed;
+                s.code = None;
+                s.say("Expired: the payment window closed before you paid. Nothing was paid; if you pay now anyway, the bitcoin refunds.");
             }
             // Paid after all, into a given-up swap: refund it at the timelock.
             if s.watching()
@@ -629,8 +804,11 @@ impl<G: ChainSource> Engine<'_, G> {
                     txid: u.outpoint.txid.to_string(),
                     vout: u.outpoint.vout,
                     sats: u.value.to_sat(),
+                    height: u.height,
                 });
                 s.stage = Stage::Deposited;
+                // Without the seller's claim this only refunds (the GNR-first buyer also
+                // claims the GNR if the seller takes the bitcoin after all).
                 s.say(format!(
                     "A deposit arrived after the swap ended; it refunds after block {}.",
                     s.btc_refund_height.unwrap_or(0)
@@ -640,9 +818,11 @@ impl<G: ChainSource> Engine<'_, G> {
                 changed |= before != (s.stage, s.status.clone());
                 continue;
             }
-            let r = match s.role {
-                Role::BtcSeller => self.step_btc_seller(s, btc_tip, gnr_tip),
-                Role::GnrSeller => self.step_gnr_seller(s, btc_tip, gnr_tip),
+            let r = match (s.role, s.gnr_first()) {
+                (Role::BtcSeller, true) => self.step2_buyer(s, btc_tip, gnr_tip),
+                (Role::GnrSeller, true) => self.step2_seller(s, btc_tip, gnr_tip),
+                (Role::BtcSeller, false) => self.step_btc_seller(s, btc_tip, gnr_tip),
+                (Role::GnrSeller, false) => self.step_gnr_seller(s, btc_tip, gnr_tip),
             };
             if let Err(e) = r {
                 s.say(format!("Waiting: {e}"));
@@ -685,6 +865,7 @@ impl<G: ChainSource> Engine<'_, G> {
                         txid: u.outpoint.txid.to_string(),
                         vout: u.outpoint.vout,
                         sats: u.value.to_sat(),
+                        height: u.height,
                     });
                     s.code = Some(
                         Msg::Funded {
@@ -789,6 +970,335 @@ impl<G: ChainSource> Engine<'_, G> {
         Ok(())
     }
 
+    /// GNR first, the buyer: waits for the GNR lock, only then shows where to pay, reads
+    /// the secret from the seller's bitcoin claim and claims the GNR with it.
+    fn step2_buyer(&mut self, s: &mut Swap, btc_tip: u32, gnr_tip: u64) -> Result<()> {
+        let t = self.timing;
+        let lock = self.lock(s);
+        let claimed = self.claim_received(s);
+        let Some(gnr_refund) = s.gnr_refund_height else {
+            return Ok(()); // Requested: waiting for the accept code.
+        };
+        match s.stage {
+            Stage::Accepted => {
+                let Some(l) = &lock else { return Ok(()) };
+                if l.spent_height.is_some() {
+                    s.stage = Stage::Failed;
+                    s.say("The seller took the GNR back before you paid. Nothing was paid.");
+                    return Ok(());
+                }
+                let Some(h) = l.height else {
+                    s.say("Waiting for the seller to lock the GNR for you. You pay nothing before it is locked on chain.");
+                    return Ok(());
+                };
+                let confs = gnr_tip + 1 - h;
+                if confs < t.gnr_confirmations {
+                    s.say(format!(
+                        "The seller locked {} GNR for you at block {h}: {confs} of {} confirmations before you pay.",
+                        krypton_core::emission::format_amount(s.gnr - s.claim_fee),
+                        t.gnr_confirmations
+                    ));
+                    return Ok(());
+                }
+                let tl = Timelocks {
+                    btc_refund_height: btc_tip + t.btc_lock2_blocks,
+                    gnr_refund_height: gnr_refund,
+                };
+                if let Err(e) = t.check_pay(&tl, btc_tip, gnr_tip) {
+                    s.stage = Stage::Failed;
+                    s.say(format!(
+                        "Not paying: {e}. Nothing was paid; the seller's GNR returns to them."
+                    ));
+                    return Ok(());
+                }
+                s.btc_refund_height = Some(tl.btc_refund_height);
+                s.pay_by = Some(now() + t.pay_window_secs);
+                s.stage = Stage::AwaitDeposit;
+                let addr = s.htlc_address()?;
+                s.say(format!(
+                    "{} GNR are locked for you (block {h}, {confs} confirmations). Pay exactly {} BTC to {addr} within {} minutes.",
+                    krypton_core::emission::format_amount(s.gnr - s.claim_fee),
+                    Amount::from_sat(s.sats).to_btc(),
+                    t.pay_window_secs / 60
+                ));
+            }
+            Stage::AwaitDeposit => {
+                let addr = s.htlc_address()?;
+                if let Some(u) = self
+                    .btc
+                    .outputs(&addr)?
+                    .into_iter()
+                    .find(|u| u.value.to_sat() >= s.sats)
+                {
+                    let tl = s.timelocks().context("timelocks")?;
+                    s.deposit = Some(Deposit {
+                        txid: u.outpoint.txid.to_string(),
+                        vout: u.outpoint.vout,
+                        sats: u.value.to_sat(),
+                        height: u.height,
+                    });
+                    s.code = Some(
+                        Msg::Funded {
+                            id: s.id.clone(),
+                            btc_refund_height: tl.btc_refund_height,
+                            txid: u.outpoint.txid.to_string(),
+                            vout: u.outpoint.vout,
+                        }
+                        .encode(),
+                    );
+                    s.stage = Stage::Deposited;
+                    s.say("Paid. The seller takes the bitcoin with the secret, and your wallet then claims the GNR with it.");
+                }
+            }
+            Stage::Deposited | Stage::Claiming => {
+                if claimed {
+                    s.stage = Stage::Done;
+                    s.say(format!(
+                        "Done: received {} GNR.",
+                        krypton_core::emission::format_amount(s.gnr - s.claim_fee)
+                    ));
+                    return Ok(());
+                }
+                let tl = s.timelocks().context("timelocks")?;
+                let f = s.funding()?;
+                if s.deposit.as_ref().is_some_and(|d| d.height.is_none())
+                    && let Some(u) = self
+                        .btc
+                        .outputs(&s.htlc_address()?)?
+                        .into_iter()
+                        .find(|u| u.outpoint == f.outpoint)
+                    && let Some(d) = s.deposit.as_mut()
+                {
+                    d.height = u.height;
+                }
+                if s.learned.is_none() && self.btc.is_spent(&f.outpoint)? {
+                    let from = s
+                        .deposit
+                        .as_ref()
+                        .and_then(|d| d.height)
+                        .unwrap_or(btc_tip.saturating_sub(t.btc_lock2_blocks + 10));
+                    if let Some(tx) = self.btc.spender(&f.outpoint, from)? {
+                        match s.htlc()?.find_secret(&tx) {
+                            Some(secret) => s.learned = Some(hex::encode(secret.as_bytes())),
+                            None if s.btc_spend.is_some() => {
+                                s.stage = Stage::Refunding;
+                                return Ok(());
+                            }
+                            None => {}
+                        }
+                    }
+                }
+                if let Some(secret) = s.learned.clone() {
+                    let secret: [u8; 32] = hex::decode(secret)?
+                        .try_into()
+                        .map_err(|_| anyhow!("bad secret"))?;
+                    let Some(l) = &lock else {
+                        bail!("the GNR lock is not in the wallet");
+                    };
+                    if l.spent_height.is_some() {
+                        s.say("The GNR lock was spent by someone else (refunded?).");
+                        return Ok(());
+                    }
+                    if l.pending_spend.is_some() {
+                        return Ok(());
+                    }
+                    if !t.may_claim_gnr(&tl, gnr_tip) {
+                        s.say("Too late to claim the GNR: its lock has expired.");
+                        return Ok(());
+                    }
+                    let cm = l.cm;
+                    self.wallet.claim_lock(self.gnr, &cm, secret)?;
+                    s.stage = Stage::Claiming;
+                    s.say("The seller took the bitcoin; claiming your GNR with the secret it revealed.");
+                    return Ok(());
+                }
+                // The seller never took the bitcoin: it comes back at the timelock.
+                if !self.btc.is_spent(&f.outpoint)? && btc_tip >= tl.btc_refund_height {
+                    self.btc_refund(s)?;
+                }
+            }
+            Stage::Refunding
+                if s.deposit.is_some() && self.btc.is_spent(&s.funding()?.outpoint)? =>
+            {
+                s.stage = Stage::Refunded;
+                s.say("Refunded: the bitcoin is back.");
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// GNR first, the seller: locks the GNR at once, takes the bitcoin with its secret once
+    /// the payment has confirmed, and refunds the GNR if nobody paid in time.
+    fn step2_seller(&mut self, s: &mut Swap, btc_tip: u32, gnr_tip: u64) -> Result<()> {
+        let t = self.timing;
+        let gnr_refund = s.gnr_refund_height.context("no GNR refund height")?;
+        if s.stage == Stage::Accepted && s.lock_cm.is_none() {
+            if gnr_tip + t.gnr_lock2_blocks * 9 / 10 > gnr_refund {
+                s.stage = Stage::Failed;
+                s.say("Too late to lock the GNR for this swap; nothing was locked.");
+                return Ok(());
+            }
+            let terms = s.terms().context("terms")?;
+            // The terms are checked before anything is sent: a mismatch must not lock coins.
+            ensure!(
+                Some(self.wallet.refund_outputs(
+                    s.index,
+                    s.gnr,
+                    s.refund_fee.unwrap_or(DEFAULT_FEE)
+                )?) == s.refund_outputs,
+                "the lock would not match the agreed terms"
+            );
+            let (_, got) = self.wallet.lock_funds(
+                self.gnr,
+                s.index,
+                s.hash,
+                gnr_refund,
+                s.claim_outputs,
+                s.gnr,
+                s.refund_fee.unwrap_or(DEFAULT_FEE),
+                DEFAULT_FEE,
+            )?;
+            ensure!(got == terms, "lock terms differ from the accepted ones");
+            s.lock_cm = Some(hex::encode(got.commitment(s.gnr)));
+            s.stage = Stage::Locked;
+            s.say("GNR locked for the buyer. They pay once the lock has confirmed; if they do not, the GNR comes back to you.");
+            return Ok(());
+        }
+        let lock = self.lock(s);
+        // The buyer never paid (or we could not take the bitcoin in time): refund the GNR.
+        let refund_due = |l: &LockRecord| {
+            l.spent_height.is_none() && l.pending_spend.is_none() && gnr_tip + 1 >= gnr_refund
+        };
+        match s.stage {
+            Stage::Locked | Stage::Accepted => {
+                if let Some(l) = &lock
+                    && refund_due(l)
+                {
+                    let cm = l.cm;
+                    self.wallet.refund_lock(self.gnr, &cm)?;
+                    s.stage = Stage::Refunding;
+                    s.say("Nobody paid in time: refunding the GNR.");
+                }
+            }
+            Stage::Deposited => {
+                let tl = s.timelocks().context("timelocks")?;
+                let f = s.funding()?;
+                let found = self
+                    .btc
+                    .outputs(&s.htlc_address()?)?
+                    .into_iter()
+                    .find(|u| u.outpoint == f.outpoint);
+                let paid = match found {
+                    None => {
+                        s.say("Waiting for the buyer's bitcoin payment to appear.");
+                        false
+                    }
+                    Some(u) if u.value.to_sat() < s.sats => {
+                        s.say("The payment is smaller than agreed; not taking it. The GNR refunds at its timelock.");
+                        false
+                    }
+                    Some(u) => {
+                        let confs = u.height.map(|h| btc_tip + 1 - h).unwrap_or(0);
+                        if confs < t.btc_confirmations {
+                            s.say(format!(
+                                "Bitcoin payment seen, {confs} of {} confirmations.",
+                                t.btc_confirmations
+                            ));
+                            false
+                        } else if !t.may_claim_btc(&tl, btc_tip) {
+                            s.say(format!(
+                                "Too late to take the bitcoin safely; the GNR refunds after block {gnr_refund}."
+                            ));
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                };
+                if paid {
+                    self.btc_claim(s)?;
+                    s.stage = Stage::Claiming;
+                } else if let Some(l) = &lock
+                    && refund_due(l)
+                {
+                    let cm = l.cm;
+                    self.wallet.refund_lock(self.gnr, &cm)?;
+                    s.stage = Stage::Refunding;
+                    s.say("The bitcoin was not taken in time: refunding the GNR.");
+                }
+            }
+            Stage::Claiming => {
+                let tl = s.timelocks().context("timelocks")?;
+                let f = s.funding()?;
+                if self.btc.is_spent(&f.outpoint)? {
+                    // Ours if it reveals the secret (any of our fee bumps); a refund does not.
+                    let from = btc_tip.saturating_sub(t.btc_lock2_blocks + 10);
+                    let htlc = s.htlc()?;
+                    let spender = self.btc.spender(&f.outpoint, from)?;
+                    if spender.is_some_and(|tx| htlc.find_secret(&tx).is_some()) {
+                        s.stage = Stage::Done;
+                        s.say(format!(
+                            "Done: received {} BTC.",
+                            Amount::from_sat(s.sats).to_btc()
+                        ));
+                    } else {
+                        s.say("The payment was spent by another transaction (refunded?).");
+                    }
+                    return Ok(());
+                }
+                // Still unconfirmed: send it again at today's fee (it replaces the old one).
+                if t.may_claim_btc(&tl, btc_tip) {
+                    let _ = self.btc_claim(s);
+                }
+            }
+            Stage::Done => {
+                // The buyer never claimed before the lock ended: only a refund can move it.
+                if let Some(l) = &lock
+                    && refund_due(l)
+                {
+                    let cm = l.cm;
+                    self.wallet.refund_lock(self.gnr, &cm)?;
+                    s.say("The buyer did not claim the GNR before its lock ended; refunded it to you.");
+                }
+            }
+            Stage::Refunding => {
+                if let Some(l) = &lock
+                    && l.spent_height.is_some()
+                {
+                    s.stage = Stage::Refunded;
+                    s.say("Refunded: the GNR is back.");
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// GNR first, the seller takes the bitcoin with its secret.
+    fn btc_claim(&mut self, s: &mut Swap) -> Result<()> {
+        let f = s.funding()?;
+        let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
+        let key = derive_key(self.wallet.swap_seed(), s.index);
+        let secret = derive_secret(self.wallet.swap_seed(), s.index);
+        let tx = s
+            .htlc()?
+            .claim(f, &dest, self.btc.fee_rate()?, &key, &secret)?;
+        let id = tx.compute_txid();
+        match self.btc.broadcast(&tx) {
+            Ok(_) => {}
+            // Resent unchanged, or a replacement at the same fee: the first one stands.
+            Err(e) if s.btc_spend.is_some() => {
+                let _ = e;
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        }
+        s.btc_spend = Some(id.to_string());
+        s.say(format!("Taking the bitcoin ({id}); this reveals the secret, and the buyer's wallet claims the GNR with it."));
+        Ok(())
+    }
+
     fn step_gnr_seller(&mut self, s: &mut Swap, btc_tip: u32, gnr_tip: u64) -> Result<()> {
         let t = self.timing;
         let Some(tl) = s.timelocks() else {
@@ -834,6 +1344,15 @@ impl<G: ChainSource> Engine<'_, G> {
                     return Ok(());
                 }
                 let terms = s.terms().context("terms")?;
+                // The terms are checked before anything is sent: a mismatch must not lock coins.
+                ensure!(
+                    Some(self.wallet.refund_outputs(
+                        s.index,
+                        s.gnr,
+                        s.refund_fee.unwrap_or(DEFAULT_FEE)
+                    )?) == s.refund_outputs,
+                    "the lock would not match the agreed terms"
+                );
                 let (_, got) = self.wallet.lock_funds(
                     self.gnr,
                     s.index,

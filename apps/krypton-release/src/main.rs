@@ -3,6 +3,8 @@
 //!   krypton-release keygen <secret-seed-file> <public-key-file>
 //!   krypton-release sums <dir>                          -> writes <dir>/SHA256SUMS
 //!   krypton-release sign <secret-seed-file> <SHA256SUMS> -> writes SHA256SUMS.sig
+//!     (`-` as the seed file reads the hex seed from standard input, so it never has to
+//!     be written to disk)
 //!   krypton-release verify <public-key-file> <SHA256SUMS> <SHA256SUMS.sig>
 //!
 //! A signature is valid only if BOTH ML-DSA-87 (FIPS 204) and SLH-DSA-SHAKE-256s
@@ -17,11 +19,14 @@ use std::path::Path;
 const CTX: &[u8] = b"genoryn-krypton/release/v1";
 
 fn read_hex(p: &str) -> Result<Vec<u8>> {
-    Ok(hex::decode(
-        std::fs::read_to_string(p)
-            .with_context(|| p.to_string())?
-            .trim(),
-    )?)
+    let s = if p == "-" {
+        let mut s = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut s)?;
+        s
+    } else {
+        std::fs::read_to_string(p).with_context(|| p.to_string())?
+    };
+    Ok(hex::decode(s.trim())?)
 }
 
 fn main() -> Result<()> {

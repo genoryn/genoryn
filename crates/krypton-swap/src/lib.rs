@@ -345,9 +345,30 @@ pub struct Timing {
     pub claim_margin: u64,
     /// Confirmations the GNR seller waits for on the bitcoin deposit before locking GNR.
     pub btc_confirmations: u32,
-    /// Confirmations the BTC seller waits for on the GNR lock before revealing the secret.
+    /// Confirmations the BTC seller waits for on the GNR lock before revealing the secret
+    /// (and, in the GNR-first flow, before paying).
     pub gnr_confirmations: u64,
+    // GNR-first flow (the GNR seller locks first and holds the secret):
+    /// How long the GNR stays locked: covers the buyer's confirmations, payment and the
+    /// whole bitcoin lock, plus the buyer's window to claim.
+    pub gnr_lock2_blocks: u64,
+    /// How long the buyer's bitcoin stays locked.
+    pub btc_lock2_blocks: u32,
+    /// Seconds per block for the buyer's check: bitcoin blocks counted slow and GNR blocks
+    /// fast, so the buyer's window to claim the GNR is never overestimated.
+    pub btc_slow_secs: u64,
+    pub gnr_fast_secs: u64,
+    /// After the bitcoin lock expires (the latest the seller can reveal the secret), the
+    /// buyer still has at least this long to claim the GNR.
+    pub min_window2_secs: u64,
+    /// The seller takes the bitcoin at least this many blocks before the bitcoin lock ends.
+    pub btc_claim_margin: u32,
+    /// The buyer pays within this long after the GNR lock has confirmed.
+    pub pay_window_secs: u64,
 }
+
+/// No swap may run longer than a week, whatever the other side proposes.
+pub const MAX_SWAP_SECS: u64 = 7 * 24 * 3600;
 
 impl Timing {
     /// Bitcoin mainnet: 288 blocks (about 48 h) against 720 GNR blocks (about 12 h).
@@ -360,6 +381,15 @@ impl Timing {
         claim_margin: 120,
         btc_confirmations: 2,
         gnr_confirmations: 30,
+        // GNR locked for about 32 hours at most (if the buyer never pays), bitcoin for
+        // about 6 hours.
+        gnr_lock2_blocks: 1_900,
+        btc_lock2_blocks: 36,
+        btc_slow_secs: 1_200,
+        gnr_fast_secs: 45,
+        min_window2_secs: 6 * 3600,
+        btc_claim_margin: 6,
+        pay_window_secs: 2 * 3600,
     };
     /// Short locks for test networks (signet, regtest, GNR devnet).
     pub const TEST: Self = Self {
@@ -371,6 +401,13 @@ impl Timing {
         claim_margin: 5,
         btc_confirmations: 1,
         gnr_confirmations: 2,
+        gnr_lock2_blocks: 60,
+        btc_lock2_blocks: 6,
+        btc_slow_secs: 30,
+        gnr_fast_secs: 10,
+        min_window2_secs: 120,
+        btc_claim_margin: 1,
+        pay_window_secs: 120,
     };
 
     pub fn for_network(n: Network) -> Self {
@@ -406,6 +443,39 @@ impl Timing {
             ));
         }
         Ok(())
+    }
+
+    /// GNR-first flow, the buyer's check before paying: the GNR stays locked long enough
+    /// for the payment window, the whole bitcoin lock and the claim window after it, and
+    /// nothing lasts longer than a week.
+    pub fn check_pay(&self, t: &Timelocks, btc_tip: u32, gnr_tip: u64) -> Result<()> {
+        if t.btc_refund_height <= btc_tip + self.btc_confirmations + self.btc_claim_margin {
+            return Err(SwapError::Timelocks("the bitcoin lock is too short"));
+        }
+        if t.gnr_refund_height <= gnr_tip + self.claim_margin {
+            return Err(SwapError::Timelocks("the GNR lock expires too soon"));
+        }
+        let gnr = (t.gnr_refund_height - gnr_tip - self.claim_margin) * self.gnr_fast_secs;
+        let btc = u64::from(t.btc_refund_height - btc_tip) * self.btc_slow_secs;
+        if gnr < btc + self.pay_window_secs + self.min_window2_secs {
+            return Err(SwapError::Timelocks(
+                "the GNR lock must outlast the bitcoin lock by a safe margin",
+            ));
+        }
+        if (t.gnr_refund_height - gnr_tip) * 60 > MAX_SWAP_SECS
+            || u64::from(t.btc_refund_height - btc_tip) * 600 > MAX_SWAP_SECS
+        {
+            return Err(SwapError::Timelocks(
+                "a swap may not last longer than a week",
+            ));
+        }
+        Ok(())
+    }
+
+    /// GNR-first flow: whether the seller may still take the bitcoin (reveal the secret)
+    /// at `btc_tip`, early enough that the buyer cannot refund it first.
+    pub fn may_claim_btc(&self, t: &Timelocks, btc_tip: u32) -> bool {
+        btc_tip + self.btc_claim_margin < t.btc_refund_height
     }
 
     /// Whether the BTC seller may still claim the GNR (reveal the secret) at `gnr_tip`.

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GNR Market — Live Offer Board and Price · Genoryn Krypton</title>
-<meta name="description" content="The live GNR offer board: buy and sell offers, the market price from completed BTC ⇄ GNR atomic swaps, and the cost to mine for reference. No exchange, no custody.">
+<meta name="description" content="The live GNR offer board: buy and sell offers, the market price from completed BTC ⇄ GNR atomic swaps, and every swap's on-chain details. No exchange, no custody.">
 <!--SEO:market-->
 <link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
 <!--FX_HEAD-->
@@ -18,13 +18,13 @@
   <div class="page-head"><span class="eyebrow">Market · live</span><h1 class="h2 glow">GNR market</h1>
     <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p></div>
 
-  <a class="glass hero-price mk-hero-price" href="/download.html" aria-label="GNR price: get the wallet to trade">
+  <a class="glass hero-price mk-hero-price" href="/download" aria-label="GNR price: get the wallet to trade">
     <span class="hp-top"><span class="hp-coins" aria-hidden="true"><svg class="coin"><use href="#c-gnr"/></svg><svg class="coin"><use href="#c-btc"/></svg></span><span class="eyebrow-s">GNR price</span><span class="hp-live"><span class="dot live ok"></span>live</span></span>
     <b data-mk-usd>—</b>
     <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span data-mk-src>set by people on the offer board</span></span>
     <span class="hp-break">
-      <span><em>Market</em><b data-ix-market>—</b></span>
-      <span><em>Cost to mine</em><b data-ix-floor>—</b></span>
+      <span><em>Best sell offer</em><b data-mk-ask>—</b></span>
+      <span><em>Last swap</em><b data-mk-last>—</b></span>
       <span><em>Market depth</em><b data-ix-conf>—</b></span>
     </span>
     <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
@@ -34,7 +34,7 @@
     <div class="glass kpi"><b id="mkAsk">—</b><span>Best sell offer <em id="mkAskN"></em></span></div>
     <div class="glass kpi"><b id="mkBid">—</b><span>Best buy offer <em id="mkBidN"></em></span></div>
     <div class="glass kpi"><b id="mkVol">—</b><span>Swaps (24 h)</span></div>
-    <div class="glass kpi"><b data-cost>—</b><span>Cost to mine one GNR (at <span data-cost-kwh>$0.15</span>/kWh)</span></div>
+    <div class="glass kpi"><b id="mkAll">—</b><span>Swaps on record <em id="mkAllV"></em></span></div>
   </section>
 
   <section class="mk-book">
@@ -50,34 +50,34 @@
     </div>
   </section>
 
-  <section class="mk-book">
-    <div class="glass card">
-      <div class="mk-head"><h2 class="h3">Swaps in progress</h2><span class="muted" id="mkPendN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
-    </div>
-    <div class="glass card">
-      <h2 class="h3">Recent swaps</h2>
-      <table class="mk-table"><thead><tr><th>When</th><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th></tr></thead><tbody id="mkRecent"></tbody></table>
-    </div>
+  <section class="glass card mk-pend">
+    <div class="mk-head"><h2 class="h3">Swaps in progress</h2><span class="muted" id="mkPendN"></span></div>
+    <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
   </section>
+
+  <section class="mk-swaps">
+    <div class="mk-head"><h2 class="h3">Completed swaps</h2><span class="muted" id="mkRecentN"></span></div>
+    <p class="muted mk-fine">Everything the GNR blockchain shows of each swap: the claim transaction and its block, the hash lock and the secret it revealed (the same secret unlocks the bitcoin side), and the block from which the GNR could have been refunded instead. Amounts are private on chain; the ones shown were reported by the wallets and only count once their claim is on chain.</p>
+    <div id="mkRecent" class="mk-cards"></div>
+  </section>
+
   <section class="mk-book mk-one">
     <div class="glass card">
-      <h2 class="h3">How to trade</h2>
+      <h2 class="h3">How a swap works</h2>
       <ol class="mk-steps">
-        <li><b>Get the wallet</b> from the <a href="/download.html">download page</a> and keep it running.</li>
-        <li>Open <b>Swap</b>: take an offer from the board, or publish your own at any price.</li>
-        <li><b>The wallets do the rest.</b> The buyer pays bitcoin into a contract, and the seller's GNR is locked only after that deposit confirms. Either both get paid, or both get their coins back.</li>
+        <li><b>Get the wallet</b> from the <a href="/download">download page</a> and keep it running.</li>
+        <li>Open <b>Swap</b>: take an offer from the board, or publish your own.</li>
+        <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.</li>
+        <li><b>The wallets finish alone.</b> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 6 hours, the GNR after about 32. No swap lasts longer than a week.</li>
       </ol>
-      <p class="muted mk-fine"><b>How the market price is computed:</b> a robust, volume-weighted median of everything people are doing on the board.</p>
+      <p class="muted mk-fine"><b>How the market price is computed:</b> a robust, volume-weighted median of what people do.</p>
       <ul class="mk-steps">
         <li><b>Swaps completed</b> count three times per GNR. A swap only counts if its claim is on chain.</li>
         <li><b>Swaps in progress</b> count twice.</li>
         <li><b>The order book counts as one point</b>: the cheapest online sell offer and the best online buy offer with at least 1 GNR behind them (midway when both exist). It weighs at most 25 GNR, because anyone can post offers: offers above the cheapest one do not move the price, however many there are, and 10 GNR of fresh swaps outweigh the whole book. The first offer already sets a price.</li>
         <li><b>Older swaps fade</b>: half their weight every 12 hours, gone after 72. With three or more swaps, a swap more than 4× away from the others is left out.</li>
       </ul>
-      <p class="muted mk-fine"><b>The GNR price</b> is that market price, with the <b>cost to mine</b> one GNR as its floor. Above the cost, the market alone sets the price. Below it, price = depth × market + (1 − depth) × cost to mine: miners rarely sell below what a coin costs to make, so only a deep market can push GNR under it. Depth grows with the GNR traded behind the price (half at 25 GNR, nearly all at a few hundred). The cost rises as more miners join, because the same 7,200 GNR a day then take more electricity, and the floor rises with it.</p>
-      <p class="muted mk-fine">Cost to mine assumes RTX 5090-class GPUs at <span data-cost-kwh>$0.15</span> per kWh. Prices are shown in bitcoin and in dollars at the current BTC price.</p>
-      <p class="muted mk-fine" id="mkLive">Swaps on mainnet activate at block 3,300.</p>
+      <p class="muted mk-fine"><b>What the board refuses:</b> offers more than 20× above or below the market price, offers for more than 1,000 BTC, offers without proof of work, and offers whose maker is offline (they stay listed, greyed out, and cannot be taken). Prices are shown in bitcoin and in dollars at the current BTC price.</p>
     </div>
   </section>
 </main>

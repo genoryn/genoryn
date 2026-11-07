@@ -1,23 +1,15 @@
-/* Reference value of GNR before it trades anywhere: the estimated electricity cost of
-   mining one GNR, from the network hashrate. Not a market price. Shared by genoryn.io
-   and the wallet. */
+/* GNR prices and coin marks, shared by genoryn.io and the wallet. The price of GNR is the
+   market price of the offer board only: what people pay each other in atomic swaps. */
 (function () {
-  // One RTX 5090 does about 74 MH/s on KryptoHash at up to 575 W board power.
-  var REF = { name: "RTX 5090", hashrate: 74e6, watts: 575 };
+  // One RTX 5090 does about 74 MH/s on KryptoHash (used for "what one GPU mines a day").
+  var REF = { name: "RTX 5090", hashrate: 74e6 };
   var BLOCKS_PER_DAY = 1440;
 
-  /* hashrate: network H/s · kwh: price per kWh in USD · subsidy: gori per block.
-     Returns the pieces of the estimate, or null without a hashrate. */
-  function estimate(hashrate, kwh, subsidy) {
+  /* GNR one REF GPU mines a day at the network hashrate (H/s); subsidy in gori per block. */
+  function perGpu(hashrate, subsidy) {
     hashrate = Number(hashrate) || 0;
     if (hashrate <= 0) return null;
-    kwh = Number(kwh) > 0 ? Number(kwh) : 0.15;
-    var perBlock = (Number(subsidy) || 5e8) / 1e8;
-    var gpus = hashrate / REF.hashrate;
-    var kw = gpus * REF.watts / 1000;
-    var usdPerDay = kw * 24 * kwh;
-    var gnrPerDay = perBlock * BLOCKS_PER_DAY;
-    return { usd: usdPerDay / gnrPerDay, gpus: gpus, kw: kw, usdPerDay: usdPerDay, gnrPerDay: gnrPerDay, kwh: kwh };
+    return (Number(subsidy) || 5e8) / 1e8 * BLOCKS_PER_DAY * Math.min(1, REF.hashrate / hashrate);
   }
 
   /* $0.0031, $0.40, $1,234.56; anything below a hundredth of a cent is "< $0.0001". */
@@ -45,28 +37,11 @@
     return s.charAt(0) === "<" ? s : "≈ " + s;
   }
 
-  /* The GNR price index, shared by genoryn.io and the wallet. The market leads; the cost
-     to mine is a floor that a thin market cannot break:
-       market ≥ cost: price = market
-       market < cost: price = c × market + (1 − c) × cost
-     market: the board's robust median (swaps, swaps in progress, offers) in USD;
-     cost: electricity to mine one GNR at today's network hashrate, so the more miners
-       compete, the more every GNR costs to make (miners rarely sell below that);
-     c: the market's confidence (0 to 1, grows with the GNR traded behind its price), so
-       only a deep market can price GNR below its cost.
-     o: { sat: market sat per GNR, btcUsd, conf, hashrate, subsidy, kwh } */
-  function index(o) {
-    o = o || {};
-    var sat = Number(o.sat), btc = Number(o.btcUsd);
-    var m = sat > 0 && btc > 0 ? sat * btc / 1e8 : null;
-    var e = estimate(o.hashrate, o.kwh, o.subsidy);
-    var f = e ? e.usd : null;
-    if (m == null && f == null) return null;
-    if (m == null) return { usd: f, market: null, floor: f, conf: 0, est: e, source: "cost" };
-    var c = o.conf == null || !isFinite(Number(o.conf)) ? 1 : Math.max(0, Math.min(1, Number(o.conf)));
-    if (f == null) return { usd: m, market: m, floor: null, conf: c, est: null, source: "market" };
-    if (m >= f) return { usd: m, market: m, floor: f, conf: c, est: e, source: "market" };
-    return { usd: c * m + (1 - c) * f, market: m, floor: f, conf: c, est: e, source: "floor" };
+  /* The market price of one GNR in dollars: the board's price (sat per GNR) at the BTC
+     price, or null while there is none. */
+  function market(sat, btcUsd) {
+    sat = Number(sat); btcUsd = Number(btcUsd);
+    return sat > 0 && btcUsd > 0 ? sat * btcUsd / 1e8 : null;
   }
 
   /* Coin marks in the text colour (so they follow the theme): the Genoryn sign and the
@@ -91,5 +66,5 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, estimate: estimate, index: index, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
+  window.GKValue = { REF: REF, perGpu: perGpu, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();

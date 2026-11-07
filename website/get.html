@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Get GNR — Mine Genoryn Krypton · Reference Value · Exchanges and Swaps</title>
-<meta name="description" content="How to get Genoryn Krypton (GNR) today: mine it on a GPU or CPU from the wallet. Reference value from the cost of mining, exchanges and atomic swaps to come.">
+<title>Get GNR — Mine Genoryn Krypton or Swap BTC for It · Market Price</title>
+<meta name="description" content="How to get Genoryn Krypton (GNR): mine it on a GPU or CPU from the wallet, or swap bitcoin for it on the offer board. The live market price, set by the people who trade.">
 <!--SEO:get-->
 <link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
 <!--FX_HEAD-->
@@ -15,40 +15,33 @@
 <body data-page="get">
 <!--NAV-->
 <main id="top" class="wrap">
-  <div class="page-head"><span class="eyebrow">Get GNR</span><h1 class="h2 glow">Mine it today. Trade it later.</h1>
-    <p class="lead">GNR is not traded on any exchange yet, and nobody sells it on behalf of the project: there was no premine and there is no presale. Today you get GNR the way everyone does, by mining it, and you earn from your first share.</p></div>
+  <div class="page-head"><span class="eyebrow">Get GNR</span><h1 class="h2 glow">Mine it, or swap bitcoin for it.</h1>
+    <p class="lead">GNR is not traded on any exchange yet, and nobody sells it on behalf of the project: there was no premine and there is no presale. You get GNR by mining it, earning from your first share, or by swapping bitcoin for it with another person on the offer board.</p></div>
 
   <section class="get-grid">
     <div class="glass card value-card reveal tilt-card">
-      <span class="eyebrow-s" data-vlabel>Reference value</span>
-      <div class="value-big"><b data-main>—</b><span>per GNR</span></div>
-      <p class="muted value-what" data-vnote>Estimated <b>electricity cost to mine one GNR</b> with today's network, at <span data-cost-kwh>$0.15</span> per kWh. <b>This is not a price</b>: GNR is not traded yet, so no market has set one.</p>
-      <label class="kwh-label" for="kwh">Your electricity price (USD per kWh)</label>
-      <input id="kwh" type="number" min="0.01" max="9.99" step="0.01" inputmode="decimal">
+      <span class="eyebrow-s">GNR price</span>
+      <div class="value-big"><b data-mk-usd>—</b><span>per GNR</span></div>
+      <p class="muted value-what"><span data-mk-sat>—</span> · <span data-mk-src>set by people on the offer board</span>. Nobody quotes this price: it comes only from the swaps people complete and the offers they publish.</p>
       <div class="kv value-kv">
-        <div>Market price (swaps, 24 h)</div><div data-mk-price>no swaps yet</div>
-        <div>Best offers (sell / buy)</div><div data-mk-book>—</div>
-        <div>Cost to mine one GNR</div><div data-cost>—</div>
-        <div>Network hashrate</div><div data-cost-rate>—</div>
-        <div>Equivalent hardware</div><div data-cost-gpus>—</div>
-        <div>Power drawn</div><div data-cost-kw>—</div>
-        <div>Electricity for the network</div><div data-cost-day>—</div>
-        <div>GNR issued</div><div data-cost-gnrday>—</div>
+        <div>Best sell offer</div><div data-mk-ask>—</div>
+        <div>Best buy offer</div><div data-mk-bid>—</div>
+        <div>Last swap</div><div data-mk-last>—</div>
+        <div>Swaps, 24 h</div><div data-mk-swaps>—</div>
+        <div>Market depth</div><div data-ix-conf>—</div>
       </div>
-      <p class="value-fine">Assumes every miner is an RTX 5090 (about 74 MH/s at its 575 W board power) and counts electricity only, no hardware. As soon as swaps complete on the wallet's offer board, the market price (their 24-hour median, set by the people trading) takes its place here and in the wallet.</p>
+      <p class="value-fine">Swaps on the board are atomic and the seller's GNR is locked on chain before the buyer pays. See every offer and every completed swap on the <a href="/market">market page</a>.</p>
     </div>
-
     <div class="get-steps">
       <div class="glass card step reveal">
         <span class="step-n">1</span>
         <div><h2 class="h3">Mine it <span class="pill ok">available now</span></h2>
           <p class="muted">Install the wallet, open <b>Mining</b> and press <b>Start mining</b>. It uses your GPU (NVIDIA or AMD/Intel) or your CPU, and pays you in proportion to your share of the work.</p>
           <div class="kv">
-            <div>One RTX 5090 earns today</div><div data-gpu-gnr>—</div>
-            <div>Its electricity costs</div><div data-gpu-usd>—</div>
+            <div>One RTX 5090 mines today</div><div data-gpu-gnr>—</div>
             <div>That GNR is worth</div><div data-gpu-value>—</div>
           </div>
-          <div class="row-btns"><a class="btn btn-primary" href="/download.html">Download the wallet</a><a class="btn" href="/mining.html">Mining guide</a></div>
+          <div class="row-btns"><a class="btn btn-primary" href="/download">Download the wallet</a><a class="btn" href="/mining">Mining guide</a></div>
         </div>
       </div>
       <div class="glass card step reveal">
@@ -59,8 +52,8 @@
       </div>
       <div class="glass card step reveal">
         <span class="step-n">3</span>
-        <div><h2 class="h3">Swap BTC ⇄ GNR in the wallet <span class="pill ok">from block 3,300</span></h2>
-          <p class="muted">Atomic swaps exchange Bitcoin and GNR directly between two people: either both sides receive their coins or both get their own back. There is no exchange, no custody and no account. The wallet's <b>Swap</b> tab has an <b>offer board</b>: publish an offer at your own price, or take someone else's, and the two wallets do the rest. The network upgrade that switches swaps on activates at <b>block 3,300</b> (about a day after release 1.0.13): update your wallet and node before then. Read how it works in <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/atomic-swaps.md">docs/spec/atomic-swaps.md</a>.</p>
+        <div><h2 class="h3">Swap BTC ⇄ GNR in the wallet <span class="pill ok">live</span></h2>
+          <p class="muted">Atomic swaps exchange Bitcoin and GNR directly between two people: either both sides receive their coins or both get their own back. There is no exchange, no custody and no account. The wallet's <b>Swap</b> tab has an <b>offer board</b>: publish an offer at your own price, or take someone else's. The seller's GNR is locked on chain for you first, and your wallet shows where to pay only once that lock has confirmed, so nobody can sell you GNR they do not have. Read how it works in <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/atomic-swaps.md">docs/spec/atomic-swaps.md</a>.</p>
         </div>
       </div>
     </div>

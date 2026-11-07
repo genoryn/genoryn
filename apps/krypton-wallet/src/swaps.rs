@@ -67,14 +67,14 @@ fn view(s: &Swap, via_board: bool) -> Value {
         // The board carries the codes: there is nothing to copy or send by hand.
         v["code"] = Value::Null;
         v["via_board"] = json!(true);
-        let st = match s.stage {
-            Stage::Requested => {
+        let st = match (s.stage, s.gnr_first()) {
+            (Stage::Requested, _) => {
                 Some("Request sent through the board; waiting for the seller's answer.")
             }
-            Stage::Accepted => {
+            (Stage::Accepted, false) => {
                 Some("Accepted through the board; waiting for the buyer's bitcoin deposit.")
             }
-            Stage::Deposited if s.role == engine::Role::BtcSeller => {
+            (Stage::Deposited, false) if s.role == engine::Role::BtcSeller => {
                 Some("Deposit seen; the seller is told through the board and locks the GNR next.")
             }
             _ => None,
@@ -93,7 +93,18 @@ fn view(s: &Swap, via_board: bool) -> Value {
             Amount::from_sat(s.sats).to_string_in(Denomination::Bitcoin)
         ),
     });
-    v["htlc_address"] = json!(s.htlc_address().ok().map(|a| a.to_string()));
+    // GNR first: the buyer is shown where to pay only once the GNR is locked for it.
+    let pay_now = !s.gnr_first()
+        || s.role != engine::Role::BtcSeller
+        || !matches!(s.stage, Stage::Requested | Stage::Accepted);
+    v["htlc_address"] = json!(
+        s.htlc_address()
+            .ok()
+            .filter(|_| pay_now)
+            .map(|a| a.to_string())
+    );
+    v["gnr_first"] = json!(s.gnr_first());
+    v["pay_in"] = json!(s.pay_by.map(|p| p.saturating_sub(krypton_core::now())));
     v["finished"] = json!(s.stage.finished());
     v["cancellable"] = json!(s.cancellable());
     if s.cancellable() {
@@ -161,6 +172,8 @@ pub struct RequestReq {
     gnr: String,
     btc: String,
     address: String,
+    #[serde(default)]
+    password: String,
 }
 
 pub async fn request(
@@ -173,6 +186,7 @@ pub async fn request(
     }
     let a = app.clone();
     match blocking(move || {
+        crate::confirm_password(&a, &r.password)?;
         let gnr = parse_amount(&r.gnr).context("invalid GNR amount")?;
         let sats = Amount::from_str_in(r.btc.trim(), Denomination::Bitcoin)
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
@@ -191,6 +205,8 @@ pub struct CodeReq {
     code: String,
     #[serde(default)]
     address: Option<String>,
+    #[serde(default)]
+    password: String,
 }
 
 #[derive(Deserialize)]
@@ -228,7 +244,13 @@ pub async fn decode(
     match engine::Msg::decode(&r.code) {
         Ok(m) => {
             let mut v = serde_json::to_value(&m).unwrap_or_default();
-            if let engine::Msg::Request {
+            if let engine::Msg::Request2 {
+                gnr,
+                sats,
+                claim_fee,
+                ..
+            }
+            | engine::Msg::Request {
                 gnr,
                 sats,
                 claim_fee,
@@ -255,6 +277,7 @@ pub async fn accept(
     }
     let a = app.clone();
     match blocking(move || {
+        crate::confirm_password(&a, &r.password)?;
         let addr = r.address.clone().unwrap_or_default();
         run(&a, |e| e.accept(&r.code, &addr))
     })

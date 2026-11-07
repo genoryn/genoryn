@@ -510,7 +510,9 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             continue;
         };
         let Some(code) = &s.code else { continue };
+        // GNR first, the seller's accept code stays current while its lock confirms.
         let fresh = matches!(s.stage, Stage::Requested | Stage::Accepted)
+            || (s.gnr_first() && s.role == Role::GnrSeller && s.stage == Stage::Locked)
             || (s.role == Role::BtcSeller && s.stage == Stage::Deposited);
         if fresh && !l.sent.contains(&hash(code)) {
             let key = key_of(e.wallet, l.n);
@@ -642,8 +644,14 @@ fn handle(
                 return Ok(());
             }
             let msg = Msg::decode(&code)?;
-            let Msg::Request { gnr, sats, .. } = msg else {
-                bail!("unexpected code")
+            let (gnr, sats) = match msg {
+                Msg::Request2 { gnr, sats, .. } => (gnr, sats),
+                // A wallet before 1.0.23 (bitcoin first): it must update before trading.
+                Msg::Request { .. } => {
+                    let _ = send_note(base, from, key, &Note::Gone { offer });
+                    bail!(engine::UPDATE_HINT)
+                }
+                _ => bail!("unexpected code"),
             };
             // Someone wants to buy our GNR offer.
             if let Some(mo) = st
@@ -895,6 +903,9 @@ pub struct PublishReq {
     gnr: String,
     btc: String,
     address: String,
+    /// Confirms with the wallet's password (a sell offer commits GNR).
+    #[serde(default)]
+    password: String,
 }
 
 pub async fn publish(
@@ -907,6 +918,7 @@ pub async fn publish(
     }
     let a = app.clone();
     match blocking(move || {
+        crate::confirm_password(&a, &r.password)?;
         let gnr = parse_amount(&r.gnr).context("invalid GNR amount")?;
         let sats = Amount::from_str_in(r.btc.trim(), Denomination::Bitcoin)
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
@@ -926,6 +938,8 @@ pub async fn publish(
 pub struct TakeReq {
     id: String,
     address: String,
+    #[serde(default)]
+    password: String,
 }
 
 pub async fn take(axum::extract::State(app): S, h: HeaderMap, Json(r): Json<TakeReq>) -> Response {
@@ -933,8 +947,11 @@ pub async fn take(axum::extract::State(app): S, h: HeaderMap, Json(r): Json<Take
         return x;
     }
     let a = app.clone();
-    match blocking(move || with_engine(&a, true, |e, base| take_offer(e, base, &r.id, &r.address)))
-        .await
+    match blocking(move || {
+        crate::confirm_password(&a, &r.password)?;
+        with_engine(&a, true, |e, base| take_offer(e, base, &r.id, &r.address))
+    })
+    .await
     {
         Ok(id) => Json(json!({"id": id})).into_response(),
         Err(e) => err(e),

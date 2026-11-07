@@ -130,7 +130,7 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .swc{padding:16px;border:1px solid var(--line);border-radius:14px;margin-top:12px;background:var(--bg-inset)}
 .swc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.swc-head b{font:600 16px var(--font-sans)}.swc-head span{color:var(--text-secondary);font-size:13px}.swc-head .pill{margin-left:auto}
 .swc-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0 10px}.swc-steps i{font-style:normal;font-size:11px;color:var(--text-tertiary);border-top:2px solid var(--line);padding-top:6px;letter-spacing:.3px}.swc-steps i.on{color:var(--text-primary);border-color:var(--text-primary)}
-.swc-status{margin:6px 0 10px;font-size:14px}.swc .addr{margin:6px 0 8px;word-break:break-all;max-height:120px;overflow:auto}
+.swc-status{margin:6px 0 10px;font-size:14px}.swc-safe{margin:8px 0;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--status-success) 45%,transparent);background:color-mix(in srgb,var(--status-success) 8%,transparent);font-size:13px;color:var(--text-secondary)}.swc-safe b{color:var(--text-primary)}.swc .addr{margin:6px 0 8px;word-break:break-all;max-height:120px;overflow:auto}
 .swc details{margin-top:8px;font-size:13px}.swc summary{cursor:pointer;color:var(--text-secondary)}.swc-log{margin:8px 0 0;padding-left:18px;color:var(--text-secondary);font-size:12.5px}
 .pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--text-primary)}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}.toolbar input,.toolbar select{margin:0;width:auto}.toolbar input[type=search]{flex:1;min-width:200px}
@@ -294,6 +294,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 @media (max-width:1300px){.mn-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.mn-grid{grid-template-columns:1fr 1fr}.mn-wide{grid-column:1/-1}}
 @media (max-width:760px){.mn-kpis{grid-template-columns:1fr 1fr}.mn-grid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.mn-dot.on{animation:none}.mn-ring{transform:none}}
+.mpass-l{display:block;margin:14px 0 6px;font-size:12.5px;color:var(--text-secondary)}#mPass{width:100%}
 .pw-meter{margin:6px 0 2px;display:grid;gap:5px}.pw-meter i{display:block;height:4px;border-radius:99px;background:var(--bg-inset);overflow:hidden}
 .pw-meter s{display:block;height:100%;width:0;border-radius:inherit;background:var(--text-tertiary);transition:width .35s var(--ease),background .35s}
 .pw-meter span{font-size:12px;color:var(--text-tertiary);min-height:15px}
@@ -435,7 +436,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <div class="glass card">
         <h2>Balance</h2>
         <div class="big glow"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><span id="bal" class="num">0</span> <small>GNR</small></div>
-        <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">GNR price index</span></div>
+        <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">at the market price</span></div>
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
@@ -531,7 +532,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
           <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
           <b id="bdUsd">-</b>
           <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
-          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted). A thin market leans on the cost to mine one GNR."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
+          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted): thin, moderate or deep."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
         </div>
         <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
         <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
@@ -557,7 +558,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
-          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median weighted by GNR: completed swaps ×3 and swaps in progress ×2, fading by half every 12 hours, plus the order book as one point (the best online sell and buy prices with at least 1 GNR, weighing at most 25 GNR). Offers above the cheapest one do not move it, however many there are. <b>GNR price</b> is the market price with the cost to mine one GNR as its floor: it rises with the hashrate, and only a deep market can price GNR below it.</p>
+          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median weighted by GNR: completed swaps ×3 and swaps in progress ×2, fading by half every 12 hours, plus the order book as one point (the best online sell and buy prices with at least 1 GNR, weighing at most 25 GNR). Offers above the cheapest one do not move it, however many there are.</p>
         </section>
         <aside class="bd-side">
           <section class="glass card bd-trade">
@@ -583,7 +584,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes</summary>
         <div class="grid" style="margin-top:14px">
           <div class="glass card"><h2>Buy GNR with bitcoin</h2>
-            <p class="muted">You pay bitcoin, the other person locks GNR. Either both of you get paid, or both get your own coins back.</p>
+            <p class="muted">The seller locks the GNR for you first; you pay only once it is locked on chain. Either both of you get paid, or both get your own coins back.</p>
             <label for="swGnr">GNR you receive</label><input id="swGnr" inputmode="decimal" placeholder="100" autocomplete="off">
             <label for="swBtc">Bitcoin you pay (BTC)</label><input id="swBtc" inputmode="decimal" placeholder="0.001" autocomplete="off">
             <label for="swRef">Your Bitcoin address for a refund</label><input id="swRef" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
@@ -599,10 +600,10 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <ol class="swsteps">
               <li><b>Request.</b> The buyer creates a request code and sends it to the seller.</li>
               <li><b>Accept.</b> The seller pastes it and sends back an accept code.</li>
-              <li><b>Deposit.</b> The buyer pays the bitcoin into the contract address shown here and sends the deposit code.</li>
-              <li><b>Automatic.</b> The wallets finish alone: the seller locks GNR, the buyer claims it, the seller takes the bitcoin with the secret that claim reveals. If anyone stops, timeouts refund both.</li>
+              <li><b>Lock, then pay.</b> The seller's wallet locks the GNR for the buyer at once. Only when that lock has confirmed with exactly the agreed amount does the buyer's wallet show where to pay; the buyer then sends the deposit code.</li>
+              <li><b>Automatic.</b> The seller takes the bitcoin with its secret, and the buyer's wallet claims the GNR with that same secret. If anyone stops, timeouts refund both: the bitcoin after about 6 hours, the GNR after about 32. No swap lasts longer than a week.</li>
             </ol>
-            <p class="hero-note">On the board all of this happens by itself. A swap whose bitcoin deposit does not arrive within 3 hours ends by itself; before the deposit, either side can cancel.</p>
+            <p class="hero-note">On the board all of this happens by itself. A buyer never pays a seller who does not have the GNR: without a confirmed lock there is nothing to pay. The buyer pays within 2 hours of the lock, or the swap ends.</p>
           </div>
         </div>
       </details>
@@ -707,7 +708,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <div class="grid" style="margin-top:18px">
       <div class="glass card"><h2>Display</h2>
         <label class="mcheck" style="margin-top:0"><input type="checkbox" id="showVal" onchange="setShowVal(this.checked)"> Show the market value next to balances and mining earnings</label>
-        <p class="hero-note"><b>Market price:</b> set by the people who trade GNR on the offer board. It is the median of the swaps completed in the last 24 hours, weighted by volume. Before the first swap, it is the median of the open buy and sell offers. Converted to dollars with the BTC price, which arrives through genoryn.io so no third party sees this wallet. With no offers and no swaps yet, no value is shown. The cost to mine one GNR is on genoryn.io for reference.</p>
+        <p class="hero-note"><b>Market price:</b> set by the people who trade GNR on the offer board. A robust median of completed swaps, swaps in progress and the best online offers, weighted by GNR. Converted to dollars with the BTC price, which arrives through genoryn.io so no third party sees this wallet. With no offers and no swaps yet, no value is shown.</p>
       </div>
       <div class="glass card"><h2>Connection mode</h2>
         <label><input type="radio" name="mode" value="light"> Light (recommended): remote nodes provide data, everything is verified on this device</label>
@@ -843,36 +844,34 @@ async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET',
 /* In-app dialog instead of the browser's confirm/prompt. Resolves to the input's value
    (or true) on confirm, null on cancel. body is trusted HTML built by the caller. */
 let modalDone=null;
-function ask({title, body='', ok='OK', cancel='Cancel', icon=null, input=null, danger=false, hideCancel=false}){
+function ask({title, body='', ok='OK', cancel='Cancel', icon=null, input=null, danger=false, hideCancel=false, pass=false}){
   if(modalDone) modalDone(null);
   $('mTitle').innerHTML=(icon?`<svg class="ic" aria-hidden="true"><use href="#i-${icon}"/></svg>`:'')+esc(title);
-  $('mBody').innerHTML=body+(input?`<input id="mInput" maxlength="${input.max||80}" value="${esc(input.value||'')}" placeholder="${esc(input.placeholder||'')}" aria-label="${esc(title)}">`:'');
+  $('mBody').innerHTML=body+(input?`<input id="mInput" maxlength="${input.max||80}" value="${esc(input.value||'')}" placeholder="${esc(input.placeholder||'')}" aria-label="${esc(title)}">`:'')+(pass?`<label for="mPass" class="mpass-l">Confirm with this wallet's password</label><input id="mPass" type="password" autocomplete="current-password" placeholder="Wallet password">`:'');
   $('mOk').textContent=ok; $('mOk').className='btn '+(danger?'btn-danger':'btn-primary');
   $('mCancel').textContent=cancel; $('mCancel').classList.toggle('hidden',hideCancel);
   show('modal');
-  setTimeout(()=>{ const i=$('mInput'); if(i){ i.focus(); i.select(); } else $('mOk').focus(); },30);
+  setTimeout(()=>{ const i=$('mInput')||$('mPass'); if(i){ i.focus(); if(i.select) i.select(); } else $('mOk').focus(); },30);
   return new Promise(res=>{ modalDone=v=>{ modalDone=null; hide('modal'); res(v); }; });
 }
 $('mOk').onclick=()=>{ const i=$('mInput'); modalDone&&modalDone(i?i.value:true); };
+/* The password typed into the last dialog (read once, then cleared). */
+function takePass(){ const p=$('mPass'); const v=p?p.value:''; if(p) p.value=''; return v; }
 $('mCancel').onclick=()=>modalDone&&modalDone(null);
 $('modal').addEventListener('mousedown',e=>{ if(e.target.id==='modal') modalDone&&modalDone(null); });
 document.addEventListener('keydown',e=>{ if(!modalDone) return; if(e.key==='Escape'){ e.preventDefault(); modalDone(null); } else if(e.key==='Enter' && e.target.tagName!=='TEXTAREA'){ e.preventDefault(); $('mOk').click(); } });
-/* Estimated value: cost to mine (GNR is not traded yet). Display preference is local. */
+/* Showing the market value is a local preference. */
 const VAL={ show:(()=>{ try{ return localStorage.getItem('gk-showval')!=='0'; }catch(e){ return true; } })(),
-            kwh:(()=>{ try{ const v=Number(localStorage.getItem('gk-kwh')); return v>0&&v<10?v:0.15; }catch(e){ return 0.15; } })(),
             src:(()=>{ try{ return localStorage.getItem('gk-valsrc')||'market'; }catch(e){ return 'market'; } })() };
 /* Market: the board's price per GNR (stored in sat) × BTC/USD. */
 function marketPerGnr(){ const m=S.market&&S.market.market, usd=Number(S.market&&S.market.btc_usd); return m&&m.price&&usd>0 ? m.price*usd/1e8 : null; }
-/* The GNR price index (value.js): the board's market price, leaning on the cost to mine
-   one GNR at today's hashrate while the market is thin. */
-function priceIndex(){ const mk=(S.market&&S.market.market)||{}, tip=S.tip||{};
-  return window.GKValue&&GKValue.index({sat:mk.price, btcUsd:S.market&&S.market.btc_usd, conf:mk.confidence, hashrate:tip.hashrate, subsidy:tip.next_subsidy, kwh:VAL.kwh}); }
-function perGnr(){ const i=priceIndex(); return i&&i.market!=null?i.usd:null; }
+/* The GNR price is the offer board's market price, nothing else. */
+function perGnr(){ return marketPerGnr(); }
 function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
 const coin=(k,c)=>`<svg class="coin coin-${k}${c?' '+c:''}" aria-hidden="true"><use href="#c-${k}"/></svg>`;
-function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0), i=priceIndex();
+function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0);
   const from=m.source==='swaps' ? `${m.trades} swap${m.trades===1?'':'s'} in 24 h, swaps in progress and offers` : m.source==='pending' ? `${m.pending} swap${m.pending===1?'':'s'} in progress and ${n} offer${n===1?'':'s'}` : `${n} offer${n===1?'':'s'} on the board`;
-  return 'GNR price · market of '+from+(i&&i.source==='floor'?' · held up by the cost to mine':''); }
+  return 'at the market price · '+from; }
 function renderValue(){
   const on=VAL.show && perGnr()!=null;
   $('bValL').textContent=marketLabel();
@@ -1048,7 +1047,8 @@ async function send(){
       <div class="row">Network fee<b>${esc(gnrShort(feeG))} GNR · ${speed}</b></div>
       <div class="row tot">Total<b>${esc(gnrShort(Math.round(amt*1e8)+feeG))} GNR</b></div>
       ${body.memo?`<div class="row">Private memo<b>${esc(body.memo)}</b></div>`:''}</div>
-      <p class="mtext">Transfers are final. Amount, sender and recipient stay hidden on chain; proving takes a few seconds.</p>`});
+      <p class="mtext">Transfers are final. Amount, sender and recipient stay hidden on chain; proving takes a few seconds.</p>`, pass:true});
+  body.password=takePass();
   if(!ok) return;
   const b=$('sendBtn'); b.disabled=true; window.fxBusy=true;
   try{ const r = await api('/api/send',body); toast('Sent: '+r.txid.slice(0,16)+'…'); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) }
@@ -1301,7 +1301,15 @@ async function swapCancel(id){
     body:'<p class="mtext">Nothing is locked yet, so nobody loses anything. If you are the buyer, <b>do not pay the bitcoin</b> after cancelling (if you do anyway, your wallet refunds it at the timelock). The other side is told through the board.</p>'})) return;
   try{ await api('/api/swap/cancel',{id}); toast('Swap cancelled'); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
+/* GNR first (1.0.23): the seller locks, the buyer pays only after that. */
+const SW_STEPS2=['Request','Accept','GNR locked','Pay','Claim','Done'];
+const SW_AT2={requested:1,accepted:2,locked:3,await_deposit:3,deposited:4,claiming:5,done:6,refunding:4,refunded:6,failed:2};
+function swLabel2(s){ const buy=s.role==='btc_seller';
+  return ({requested:'Waiting for the seller', accepted:buy?'Waiting for the GNR lock':'Locking the GNR', locked:'GNR locked · waiting for payment',
+    await_deposit:'Pay now', deposited:buy?'Paid · waiting for the seller':'Payment received', claiming:buy?'Claiming your GNR':'Taking the bitcoin',
+    done:'Done', refunding:'Refunding', refunded:'Refunded', failed:'Stopped'})[s.stage]||s.stage; }
 function swapCard(s){
+  if(s.gnr_first) return swapCard2(s);
   const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
   const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel('${esc(s.id)}')">Cancel swap</button><span class="muted">${s.expires_in!=null?'Ends by itself in '+swLeft(s.expires_in)+' if no bitcoin deposit arrives.':''}</span></div>`:'';
   const showCode=s.code&&['requested','accepted','deposited'].includes(s.stage)&&!(s.role==='gnr_seller'&&s.stage==='deposited');
@@ -1319,12 +1327,30 @@ function swapCard(s){
       ${row('Deposit',s.deposit?s.deposit.txid+':'+s.deposit.vout:'')}${row('Our bitcoin transaction',s.btc_spend)}${row('Swap id',s.id)}
       <ol class="swc-log">${log}</ol></details></div>`;
 }
+function swapCard2(s){
+  const at=SW_AT2[s.stage]||0, buy=s.role==='btc_seller';
+  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel('${esc(s.id)}')">Cancel swap</button><span class="muted">${buy?'You have paid nothing yet.':'Nothing is locked yet.'}</span></div>`:'';
+  const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
+  const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString()} · ${esc(m)}</li>`).join('');
+  const pay=buy&&s.stage==='await_deposit'&&s.htlc_address;
+  return `<div class="swc"><div class="swc-head"><span class="swc-pair">${coin(buy?'btc':'gnr','coin-pair')}${coin(buy?'gnr':'btc','coin-pair')}</span><b>${buy?'Buy':'Sell'} ${esc(s.gnr_text)} GNR</b><span>for ${coin('btc','coin-sm')}${esc(s.btc_text)} BTC</span><span class="pill">${esc(swLabel2(s))}</span></div>
+    <div class="swc-steps">${SW_STEPS2.map((n,i)=>`<i class="${i<at?'on':''}">${n}</i>`).join('')}</div>
+    <p class="swc-status">${esc(s.status)}</p>
+    ${s.code?`<label>Send this code to the other person</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">Copy code</button>`:''}
+    ${pay?`<div class="swc-safe"><b>The seller's GNR is locked for you on chain.</b> Only you can claim it, with the secret the seller reveals when taking your bitcoin.</div><label>Pay exactly ${esc(s.btc_text)} BTC to this contract address${s.pay_in!=null?' within '+swLeft(s.pay_in):''}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy address</button>`:''}
+    ${acts}
+    <details><summary>Details</summary>
+      ${row('You receive',s.receive_text)}${row('Your Bitcoin address',s.btc_address)}${row('Contract address',pay||!buy?s.htlc_address:'')}
+      ${row('GNR lock',s.lock_cm)}${row('GNR refunds to the seller from block',s.gnr_refund_height)}${row('Bitcoin refunds to the buyer after block',s.btc_refund_height)}
+      ${row('Payment',s.deposit?s.deposit.txid+':'+s.deposit.vout:'')}${row('Our bitcoin transaction',s.btc_spend)}${row('Hash lock',s.hash&&!/^0+$/.test(s.hash)?s.hash:'')}${row('Swap id',s.id)}
+      <ol class="swc-log">${log}</ol></details></div>`;
+}
 async function swapRequest(){
   const gnrA=$('swGnr').value.trim(), btcA=$('swBtc').value.trim(), addr=$('swRef').value.trim();
   if(!gnrA||!btcA||!addr) return toast('Enter both amounts and your Bitcoin refund address',true);
-  if(!await ask({title:'Create a swap request?', icon:'swap', ok:'Create request',
-    body:`<p class="mtext">You will receive <b>${esc(gnrA)} GNR</b> for <b>${esc(btcA)} BTC</b>. Nothing is paid yet: you pay the bitcoin only after the seller accepts, into a contract that refunds you if they never lock their GNR.</p>`})) return;
-  try{ await api('/api/swap/request',{gnr:gnrA, btc:btcA, address:addr}); toast('Request created: copy the code below'); loadSwaps(); }catch(e){ toast(e.message,true) }
+  const okR=await ask({pass:true, title:'Create a swap request?', icon:'swap', ok:'Create request',
+    body:`<p class="mtext">You will receive <b>${esc(gnrA)} GNR</b> for <b>${esc(btcA)} BTC</b>. Nothing is paid yet: the seller locks the GNR for you first, and your wallet shows where to pay only once that lock has confirmed on chain.</p>`}); const pw=takePass(); if(!okR) return;
+  try{ await api('/api/swap/request',{gnr:gnrA, btc:btcA, address:addr, password:pw}); toast('Request created: copy the code below'); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 async function swapCode(){
   const code=$('swCode').value.trim(); if(!code) return toast('Paste a swap code',true);
@@ -1333,9 +1359,9 @@ async function swapCode(){
   let m; try{ m=await api('/api/swap/decode',{code}); }catch(e){ return toast(e.message,true); }
   const pay=$('swPay').value.trim();
   if(!pay){ show('swPayRow'); $('swPay').focus(); return toast('Someone wants to buy your GNR: enter your Bitcoin address to receive the bitcoin, then press Continue'); }
-  if(!await ask({title:'Sell '+m.gnr_text+' GNR for '+m.btc_text+' BTC?', icon:'swap', ok:'Accept',
-    body:`<p class="mtext">Your wallet locks the GNR only after the buyer's bitcoin deposit has confirmed. The bitcoin goes to <span class="mono">${esc(pay)}</span>. If the buyer never claims, the GNR comes back to you automatically.</p>`})) return;
-  try{ await api('/api/swap/accept',{code, address:pay}); $('swCode').value=''; hide('swPayRow'); toast('Accepted: send the accept code to the buyer'); loadSwaps(); }catch(e){ toast(e.message,true) }
+  const okA=await ask({pass:true, title:'Sell '+m.gnr_text+' GNR for '+m.btc_text+' BTC?', icon:'swap', ok:'Accept',
+    body:`<p class="mtext">Your wallet locks the GNR for the buyer at once; they pay after the lock confirms. If they never pay, the GNR comes back to you after about 32 hours. The bitcoin goes to <span class="mono">${esc(pay)}</span>. You take the bitcoin with your secret, which lets the buyer claim the GNR.</p>`}); const pw=takePass(); if(!okA) return;
+  try{ await api('/api/swap/accept',{code, address:pay, password:pw}); $('swCode').value=''; hide('swPayRow'); toast('Accepted: send the accept code to the buyer'); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
@@ -1352,15 +1378,14 @@ async function loadBoard(){
   const m=bdMkt();
   $('bdBoard').textContent=(BD.board||'').replace(/^https?:\/\//,'');
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
-  const ix=m.price!=null&&window.GKValue?GKValue.index({sat:m.price, btcUsd:u, conf:m.confidence, hashrate:(S.tip||{}).hashrate, subsidy:(S.tip||{}).next_subsidy, kwh:VAL.kwh}):null;
-  $('bdUsd').textContent=m.price!=null?(ix&&u?GKValue.usd(ix.usd):fmtPx(m.price)):'No offers yet';
+  $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtPx(m.price)):'No offers yet';
   $('bdPrice').textContent=m.price!=null?'Market '+fmtPx(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
   $('bdPriceL').textContent=m.source==='swaps'?'· robust median of swaps, swaps in progress and online offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' online offer'+(n===1?'':'s'):'';
   const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
   $('bdConfBox').classList.toggle('hidden', m.price==null);
   $('bdDepth').textContent=(m.depth||(conf>=.8?'deep':conf>=.4?'moderate':'thin'))+' · '+Math.round(conf*100)+' %';
   $('bdConf').style.width=Math.max(2,Math.round(conf*100))+'%';
-  $('bdIdx').textContent=ix&&ix.floor!=null?(ix.source==='floor'?'Below the cost to mine ('+GKValue.usd(ix.floor)+'): a '+(m.depth||'thin')+' market is held up toward it, '+Math.round(ix.conf*100)+' % market':'Cost to mine one GNR at '+rate((S.tip||{}).hashrate)+': '+GKValue.usd(ix.floor)+', the floor under the price'):'';
+  $('bdIdx').textContent=m.last_price!=null?'Last swap '+fmtPx(m.last_price)+(m.trades?' · '+m.trades+' in 24 h':''):'No swap yet: the price comes from the offers.';
   $('bdAsk').textContent=fmtPx(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtPx(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
@@ -1428,17 +1453,18 @@ async function boardPublish(){
   const when=SW.active?'':'<p class="mtext"><b>Swaps start at the network upgrade.</b> Until then your offer is listed and counts for the market price, and it can be taken once swaps are live.</p>';
   const per=Number(b)*1e8/Number(g), far=bdFar(per), u=btcUsd();
   const farMsg=far?`<p class="mtext warn"><b>Check the price:</b> ${fmtPx(per)} per GNR is ${far>=1?Math.round(far).toLocaleString()+'× the':Math.round(1/far).toLocaleString()+'× below the'} market price (${fmtPx(bdMkt().price)}). ${sell?'Buyers are unlikely to take it.':'You would pay far more than the market.'}</p>`:'';
-  if(!await ask({title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:far?'Publish anyway':'Publish', danger:!!far,
-    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere, so a buyer can take the offer at once. On chain it is locked only after the buyer\'s bitcoin deposit has confirmed. Cancel the offer to free it.':'When someone takes it, you pay the bitcoin into the swap contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`})) return;
-  try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
+  const okP=await ask({pass:true, title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:far?'Publish anyway':'Publish', danger:!!far,
+    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere. When a buyer takes the offer, your wallet locks it for them on chain at once, and they pay only after that lock has confirmed. If they never pay, it comes back to you after about 32 hours. Cancel the offer to free it.':'When a seller takes it, they lock the GNR for you first; you pay only once that lock has confirmed, into the contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`}); const pw=takePass(); if(!okP) return;
+  try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a, password:pw}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
 }
 async function boardTake(id, side, g, b){
   const buy=side==='sell_gnr';
   const addr=await ask({title:(buy?'Buy ':'Sell ')+g+' GNR for '+b+' BTC?', icon:'swap', ok:buy?'Buy':'Sell',
-    body:`<p class="mtext">${buy?'Enter your Bitcoin address for a refund. Next, the wallet shows the contract address to pay.':'Enter your Bitcoin address to receive the bitcoin. Your GNR is locked only after the buyer\'s deposit has confirmed.'}</p>`,
-    input:{placeholder:'bc1q…', max:100}});
+    body:`<p class="mtext">${buy?'Enter your Bitcoin address for a refund. The seller locks the GNR for you first; only then does the wallet show where to pay.':'Enter your Bitcoin address to receive the bitcoin. Your wallet locks the GNR for the buyer at once; if they do not pay, it comes back to you after about 32 hours.'}</p>`,
+    input:{placeholder:'bc1q…', max:100}, pass:true});
+  const pw=takePass();
   if(!addr) return;
-  try{ await api('/api/board/take',{id, address:String(addr).trim()}); toast('Swap started: follow it under Your swaps'); loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
+  try{ await api('/api/board/take',{id, address:String(addr).trim(), password:pw}); toast('Swap started: follow it under Your swaps'); loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 /* Before activation: explain instead of a dead button. */
 function bdNotYet(){

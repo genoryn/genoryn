@@ -22,6 +22,9 @@ pub trait BtcChain {
     /// Outputs paying `address`: at least every unspent one, confirmed or not.
     fn outputs(&self, address: &Address) -> Result<Vec<Utxo>>;
     fn is_spent(&self, op: &OutPoint) -> Result<bool>;
+    /// The transaction spending `op`, confirmed or in the mempool. `from` is a block height
+    /// at or below the one that confirmed `op` (where to start looking, if needed).
+    fn spender(&self, op: &OutPoint, from: u32) -> Result<Option<Transaction>>;
     fn broadcast(&self, tx: &Transaction) -> Result<Txid>;
     /// A fee rate that confirms within about half an hour.
     fn fee_rate(&self) -> Result<FeeRate>;
@@ -118,6 +121,24 @@ impl BtcChain for Esplora {
             serde_json::from_str(&self.get(&format!("/tx/{}/outspend/{}", op.txid, op.vout))?)?;
         Ok(v["spent"].as_bool().unwrap_or(false))
     }
+    fn spender(&self, op: &OutPoint, _from: u32) -> Result<Option<Transaction>> {
+        let v: Value =
+            serde_json::from_str(&self.get(&format!("/tx/{}/outspend/{}", op.txid, op.vout))?)?;
+        let Some(id) = v["txid"]
+            .as_str()
+            .filter(|_| v["spent"].as_bool() == Some(true))
+        else {
+            return Ok(None);
+        };
+        let id = Txid::from_str(id)?;
+        let raw = self.get(&format!("/tx/{id}/hex"))?;
+        let tx: Transaction = bitcoin::consensus::encode::deserialize_hex(raw.trim())?;
+        anyhow::ensure!(
+            tx.compute_txid() == id,
+            "the Bitcoin API returned another transaction"
+        );
+        Ok(Some(tx))
+    }
     fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
         let r = self
             .http
@@ -213,6 +234,35 @@ impl BtcChain for CoreRpc {
         Ok(self
             .call("gettxout", json!([op.txid.to_string(), op.vout, true]))?
             .is_null())
+    }
+    fn spender(&self, op: &OutPoint, from: u32) -> Result<Option<Transaction>> {
+        let spends = |tx: &Transaction| tx.input.iter().any(|i| i.previous_output == *op);
+        let decode = |hex: &str| -> Result<Transaction> {
+            Ok(bitcoin::consensus::encode::deserialize_hex(hex)?)
+        };
+        // Mempool first (Bitcoin Core 24+), then the blocks since `from`.
+        if let Ok(r) = self.call(
+            "gettxspendingprevout",
+            json!([[{"txid": op.txid.to_string(), "vout": op.vout}]]),
+        ) && let Some(id) = r[0]["spendingtxid"].as_str()
+        {
+            let raw = self.call("getrawtransaction", json!([id]))?;
+            let tx = decode(raw.as_str().context("raw tx")?)?;
+            if spends(&tx) {
+                return Ok(Some(tx));
+            }
+        }
+        let tip = self.tip()?;
+        for h in from.max(tip.saturating_sub(2_000))..=tip {
+            let hash = self.call("getblockhash", json!([h]))?;
+            let raw = self.call("getblock", json!([hash, 0]))?;
+            let block: bitcoin::Block =
+                bitcoin::consensus::encode::deserialize_hex(raw.as_str().context("block")?)?;
+            if let Some(tx) = block.txdata.into_iter().find(|t| spends(t)) {
+                return Ok(Some(tx));
+            }
+        }
+        Ok(None)
     }
     fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
         let r = self.call("sendrawtransaction", json!([serialize_hex(tx)]))?;

@@ -1,17 +1,12 @@
 # BTC ⇄ GNR atomic swaps
 
-Status: **implemented, live on devnet, not active on mainnet.** Implemented and tested so far:
+Status: **live on mainnet since block 3,300** (release 1.0.13). From release 1.0.23 every
+new swap runs **GNR first**: the seller locks the GNR before the buyer pays. Implemented and
+tested:
 
 * the Bitcoin HTLC (`crates/krypton-swap`);
 * GNR lock notes (consensus, circuit and wallet);
-* the swap engine;
-* the wallet's **Swap** tab.
-
-On mainnet, lock spends activate at **block 3,300** (`lock_height`), a hard fork announced
-with release 1.0.13. Nodes older than 1.0.13 reject blocks with lock spends from that height
-on, so every node and miner must update first. Until then the Swap tab explains this and
-stays disabled. The offer board and the market price are part of 1.0.13 too.
-
+* the swap engine (`engine.rs`), the offer board and the wallet's **Swap** tab.
 ## Goal
 
 Two people exchange bitcoin and GNR directly, from their own wallets:
@@ -25,26 +20,36 @@ Two people exchange bitcoin and GNR directly, from their own wallets:
 
 ## How it works
 
-Both chains lock coins under the same hash lock `h = SHA-256(s)`, where only the BTC seller
-knows the 32-byte secret `s` at first. The flow below is the default; the BTC seller is the
-initiator.
+Both chains lock coins under the same hash lock `h = SHA-256(s)`. In the **GNR-first flow**
+(1.0.23 on) only the **GNR seller** knows the 32-byte secret `s` at first, and locks first.
 
 | Step | Who | What |
 |---|---|---|
-| 1 | Both | Agree on amounts and exchange terms: `h`, public keys, GNR addresses, timelocks. |
-| 2 | BTC seller | Pays the bitcoin into the HTLC address (P2WSH). Refund possible after `T_btc` (≈ 48 h). |
-| 3 | GNR seller | Waits for the bitcoin to confirm, checks the timelocks, then locks the GNR in a **lock note**: claimable with `s`, refundable to them after `T_gnr` (≈ 12 h). |
-| 4 | BTC seller | Waits for enough GNR confirmations, then **claims the GNR**. The claim publishes `s` on the GNR chain. |
-| 5 | GNR seller | Their wallet sees `s` and **claims the bitcoin** with it, long before `T_btc`. |
+| 1 | Buyer | Sends a request: amounts, its bitcoin refund key and its GNR claim outputs. |
+| 2 | GNR seller | Answers with `h`, its bitcoin claim key and the GNR lock terms, and **locks the GNR at once** in a lock note: claimable with `s` by the buyer only, refundable to the seller after `T_gnr` (≈ 32 h). |
+| 3 | Buyer | Waits for the lock to confirm (30 GNR blocks). The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
+| 4 | GNR seller | Waits for the bitcoin to confirm, then **claims the bitcoin** with `s`, at least 6 blocks before `T_btc`. This publishes `s` on Bitcoin. |
+| 5 | Buyer | Its wallet reads `s` from that bitcoin transaction and **claims the GNR**, long before `T_gnr`. |
 
 If anyone stops halfway, the timelocks return the coins:
 
-* The GNR seller never locks GNR: the BTC seller refunds the bitcoin after `T_btc`.
-* The BTC seller never claims: the GNR seller refunds the GNR after `T_gnr`, and later the BTC
-  seller refunds the bitcoin after `T_btc`. `s` was never published, so the bitcoin is safe.
-* The BTC seller claims the GNR: `s` is public, so the GNR seller can always claim the bitcoin,
-  because the bitcoin lock lasts at least 12 hours longer than the GNR lock.
+* **The seller has no GNR, locks less, or never locks:** no confirmed lock matches the terms,
+  so the buyer's wallet never shows where to pay. The buyer pays nothing.
+* **The buyer never pays:** the seller refunds the GNR after `T_gnr`.
+* **The seller never claims the bitcoin:** `s` stays secret; the buyer refunds the bitcoin
+  after `T_btc` and the seller refunds the GNR after `T_gnr`.
+* **The seller claims the bitcoin:** `s` is public, so the buyer can always claim the GNR,
+  because the GNR lock outlasts the bitcoin lock by at least 6 hours. The buyer's check
+  (`Timing::check_pay`) counts bitcoin blocks slow (20 min) and GNR blocks fast (45 s), and
+  adds the 2-hour payment window.
+* **No swap may last longer than a week:** both wallets refuse longer timelocks.
 
+The free option is now on the buyer's side: a buyer who takes an offer and never pays keeps
+the seller's GNR locked until `T_gnr` (≈ 32 h), but cannot take it.
+
+Swaps started before 1.0.23 used the bitcoin-first flow (the buyer held `s` and paid first);
+they finish as they began. A 1.0.23 wallet answers only GNR-first requests: older wallets
+are told to update.
 ## Bitcoin side (implemented)
 
 `crates/krypton-swap` builds a standard HTLC as a P2WSH output:
@@ -281,15 +286,17 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
     also reports `confidence`, `w / (w + 25)` for a total weight `w` in GNR-equivalents, and
     a `depth` of thin (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are
     shown next to it.
-  * **GNR price index** (`GKValue.index`, shared by the wallet and genoryn.io): the market
-    price, with the cost to mine as its floor. If the market is at or above the cost, the
-    price is the market. Below it, `price = c × market + (1 − c) × cost to mine`, with `c`
-    the confidence, so only a deep market can price GNR under what it costs to make (miners
-    rarely sell below that). The cost to mine is the electricity to mine one GNR at today's
-    network hashrate (RTX 5090-class GPUs, $0.15 per kWh by default). It rises with the
-    hashrate, because the same 7,200 GNR a day then take more electricity. The wallet values
-    balances and mining earnings at this price, and shows nothing before there is a market
-    price.
+  * **The GNR price** shown by the wallet and genoryn.io is this market price and nothing
+    else (`GKValue.market`). The wallet values balances and mining earnings at it, and shows
+    nothing before there is one.
+  * **What the board refuses:** offers more than 20× above or below the market price
+    (`MAX_PRICE_FACTOR`), offers for more than 1,000 BTC (`MAX_OFFER_SATS`), offers without
+    proof of work. Offers of makers offline for 2 minutes cannot be taken, and after 10
+    minutes stop counting for the price.
+  * **Swap details on genoryn.io/market:** for each completed swap the board shows what the
+    GNR chain holds: the claim transaction, its block and time, the hash lock, the secret it
+    revealed (the same secret unlocks the bitcoin side) and the refund height. Amounts are
+    private on chain; the reported ones count only once their claim is on chain.
   * The wallet and genoryn.io convert it to dollars with the BTC price, which genoryn.io
     fetches from mempool.space, so visitors' browsers contact no third party.
   * Until swaps exist, both fall back to the cost-to-mine estimate and say so.

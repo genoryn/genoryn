@@ -391,3 +391,18 @@ main { overflow-x: clip; }
 .mk-live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; background: var(--status-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-success) 18%, transparent); }
 .mk-live.off { background: var(--text-tertiary); box-shadow: none; }
 .mk-table tr.mk-off td { opacity: .5; }
+.mk-pend { margin-bottom: 18px; }
+.mk-swaps { margin-bottom: 18px; }
+.mk-swaps > .mk-fine { margin: 4px 0 14px; max-width: 900px; }
+.mk-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.mk-swap { padding: 18px 20px; border-radius: var(--radius-lg); min-width: 0; }
+.mk-swap-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.mk-swap-head .hp-coins { align-self: center; margin-right: 4px; }
+.mk-swap-head b { font: 600 16px var(--font-mono); }
+.mk-swap-p { margin-left: auto; font: 500 13px var(--font-mono); }
+.mk-swap-kv { grid-template-columns: minmax(130px, auto) 1fr; border-top: 1px solid var(--line); }
+.mk-swap-kv > div { padding: 8px 2px; font-size: 13.5px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
+.mk-swap-kv > div:nth-child(odd) { color: var(--text-tertiary); }
+.mk-swap-kv a { color: var(--text-primary); }
+.mk-hash { cursor: help; }
+@media (max-width: 980px) { .mk-cards { grid-template-columns: 1fr; } }
