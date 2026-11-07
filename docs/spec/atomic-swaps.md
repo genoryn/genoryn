@@ -270,8 +270,10 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
     * open buy and sell offers whose maker was online in the last 10 minutes, ×1, so the
       first offer already sets a price.
 
-    Swaps and swaps in progress fade by half every 12 hours. Points more than 4× away from
-    the plain median of all points are left out. With exactly half the weight on each side,
+    Swaps and swaps in progress fade by half every 12 hours. With three or more points,
+    points more than 4× away from their median are left out; that median counts points, not
+    GNR (a made-up giant offer cannot move it), each by its kind (swap 3, in progress 2,
+    offer 1), so cheap offers cannot outvote swaps. Two points have no outlier. With exactly half the weight on each side,
     the price is the midpoint of the two middle prices. The board also reports `confidence`,
     `w / (w + 25)` for a total weight `w` in GNR-equivalents, and a `depth` of thin
     (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are shown next to it.

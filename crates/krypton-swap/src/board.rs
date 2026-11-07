@@ -402,7 +402,21 @@ pub fn market(
     for o in offers {
         pts.push((o.price(), o.gnr as f64 / 1e8 * WEIGHT_OFFER, 2));
     }
-    if let Some(m0) = weighted_median_f(pts.iter().map(|p| (p.0, 1.0)).collect()) {
+    // The centre for the outlier cut counts points, not GNR (a made-up giant offer cannot
+    // move it), each by its kind (cheap offers cannot outvote swaps). Two points have no
+    // outlier: the weighted median alone decides between them.
+    if pts.len() >= 3
+        && let Some(m0) = weighted_median_f(
+            pts.iter()
+                .map(|p| {
+                    (
+                        p.0,
+                        [WEIGHT_SWAP, WEIGHT_PENDING, WEIGHT_OFFER][p.2 as usize],
+                    )
+                })
+                .collect(),
+        )
+    {
         pts.retain(|p| p.0 <= m0 * OUTLIER_FACTOR && p.0 >= m0 / OUTLIER_FACTOR);
     }
     let w: f64 = pts.iter().map(|p| p.1).sum();
@@ -581,5 +595,38 @@ mod tests {
         let m = market(&deep, &[], &[], now);
         assert_eq!(m.depth, "deep");
         assert!(m.confidence > 0.9);
+    }
+
+    #[test]
+    fn a_real_swap_is_not_cut_by_one_offer() {
+        let t = |sats: u64, gnr: u64| Trade {
+            network: "devnet".into(),
+            hash: "00".repeat(32),
+            gnr,
+            sats,
+            nonce: 0,
+        };
+        let now = 300 * 3600;
+        // 10 GNR swapped at 1,000 sat five hours ago, one 10 GNR offer at 10,000 sat:
+        // two points, no outlier; the swap weighs more.
+        let trades = vec![(t(10_000, 1_000_000_000), now - 5 * 3600)];
+        let offers = vec![offer(Side::SellGnr, 1_000_000_000, 100_000)];
+        let m = market(&trades, &offers, &[], now);
+        assert_eq!(
+            (m.price, m.source.as_deref()),
+            (Some(1_000.0), Some("swaps"))
+        );
+        // A day later the old swap has faded below the offer.
+        let m = market(&trades, &offers, &[], now + 19 * 3600);
+        assert_eq!(m.price, Some(10_000.0));
+        // Many cheap offers cannot cut the swaps: kinds count in the centre.
+        let swaps: Vec<_> = (0..3)
+            .map(|i| (t(5_000, 100_000_000), now - 60 * i))
+            .collect();
+        let spam: Vec<_> = (0..8)
+            .map(|_| offer(Side::SellGnr, 100_000_000, 1_000_000))
+            .collect();
+        let m = market(&swaps, &spam, &[], now);
+        assert_eq!(m.source.as_deref(), Some("swaps"), "{m:?}");
     }
 }
