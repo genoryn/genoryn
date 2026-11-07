@@ -278,7 +278,6 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .bd-live{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--status-success);box-shadow:0 0 0 3px color-mix(in srgb,var(--status-success) 18%,transparent)}
 .bd-live.off{background:var(--text-tertiary);box-shadow:none}
 .bd-table tr.bd-off td{opacity:.48}
-.bd-offl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);white-space:nowrap}.bd-offl em{font-style:normal;color:var(--text-tertiary)}
 #bdDur{width:100%;margin-bottom:10px}
 .mn-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px;perspective:1000px}
 .mn-kpi{position:relative;padding:16px 18px 14px;border-radius:var(--radius-lg);display:flex;flex-direction:column;gap:5px;min-width:0;overflow:hidden;transform-style:preserve-3d}
@@ -553,7 +552,6 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
               <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
               <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
               <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
-              <label class="bd-offl"><input type="checkbox" id="bdOffline"> Offline <em id="bdOffN"></em></label>
               <select id="bdPerPage" aria-label="Offers per page"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
             </div>
           </div>
@@ -1369,7 +1367,7 @@ async function swapCode(){
 }
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
-const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0, offline:false};
+const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0};
 /* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
 const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?v.toLocaleString(undefined,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
@@ -1399,7 +1397,7 @@ async function loadBoard(){
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
-  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled&&!o.expired&&!o.taken) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(BDV.offline||o.online!==false||o.mine));
+  let v = BDV.tab==='mine' ? mine.filter(o=>!o.cancelled&&!o.expired&&!o.taken) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(o.online!==false||o.mine));
   v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max; });
   const best = BDV.tab==='buy' ? (a,b)=>b.price-a.price : (a,b)=>a.price-b.price;
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
@@ -1407,9 +1405,8 @@ function bdList(){
 }
 function renderBook(){
   const all=BD.offers||[];
-  const shown=o=>BDV.offline||o.online!==false||o.mine;
+  const shown=o=>o.online!==false||o.mine;
   $('bdTabS').textContent=all.filter(o=>o.side==='sell_gnr'&&shown(o)).length; $('bdTabB').textContent=all.filter(o=>o.side==='buy_gnr'&&shown(o)).length;
-  const off=all.filter(o=>o.online===false&&!o.mine).length; $('bdOffN').textContent=off?'('+off+')':''; $('bdOffline').closest('label').classList.toggle('hidden',!off&&!BDV.offline);
   $('bdTabM').textContent=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired).length; $('bdTabP').textContent=(BD.in_progress||[]).length;
   const list=bdList(), pages=Math.max(1,Math.ceil(list.length/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
   const rows=list.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), mp=bdMkt().price;
@@ -1436,7 +1433,6 @@ function renderMine(){
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
 $('bdPerPage').onchange=e=>{ BDV.per=Number(e.target.value); BDV.page=0; renderBook(); };
-$('bdOffline').onchange=e=>{ BDV.offline=e.target.checked; BDV.page=0; renderBook(); };
 $('bdDur').onchange=e=>{ const h=Number(e.target.value); $('bdPubBtn').textContent='Publish for '+h+(h===1?' hour':' hours'); };
 $('bdMin').oninput=e=>{ BDV.min=e.target.value; BDV.page=0; renderBook(); };
 $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
