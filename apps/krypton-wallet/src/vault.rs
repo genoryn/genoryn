@@ -353,6 +353,27 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
     }
 }
 
+/// The quick board round for the other unlocked wallets.
+pub fn quick_others(app: &App, src: &Multi) {
+    let busy: Vec<String> = app
+        .vault
+        .others
+        .lock()
+        .iter()
+        .filter(|(_, w)| crate::board::quick_work(w))
+        .map(|(id, _)| id.clone())
+        .collect();
+    for id in busy {
+        let Some(mut w) = app.vault.others.lock().remove(&id) else {
+            continue;
+        };
+        app.vault.syncing.lock().insert(id.clone());
+        crate::swaps::quick(app, &mut w, src);
+        crate::snapshot(&w);
+        put_back(app, &id, w);
+    }
+}
+
 // ---- HTTP handlers ----
 
 pub async fn list(State(app): S, h: HeaderMap) -> Response {
@@ -419,10 +440,10 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
     let a = app.clone();
     match blocking(move || {
         let name = valid_name(&r.name)?;
-        ensure!(
-            r.password.chars().count() >= 12,
-            "use a password of at least 12 characters"
-        );
+        // The file opens with this password alone: a stolen file can only be attacked by
+        // guessing it, so new wallets need a strong one.
+        let st = krypton_wallet_core::password::strength(&r.password);
+        ensure!(st.ok, "{}", st.hint);
         let restoring = r.mnemonic.as_deref().is_some_and(|m| !m.trim().is_empty());
         let m = if restoring {
             let m = r.mnemonic.as_deref().unwrap_or_default();
@@ -538,7 +559,9 @@ pub async fn unlock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Re
     let a = app.clone();
     match blocking(move || {
         let path = a.vault.path(&a.dir, &r.id).context("no such wallet")?;
-        let w = Wallet::open(&path, r.password.as_deref().unwrap_or(""))?;
+        let pw = r.password.as_deref().unwrap_or("");
+        let w = Wallet::open(&path, pw)?;
+        let weak = !krypton_wallet_core::password::strength(pw).ok;
         remember_fp(&a, &r.id, &w);
         a.vault.note(&r.id, &w);
         a.vault.unlocked.lock().insert(r.id.clone(), Since::now());
@@ -547,13 +570,98 @@ pub async fn unlock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Re
         } else {
             a.vault.others.lock().insert(r.id.clone(), w);
         }
-        Ok(())
+        Ok(weak)
+    })
+    .await
+    {
+        Ok(weak) => Json(json!({"ok": true, "weak_password": weak})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct PasswordReq {
+    id: String,
+    old: String,
+    new: String,
+}
+
+impl Drop for PasswordReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.old.zeroize();
+        self.new.zeroize();
+    }
+}
+
+/// Changes a wallet's password: checks the old one against the file, then re-encrypts
+/// the file under the new one with a fresh salt. Works for open and locked wallets.
+pub async fn change_password(State(app): S, h: HeaderMap, Json(r): Json<PasswordReq>) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        let st = krypton_wallet_core::password::strength(&r.new);
+        ensure!(st.ok, "{}", st.hint);
+        ensure!(
+            r.new != r.old,
+            "the new password is the same as the old one"
+        );
+        let path = a.vault.path(&a.dir, &r.id).context("no such wallet")?;
+        // The old password must open the file as it is on disk.
+        krypton_wallet_core::file::FileKey::open(&path, &r.old)
+            .map_err(|_| anyhow::anyhow!("the current password is wrong"))?;
+        // Change the open copy if there is one: it would otherwise save under the old key.
+        {
+            let mut g = a.wallet.lock();
+            if let Some(w) = g.as_mut()
+                && w.path() == path.as_path()
+            {
+                return w.change_password(&r.new, Argon2Params::STRONG);
+            }
+        }
+        if let Some(w) = a.vault.others.lock().get_mut(&r.id)
+            && w.path() == path.as_path()
+        {
+            return w.change_password(&r.new, Argon2Params::STRONG);
+        }
+        anyhow::ensure!(
+            !a.vault.syncing.lock().contains(&r.id),
+            "the wallet is busy syncing; try again in a few seconds"
+        );
+        let mut w = Wallet::open(&path, &r.old)?;
+        w.change_password(&r.new, Argon2Params::STRONG)
     })
     .await
     {
         Ok(()) => Json(json!({"ok": true})).into_response(),
         Err(e) => err(e),
     }
+}
+
+#[derive(Deserialize)]
+pub struct StrengthReq {
+    password: String,
+}
+
+impl Drop for StrengthReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+    }
+}
+
+/// Strength of a candidate password (for the meter while typing; nothing is stored).
+pub async fn password_strength(
+    State(app): S,
+    h: HeaderMap,
+    Json(r): Json<StrengthReq>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    Json(krypton_wallet_core::password::strength(&r.password)).into_response()
 }
 
 pub async fn lock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Response {

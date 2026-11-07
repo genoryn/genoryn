@@ -5,6 +5,7 @@
 
 pub mod file;
 pub mod keys;
+pub mod password;
 pub mod proof;
 pub mod swap;
 
@@ -284,6 +285,25 @@ impl Wallet {
         self.state.genesis = None;
         self.verifier = None;
         self.lock_rollback(0, 0, true);
+    }
+
+    /// Re-encrypts the wallet file under a new password (fresh salt). The caller has
+    /// checked the old password.
+    pub fn change_password(
+        &mut self,
+        new: &str,
+        kdf: krypton_crypto::kdf::Argon2Params,
+    ) -> Result<()> {
+        ensure!(
+            new.chars().count() >= 8,
+            "use a password of at least 8 characters"
+        );
+        self.file_key = file::FileKey::new(new, kdf)?;
+        self.save()
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     pub fn save(&self) -> Result<()> {

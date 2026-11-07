@@ -35,5 +35,51 @@
     return s.charAt(0) === "<" ? s : "≈ " + s;
   }
 
-  window.GKValue = { REF: REF, estimate: estimate, usd: usd, approx: approx };
+  /* The GNR price index, shared by genoryn.io and the wallet. The market leads; the cost
+     to mine is a floor that a thin market cannot break:
+       market ≥ cost: price = market
+       market < cost: price = c × market + (1 − c) × cost
+     market: the board's robust median (swaps, swaps in progress, offers) in USD;
+     cost: electricity to mine one GNR at today's network hashrate, so the more miners
+       compete, the more every GNR costs to make (miners rarely sell below that);
+     c: the market's confidence (0 to 1, grows with the GNR traded behind its price), so
+       only a deep market can price GNR below its cost.
+     o: { sat: market sat per GNR, btcUsd, conf, hashrate, subsidy, kwh } */
+  function index(o) {
+    o = o || {};
+    var sat = Number(o.sat), btc = Number(o.btcUsd);
+    var m = sat > 0 && btc > 0 ? sat * btc / 1e8 : null;
+    var e = estimate(o.hashrate, o.kwh, o.subsidy);
+    var f = e ? e.usd : null;
+    if (m == null && f == null) return null;
+    if (m == null) return { usd: f, market: null, floor: f, conf: 0, est: e, source: "cost" };
+    var c = o.conf == null || !isFinite(Number(o.conf)) ? 1 : Math.max(0, Math.min(1, Number(o.conf)));
+    if (f == null) return { usd: m, market: m, floor: null, conf: c, est: null, source: "market" };
+    if (m >= f) return { usd: m, market: m, floor: f, conf: c, est: e, source: "market" };
+    return { usd: c * m + (1 - c) * f, market: m, floor: f, conf: c, est: e, source: "floor" };
+  }
+
+  /* Coin marks in the text colour (so they follow the theme): the Genoryn sign and the
+     Bitcoin B, each on a ring. Use GKValue.coin("gnr") / GKValue.coin("btc"). */
+  var SIGN = '<path d="M186 128A58 58 0 1 1 171.1 89.19" fill="none" stroke="currentColor" stroke-width="30"/>' +
+    '<path fill="currentColor" d="M134 113h67v30h-67zM106 31h14v54h-14zM106 171h14v54h-14zM136 31h14v54h-14zM136 171h14v54h-14z"/>';
+  var SPRITE = '<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">' +
+    '<symbol id="c-gnr" viewBox="0 0 256 256"><circle cx="128" cy="128" r="119" fill="none" stroke="currentColor" stroke-width="13"/>' +
+    '<g transform="translate(128 128) scale(.74) translate(-128 -128)">' + SIGN + "</g></symbol>" +
+    '<symbol id="c-btc" viewBox="0 0 256 256"><circle cx="128" cy="128" r="119" fill="none" stroke="currentColor" stroke-width="13"/>' +
+    '<g transform="rotate(14 128 128)"><path fill="currentColor" fill-rule="evenodd" d="M92 76h58c26 0 38 14 38 31 0 12-7 21-18 25 17 4 26 15 26 31 0 21-15 35-42 35H92zM118 96v28h29c11 0 17-6 17-14s-6-14-17-14zM118 144v32h33c13 0 19-7 19-16s-6-16-19-16z"/>' +
+    '<path fill="currentColor" d="M108 52h14v26h-14zM134 52h14v26h-14zM108 196h14v26h-14zM134 196h14v26h-14z"/></g></symbol></svg>';
+  function sprite() {
+    if (document.getElementById("c-gnr") || !document.body) return;
+    var d = document.createElement("div");
+    d.innerHTML = SPRITE;
+    document.body.insertBefore(d.firstChild, document.body.firstChild);
+  }
+  if (document.body) sprite(); else document.addEventListener("DOMContentLoaded", sprite);
+  function coin(kind, cls) {
+    kind = kind === "btc" ? "btc" : "gnr";
+    return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
+  }
+
+  window.GKValue = { REF: REF, estimate: estimate, index: index, usd: usd, approx: approx, coin: coin, sprite: sprite };
 })();

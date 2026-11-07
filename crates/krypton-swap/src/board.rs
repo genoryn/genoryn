@@ -267,15 +267,23 @@ impl Trade {
 /// The market from the board's data.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
-    /// The market price (sat per GNR): a volume-weighted median over the completed swaps of
-    /// the window, the swaps in progress and the open offers, in that order of weight.
+    /// The market price in sat per GNR: one robust median over what people do (see
+    /// [`market`]). `None` while the board is empty.
     pub price: Option<f64>,
     /// The strongest kind of data the price rests on: `swaps`, `pending` or `offers`.
     pub source: Option<String>,
+    /// How much the price can be trusted, 0 to 1: grows with the (time-weighted) GNR volume
+    /// behind it, `w / (w + DEPTH_GNR)`.
+    #[serde(default)]
+    pub confidence: f64,
+    /// `thin`, `moderate` or `deep`.
+    #[serde(default)]
+    pub depth: String,
     /// Volume-weighted median of the open offers alone.
     pub offers_price: Option<f64>,
     pub asks: usize,
     pub bids: usize,
+    /// Swaps completed in the last 24 hours and their GNR.
     pub trades: usize,
     pub volume_gnr: u64,
     /// Swaps in progress (offers taken, not finished yet) and their GNR.
@@ -290,39 +298,69 @@ pub struct Market {
     pub offers: usize,
 }
 
-/// Volume-weighted median of (price, volume): robust against a few odd trades.
-pub fn weighted_median(mut v: Vec<(f64, u64)>) -> Option<f64> {
-    v.retain(|(p, w)| p.is_finite() && *p > 0.0 && *w > 0);
+/// Volume-weighted median of (price, weight): robust against a few odd entries. With
+/// exactly half the weight on each side it is the midpoint of the two middle prices.
+pub fn weighted_median(v: Vec<(f64, u64)>) -> Option<f64> {
+    weighted_median_f(v.into_iter().map(|(p, w)| (p, w as f64)).collect())
+}
+
+fn weighted_median_f(mut v: Vec<(f64, f64)>) -> Option<f64> {
+    v.retain(|(p, w)| p.is_finite() && *p > 0.0 && w.is_finite() && *w > 0.0);
     if v.is_empty() {
         return None;
     }
     v.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let total: u128 = v.iter().map(|x| x.1 as u128).sum();
-    let mut acc = 0u128;
+    let total: f64 = v.iter().map(|x| x.1).sum();
+    let mut acc = 0.0;
     for (i, (p, w)) in v.iter().enumerate() {
-        acc += *w as u128;
-        if acc * 2 == total
+        acc += w;
+        let rel = (acc * 2.0 - total) / total;
+        if rel.abs() < 1e-9
             && let Some((next, _)) = v.get(i + 1)
         {
-            // Exactly half the volume on each side: the midpoint of the two middle prices.
             return Some((p + next) / 2.0);
         }
-        if acc * 2 >= total {
+        if rel >= 0.0 {
             return Some(*p);
         }
     }
     v.last().map(|x| x.0)
 }
 
-/// Weights of the three kinds of market data: what people paid counts most, what they are
-/// paying right now next, what they ask or bid least.
-pub const WEIGHT_SWAP: u64 = 3;
-pub const WEIGHT_PENDING: u64 = 2;
-pub const WEIGHT_OFFER: u64 = 1;
+/// What people paid counts most, what they are paying right now next, what they ask or
+/// bid least.
+pub const WEIGHT_SWAP: f64 = 3.0;
+pub const WEIGHT_PENDING: f64 = 2.0;
+pub const WEIGHT_OFFER: f64 = 1.0;
+/// Older data fades: half its weight every 12 hours, gone after 72.
+pub const HALF_LIFE_SECS: f64 = 12.0 * 3600.0;
+pub const MARKET_WINDOW_SECS: u64 = 72 * 3600;
+/// Prices more than this factor away from the plain median are left out (fat fingers,
+/// joke offers, attempts to drag the price).
+pub const OUTLIER_FACTOR: f64 = 4.0;
+/// Time-weighted GNR behind the price at which confidence reaches one half.
+pub const DEPTH_GNR: f64 = 25.0;
 
-/// `pending`: offers taken whose swaps are still in progress.
-pub fn market(trades: &[(Trade, u64)], offers: &[Offer], pending: &[Offer], now: u64) -> Market {
-    let recent: Vec<&Trade> = trades
+fn fade(age: u64) -> f64 {
+    0.5f64.powf(age as f64 / HALF_LIFE_SECS)
+}
+
+/// The market price:
+///
+/// 1. Every completed swap (last 72 h), swap in progress and open offer becomes a price
+///    point weighted by its GNR × kind (swap 3, in progress 2, offer 1) × age fade (half
+///    every 12 h; offers are current and do not fade).
+/// 2. Points more than 4× away from the plain median are dropped.
+/// 3. The price is the weighted median of the rest; confidence grows with their weight.
+///
+/// `pending` are taken offers with the time they were taken.
+pub fn market(
+    trades: &[(Trade, u64)],
+    offers: &[Offer],
+    pending: &[(Offer, u64)],
+    now: u64,
+) -> Market {
+    let day: Vec<&Trade> = trades
         .iter()
         .filter(|(_, at)| *at + PRICE_WINDOW_SECS > now)
         .map(|(t, _)| t)
@@ -341,41 +379,54 @@ pub fn market(trades: &[(Trade, u64)], offers: &[Offer], pending: &[Offer], now:
         .filter(|o| o.side == Side::BuyGnr)
         .map(Offer::price)
         .max_by(f64::total_cmp);
-    let mut all: Vec<(f64, u64)> = Vec::new();
-    all.extend(
-        recent
-            .iter()
-            .map(|t| (t.price(), t.gnr.saturating_mul(WEIGHT_SWAP))),
-    );
-    all.extend(
-        pending
-            .iter()
-            .map(|o| (o.price(), o.gnr.saturating_mul(WEIGHT_PENDING))),
-    );
-    all.extend(
-        offers
-            .iter()
-            .map(|o| (o.price(), o.gnr.saturating_mul(WEIGHT_OFFER))),
-    );
-    let source = if !recent.is_empty() {
-        Some("swaps")
-    } else if !pending.is_empty() {
-        Some("pending")
-    } else if !offers.is_empty() {
-        Some("offers")
-    } else {
-        None
-    };
+
+    // (price, weight in GNR-equivalents, kind)
+    let mut pts: Vec<(f64, f64, u8)> = Vec::new();
+    for (t, at) in trades
+        .iter()
+        .filter(|(_, at)| *at + MARKET_WINDOW_SECS > now)
+    {
+        pts.push((
+            t.price(),
+            t.gnr as f64 / 1e8 * WEIGHT_SWAP * fade(now.saturating_sub(*at)),
+            0,
+        ));
+    }
+    for (o, at) in pending {
+        pts.push((
+            o.price(),
+            o.gnr as f64 / 1e8 * WEIGHT_PENDING * fade(now.saturating_sub(*at)),
+            1,
+        ));
+    }
+    for o in offers {
+        pts.push((o.price(), o.gnr as f64 / 1e8 * WEIGHT_OFFER, 2));
+    }
+    if let Some(m0) = weighted_median_f(pts.iter().map(|p| (p.0, 1.0)).collect()) {
+        pts.retain(|p| p.0 <= m0 * OUTLIER_FACTOR && p.0 >= m0 / OUTLIER_FACTOR);
+    }
+    let w: f64 = pts.iter().map(|p| p.1).sum();
+    let kind = pts.iter().map(|p| p.2).min();
+    let confidence = if w > 0.0 { w / (w + DEPTH_GNR) } else { 0.0 };
     Market {
-        price: weighted_median(all),
-        source: source.map(str::to_string),
+        price: weighted_median_f(pts.iter().map(|p| (p.0, p.1)).collect()),
+        source: kind.map(|k| ["swaps", "pending", "offers"][k as usize].to_string()),
+        confidence: (confidence * 1000.0).round() / 1000.0,
+        depth: if confidence >= 0.8 {
+            "deep"
+        } else if confidence >= 0.4 {
+            "moderate"
+        } else {
+            "thin"
+        }
+        .into(),
         offers_price: weighted_median(offers.iter().map(|o| (o.price(), o.gnr)).collect()),
         asks: offers.iter().filter(|o| o.side == Side::SellGnr).count(),
         bids: offers.iter().filter(|o| o.side == Side::BuyGnr).count(),
-        trades: recent.len(),
-        volume_gnr: recent.iter().map(|t| t.gnr).sum(),
+        trades: day.len(),
+        volume_gnr: day.iter().map(|t| t.gnr).sum(),
         pending: pending.len(),
-        pending_gnr: pending.iter().map(|o| o.gnr).sum(),
+        pending_gnr: pending.iter().map(|(o, _)| o.gnr).sum(),
         last_price: last,
         best_ask: ask,
         best_bid: bid,
@@ -449,52 +500,86 @@ mod tests {
             sats,
             nonce: 0,
         };
+        let now = 100 * 3600;
         let trades = vec![
-            (t(5_000, 100_000_000), 900),
-            (t(5_200, 100_000_000), 950),
-            (t(5_100, 300_000_000 / 3), 960),
-            // One absurd trade does not move a median.
-            (t(1_000_000, 10_000_000), 970),
-            // Outside the 24 h window.
-            (t(9_000, 100_000_000), 10),
+            (t(5_000, 100_000_000), now - 600),
+            (t(5_200, 100_000_000), now - 500),
+            (t(5_100, 100_000_000), now - 400),
+            // A fat-finger trade of 500 GNR at 400,000× the price is left out entirely.
+            (t(1_000_000_000_000, 50_000_000_000), now - 300),
         ];
         let offers = vec![
             offer(Side::SellGnr, 100_000_000, 6_000),
             offer(Side::BuyGnr, 100_000_000, 4_000),
         ];
-        let m = market(&trades, &offers, &[], 850 + PRICE_WINDOW_SECS);
+        let m = market(&trades, &offers, &[], now);
         assert_eq!(m.trades, 4);
         assert_eq!(m.price, Some(5_100.0));
-        assert_eq!(m.best_ask, Some(6_000.0));
-        assert_eq!(m.best_bid, Some(4_000.0));
+        assert_eq!((m.best_ask, m.best_bid), (Some(6_000.0), Some(4_000.0)));
         assert_eq!(m.source.as_deref(), Some("swaps"));
         assert_eq!((m.asks, m.bids), (1, 1));
+        assert!(m.confidence > 0.2 && m.confidence < 0.5, "{}", m.confidence);
         assert_eq!(weighted_median(vec![]), None);
         // No swaps yet: the first offer already sets a price, more offers a median.
-        let one = market(&[], &offers[..1], &[], 1_000);
+        let one = market(&[], &offers[..1], &[], now);
         assert_eq!(
-            (one.price, one.source.as_deref()),
-            (Some(6_000.0), Some("offers"))
+            (one.price, one.source.as_deref(), one.depth.as_str()),
+            (Some(6_000.0), Some("offers"), "thin")
         );
         let mut book = offers.clone();
         book.push(offer(Side::SellGnr, 300_000_000, 15_000));
-        assert_eq!(market(&[], &book, &[], 1_000).price, Some(5_000.0));
-        assert_eq!(market(&[], &[], &[], 1_000).price, None);
+        assert_eq!(market(&[], &book, &[], now).price, Some(5_000.0));
+        assert_eq!(market(&[], &[], &[], now).price, None);
         // A swap in progress counts twice as much as an offer of the same size.
-        let taken = vec![offer(Side::SellGnr, 100_000_000, 8_000)];
+        let taken = vec![(offer(Side::SellGnr, 100_000_000, 8_000), now)];
         let m = market(
             &[],
-            &[offer(Side::SellGnr, 100_000_000, 2_000)],
+            &[offer(Side::SellGnr, 100_000_000, 5_000)],
             &taken,
-            1_000,
+            now,
         );
         assert_eq!(
             (m.price, m.source.as_deref(), m.pending),
             (Some(8_000.0), Some("pending"), 1)
         );
-        assert_eq!(market(&[], &[], &taken, 1_000).price, Some(8_000.0));
-        // Two equal swaps at 1,000 and 10,000 sat: the midpoint, not the lower one.
-        assert_eq!(weighted_median(vec![(1_000.0, 10), (10_000.0, 10)]), Some(5_500.0));
-        assert_eq!(weighted_median(vec![(1_000.0, 10), (10_000.0, 11)]), Some(10_000.0));
+        // Two equal swaps at 1,000 and 3,000 sat: the midpoint, not the lower one.
+        assert_eq!(
+            weighted_median(vec![(1_000.0, 10), (3_000.0, 10)]),
+            Some(2_000.0)
+        );
+        assert_eq!(
+            weighted_median(vec![(1_000.0, 10), (3_000.0, 11)]),
+            Some(3_000.0)
+        );
+    }
+
+    #[test]
+    fn old_data_fades_and_volume_builds_confidence() {
+        let t = |sats: u64, gnr: u64| Trade {
+            network: "devnet".into(),
+            hash: "00".repeat(32),
+            gnr,
+            sats,
+            nonce: 0,
+        };
+        let now = 200 * 3600;
+        // A big swap two days ago and a smaller one now: the recent one wins.
+        // (sats are the whole bitcoin amount: price × GNR)
+        let trades = vec![
+            (t(40_000, 1_000_000_000), now - 48 * 3600),
+            (t(24_000, 400_000_000), now - 60),
+        ];
+        assert_eq!(market(&trades, &[], &[], now).price, Some(6_000.0));
+        // Beyond 72 hours a swap no longer counts at all.
+        let old = vec![(t(40_000, 1_000_000_000), now - 73 * 3600)];
+        assert_eq!(market(&old, &[], &[], now).price, None);
+        // Confidence: thin with a few GNR, deep with a lot.
+        let deep = vec![
+            (t(500_000, 100 * 100_000_000), now - 60),
+            (t(500_000, 100 * 100_000_000), now - 30),
+        ];
+        let m = market(&deep, &[], &[], now);
+        assert_eq!(m.depth, "deep");
+        assert!(m.confidence > 0.9);
     }
 }

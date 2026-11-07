@@ -18,6 +18,17 @@
   <div class="page-head"><span class="eyebrow">Market · live</span><h1 class="h2 glow">GNR market</h1>
     <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p></div>
 
+  <a class="glass hero-price mk-hero-price" href="/download.html" aria-label="GNR price: get the wallet to trade">
+    <span class="hp-top"><span class="hp-coins" aria-hidden="true"><svg class="coin"><use href="#c-gnr"/></svg><svg class="coin"><use href="#c-btc"/></svg></span><span class="eyebrow-s">GNR price</span><span class="hp-live"><span class="dot live ok"></span>live</span></span>
+    <b data-mk-usd>—</b>
+    <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span data-mk-src>set by people on the offer board</span></span>
+    <span class="hp-break">
+      <span><em>Market</em><b data-ix-market>—</b></span>
+      <span><em>Cost to mine</em><b data-ix-floor>—</b></span>
+      <span><em>Market depth</em><b data-ix-conf>—</b></span>
+    </span>
+    <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
+  </a>
   <section class="mk-kpis">
     <div class="glass kpi"><b id="mkPrice">—</b><span id="mkPriceL">Market price per GNR</span></div>
     <div class="glass kpi"><b id="mkAsk">—</b><span>Best sell offer <em id="mkAskN"></em></span></div>
@@ -29,12 +40,12 @@
   <section class="mk-book">
     <div class="glass card">
       <div class="mk-head"><h2 class="h3">Sell offers</h2><span class="muted" id="mkSellN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Expires</th></tr></thead><tbody id="mkSell"></tbody></table>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Expires</th></tr></thead><tbody id="mkSell"></tbody></table>
       <div class="mk-pager" id="mkSellP"></div>
     </div>
     <div class="glass card">
       <div class="mk-head"><h2 class="h3">Buy offers</h2><span class="muted" id="mkBuyN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Expires</th></tr></thead><tbody id="mkBuy"></tbody></table>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Expires</th></tr></thead><tbody id="mkBuy"></tbody></table>
       <div class="mk-pager" id="mkBuyP"></div>
     </div>
   </section>
@@ -42,11 +53,11 @@
   <section class="mk-book">
     <div class="glass card">
       <div class="mk-head"><h2 class="h3">Swaps in progress</h2><span class="muted" id="mkPendN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th>GNR</th><th>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
+      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
     </div>
     <div class="glass card">
       <h2 class="h3">Recent swaps</h2>
-      <table class="mk-table"><thead><tr><th>When</th><th>Price per GNR</th><th>GNR</th><th>BTC</th></tr></thead><tbody id="mkRecent"></tbody></table>
+      <table class="mk-table"><thead><tr><th>When</th><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th></tr></thead><tbody id="mkRecent"></tbody></table>
     </div>
   </section>
   <section class="mk-book mk-one">
@@ -57,14 +68,16 @@
         <li>Open <b>Swap</b>: take an offer from the board, or publish your own at any price.</li>
         <li><b>The wallets do the rest.</b> The buyer pays bitcoin into a contract, and the seller's GNR is locked only after that deposit confirms. Either both get paid, or both get their coins back.</li>
       </ol>
-      <p class="muted mk-fine"><b>How the price is computed:</b> a volume-weighted median of everything people are doing on the board.</p>
+      <p class="muted mk-fine"><b>How the market price is computed:</b> a robust, volume-weighted median of everything people are doing on the board.</p>
       <ul class="mk-steps">
-        <li><b>Swaps completed</b> in the last 24 hours count three times. A swap only counts if its claim is on chain.</li>
+        <li><b>Swaps completed</b> count three times per GNR. A swap only counts if its claim is on chain.</li>
         <li><b>Swaps in progress</b> count twice.</li>
-        <li><b>Open buy and sell offers</b> count once, so the first offer already sets a price.</li>
+        <li><b>Open buy and sell offers</b> count once, if their maker's wallet is online, so the first offer already sets a price.</li>
+        <li><b>Older data fades</b>: half its weight every 12 hours, gone after 72.</li>
+        <li><b>Absurd prices are left out</b>: anything more than 4× away from the typical price, so nobody can drag it with one joke offer.</li>
       </ul>
-      <p class="muted mk-fine">The price is shown in sat and in dollars at the current BTC price.</p>
-      <p class="muted mk-fine"><b>Cost to mine</b> is shown for reference: the electricity the whole network spends per GNR at today's hashrate, assuming RTX 5090-class GPUs. With more miners it rises, because the same 7,200 GNR a day take more electricity. It is not a price.</p>
+      <p class="muted mk-fine"><b>The GNR price</b> is that market price, with the <b>cost to mine</b> one GNR as its floor. Above the cost, the market alone sets the price. Below it, price = depth × market + (1 − depth) × cost to mine: miners rarely sell below what a coin costs to make, so only a deep market can push GNR under it. Depth grows with the GNR traded behind the price (half at 25 GNR, nearly all at a few hundred). The cost rises as more miners join, because the same 7,200 GNR a day then take more electricity, and the floor rises with it.</p>
+      <p class="muted mk-fine">Cost to mine assumes RTX 5090-class GPUs at <span data-cost-kwh>$0.15</span> per kWh. Prices are shown in sat and in dollars at the current BTC price.</p>
       <p class="muted mk-fine" id="mkLive">Swaps on mainnet activate at block 3,300.</p>
     </div>
   </section>

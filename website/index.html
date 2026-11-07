@@ -25,26 +25,41 @@
         <h1 class="display glow" style="margin-top:18px">Money that outlives quantum computers.</h1>
         <p class="manifesto"><span>Privacy is not a crime.</span><span>It's a right.</span></p>
         <p class="lead" style="margin-top:20px">Genoryn Krypton is private by default and secured only by hashes and NIST post-quantum cryptography. No premine, no owner, built for a hundred years.</p>
-        <a class="glass hero-price" href="/market.html" aria-label="GNR market price: open the market">
-          <span class="hp-top"><span class="dot live ok"></span><span class="eyebrow-s">GNR market price</span></span>
-          <b data-mk-usd>—</b>
-          <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span data-mk-src>set by people on the offer board</span></span>
-        </a>
         <div class="hero-ctas">
           <a class="btn btn-primary" href="/download.html">Get the wallet</a>
           <a class="btn" href="/mining.html">Start mining</a>
         </div>
+        <form class="glass hero-search" action="/explorer.html" method="get" role="search" aria-label="Search the chain">
+          <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+          <input name="q" type="search" placeholder="Block, transaction or nullifier hash, address, or payment proof" aria-label="Block height, hash, transaction id, address or payment proof" autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary" type="submit">Search</button>
+        </form>
 
         <div class="trust chip-scroll">
           <span class="chip">zk-STARK shielded</span><span class="chip">ML-KEM-1024 · FIPS 203</span><span class="chip">Fair launch · 21M cap</span>
         </div>
       </div>
-      <div style="position:relative">
+      <div class="hero-right">
+        <a class="glass hero-price" href="/market.html" aria-label="GNR price: open the market">
+          <span class="hp-top"><span class="hp-coins" aria-hidden="true"><svg class="coin"><use href="#c-gnr"/></svg><svg class="coin"><use href="#c-btc"/></svg></span><span class="eyebrow-s">GNR price</span><span class="hp-live"><span class="dot live ok"></span>live</span></span>
+          <b data-mk-usd>—</b>
+          <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span data-mk-src>set by people on the offer board</span></span>
+          <span class="hp-break">
+            <span><em>Market</em><b data-ix-market>—</b></span>
+            <span><em>Cost to mine</em><b data-ix-floor>—</b></span>
+            <span><em>Market depth</em><b data-ix-conf>—</b></span>
+          </span>
+          <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
+        </a>
+      <div class="hero-stage" id="heroStage">
+        <div class="coin3d" aria-hidden="true"><i style="--z:-5px"></i><i style="--z:-3px"></i><i style="--z:-1px"></i><i style="--z:1px"></i><i style="--z:3px"></i><i style="--z:5px"></i><div class="c3-face c3-front"><svg><use href="#c-gnr"/></svg></div><div class="c3-face c3-back"><svg><use href="#c-gnr"/></svg></div></div>
         <figure class="mockup glass" style="margin:0">
           <img src="/assets/shots/wallet-720.webp" srcset="/assets/shots/wallet-720.webp 720w, /assets/shots/wallet-1440.webp 1440w" sizes="(max-width: 980px) 94vw, 560px" width="1440" height="923" alt="The Genoryn Krypton desktop wallet overview: network hashrate, estimated miners, block height, mining share, accruing rewards and live charts" fetchpriority="low">
         </figure>
         <div class="floaty float f1 drift"><span class="muted">Block reward</span><b>5.00000000 GNR</b></div>
         <div class="floaty float f2 drift slow"><span class="muted">Spend proof</span><b>zk-STARK · 92 KB</b></div>
+        <div class="floaty float f3 drift"><span class="muted">Swap</span><b><svg class="coin"><use href="#c-btc"/></svg> ⇄ <svg class="coin"><use href="#c-gnr"/></svg> atomic</b></div>
+      </div>
       </div>
     </div>
   </section>
@@ -61,7 +76,7 @@
       </div>
       <div class="glass value-strip reveal">
         <div class="vs-main"><span class="eyebrow-s">Cost to mine · reference</span><b><span data-cost>—</span><small>per GNR</small></b></div>
-        <p class="vs-note">Electricity the whole network spends per GNR at today's hashrate, at <span data-cost-kwh>$0.15</span> per kWh. It rises as more miners join. <b>It is not the price</b>: the price is what people pay on the offer board, shown above.</p>
+        <p class="vs-note">Electricity the whole network spends per GNR at today's hashrate, at <span data-cost-kwh>$0.15</span> per kWh. It rises as more miners join. The <b>GNR price</b> above is what people pay on the offer board, with this cost as its floor: miners rarely sell below what a coin costs to make, so only a deep market can price GNR under it.</p>
         <a class="btn" href="/market.html">Open the market</a>
       </div>
       <div class="glass card net-teaser reveal tilt-card" id="homeNet">

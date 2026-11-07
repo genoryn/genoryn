@@ -190,6 +190,13 @@
   }
   window.addEventListener("hashchange", route);
   stats(); route();
+  // Searches from the home page arrive as /explorer.html?q=…
+  var q0 = new URLSearchParams(location.search).get("q");
+  if (q0 && document.getElementById("q")) {
+    document.getElementById("q").value = q0.slice(0, 2000);
+    history.replaceState(null, "", location.pathname + location.hash);
+    window.exSearch({ preventDefault: function () {} });
+  }
   setInterval(function () { if (!document.hidden) { stats(); if (!location.hash || location.hash === "#/") home(); } }, 20000);
   setInterval(function () { if (!document.hidden && dash) dash.reload(); }, 60000);
 })();

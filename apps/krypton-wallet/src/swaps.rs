@@ -367,6 +367,29 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
     crate::board::tick(a, &mut e);
 }
 
+/// Between regular rounds: only the board mailboxes, so a take is answered within seconds.
+pub fn quick(a: &App, w: &mut Wallet, src: &Multi) {
+    if !crate::board::quick_work(w) || inactive(a, Some(w)).is_some() {
+        return;
+    }
+    let Ok(backend) = btc::connect(&backend_spec(a)) else {
+        return;
+    };
+    let net = btc_network(a);
+    let blocks = |h: u64| -> Result<Vec<krypton_core::types::Transaction>> {
+        Ok(src.first()?.raw_block(h)?.txs)
+    };
+    let mut e = Engine {
+        wallet: w,
+        gnr: src,
+        btc: backend.as_ref(),
+        btc_network: net,
+        timing: Timing::for_network(net),
+        block_txs: &blocks,
+    };
+    crate::board::tick(a, &mut e);
+}
+
 pub fn active_count(w: &Wallet) -> usize {
     engine::load(w)
         .iter()

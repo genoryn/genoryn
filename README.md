@@ -187,6 +187,13 @@ stays open for 24 hours, then locks itself and asks for its password again; lock
 stops the miner. Removing a wallet only moves its file to a `removed` folder, and its
 24 words bring it back at any time.
 
+**The wallet file cannot be opened without its password**, on any computer: the key comes from
+the password through Argon2id (256 MiB of memory, 3 passes) and the file is sealed with
+XChaCha20-Poly1305, so a changed byte is detected and refused. The only attack on a copied
+file is guessing the password, and every guess costs a quarter of a gigabyte and about a
+second. The wallet therefore asks for a strong password (a meter shows its strength), warns
+about weak ones, and can change a password under **Security**.
+
 ## No full node required
 
 A wallet should not need hundreds of gigabytes to show a balance. Genoryn Krypton
@@ -261,9 +268,17 @@ They are tested end to end between two wallets and a Bitcoin Core node. The Swap
 **offer board** lets anyone publish an offer at their own price or take someone else's. The
 two wallets then pass the swap codes to each other through sealed mailboxes on the board.
 
-**Market price:** the wallet and genoryn.io show the volume-weighted median of the swaps
-completed in the last 24 hours. Until swaps exist, they show the cost to mine one GNR
-instead, and say so.
+Taking an **online** offer starts the swap within seconds, with no approval: the maker's
+wallet answers by itself, and the GNR of an open sell offer is reserved in the maker's wallet
+so it is always there.
+
+**Price:** the board's market price is a robust median of completed swaps (×3), swaps in
+progress (×2) and online offers (×1), weighted by GNR, fading by half every 12 hours, with
+prices more than 4× off left out. The **GNR price** shown by the wallet and genoryn.io is that
+market price with the cost to mine one GNR at today's hashrate as its floor: above the cost
+the market alone decides; below it, `price = depth × market + (1 − depth) × cost to mine`, so
+only a deep market can price GNR under what it costs to make. More miners make every GNR
+costlier to produce, and the floor rises with them.
 
 **Activation:** lock spends activate on mainnet at **block 3,300**. This is a hard fork
 announced with 1.0.13, so update your wallet and node before then. See

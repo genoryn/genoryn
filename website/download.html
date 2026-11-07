@@ -17,10 +17,37 @@
 <main id="top" class="wrap">
   <div class="page-head"><span class="eyebrow">Releases</span><h1 class="h2 glow">Download Genoryn Krypton</h1>
     <p class="lead">One package contains the wallet (<code>krypton-wallet</code>), the full node (<code>kryptond</code>), the miner (<code>krypton-miner</code>) and the command-line wallet.</p></div>
-  <div class="plans" style="margin-bottom:30px">
-    <article class="glass plan rec"><span class="pill">Recommended</span><h3>Windows</h3><p class="muted">Windows 10 and 11, x64. Animated installer, desktop and Start-menu shortcuts, own app window. GPU mining via CUDA and OpenCL.</p><ul><li>No administrator rights needed</li><li>Uninstall from Windows Settings</li><li>Your wallets are never touched by updates</li></ul><a class="btn btn-primary" href="https://github.com/genoryn/genoryn/releases/latest/download/GenorynKrypton-1.0.19-Windows-x64-Setup.exe">Download installer (.exe)</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.19-windows-x64-portable.zip">Portable .zip</a></article>
-    <article class="glass plan"><h3>Linux</h3><p class="muted">x86-64, Ubuntu 24.04 / Debian 13 or newer (glibc 2.39+). Ideal for servers and nodes.</p><ul><li><code>sudo apt install ./genoryn-krypton_1.0.19_amd64.deb</code></li><li>Desktop entry and systemd units included</li></ul><a class="btn" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton_1.0.19_amd64.deb">Download .deb</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.19-linux-x64.tar.gz">Download .tar.gz</a></article>
-    <article class="glass plan"><h3>From source</h3><p class="muted">Rust 1.88+. Reproducible and auditable.</p><ul><li><code>cargo build --release</code></li><li>All releases: GitHub</li></ul><a class="btn" href="https://github.com/genoryn/genoryn">Source code</a><a class="btn" style="margin-top:10px" href="https://github.com/genoryn/genoryn/releases">All releases</a></article>
+  <div class="platforms">
+    <article class="glass platform rec reveal tilt-card"><span class="pill ok">Recommended</span>
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5.6 10.4 4.5v7H3Zm8.6-1.3L21 3v8.5h-9.4ZM3 12.5h7.4v7L3 18.4Zm8.6 0H21V21l-9.4-1.3Z"/></svg></div>
+      <h3>Windows</h3><p class="muted">Windows 10 and 11, x64. Animated installer, desktop and Start-menu shortcuts, its own app window. GPU mining via CUDA and OpenCL.</p>
+      <ul><li>No administrator rights needed</li><li>Signed updates install from inside the app</li><li>Your wallets are never touched by updates</li></ul>
+      <a class="btn btn-primary" href="https://github.com/genoryn/genoryn/releases/latest/download/GenorynKrypton-1.0.20-Windows-x64-Setup.exe">Download installer (.exe)</a><a class="btn" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.20-windows-x64-portable.zip">Portable .zip</a></article>
+    <article class="glass platform reveal tilt-card">
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2c-2.2 0-3.6 1.9-3.6 4.4 0 1.3.3 2.2-.4 3.6C6.7 12.3 5 14.4 5 17c0 1 .3 1.8.8 2.4-.6.4-1.3 1-1.3 1.6 0 .8 1.4 1 3 1h9c1.6 0 3-.2 3-1 0-.6-.7-1.2-1.3-1.6.5-.6.8-1.4.8-2.4 0-2.6-1.7-4.7-3-7-.7-1.4-.4-2.3-.4-3.6C15.6 3.9 14.2 2 12 2Zm0 8.6c-2 0-3.4 2.4-3.4 5.1S10 20 12 20s3.4-1.6 3.4-4.3-1.4-5.1-3.4-5.1ZM10.5 5.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6Zm3 0a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6Z"/></svg></div>
+      <h3>Linux</h3><p class="muted">x86-64, Ubuntu 24.04 / Debian 13 or newer (glibc 2.39+). Ideal for servers, nodes and mining rigs.</p>
+      <ul><li><code>sudo apt install ./genoryn-krypton_1.0.20_amd64.deb</code></li><li>Desktop entry and systemd units included</li></ul>
+      <a class="btn" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton_1.0.20_amd64.deb">Download .deb</a><a class="btn" href="https://github.com/genoryn/genoryn/releases/latest/download/genoryn-krypton-1.0.20-linux-x64.tar.gz">Download .tar.gz</a></article>
+    <article class="glass platform reveal tilt-card">
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8.6 7.2 3.8 12l4.8 4.8 1.4-1.4L6.6 12 10 8.6Zm6.8 0L14 8.6l3.4 3.4-3.4 3.4 1.4 1.4 4.8-4.8Z"/></svg></div>
+      <h3>From source</h3><p class="muted">Rust 1.88+. Reproducible and auditable: every release is built from this code.</p>
+      <ul><li><code>cargo build --release</code></li><li>Signed checksums for every release</li></ul>
+      <a class="btn" href="https://github.com/genoryn/genoryn">Source code</a><a class="btn" href="https://github.com/genoryn/genoryn/releases">All releases</a></article>
+  </div>
+  <div class="soon-head"><h2>Coming soon</h2><span class="muted">The same light wallet: verified sync, private sends, atomic swaps.</span></div>
+  <div class="platforms" style="margin-bottom:34px">
+    <article class="glass soon reveal tilt-card"><span class="pill">Coming soon</span>
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M7.2 9h9.6v8.2a1 1 0 0 1-1 1H15v2.3a1.2 1.2 0 0 1-2.4 0v-2.3h-1.2v2.3a1.2 1.2 0 0 1-2.4 0v-2.3H8.2a1 1 0 0 1-1-1ZM5.2 9a1.2 1.2 0 0 1 1.2 1.2v4.6a1.2 1.2 0 0 1-2.4 0v-4.6A1.2 1.2 0 0 1 5.2 9Zm13.6 0a1.2 1.2 0 0 1 1.2 1.2v4.6a1.2 1.2 0 0 1-2.4 0v-4.6A1.2 1.2 0 0 1 18.8 9ZM7.3 8a4.8 4.8 0 0 1 2.4-3.6l-.9-1.6.5-.3.9 1.6a5.6 5.6 0 0 1 3.6 0l.9-1.6.5.3-.9 1.6A4.8 4.8 0 0 1 16.7 8Zm2.7-2.1a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Zm4 0a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Z"/></svg></div>
+      <h3>Android</h3><p>A light wallet for your phone: keys stay on the device, the chain is verified with proofs, payments are shielded.</p>
+      <div class="soon-bar"><i><s></s></i><span>In development</span></div></article>
+    <article class="glass soon reveal tilt-card"><span class="pill">Coming soon</span>
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M8 1.8h8A2.2 2.2 0 0 1 18.2 4v16a2.2 2.2 0 0 1-2.2 2.2H8A2.2 2.2 0 0 1 5.8 20V4A2.2 2.2 0 0 1 8 1.8Zm0 1.8a.4.4 0 0 0-.4.4v16c0 .2.2.4.4.4h8c.2 0 .4-.2.4-.4V4a.4.4 0 0 0-.4-.4h-1.6a1 1 0 0 1-1 .9h-2.8a1 1 0 0 1-1-.9Zm2.6 15h2.8v1.1h-2.8Z"/></svg></div>
+      <h3>iOS</h3><p>Genoryn Krypton for iPhone: the same post-quantum wallet with verified light sync, private by default.</p>
+      <div class="soon-bar"><i><s></s></i><span>In development</span></div></article>
+    <article class="glass soon reveal tilt-card"><span class="pill">Coming soon</span>
+      <div class="plat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.8ZM14.1 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.6-1.3Z"/></svg></div>
+      <h3>macOS</h3><p>The full desktop app for Apple silicon and Intel Macs: wallet, node, miner and the swap board in one window.</p>
+      <div class="soon-bar"><i><s></s></i><span>In development</span></div></article>
   </div>
   <div class="prose">
     <h2 id="verify">Verify what you download</h2>
@@ -36,6 +63,7 @@ krypton-release verify release-key.pub SHA256SUMS SHA256SUMS.sig   # post-quantu
 </main>
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/charts.js" defer></script>
 <script src="/site.js" defer></script>
 </body>
 </html>

@@ -25,6 +25,10 @@ const MAX_TRADES: usize = 20_000;
 const TRADE_KEEP_SECS: u64 = 30 * 24 * 3600;
 /// A swap in progress is shown at most this long (the longest timelocks end before).
 const PENDING_SECS: u64 = 48 * 3600;
+/// A maker seen this recently is "online" (its wallet answers takes within seconds).
+const ONLINE_SECS: u64 = 120;
+/// Offers of makers not seen for this long stop counting for the price.
+const PRICED_SECS: u64 = 600;
 
 #[derive(Default)]
 struct Inner {
@@ -32,6 +36,9 @@ struct Inner {
     /// Offers taken whose swaps are in progress (shown and priced, no longer takeable),
     /// with when they were taken.
     pending: HashMap<String, (Offer, u64)>,
+    /// When each offer's maker was last online (posted or pinged). Only offers whose maker
+    /// is online can be taken at once, so only they count for the price.
+    seen: HashMap<String, u64>,
     inbox: HashMap<String, VecDeque<(u64, String)>>,
     messages: usize,
     trades: Vec<(Trade, u64)>,
@@ -67,6 +74,8 @@ impl Board {
     fn expire(i: &mut Inner, t: u64) {
         i.offers.retain(|_, o| o.expires > t);
         i.pending.retain(|_, (_, at)| *at + PENDING_SECS > t);
+        let ids: std::collections::HashSet<String> = i.offers.keys().cloned().collect();
+        i.seen.retain(|id, _| ids.contains(id));
         let mut n = 0;
         i.inbox.retain(|_, q| {
             q.retain(|(at, _)| at + MESSAGE_SECS > t);
@@ -181,8 +190,19 @@ pub async fn offers(State(node): S) -> Response {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     Board::expire(&mut i, now());
-    let mut v: Vec<&Offer> = i.offers.values().collect();
-    v.sort_by(|a, b| a.price().total_cmp(&b.price()));
+    let t = now();
+    let mut list: Vec<&Offer> = i.offers.values().collect();
+    list.sort_by(|a, b| a.price().total_cmp(&b.price()));
+    let v: Vec<Value> = list
+        .into_iter()
+        .map(|o| {
+            let mut x = serde_json::to_value(o).unwrap_or_default();
+            let seen = i.seen.get(&o.id).copied().unwrap_or(0);
+            x["online"] = json!(seen + ONLINE_SECS > t);
+            x["seen"] = json!(seen);
+            x
+        })
+        .collect();
     let mut p: Vec<Value> = i
         .pending
         .values()
@@ -244,9 +264,49 @@ pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
     if i.offers.contains_key(&o.id) {
         return bad("an offer with this id exists");
     }
+    i.seen.insert(o.id.clone(), now());
     i.offers.insert(o.id.clone(), o);
     node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
+}
+
+#[derive(Deserialize)]
+pub struct PingItem {
+    id: String,
+    secret: String,
+}
+
+#[derive(Deserialize)]
+pub struct PingReq {
+    items: Vec<PingItem>,
+}
+
+/// The maker's wallet says it is online, for all its open offers at once (each proven
+/// with its cancel secret).
+pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
+    if r.items.len() > 500 {
+        return bad("too many offers in one ping");
+    }
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let t = now();
+    let mut ok = 0;
+    for it in r.items {
+        let Some(secret) = hex::decode(&it.secret)
+            .ok()
+            .and_then(|b| <[u8; 32]>::try_from(b).ok())
+        else {
+            continue;
+        };
+        if i.offers
+            .get(&it.id)
+            .is_some_and(|o| o.cancel == board::cancel_hash(&secret))
+        {
+            i.seen.insert(it.id, t);
+            ok += 1;
+        }
+    }
+    Json(json!({"ok": true, "online": ok})).into_response()
 }
 
 #[derive(Deserialize)]
@@ -358,8 +418,14 @@ pub async fn market(State(node): S) -> Response {
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
-    let offers: Vec<Offer> = i.offers.values().cloned().collect();
-    let pending: Vec<Offer> = i.pending.values().map(|x| x.0.clone()).collect();
+    // Only offers that can be taken now count: their maker was online in the last minutes.
+    let offers: Vec<Offer> = i
+        .offers
+        .values()
+        .filter(|o| i.seen.get(&o.id).is_some_and(|s| s + PRICED_SECS > t))
+        .cloned()
+        .collect();
+    let pending: Vec<(Offer, u64)> = i.pending.values().cloned().collect();
     let m = board::market(&i.trades, &offers, &pending, t);
     let recent: Vec<_> = i
         .trades

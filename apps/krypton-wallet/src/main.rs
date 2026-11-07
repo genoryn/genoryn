@@ -459,6 +459,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "balance": wv["balance"],
             "swaps_open": wv["swaps_open"],
             "swap_locked": wv["swap_locked"],
+            "reserved": wv["reserved"],
             "market": board::cached_market(),
             "synced_height": wv["synced_height"],
             "history": wv["history"],
@@ -506,6 +507,7 @@ fn wallet_view(w: &Wallet) -> Value {
         "balance": w.balance(),
         "swaps_open": swaps::active_count(w),
         "swap_locked": w.locked_balance(),
+        "reserved": board::reserved(w),
         "synced_height": w.synced_height(),
         "history": history,
     })
@@ -580,16 +582,17 @@ async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
     let a = app.clone();
     match blocking(move || {
         let w = Wallet::open(&a.wallet_path(), &r.password)?;
+        let weak = !krypton_wallet_core::password::strength(&r.password).ok;
         let id = a.vault.active_id();
         vault::remember_fp(&a, &id, &w);
         a.vault.note(&id, &w);
         a.vault.unlocked.lock().insert(id, vault::Since::now());
         *a.wallet.lock() = Some(w);
-        Ok(())
+        Ok(weak)
     })
     .await
     {
-        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Ok(weak) => Json(json!({"ok": true, "weak_password": weak})).into_response(),
         Err(e) => err(e),
     }
 }
@@ -776,6 +779,14 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
         };
         let mut guard = a.wallet.lock();
         let w = guard.as_mut().context("wallet locked")?;
+        let held = board::reserved(w);
+        anyhow::ensure!(
+            held == 0 || board::available(w) >= amount.saturating_add(fee),
+            "{} GNR of this wallet is reserved for your open sell offers, so a buyer can take them at once. \
+             Send at most {} GNR, or cancel an offer in the Swap tab first.",
+            krypton_core::emission::format_amount(held),
+            krypton_core::emission::format_amount(board::available(w).saturating_sub(fee))
+        );
         *a.busy.lock() = "Proving a zero-knowledge transfer...".into();
         let busy = &a.busy;
         let res = w.send_auto(
@@ -1669,11 +1680,30 @@ async fn serve(
     });
 
     // Background sync while unlocked.
+    // Every 5 s a quick look at the swap board's mailboxes (a buyer taking an offer gets
+    // an answer within seconds), every 15 s the full round.
     let bg = app.clone();
     tokio::spawn(async move {
+        let mut round: u64 = 0;
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            round += 1;
             let a = bg.clone();
+            if !round.is_multiple_of(3) {
+                let _ = tokio::task::spawn_blocking(move || {
+                    let Ok(sources) = a.sources() else { return };
+                    let src = Multi(sources);
+                    if let Some(mut g) = a.wallet.try_lock()
+                        && let Some(w) = g.as_mut()
+                    {
+                        swaps::quick(&a, w, &src);
+                        snapshot(w);
+                    }
+                    vault::quick_others(&a, &src);
+                })
+                .await;
+                continue;
+            }
             let _ = tokio::task::spawn_blocking(move || {
                 vault::expire(&a);
                 let Ok(sources) = a.sources() else { return };
@@ -1736,6 +1766,8 @@ async fn serve(
         .route("/api/wallets/use", post(vault::use_wallet))
         .route("/api/wallets/rename", post(vault::rename))
         .route("/api/wallets/remove", post(vault::remove))
+        .route("/api/wallets/password", post(vault::change_password))
+        .route("/api/password/strength", post(vault::password_strength))
         .route("/api/lock", post(lock))
         .route("/api/reveal", post(reveal))
         .route("/api/send", post(send))

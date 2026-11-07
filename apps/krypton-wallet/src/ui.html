@@ -261,6 +261,43 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 @keyframes numBump{0%{text-shadow:0 0 0 transparent}30%{text-shadow:0 0 18px color-mix(in srgb,var(--text-primary) 55%,transparent)}100%{text-shadow:0 0 0 transparent}}
 .tot-badge b{font-family:var(--font-mono);font-weight:600}.tot-badge .muted{margin-left:4px}
 @media (prefers-reduced-motion:reduce){.tab-in,.swc,.num-bump,.mk-dot{animation:none}.bd-depth,.swc-steps i{transition:none}}
+.coin{width:1em;height:1em;flex:none;display:inline-block;vertical-align:-.14em;fill:none;stroke:none;color:inherit}
+.big .coin{width:.74em;height:.74em;margin-right:.2em;vertical-align:-.02em;filter:drop-shadow(0 0 14px color-mix(in srgb,var(--text-primary) 22%,transparent))}
+.coin-sm{width:13px;height:13px;margin-right:5px;vertical-align:-2px;opacity:.88}
+.coin-kpi{width:.8em;height:.8em;margin-right:.25em;vertical-align:-.06em}
+.tot-badge .coin{width:14px;height:14px;margin-right:6px;vertical-align:-3px}
+.unit-in span{display:inline-flex;align-items:center}
+.swc-pair{display:inline-flex;align-items:center}.swc-pair .coin{width:22px;height:22px;border-radius:50%;background:var(--bg-solid);box-shadow:0 0 0 2px var(--bg-solid)}.swc-pair .coin+.coin{margin-left:-7px}
+.mk-pair{display:inline-flex;margin-right:8px;vertical-align:-4px}.mk-pair .coin{width:18px;height:18px;border-radius:50%;background:var(--bg-solid);box-shadow:0 0 0 2px var(--bg-solid)}.mk-pair .coin+.coin{margin-left:-6px}
+.mk-conf{margin-top:10px;display:grid;gap:5px;font-size:12px;color:var(--text-secondary)}.mk-price .mk-conf b{display:inline;font:600 12px var(--font-sans);letter-spacing:0;margin:0;color:var(--text-primary)}
+.bd-table td.p .bd-live{display:inline-block;margin-top:0}
+.mn-kpi em{white-space:normal!important;line-height:1.35}
+.mk-conf i{display:block;height:5px;border-radius:99px;background:var(--bg-inset);overflow:hidden}.mk-conf s{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--text-primary) 45%,transparent),var(--text-primary));transition:width .6s var(--ease)}
+.mk-conf .muted{font-size:11.5px;color:var(--text-tertiary);line-height:1.4}
+.bd-live{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--status-success);box-shadow:0 0 0 3px color-mix(in srgb,var(--status-success) 18%,transparent)}
+.bd-live.off{background:var(--text-tertiary);box-shadow:none}
+.bd-table tr.bd-off td{opacity:.48}
+.mn-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px;perspective:1000px}
+.mn-kpi{position:relative;padding:16px 18px 14px;border-radius:var(--radius-lg);display:flex;flex-direction:column;gap:5px;min-width:0;overflow:hidden;transform-style:preserve-3d}
+.mn-kpi::after{content:"";position:absolute;inset:auto -30% -60% auto;width:70%;height:90%;background:radial-gradient(closest-side,color-mix(in srgb,var(--text-primary) 9%,transparent),transparent);pointer-events:none}
+.mn-l{font-size:12px;color:var(--text-tertiary);display:flex;align-items:center;gap:7px}
+.mn-kpi b{font:700 24px/1.15 var(--font-display);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn-kpi em{font-style:normal;font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn-dot{width:8px;height:8px;border-radius:50%;background:var(--text-tertiary)}.mn-dot.on{background:var(--status-success);animation:mkPulse 2.4s ease-out infinite}
+.mn-ringrow{display:flex;align-items:center;gap:12px;min-width:0}.mn-ringrow>div:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}
+.mn-ring{--p:0;flex:none;width:52px;height:52px;border-radius:50%;background:conic-gradient(var(--text-primary) calc(var(--p)*1%),var(--bg-inset) 0);display:grid;place-items:center;transform:rotateX(18deg);box-shadow:0 8px 18px -8px rgba(0,0,0,.6)}
+.mn-ring i{width:38px;height:38px;border-radius:50%;background:var(--bg-solid)}
+.mn-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:14px;margin-bottom:16px}
+.mn-blocks{margin-top:16px}.mn-blocks .gk-card-head{margin-bottom:4px}.mn-bf button{font-size:12px}
+.btable tr.you td{background:color-mix(in srgb,var(--text-primary) 6%,transparent)}
+@media (max-width:1300px){.mn-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.mn-grid{grid-template-columns:1fr 1fr}.mn-wide{grid-column:1/-1}}
+@media (max-width:760px){.mn-kpis{grid-template-columns:1fr 1fr}.mn-grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.mn-dot.on{animation:none}.mn-ring{transform:none}}
+.pw-meter{margin:6px 0 2px;display:grid;gap:5px}.pw-meter i{display:block;height:4px;border-radius:99px;background:var(--bg-inset);overflow:hidden}
+.pw-meter s{display:block;height:100%;width:0;border-radius:inherit;background:var(--text-tertiary);transition:width .35s var(--ease),background .35s}
+.pw-meter span{font-size:12px;color:var(--text-tertiary);min-height:15px}
+.pw-meter.weak s{background:var(--status-error)}.pw-meter.weak span{color:var(--status-error)}
+.pw-meter.ok s{background:var(--status-warning)}.pw-meter.great s{background:var(--status-success)}
 </style>
 </head>
 <body>
@@ -287,7 +324,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <div class="brand"><img src="/assets/genoryn-mark-dark.svg" alt="Genoryn"><h1>Genoryn Krypton <small>wallet</small></h1></div>
   <span id="net" class="badge"></span>
   <button id="wChip" class="badge chip-btn hidden" aria-haspopup="dialog" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
-  <span id="totBadge" class="badge tot-badge hidden" title="All wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>Σ&nbsp;<b id="totGnr">-</b>&nbsp;GNR<span id="totUsd" class="muted"></span></span>
+  <span id="totBadge" class="badge tot-badge hidden" title="All wallets"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>Σ&nbsp;<b id="totGnr">-</b>&nbsp;GNR<span id="totUsd" class="muted"></span></span>
   <span class="spacer"></span>
   <span id="netBadge" class="badge net-badge hidden" title="Estimated miners (payout addresses active in ~6 h) · network hashrate"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
@@ -308,12 +345,12 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <p class="muted" id="onbText">A quantum-resistant, private wallet. Your keys never leave this computer; balances are verified locally, no full node required.</p>
       <label for="newName">Wallet name</label><input id="newName" maxlength="40" value="Main wallet">
       <div id="createBox">
-        <label for="newPass">Choose a password for this wallet (12+ characters)</label><input id="newPass" type="password" autocomplete="new-password">
+        <label for="newPass">Choose a password for this wallet (12+ characters)</label><input id="newPass" type="password" autocomplete="new-password"><div class="pw-meter" data-for="newPass"><i><s></s></i><span></span></div>
         <div class="row-flex"><button class="btn btn-primary" onclick="createWallet()">Create new wallet</button><button class="btn" onclick="show('restoreBox');hide('createBox')">Restore from recovery phrase</button></div>
       </div>
       <div id="restoreBox" class="hidden">
         <label for="restoreWords">Recovery phrase: 24 words with their numbers (e.g. <code>orbit-42</code>); older 24-word phrases work too</label><textarea id="restoreWords"></textarea>
-        <label for="restorePass">Password</label><input id="restorePass" type="password" autocomplete="new-password">
+        <label for="restorePass">Password</label><input id="restorePass" type="password" autocomplete="new-password"><div class="pw-meter" data-for="restorePass"><i><s></s></i><span></span></div>
         <label for="restoreBirthday">Scan from block (0 = full history)</label><input id="restoreBirthday" type="number" value="0">
         <div class="row-flex"><button class="btn btn-primary" onclick="restoreWallet()">Restore</button><button class="btn" onclick="hide('restoreBox');show('createBox')">Back</button></div>
       </div>
@@ -376,7 +413,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
         <div class="add-grid">
           <div><label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings"></div>
-          <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"></div>
+          <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"><div class="pw-meter" data-for="addPass"><i><s></s></i><span></span></div></div>
         </div>
         <div id="addRestore" class="hidden">
           <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
@@ -396,12 +433,13 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <div class="grid">
       <div class="glass card">
         <h2>Balance</h2>
-        <div class="big glow"><span id="bal" class="num">0</span> <small>GNR</small></div>
-        <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">estimated value · cost to mine, not a market price</span></div>
+        <div class="big glow"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><span id="bal" class="num">0</span> <small>GNR</small></div>
+        <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">GNR price index</span></div>
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
         <div class="row hidden" id="bLockRow">Locked in swaps<b id="bLock">0</b></div>
+        <div class="row hidden" id="bResRow" title="Held back so whoever takes your sell offers finds the GNR at once. Cancel an offer to free it.">Reserved for your sell offers<b id="bRes">0</b></div>
         <div class="row hidden" id="bIncRow">Incoming, not confirmed yet<b id="bInc">0</b></div>
         <p id="busy" class="warn"></p>
       </div>
@@ -489,9 +527,10 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <div class="glass card swap-off hidden" id="swOff"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><div><b>Atomic swaps are coming</b><p class="muted" id="swOffWhy"></p></div></div>
       <section class="glass card mk-hero">
         <div class="mk-price">
-          <span class="eyebrow-s"><span class="mk-dot"></span>GNR market price</span>
+          <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
           <b id="bdUsd">-</b>
           <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
+          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted). A thin market leans on the cost to mine one GNR."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
         </div>
         <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
         <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
@@ -514,19 +553,19 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             </div>
           </div>
           <div class="bd-tablewrap">
-            <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
+            <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
-          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking one starts a swap, and the two wallets pass the codes through the board themselves, sealed so the board cannot read them. <b>Market price</b>: the median of the swaps of the last 24 hours. Before the first swap, it is the median of the open offers. People set it.</p>
+          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median of everything people do, weighted by GNR: completed swaps ×3, swaps in progress ×2, online offers ×1, older data fading by half every 12 hours, absurd prices (4× off) left out. <b>GNR price</b> is the market price with the cost to mine one GNR as its floor: it rises with the hashrate, and only a deep market can price GNR below it.</p>
         </section>
         <aside class="bd-side">
           <section class="glass card bd-trade">
             <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
             <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
             <label for="bdGnr">Amount</label>
-            <div class="unit-in"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span>GNR</span></div>
+            <div class="unit-in"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
             <label for="bdBtc">For</label>
-            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span>BTC</span></div>
+            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
             <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
             <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
             <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
@@ -575,7 +614,20 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         </div>
       </details>
     </div>
-    <div id="tab-mining" class="grid hidden">
+    <div id="tab-mining" class="hidden">
+      <div class="mn-kpis">
+        <div class="glass mn-kpi mn-tilt"><span class="mn-l"><span class="mn-dot" id="mnDot"></span>Your hashrate</span><b id="mnRate">-</b><em id="mnRateSub">miner stopped</em><div class="ov-spark" id="mnSpark"></div></div>
+        <div class="glass mn-kpi mn-tilt"><span class="mn-l">Share of the network</span><div class="mn-ringrow"><div class="mn-ring" id="mnRing" style="--p:0"><i></i></div><div><b id="mnShare">-</b><em id="mnShareSub">&nbsp;</em></div></div></div>
+        <div class="glass mn-kpi mn-tilt"><span class="mn-l">Mined, last 7 days</span><b><svg class="coin coin-gnr coin-kpi"><use href="#c-gnr"/></svg><span id="mnWeek">-</span></b><em id="mnWeekSub">&nbsp;</em></div>
+        <div class="glass mn-kpi mn-tilt"><span class="mn-l">Accruing, next payout</span><b><svg class="coin coin-gnr coin-kpi"><use href="#c-gnr"/></svg><span id="mnAcc">-</span></b><em id="mnAccSub">&nbsp;</em><div class="ov-bar"><i id="mnAccBar"></i></div></div>
+        <div class="glass mn-kpi mn-tilt"><span class="mn-l">Blocks you found</span><b id="mnBlk">-</b><em id="mnBlkSub">&nbsp;</em></div>
+      </div>
+      <div class="mn-grid">
+        <div class="glass card mn-wide"><div class="gk-card-head"><h3>Your hashrate</h3><b id="mnRateNow">-</b></div><div id="mnRateChart"></div><p class="hero-note">Sampled by this wallet once a minute while it runs (kept on this computer only).</p></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Mining payouts</h3><b id="mnPayN">-</b></div><div id="mnPayChart"></div></div>
+        <div class="glass card"><div class="gk-card-head"><h3>Your shares, recent blocks</h3><b id="mnShN">-</b></div><div id="mnShareChart"></div></div>
+      </div>
+      <div class="grid">
       <div class="glass card">
         <h2>Mine GNR</h2>
         <p class="muted">Choose your hardware. GPUs are much faster (KryptoHash is memory-bandwidth bound); CPUs work too, e.g. on cloud servers.</p>
@@ -599,6 +651,14 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="row">Next payout<b id="rNext">-</b></div>
         <div class="row">Your shares, last <span id="rBlocks">60</span> blocks<b id="rRecent">-</b></div>
         <p class="hero-note">Every miner is paid in proportion to its work: each share (about <span id="shareRatio">32</span> per block network-wide) earns an equal slice of the reward pool, so 1 % of the hashrate earns about 1 % of all rewards. Earnings accrue and are paid as one note every <span id="pInt">360</span> blocks, spendable <span id="mat"></span> blocks later. Keep the miner online: shares only count once they reach the network.</p>
+      </div>
+      </div>
+      <div class="glass card mn-blocks">
+        <div class="gk-card-head"><h3>Latest blocks</h3><span class="seg mn-bf" id="mnBf" role="group" aria-label="Blocks"><button type="button" data-f="all" class="on">All</button><button type="button" data-f="mine">Found by you</button></span></div>
+        <div class="chain" id="mnChain"></div>
+        <table class="btable"><thead><tr><th>Block</th><th>Time</th><th>Shares</th><th>Txs</th><th>Reward</th><th>Found by</th></tr></thead><tbody id="mnRows"></tbody></table>
+        <div class="pager" id="mnPager"></div>
+        <p class="hero-note">Every block's reward is shared by all miners in proportion to their shares, so you earn from blocks others find too. Blocks marked <b>yours</b> were found by this wallet.</p>
       </div>
     </div>
     <div id="tab-network" class="hidden">
@@ -660,10 +720,29 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       </div>
     </div>
     </div>
-    <div id="tab-security" class="glass card hidden"><h2>Security</h2>
-      <p class="muted">Spend proofs: hash-based zk-STARKs (no elliptic curves). Note encryption: X25519 + ML-KEM-1024 (FIPS 203). Wallet file: Argon2id 256 MiB + XChaCha20-Poly1305.</p>
-      <label for="revealPass">Show recovery phrase (enter password)</label><input id="revealPass" type="password" autocomplete="current-password"><button class="btn" onclick="reveal()">Reveal</button>
-      <div id="revealWords" class="words"></div>
+    <div id="tab-security" class="hidden">
+    <div class="grid">
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Your wallet file</h2>
+        <p class="muted">The file is encrypted with your password: <b>without it, nobody can open it</b>, on this computer or any other, not even with the file in hand. There is no backdoor and no recovery service.</p>
+        <div class="row">Key from the password<b>Argon2id · 256 MiB · 3 passes</b></div>
+        <div class="row">Encryption<b>XChaCha20-Poly1305</b></div>
+        <div class="row">Tampering<b>detected, file refused</b></div>
+        <p class="hero-note">The only attack on a stolen file is guessing the password, and every guess costs a quarter of a gigabyte of memory and about a second. A strong password (the meter under a new password shows one) puts it out of reach of any computer, quantum ones included. Your 24 words restore the wallet without the file.</p>
+      </div>
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Change password</h2>
+        <p class="muted">For “<b id="cpName">this wallet</b>”. The file is re-encrypted with a new key at once.</p>
+        <label for="cpOld">Current password</label><input id="cpOld" type="password" autocomplete="current-password">
+        <label for="cpNew">New password</label><input id="cpNew" type="password" autocomplete="new-password">
+        <div class="pw-meter" data-for="cpNew"><i><s></s></i><span></span></div>
+        <label for="cpNew2">New password again</label><input id="cpNew2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePass()">
+        <button class="btn btn-primary" id="cpBtn" onclick="changePass()" style="margin-top:12px">Change password</button>
+      </div>
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-docs"/></svg>Recovery phrase</h2>
+        <p class="muted">Spend proofs: hash-based zk-STARKs (no elliptic curves). Note encryption: X25519 + ML-KEM-1024 (FIPS 203).</p>
+        <label for="revealPass">Show recovery phrase (enter password)</label><input id="revealPass" type="password" autocomplete="current-password"><button class="btn" onclick="reveal()">Reveal</button>
+        <div id="revealWords" class="words"></div>
+      </div>
+    </div>
     </div>
     <div id="tab-about" class="hidden">
       <div class="glass about-hero">
@@ -783,11 +862,16 @@ const VAL={ show:(()=>{ try{ return localStorage.getItem('gk-showval')!=='0'; }c
             src:(()=>{ try{ return localStorage.getItem('gk-valsrc')||'market'; }catch(e){ return 'market'; } })() };
 /* Market: median price of completed swaps (sat per GNR) × BTC/USD. */
 function marketPerGnr(){ const m=S.market&&S.market.market, usd=Number(S.market&&S.market.btc_usd); return m&&m.price&&usd>0 ? m.price*usd/1e8 : null; }
-/* The wallet values GNR at the market price only: what people pay on the offer board. */
-function perGnr(){ return marketPerGnr(); }
+/* The GNR price index (value.js): the board's market price, leaning on the cost to mine
+   one GNR at today's hashrate while the market is thin. */
+function priceIndex(){ const mk=(S.market&&S.market.market)||{}, tip=S.tip||{};
+  return window.GKValue&&GKValue.index({sat:mk.price, btcUsd:S.market&&S.market.btc_usd, conf:mk.confidence, hashrate:tip.hashrate, subsidy:tip.next_subsidy, kwh:VAL.kwh}); }
+function perGnr(){ const i=priceIndex(); return i&&i.market!=null?i.usd:null; }
 function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
-function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0);
-  return m.source==='swaps' ? `market price · median of ${m.trades} swap${m.trades===1?'':'s'}, last 24 h` : m.source==='pending' ? `market price · from ${m.pending} swap${m.pending===1?'':'s'} in progress and ${n} offer${n===1?'':'s'}` : `market price · from ${n} offer${n===1?'':'s'} on the board`; }
+const coin=(k,c)=>`<svg class="coin coin-${k}${c?' '+c:''}" aria-hidden="true"><use href="#c-${k}"/></svg>`;
+function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0), i=priceIndex();
+  const from=m.source==='swaps' ? `${m.trades} swap${m.trades===1?'':'s'} in 24 h, swaps in progress and offers` : m.source==='pending' ? `${m.pending} swap${m.pending===1?'':'s'} in progress and ${n} offer${n===1?'':'s'}` : `${n} offer${n===1?'':'s'} on the board`;
+  return 'GNR price · market of '+from+(i&&i.source==='floor'?' · held up by the cost to mine':''); }
 function renderValue(){
   const on=VAL.show && perGnr()!=null;
   $('bValL').textContent=marketLabel();
@@ -797,7 +881,8 @@ function renderValue(){
 function setShowVal(on){ VAL.show=on; try{ localStorage.setItem('gk-showval', on?'1':'0'); }catch(e){} renderValue(); }
 /* Shrinks a big number until it fits its card (long balances such as 1,022.05775374). */
 function fitBig(el){ if(!el) return; const box=el.parentElement; el.style.fontSize='';
-  const avail=box.clientWidth, w=el.scrollWidth; if(avail>0 && w>avail){ const fs=parseFloat(getComputedStyle(el).fontSize); el.style.fontSize=Math.max(18, Math.floor(fs*avail/w))+'px'; } }
+  const rest=[...box.children].filter(c=>c!==el).reduce((a,c)=>a+c.getBoundingClientRect().width+6,0);
+  const avail=box.clientWidth-rest, w=el.scrollWidth; if(avail>0 && w>avail){ const fs=parseFloat(getComputedStyle(el).fontSize); el.style.fontSize=Math.max(18, Math.floor(fs*avail/w))+'px'; } }
 window.addEventListener('resize', ()=>{ fitBig($('bal')); fitBig($('rUnpaid')); });
 /* The card can appear (or fonts arrive) after the number was set: refit then, so it never wraps. */
 if(window.ResizeObserver) new ResizeObserver(()=>fitBig($('bal'))).observe($('bal').parentElement);
@@ -915,7 +1000,7 @@ $('wQ').oninput=e=>{ WV.q=e.target.value.trim(); WV.page=0; renderWallets(); };
 $('wSort').onchange=e=>{ WV.sort=e.target.value; WV.page=0; renderWallets(); };
 document.querySelectorAll('#wFilter button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#wFilter button').forEach(x=>x.classList.toggle('on',x===b)); WV.f=b.dataset.f; WV.page=0; renderWallets(); });
 const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).find(w=>w.id===id) || {}).name || 'this wallet';
-async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast('“'+wname(id)+'” unlocked for 24 hours'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
+async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ const r=await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast('“'+wname(id)+'” unlocked for 24 hours'); weakWarn(r, '“'+wname(id)+'”'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
 async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function lockAll(){ if(!await ask({title:'Lock all wallets?', icon:'lock', ok:'Lock all', body:'<p class="mtext">Each wallet asks for its own password again. The miner keeps running.</p>'})) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function useWallet(id){
@@ -938,7 +1023,7 @@ async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass')
   const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
   try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
-async function unlock(){ try{ await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; refresh(); }catch(e){ toast(e.message,true) } }
+async function unlock(){ try{ const r=await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; await refresh(); weakWarn(r, (S.active&&S.active.name)?'“'+S.active.name+'”':''); }catch(e){ toast(e.message,true) } }
 const FEE={speed:'normal', opts:null, t:0};
 const gnrShort=v=>(Number(v||0)/1e8).toLocaleString(undefined,{maximumFractionDigits:8});
 async function loadFees(){ FEE.t=Date.now(); try{ FEE.opts=await api('/api/fees'); }catch(e){ return; }
@@ -1056,7 +1141,7 @@ async function loadHistory(){
   const s=r.sums||{};
   $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
   $('hsFees').textContent=Number(s.fees)?'· fees '+gnr(s.fees):''; $('hsCount').textContent=fmtN(r.all);
-  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="Block">${h.height!=null?fmtN(h.height):'<span class=warn>pending</span>'}</td><td data-label="Time" class="t">${fmtTime(h.time)}</td><td data-label="Type"><span class="ty ${h.kind}">${h.incoming?'Incoming · pending':KIND[h.kind]}</span></td><td data-label="Amount" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable?`<button class="btn" onclick="makeProof('${esc(h.txid)}')" title="${h.height==null?'Works now; it shows as pending until the next block':'Prove this payment'}">Proof</button>`:''}</td></tr>`).join('')
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="Block">${h.height!=null?fmtN(h.height):'<span class=warn>pending</span>'}</td><td data-label="Time" class="t">${fmtTime(h.time)}</td><td data-label="Type"><span class="ty ${h.kind}">${h.incoming?'Incoming · pending':KIND[h.kind]}</span></td><td data-label="Amount" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="Memo">${esc(h.memo)}</td><td data-label="To" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="Proof">${h.provable?`<button class="btn" onclick="makeProof('${esc(h.txid)}')" title="${h.height==null?'Works now; it shows as pending until the next block':'Prove this payment'}">Proof</button>`:''}</td></tr>`).join('')
     || `<tr><td colspan=7 class=muted>${r.all?'Nothing matches this filter.':'No transactions yet'}</td></tr>`;
   pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, r.total===1?'entry':'entries');
 }
@@ -1108,14 +1193,89 @@ function renderOvBlocks(){
 }
 async function minerStart(){ window.fxBusy=true; setTimeout(()=>window.fxBusy=false, 90000); try{ await api('/api/miner/start',{backend:$('backend').value, max_cpu:Number($('cpu').value)}); toast('Miner starting (the first run prepares a 2 GiB dataset)'); }catch(e){ toast(e.message,true) } refresh(); }
 async function devices(){ try{ $('devs').textContent = (await api('/api/devices')).devices; }catch(e){ toast(e.message,true) } }
+/* ---- Mining tab: live miner, payouts, blocks ---- */
+const MN={hist:[], pays:[], blocks:[], page:0, per:10, f:'all', t:0, ch:{}, tilted:false};
+try{ const h=JSON.parse(localStorage.getItem('gk-mhist')||'[]'); if(Array.isArray(h)) MN.hist=h.filter(p=>p&&isFinite(p.t)&&isFinite(p.v)); }catch(e){}
+function mnSample(){ const m=S.miner||{}, rw=S.rewards||{}, now=Math.floor(Date.now()/1000), last=MN.hist[MN.hist.length-1];
+  if(last&&now-last.t<60) return;
+  MN.hist.push({t:now, v:m.running?Number(m.hashrate||0):0, s:Number(rw.shares_recent||0)});
+  MN.hist=MN.hist.filter(p=>p.t>now-2*86400).slice(-2880);
+  try{ localStorage.setItem('gk-mhist', JSON.stringify(MN.hist)); }catch(e){} }
+async function loadMining(){ MN.t=Date.now();
+  const [h,bl]=await Promise.all([api('/api/history?offset=0&limit=100&kind=mining&q=').catch(()=>null), api('/api/blocks?count=100').catch(()=>null)]);
+  if(h) MN.pays=(h.items||[]).filter(x=>x.height!=null&&x.time); if(bl) MN.blocks=bl; renderMining(); }
+function mnChart(key, host, data, opts){ if(!window.GKCharts||!host) return; if(MN.ch[key]) MN.ch[key].update(data, opts); else MN.ch[key]=GKCharts.chart(host, data, opts); }
+function renderMining(){
+  if($('tab-mining').classList.contains('hidden')) return;
+  if(!MN.tilted&&window.GKCharts){ MN.tilted=true; GKCharts.tilt('.mn-tilt'); }
+  const m=S.miner||{}, rw=S.rewards||{}, tip=S.tip||{}, own=S.owner, run=!!m.running&&m.hashrate>0;
+  $('mnDot').classList.toggle('on', run);
+  $('mnRate').textContent=run?rate(m.hashrate):'-'; $('mnRateNow').textContent=run?rate(m.hashrate):'stopped';
+  $('mnRateSub').textContent=run?(m.device||m.backend||'mining')+' · '+fmtN(m.shares||0)+' shares this run':'miner stopped';
+  spark($('mnSpark'), MN.hist.slice(-90).map(p=>p.v));
+  const f=run?Number(m.network_fraction||0):0;
+  $('mnRing').style.setProperty('--p', Math.min(100, f*100).toFixed(2));
+  $('mnShare').textContent=run?(f*100).toFixed(f<0.01?3:f<0.1?2:1)+' %':'-';
+  $('mnShareSub').textContent=tip.hashrate?'of '+rate(tip.hashrate)+(run&&m.expected_per_day?' · ≈ '+Number(m.expected_per_day).toLocaleString(undefined,{maximumFractionDigits:2})+' GNR / day':''):' ';
+  const now=Date.now()/1000, wk=MN.pays.filter(p=>now-p.time<7*86400), wsum=wk.reduce((a,p)=>a+Number(p.amount||0),0), all=MN.pays.reduce((a,p)=>a+Number(p.amount||0),0);
+  const pv=perGnr(), g4=v=>(Number(v||0)/1e8).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:Number(v)>=1e11?2:4});
+  $('mnWeek').textContent=g4(wsum); $('mnWeekSub').textContent=wk.length+' payout'+(wk.length===1?'':'s')+(VAL.show&&pv!=null&&wsum?' · '+GKValue.approx(wsum/1e8*pv):'')+(all>wsum?' · '+g4(all)+' in all':'');
+  const iv=S.payout_interval||360, nx=rw.next_payout_height, h=tip.height||0;
+  $('mnAcc').textContent=g4(rw.unpaid||0); $('mnAcc').title=gnr(rw.unpaid||0)+' GNR'; $('mnWeek').title=gnr(wsum)+' GNR';
+  $('mnAccSub').textContent=nx?'paid at block '+fmtN(nx)+(h?' · in ~'+Math.max(0,nx-h)+' min':''):'with your next share';
+  $('mnAccBar').style.width=(nx&&h?Math.max(2,Math.min(100,100-((nx-h)/iv)*100)):0)+'%';
+  const bl=MN.blocks||[], mine=bl.filter(b=>own&&b.miner===own);
+  $('mnBlk').textContent=bl.length?fmtN(mine.length):'-';
+  $('mnBlkSub').textContent=bl.length?'of the last '+bl.length+(mine.length?' · last '+ago(mine[0].timestamp):''):' ';
+  const hist=MN.hist.slice(-1440), ck=hist.length+'|'+MN.pays.length+'|'+(rw.shares_recent||0);
+  if(ck!==MN.ck){ MN.ck=ck;
+  mnChart('rate', $('mnRateChart'), hist.map(p=>({t:p.t, v:p.v})), {kind:'area', fmt:GKCharts.fmtRate, label:'Your hashrate', height:170});
+  mnChart('shares', $('mnShareChart'), hist.map(p=>({t:p.t, v:p.s||0})), {kind:'line', fmt:v=>String(Math.round(v)), integer:true, label:'Your shares, last '+(rw.shares_recent_blocks||60)+' blocks', height:150});
+  $('mnShN').textContent=rw.shares_recent!=null?fmtN(rw.shares_recent):'-';
+  const pays=MN.pays.slice().reverse().map(p=>({t:p.time, v:Number(p.amount||0)/1e8, h:p.height}));
+  mnChart('pays', $('mnPayChart'), pays, {kind:'bars', fmt:v=>Number(v).toLocaleString(undefined,{maximumFractionDigits:4})+' GNR', label:'Mining payouts', height:150}); }
+  $('mnPayN').textContent=MN.pays.length?gnr(MN.pays[0].amount).replace(/0+$/,'').replace(/\.$/,'')+' last':'none yet';
+  renderMnBlocks();
+}
+function renderMnBlocks(){
+  const own=S.owner, bl=(MN.blocks||[]).filter(b=>MN.f==='all'||(own&&b.miner===own));
+  const maxS=Math.max(32,...bl.map(b=>b.shares||0));
+  $('mnChain').innerHTML=bl.slice(0,12).map(b=>{ const mine=own&&b.miner===own;
+    return `<div class="blk${mine?' mine':''}" title="${esc(b.hash)}">${mine?'<span class="tag">yours</span>':''}<b>#${fmtN(b.height)}</b><span>${ago(b.timestamp)}</span>
+      <div class="bm"><span>${fmtN(b.shares)} shares</span><span>${fmtN(b.txs)} tx</span></div><div class="bf"><i style="width:${Math.min(100,(b.shares/maxS)*100)}%"></i></div></div>`; }).join('')||'<p class="muted">No blocks found by this wallet among the latest ones yet. Your shares still earn part of every block.</p>';
+  const pages=Math.max(1,Math.ceil(bl.length/MN.per)); MN.page=Math.min(MN.page,pages-1);
+  $('mnRows').innerHTML=bl.slice(MN.page*MN.per,(MN.page+1)*MN.per).map(b=>{ const mine=own&&b.miner===own;
+    return `<tr class="${mine?'you':''}"><td data-label="Block" class="mono">#${fmtN(b.height)}</td><td data-label="Time">${fmtTime(b.timestamp)} · ${ago(b.timestamp)}</td><td data-label="Shares" class="mono">${fmtN(b.shares)}</td><td data-label="Txs" class="mono">${fmtN(b.txs)}</td><td data-label="Reward" class="mono">${coin('gnr','coin-sm')}${gnr(Number(b.subsidy)+Number(b.fees||0)).replace(/\.0+$/,'')}</td><td data-label="Found by" class="mono">${mine?'<b>you</b>':esc(String(b.miner||'').slice(0,12))+'…'}</td></tr>`; }).join('')
+    || '<tr><td colspan="6" class="muted">No blocks to show.</td></tr>';
+  pager($('mnPager'), MN.page, pages, bl.length, MN.per, p=>{ MN.page=p; renderMnBlocks(); }, 'blocks');
+}
+document.querySelectorAll('#mnBf button').forEach(b=>b.onclick=()=>{ MN.f=b.dataset.f; MN.page=0; document.querySelectorAll('#mnBf button').forEach(x=>x.classList.toggle('on',x===b)); renderMnBlocks(); });
+setInterval(()=>{ if(!document.hidden && !$('tab-mining').classList.contains('hidden') && Date.now()-MN.t>30000) loadMining(); }, 5000);
 async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean)}); toast('Saved'); }catch(e){ toast(e.message,true) } }
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
+/* Password strength while typing (estimated by the wallet; nothing is stored or sent away). */
+document.querySelectorAll('.pw-meter').forEach(m=>{ const inp=$(m.dataset.for); if(!inp) return; let t=null, seq=0;
+  const paint=r=>{ const pct=r?Math.max(4,Math.min(100,r.bits/90*100)):0; m.querySelector('s').style.width=pct+'%';
+    m.className='pw-meter'+(r?(r.ok?(r.bits>=80?' great':' ok'):' weak'):''); m.querySelector('span').textContent=r?r.hint:''; };
+  inp.addEventListener('input', ()=>{ clearTimeout(t); const v=inp.value; if(!v){ paint(null); return; } const my=++seq;
+    t=setTimeout(async()=>{ try{ const r=await api('/api/password/strength',{password:v}); if(my===seq) paint(r); }catch(e){} }, 180); }); });
+async function changePass(){
+  const id=(S.active||{}).id, o=$('cpOld').value, n=$('cpNew').value, n2=$('cpNew2').value;
+  if(!id) return toast('No wallet selected',true); if(!o||!n) return toast('Enter the current and the new password',true); if(n!==n2) return toast('The new passwords do not match',true);
+  const b=$('cpBtn'); b.disabled=true; b.textContent='Re-encrypting…'; window.fxBusy=true;
+  try{ await api('/api/wallets/password',{id, old:o, new:n}); ['cpOld','cpNew','cpNew2'].forEach(i=>$(i).value=''); document.querySelector('.pw-meter[data-for=cpNew]').className='pw-meter';
+    ask({title:'Password changed', icon:'lock', ok:'OK', hideCancel:true, body:'<p class="mtext">The wallet file is now encrypted with the new password; the old one no longer opens it. Older copies of the file (backups) still open with the old password, so replace them too.</p>'}); }
+  catch(e){ toast(e.message,true) }
+  window.fxBusy=false; b.disabled=false; b.textContent='Change password'; }
+function weakWarn(r, name){ if(!r||!r.weak_password) return;
+  ask({title:'Use a stronger password', icon:'security', ok:'Change it now', cancel:'Later',
+    body:`<p class="mtext">The password of ${esc(name||'this wallet')} is easy to guess for a computer. Anyone who copies the wallet file could try passwords offline. A long passphrase of several random words makes that impossible.</p>`}).then(go=>{ if(go){ goTab('security'); $('cpOld').focus(); } }); }
 async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
 const TABS=['wallet','history','swap','mining','network','security','about'];
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t);
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
-  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='wallet') fitBig($('bal')); }
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=['Request','Accept','Deposit','Lock','Claim','Done'];
@@ -1146,7 +1306,7 @@ function swapCard(s){
   const showCode=s.code&&['requested','accepted','deposited'].includes(s.stage)&&!(s.role==='gnr_seller'&&s.stage==='deposited');
   const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
   const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString()} · ${esc(m)}</li>`).join('');
-  return `<div class="swc"><div class="swc-head"><b>${buy?'Buy':'Sell'} ${esc(s.gnr_text)} GNR</b><span>for ${esc(s.btc_text)} BTC</span><span class="pill">${esc(SW_LABEL[s.stage]||s.stage)}</span></div>
+  return `<div class="swc"><div class="swc-head"><span class="swc-pair">${coin(buy?'btc':'gnr','coin-pair')}${coin(buy?'gnr':'btc','coin-pair')}</span><b>${buy?'Buy':'Sell'} ${esc(s.gnr_text)} GNR</b><span>for ${coin('btc','coin-sm')}${esc(s.btc_text)} BTC</span><span class="pill">${esc(SW_LABEL[s.stage]||s.stage)}</span></div>
     <div class="swc-steps">${SW_STEPS.map((n,i)=>`<i class="${i<at?'on':''}">${n}</i>`).join('')}</div>
     <p class="swc-status">${esc(s.status)}</p>
     ${showCode?`<label>Send this code to the other person</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">Copy code</button>`:''}
@@ -1189,9 +1349,15 @@ async function loadBoard(){
   const m=bdMkt();
   $('bdBoard').textContent=(BD.board||'').replace(/^https?:\/\//,'');
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
-  $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtSat(m.price)):'No offers yet';
-  $('bdPrice').textContent=m.price!=null?fmtSat(m.price)+' per GNR':'Publish the first offer: it sets the first price.';
-  $('bdPriceL').textContent=m.source==='swaps'?'· median of swaps, swaps in progress and offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' offer'+(n===1?'':'s'):'';
+  const ix=m.price!=null&&window.GKValue?GKValue.index({sat:m.price, btcUsd:u, conf:m.confidence, hashrate:(S.tip||{}).hashrate, subsidy:(S.tip||{}).next_subsidy, kwh:VAL.kwh}):null;
+  $('bdUsd').textContent=m.price!=null?(ix&&u?GKValue.usd(ix.usd):fmtSat(m.price)):'No offers yet';
+  $('bdPrice').textContent=m.price!=null?'Market '+fmtSat(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
+  $('bdPriceL').textContent=m.source==='swaps'?'· robust median of swaps, swaps in progress and online offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' online offer'+(n===1?'':'s'):'';
+  const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
+  $('bdConfBox').classList.toggle('hidden', m.price==null);
+  $('bdDepth').textContent=(m.depth||(conf>=.8?'deep':conf>=.4?'moderate':'thin'))+' · '+Math.round(conf*100)+' %';
+  $('bdConf').style.width=Math.max(2,Math.round(conf*100))+'%';
+  $('bdIdx').textContent=ix&&ix.floor!=null?(ix.source==='floor'?'Below the cost to mine ('+GKValue.usd(ix.floor)+'): a '+(m.depth||'thin')+' market is held up toward it, '+Math.round(ix.conf*100)+' % market':'Cost to mine one GNR at '+rate((S.tip||{}).hashrate)+': '+GKValue.usd(ix.floor)+', the floor under the price'):'';
   $('bdAsk').textContent=fmtSat(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtSat(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
@@ -1218,12 +1384,14 @@ function renderBook(){
     if(o.pending) return '<span class="pill">in progress</span>';
     if(BDV.tab==='mine') return o.taken?'<span class="pill">taken</span>':o.expired?'<span class="pill">expired</span>':`<button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button>`;
     if(o.mine) return '<span class="pill">yours</span>';
+    if(o.online===false) return '<span class="pill" title="The maker\'s wallet is not online right now, so the swap could not start at once">offline</span>';
     const label=o.side==='sell_gnr'?'Buy':'Sell';
     if(!SW.active) return `<button class="btn" title="Swaps start at the network upgrade" onclick="bdNotYet()">${label}</button>`;
     return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${label}</button>`;
   };
   const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
-  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
+  const live=o=>o.pending?'':`<span class="bd-live${o.online===false?' off':''}" title="${o.online===false?'Maker offline':'Maker online: the swap starts within seconds'}"></span>`;
+  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${list.length} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(list.length?`<span>${list.length} offer${list.length===1?'':'s'}</span>`:'');
 }
@@ -1252,7 +1420,7 @@ async function boardPublish(){
   const sell=bdSide==='sell_gnr';
   const when=SW.active?'':'<p class="mtext"><b>Swaps start at the network upgrade.</b> Until then your offer is listed and counts for the market price, and it can be taken once swaps are live.</p>';
   if(!await ask({title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:'Publish',
-    body:`<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'Your GNR is locked only after the buyer\'s bitcoin deposit has confirmed.':'When someone takes it, you pay the bitcoin into the swap contract shown under Your swaps.'} Keep the wallet running.</p>${when}`})) return;
+    body:`<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere, so a buyer can take the offer at once. On chain it is locked only after the buyer\'s bitcoin deposit has confirmed. Cancel the offer to free it.':'When someone takes it, you pay the bitcoin into the swap contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`})) return;
   try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
 }
 async function boardTake(id, side, g, b){
@@ -1330,13 +1498,14 @@ async function refresh(){
     if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' (unlocked)':''}</option>`).join(''); show('uPick'); } else hide('uPick');
     show('unlockBox'); return; }
   show('app'); loadWallets();
-  $('wSelName').textContent=act.name||'Wallet'; $('wSelAddr').textContent=S.short?S.short.slice(0,30)+'…':'';
+  $('wSelName').textContent=act.name||'Wallet'; $('cpName').textContent=act.name||'this wallet'; $('wSelAddr').textContent=S.short?S.short.slice(0,30)+'…':'';
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
   const b=S.balance||{}; animNum($('bal'), b.total||0); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
   if(++refreshN%3===0) loadWallets();
   $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
+  $('bRes').textContent=gnr(S.reserved); $('bResRow').classList.toggle('hidden', !Number(S.reserved));
   $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open);
   $('busy').textContent = S.busy || S.error || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;
@@ -1363,6 +1532,7 @@ async function refresh(){
   $('rUnpaid').textContent=gnr(rw?rw.unpaid:0); fitBig($('rUnpaid'));
   $('rNext').textContent=rw&&rw.next_payout_height?('block '+rw.next_payout_height+(tip?' (in ~'+Math.max(0,rw.next_payout_height-tip.height)+' min)':'')):'with your next share';
   $('rRecent').textContent=rw?rw.shares_recent:'-'; $('rBlocks').textContent=rw?rw.shares_recent_blocks||60:60;
+  mnSample(); renderMining();
   renderValue();
   if(!settingsLoaded && S.settings){ $('showVal').checked=VAL.show; }
   if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); }

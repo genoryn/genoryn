@@ -93,20 +93,28 @@
     put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));
     var market = !!(mk.price && btc > 0);
     var nOffers = (mk.asks || 0) + (mk.bids || 0);
-    put("[data-mk-usd]", market ? GKValue.usd(mk.price * btc / 1e8) : mk.price ? sat(mk.price) : "no offers yet");
-    put("[data-mk-sat]", mk.price ? sat(mk.price) + " per GNR" : "be the first to make an offer");
-    put("[data-mk-src]", mk.source === "swaps" ? "median of swaps, swaps in progress and offers"
+    // The GNR price index: the market, leaning on the cost to mine while the market is thin.
+    var ix = market ? GKValue.index({ sat: mk.price, btcUsd: btc, conf: mk.confidence, hashrate: info.hashrate, subsidy: info.next_subsidy, kwh: kwh }) : null;
+    gk.ix = ix;
+    put("[data-mk-usd]", ix ? GKValue.usd(ix.usd) : mk.price ? sat(mk.price) : "no offers yet");
+    put("[data-mk-sat]", mk.price ? "market " + sat(mk.price) + " per GNR" : "be the first to make an offer");
+    put("[data-mk-src]", mk.source === "swaps" ? "robust median of swaps, swaps in progress and offers"
       : mk.source === "pending" ? "median of " + mk.pending + " swap" + (mk.pending === 1 ? "" : "s") + " in progress and " + nOffers + " offer" + (nOffers === 1 ? "" : "s")
       : mk.source === "offers" ? "median of " + nOffers + " open offer" + (nOffers === 1 ? "" : "s") : "set by people on the offer board");
-    put("[data-main]", market ? GKValue.usd(mk.price * btc / 1e8) : e ? GKValue.usd(e.usd) : "—");
-    put("[data-vlabel]", market ? "Market price" : "Reference value");
+    put("[data-ix-market]", market ? GKValue.usd(mk.price * btc / 1e8) : "—");
+    put("[data-ix-floor]", e ? GKValue.usd(e.usd) : "—");
+    var conf = ix ? ix.conf : 0;
+    put("[data-ix-conf]", ix ? (mk.depth || (conf >= 0.8 ? "deep" : conf >= 0.4 ? "moderate" : "thin")) + " · " + Math.round(conf * 100) + " %" : "—");
+    document.querySelectorAll("[data-ix-bar]").forEach(function (el) { el.style.width = Math.max(2, Math.round(conf * 100)) + "%"; });
+    put("[data-main]", ix ? GKValue.usd(ix.usd) : e ? GKValue.usd(e.usd) : "—");
+    put("[data-vlabel]", ix ? "GNR price" : "Reference value");
     document.querySelectorAll("[data-vnote]").forEach(function (el) {
       if (el.dataset.orig == null) el.dataset.orig = el.innerHTML;
       if (market) {
         var from = mk.source === "swaps"
           ? "Median of " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") + " completed in the last 24 hours"
           : "Median of the " + ((mk.asks || 0) + (mk.bids || 0)) + " open offer" + ((mk.asks || 0) + (mk.bids || 0) === 1 ? "" : "s") + " on the offer board (no swaps yet)";
-        el.textContent = from + ": " + sat(mk.price) + " per GNR. People set this price themselves; nobody quotes it. Cost to mine one GNR today: " + (e ? GKValue.usd(e.usd) : "—") + ".";
+        el.textContent = from + ": " + sat(mk.price) + " per GNR. People set this price themselves; nobody quotes it. Cost to mine one GNR today: " + (e ? GKValue.usd(e.usd) : "—") + ". GNR price (the market, with that cost as its floor): " + (ix ? GKValue.usd(ix.usd) : "—") + ".";
       } else {
         el.innerHTML = el.dataset.orig;
       }
@@ -121,7 +129,7 @@
     put("[data-gpu-gnr]", "≈ " + oneGpu.toLocaleString("en-US", { maximumFractionDigits: oneGpu < 10 ? 2 : 0 }) + " GNR a day");
     put("[data-gpu-usd]", GKValue.usd(GKValue.REF.watts / 1000 * 24 * kwh) + " a day");
     // What a GPU's daily GNR is worth: at the market price when there is one.
-    put("[data-gpu-value]", market ? GKValue.usd(oneGpu * mk.price * btc / 1e8) + " a day at the market price" : "no market price yet");
+    put("[data-gpu-value]", ix ? GKValue.usd(oneGpu * ix.usd) + " a day at the GNR price" : "no market price yet");
   };
   if (document.querySelector("[data-cost], [data-main]")) {
     var lastInfo = null;

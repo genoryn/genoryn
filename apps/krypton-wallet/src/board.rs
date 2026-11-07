@@ -165,12 +165,6 @@ fn send_note(
     Ok(())
 }
 
-pub fn list_offers(base: &str) -> Result<Vec<Offer>> {
-    Ok(serde_json::from_value(
-        get(base, "/v1/swap/offers")?["offers"].clone(),
-    )?)
-}
-
 /// Market price and BTC/USD, refreshed by the background task.
 fn market_cache() -> &'static Mutex<(Option<Instant>, Value)> {
     static M: OnceLock<Mutex<(Option<Instant>, Value)>> = OnceLock::new();
@@ -264,10 +258,10 @@ fn publish_offer(
         "the GNR amount is too small"
     );
     if side == Side::SellGnr {
-        let have = e.wallet.balance().spendable;
+        let have = available(e.wallet);
         ensure!(
             have >= gnr + krypton_wallet_core::DEFAULT_FEE,
-            "this wallet has {} GNR spendable",
+            "this wallet has {} GNR free (the rest is spoken for by your open sell offers)",
             format_amount(have)
         );
     }
@@ -305,6 +299,53 @@ fn publish_offer(
     Ok(offer)
 }
 
+/// GNR held back for this wallet's open sell offers (amount + fee each), so a buyer who
+/// takes one always finds the coins there: sends and other offers cannot use them.
+pub fn reserved(w: &Wallet) -> u64 {
+    let t = now();
+    load(w)
+        .offers
+        .iter()
+        .filter(|m| {
+            m.offer.side == Side::SellGnr && !m.taken && !m.cancelled && m.offer.expires > t
+        })
+        .map(|m| m.offer.gnr.saturating_add(krypton_wallet_core::DEFAULT_FEE))
+        .fold(0u64, u64::saturating_add)
+}
+
+/// Spendable GNR not reserved for open sell offers.
+pub fn available(w: &Wallet) -> u64 {
+    w.balance().spendable.saturating_sub(reserved(w))
+}
+
+/// Tells the board this wallet is online for its open offers (at most every 45 s).
+fn ping(base: &str, st: &State) {
+    static LAST: OnceLock<Mutex<std::collections::HashMap<String, Instant>>> = OnceLock::new();
+    let t = now();
+    let open: Vec<&MyOffer> = st
+        .offers
+        .iter()
+        .filter(|m| !m.taken && !m.cancelled && m.offer.expires > t)
+        .collect();
+    let Some(first) = open.first() else { return };
+    let key = format!("{base}|{}", first.offer.id);
+    let mut last = LAST.get_or_init(Default::default).lock();
+    if last
+        .get(&key)
+        .is_some_and(|i| i.elapsed() < Duration::from_secs(45))
+    {
+        return;
+    }
+    let items: Vec<Value> = open
+        .iter()
+        .take(500)
+        .map(|m| json!({"id": m.offer.id, "secret": m.cancel_secret}))
+        .collect();
+    if post(base, "/v1/swap/offers/ping", &json!({ "items": items })).is_ok() {
+        last.insert(key, Instant::now());
+    }
+}
+
 fn key_of(w: &Wallet, n: u32) -> krypton_crypto::kem::SecretKey {
     offer_key(w.swap_seed(), 1_000_000 + n)
 }
@@ -315,10 +356,19 @@ fn take_offer(
     id: &str,
     btc_address: &str,
 ) -> Result<String> {
-    let offer = list_offers(base)?
+    let raw = get(base, "/v1/swap/offers")?["offers"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
         .into_iter()
-        .find(|o| o.id == id)
+        .find(|o| o["id"].as_str() == Some(id))
         .context("this offer is no longer on the board")?;
+    // Boards before 1.0.20 do not report it: treat as online.
+    ensure!(
+        raw["online"].as_bool().unwrap_or(true),
+        "the maker of this offer is offline right now, so the swap could not start at once; pick an online offer"
+    );
+    let offer: Offer = serde_json::from_value(raw)?;
     offer.validate(e.wallet.network().as_str(), now())?;
     ensure!(
         offer.btc_network == e.btc_network.to_core_arg(),
@@ -371,10 +421,10 @@ fn take_offer(
         }
         // The maker buys GNR: we sell, and the maker answers with its request.
         Side::BuyGnr => {
-            let have = e.wallet.balance().spendable;
+            let have = available(e.wallet);
             ensure!(
                 have >= offer.gnr + krypton_wallet_core::DEFAULT_FEE,
-                "this wallet has {} GNR spendable",
+                "this wallet has {} GNR free (the rest is spoken for by your open sell offers)",
                 format_amount(have)
             );
             send_note(
@@ -404,6 +454,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
     let base = board_url(a);
     let mut st = load(e.wallet);
     let t = now();
+    ping(&base, &st);
     let mut keys: Vec<u32> = st
         .offers
         .iter()
@@ -724,6 +775,39 @@ pub fn has_work(w: &Wallet) -> bool {
         || !st.links.is_empty()
 }
 
+/// Whether a quick board round (every few seconds) is worth it: someone may be taking an
+/// open offer or answering a take right now. Capped so a wallet with very many offers
+/// stays within the board's rate limits (the regular round still serves them).
+pub fn quick_work(w: &Wallet) -> bool {
+    let st = load(w);
+    let t = now();
+    let done: std::collections::HashSet<String> = engine::load(w)
+        .into_iter()
+        .filter(|s| {
+            s.stage.finished()
+                || !matches!(
+                    s.stage,
+                    Stage::Requested | Stage::Accepted | Stage::AwaitDeposit
+                )
+        })
+        .map(|s| s.id)
+        .collect();
+    let n = st
+        .offers
+        .iter()
+        .filter(|o| !o.cancelled && !o.taken && o.offer.expires > t)
+        .count()
+        + st.takes
+            .iter()
+            .filter(|x| !x.gone && x.swap_id.is_none())
+            .count()
+        + st.links
+            .iter()
+            .filter(|l| !done.contains(&l.swap_id))
+            .count();
+    n > 0 && n <= 20
+}
+
 // HTTP API for the Swap tab.
 
 pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
@@ -735,6 +819,17 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         let base = board_url(&a);
         let raw = get(&base, "/v1/swap/offers").unwrap_or_default();
         let offers: Vec<Offer> = serde_json::from_value(raw["offers"].clone()).unwrap_or_default();
+        let online: std::collections::HashMap<String, bool> = raw["offers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|o| {
+                Some((
+                    o["id"].as_str()?.to_string(),
+                    o["online"].as_bool().unwrap_or(true),
+                ))
+            })
+            .collect();
         let t0 = now();
         let in_progress: Vec<Value> = raw["in_progress"]
             .as_array()
@@ -767,6 +862,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "btc_text": Amount::from_sat(o.sats).to_string_in(Denomination::Bitcoin),
                 "price": o.price(), "expires_in": o.expires.saturating_sub(t),
                 "mine": mine.contains(&&o.id),
+                "online": mine.contains(&&o.id) || online.get(&o.id).copied().unwrap_or(false),
             })
         };
         // Fresh from the board (an offer just published shows at once), with the cached

@@ -245,29 +245,52 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
   only a request with exactly the offer's amounts, and an offer is taken once. The only
   manual step left is the buyer paying the bitcoin into the contract address.
 * **Spam:** offers, messages and trade reports carry an 18-bit proof of work, and there are
-  per-client limits, caps on offers, messages and inbox size, and expiry. Offers and messages
-  live in memory.
+  per-client limits, caps on offers, messages and inbox size, and expiry. The board keeps
+  offers, swaps in progress and mailboxes in `swap-board.json` across restarts.
+* **Instant takes:** a maker's wallet pings the board for all its open offers at once
+  (`POST /v1/swap/offers/ping`, every 45 s, each offer proven with its cancel secret). An
+  offer whose maker was seen in the last 2 minutes is listed as `online`. The wallet checks
+  the board mailboxes every 5 s while it has open offers or takes, and answers a take by
+  itself, so a swap starts within seconds with no approval. Wallets refuse to take an
+  offline offer.
+* **Reserved GNR:** an open sell offer reserves its amount plus the fee in the maker's wallet.
+  Sends and other offers cannot use it, so a buyer always finds the coins there. GNR cannot be
+  locked on chain before a buyer exists (the lock commits to the buyer's hash and keys), so the
+  reservation is enforced by the maker's wallet; on chain the coins are locked once the
+  buyer's bitcoin deposit has confirmed, as before. Cancelling the offer frees them.
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
-  * The price is one volume-weighted median in sat per GNR, which a few odd entries cannot move.
-    Its inputs and their weights:
-    * swaps completed in the last 24 hours, ×3;
+  * The market price is one robust, volume-weighted median in sat per GNR (`board::market`).
+    Every input is a price point weighted by its GNR × kind × age:
+    * swaps completed in the last 72 hours, ×3;
     * swaps in progress, ×2: taken offers, which the maker moves to "in progress" with the
       offer's cancel secret; they stay listed and priced, cannot be taken again, and leave
       when the swap ends;
-    * open buy and sell offers, ×1, so the first offer already sets a price.
+    * open buy and sell offers whose maker was online in the last 10 minutes, ×1, so the
+      first offer already sets a price.
 
-    The best sell and buy offers are shown next to it.
-  * The wallet values balances and mining earnings at this market price only. genoryn.io shows
-    it as well, and keeps the cost to mine for reference. That cost rises with the hashrate,
-    because the same 7,200 GNR a day then take more electricity.
+    Swaps and swaps in progress fade by half every 12 hours. Points more than 4× away from
+    the plain median of all points are left out. With exactly half the weight on each side,
+    the price is the midpoint of the two middle prices. The board also reports `confidence`,
+    `w / (w + 25)` for a total weight `w` in GNR-equivalents, and a `depth` of thin
+    (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are shown next to it.
+  * **GNR price index** (`GKValue.index`, shared by the wallet and genoryn.io): the market
+    price, with the cost to mine as its floor. If the market is at or above the cost, the
+    price is the market. Below it, `price = c × market + (1 − c) × cost to mine`, with `c`
+    the confidence, so only a deep market can price GNR under what it costs to make (miners
+    rarely sell below that). The cost to mine is the electricity to mine one GNR at today's
+    network hashrate (RTX 5090-class GPUs, $0.15 per kWh by default). It rises with the
+    hashrate, because the same 7,200 GNR a day then take more electricity. The wallet values
+    balances and mining earnings at this price, and shows nothing before there is a market
+    price.
   * The wallet and genoryn.io convert it to dollars with the BTC price, which genoryn.io
     fetches from mempool.space, so visitors' browsers contact no third party.
   * Until swaps exist, both fall back to the cost-to-mine estimate and say so.
 * **Known limit:** the GNR amount of a trade cannot be checked on chain (it is private). Wash
   trades (someone trading with themselves at a made-up price) are possible, as on any
-  exchange. The median and the trade count shown next to the price limit their effect.
+  exchange. The median, the outlier cut, the fading and the confidence limit their effect.
+
 ## Plan
 
 | Phase | Work | Status |
