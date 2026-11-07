@@ -26,7 +26,8 @@ fn read_hex(p: &str) -> Result<Vec<u8>> {
     } else {
         std::fs::read_to_string(p).with_context(|| p.to_string())?
     };
-    Ok(hex::decode(s.trim())?)
+    // A byte-order mark is not part of the key (Windows PowerShell adds one to pipes).
+    Ok(hex::decode(s.trim().trim_start_matches('\u{feff}').trim())?)
 }
 
 fn main() -> Result<()> {
