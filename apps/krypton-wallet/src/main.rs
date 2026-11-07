@@ -112,6 +112,9 @@ struct App {
     busy: Mutex<String>,
     node: Mutex<Option<Child>>,
     miner: Mutex<Option<Child>>,
+    /// The miner the user asked for (address, device, CPU cap) until they press Stop: the
+    /// watchdog restarts it if its process ends (a GPU reset, a crash).
+    miner_want: Mutex<Option<(String, String, u32)>>,
     miner_stats: Arc<Mutex<MinerStats>>,
     /// Unpaid rewards of this wallet's owner, refreshed with every sync.
     account: Mutex<Option<krypton_light::client::MinerAccount>>,
@@ -1345,9 +1348,31 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
                 }
             });
             *app.miner.lock() = Some(c);
+            *app.miner_want.lock() = Some((addr.to_string(), backend.to_string(), max_cpu));
             Ok(())
         }
         Err(e) => Err(anyhow!("could not start krypton-miner: {e}")),
+    }
+}
+
+/// Restarts the miner the user asked for if its process has ended, at most every 30 s.
+fn miner_watchdog(app: &App) {
+    static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+    let Some((addr, backend, max_cpu)) = app.miner_want.lock().clone() else {
+        return;
+    };
+    if app.miner_running() {
+        return;
+    }
+    let mut last = LAST.lock();
+    if last.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(30)) {
+        return;
+    }
+    *last = Some(std::time::Instant::now());
+    drop(last);
+    match spawn_miner(app, &addr, &backend, max_cpu) {
+        Ok(()) => *app.last_error.lock() = "The miner stopped by itself; restarted it.".into(),
+        Err(e) => *app.last_error.lock() = format!("The miner stopped; restarting failed: {e}"),
     }
 }
 
@@ -1355,6 +1380,7 @@ async fn miner_stop(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
+    *app.miner_want.lock() = None;
     if let Some(mut c) = app.miner.lock().take() {
         let _ = c.kill();
     }
@@ -1689,6 +1715,7 @@ async fn serve(
         busy: Mutex::new(String::new()),
         node: Mutex::new(None),
         miner: Mutex::new(None),
+        miner_want: Mutex::new(None),
         miner_stats: Arc::new(Mutex::new(MinerStats::default())),
         account: Mutex::new(None),
         last_error: Mutex::new(String::new()),
@@ -1744,7 +1771,11 @@ async fn serve(
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             let a = ttl.clone();
-            let _ = tokio::task::spawn_blocking(move || vault::expire(&a)).await;
+            let _ = tokio::task::spawn_blocking(move || {
+                vault::expire(&a);
+                miner_watchdog(&a);
+            })
+            .await;
         }
     });
 
@@ -2014,7 +2045,7 @@ mod window {
                     // the server (and its node); the watcher then posts Quit.
                     Some(a) => {
                         window.set_visible(false);
-                        if !a.miner_running() {
+                        if !a.miner_running() && a.miner_want.lock().is_none() {
                             a.quit.notify_one();
                         }
                     }
