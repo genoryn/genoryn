@@ -327,31 +327,81 @@ fn weighted_median_f(mut v: Vec<(f64, f64)>) -> Option<f64> {
     v.last().map(|x| x.0)
 }
 
-/// What people paid counts most, what they are paying right now next, what they ask or
-/// bid least.
+/// What people paid counts most, what they are paying right now next, what the order book
+/// offers least.
 pub const WEIGHT_SWAP: f64 = 3.0;
 pub const WEIGHT_PENDING: f64 = 2.0;
 pub const WEIGHT_OFFER: f64 = 1.0;
 /// Older data fades: half its weight every 12 hours, gone after 72.
 pub const HALF_LIFE_SECS: f64 = 12.0 * 3600.0;
 pub const MARKET_WINDOW_SECS: u64 = 72 * 3600;
-/// Prices more than this factor away from the plain median are left out (fat fingers,
-/// joke offers, attempts to drag the price).
+/// With three or more swaps, swaps more than this factor away from their median are left
+/// out (fat fingers).
 pub const OUTLIER_FACTOR: f64 = 4.0;
-/// Time-weighted GNR behind the price at which confidence reaches one half.
+/// Time-weighted GNR behind the price at which confidence reaches one half. Also the most
+/// the whole order book can weigh: offers prove nothing (anyone can post them), so a few
+/// GNR of completed swaps outweigh any number of them.
 pub const DEPTH_GNR: f64 = 25.0;
+/// The book's price is where at least this much GNR can be bought (or sold) at once, so
+/// a dust offer does not set it.
+pub const BOOK_MIN_GNR: f64 = 1.0;
+/// A single swap reports its own amount (private on chain): it counts for at most this.
+pub const TRADE_CAP_GNR: f64 = 1_000.0;
 
 fn fade(age: u64) -> f64 {
     0.5f64.powf(age as f64 / HALF_LIFE_SECS)
 }
 
+/// The best price on one side of the book at which `BOOK_MIN_GNR` is available, and the
+/// side's volume. `v` is (price, GNR) sorted best first.
+fn inside(v: &[(f64, f64)]) -> Option<(f64, f64)> {
+    let total: f64 = v.iter().map(|x| x.1).sum();
+    let mut acc = 0.0;
+    for (p, g) in v {
+        acc += g;
+        if acc >= BOOK_MIN_GNR {
+            return Some((*p, total));
+        }
+    }
+    v.last().map(|x| (x.0, total))
+}
+
+/// The order book as one price: the best ask and the best bid with at least 1 GNR behind
+/// them (their midpoint when both exist). Offers far from the inside of the book, however
+/// many, do not move it.
+pub fn book_price(offers: &[Offer]) -> Option<(f64, f64)> {
+    let side = |s: Side, asc: bool| {
+        let mut v: Vec<(f64, f64)> = offers
+            .iter()
+            .filter(|o| o.side == s)
+            .map(|o| (o.price(), o.gnr as f64 / 1e8))
+            .filter(|(p, g)| p.is_finite() && *p > 0.0 && *g > 0.0)
+            .collect();
+        v.sort_by(|a, b| {
+            if asc {
+                a.0.total_cmp(&b.0)
+            } else {
+                b.0.total_cmp(&a.0)
+            }
+        });
+        inside(&v)
+    };
+    match (side(Side::SellGnr, true), side(Side::BuyGnr, false)) {
+        (Some((a, va)), Some((b, vb))) => Some(((a + b) / 2.0, va + vb)),
+        (Some((a, va)), None) => Some((a, va)),
+        (None, Some((b, vb))) => Some((b, vb)),
+        (None, None) => None,
+    }
+}
+
 /// The market price:
 ///
-/// 1. Every completed swap (last 72 h), swap in progress and open offer becomes a price
-///    point weighted by its GNR × kind (swap 3, in progress 2, offer 1) × age fade (half
-///    every 12 h; offers are current and do not fade).
-/// 2. Points more than 4× away from the plain median are dropped.
-/// 3. The price is the weighted median of the rest; confidence grows with their weight.
+/// 1. Every completed swap (last 72 h) and swap in progress is a price point weighted by
+///    its GNR × kind (swap 3, in progress 2) × age (half every 12 h). With three or more,
+///    those more than 4× from their median are dropped.
+/// 2. The open offers add one point: the book price ([`book_price`]), weighing their GNR
+///    but at most 25.
+/// 3. The price is the weighted median of the points; confidence grows with their weight.
 ///
 /// `pending` are taken offers with the time they were taken.
 pub fn market(
@@ -386,38 +436,29 @@ pub fn market(
         .iter()
         .filter(|(_, at)| *at + MARKET_WINDOW_SECS > now)
     {
+        let g = (t.gnr as f64 / 1e8).min(TRADE_CAP_GNR);
         pts.push((
             t.price(),
-            t.gnr as f64 / 1e8 * WEIGHT_SWAP * fade(now.saturating_sub(*at)),
+            g * WEIGHT_SWAP * fade(now.saturating_sub(*at)),
             0,
         ));
     }
     for (o, at) in pending {
+        let g = (o.gnr as f64 / 1e8).min(TRADE_CAP_GNR);
         pts.push((
             o.price(),
-            o.gnr as f64 / 1e8 * WEIGHT_PENDING * fade(now.saturating_sub(*at)),
+            g * WEIGHT_PENDING * fade(now.saturating_sub(*at)),
             1,
         ));
     }
-    for o in offers {
-        pts.push((o.price(), o.gnr as f64 / 1e8 * WEIGHT_OFFER, 2));
-    }
-    // The centre for the outlier cut counts points, not GNR (a made-up giant offer cannot
-    // move it), each by its kind (cheap offers cannot outvote swaps). Two points have no
-    // outlier: the weighted median alone decides between them.
     if pts.len() >= 3
-        && let Some(m0) = weighted_median_f(
-            pts.iter()
-                .map(|p| {
-                    (
-                        p.0,
-                        [WEIGHT_SWAP, WEIGHT_PENDING, WEIGHT_OFFER][p.2 as usize],
-                    )
-                })
-                .collect(),
-        )
+        && let Some(m0) = weighted_median_f(pts.iter().map(|p| (p.0, 1.0)).collect())
     {
         pts.retain(|p| p.0 <= m0 * OUTLIER_FACTOR && p.0 >= m0 / OUTLIER_FACTOR);
+    }
+    let book = book_price(offers);
+    if let Some((p, vol)) = book {
+        pts.push((p, vol.min(DEPTH_GNR) * WEIGHT_OFFER, 2));
     }
     let w: f64 = pts.iter().map(|p| p.1).sum();
     let kind = pts.iter().map(|p| p.2).min();
@@ -434,7 +475,7 @@ pub fn market(
             "thin"
         }
         .into(),
-        offers_price: weighted_median(offers.iter().map(|o| (o.price(), o.gnr)).collect()),
+        offers_price: book.map(|b| b.0),
         asks: offers.iter().filter(|o| o.side == Side::SellGnr).count(),
         bids: offers.iter().filter(|o| o.side == Side::BuyGnr).count(),
         trades: day.len(),
@@ -541,8 +582,9 @@ mod tests {
             (Some(6_000.0), Some("offers"), "thin")
         );
         let mut book = offers.clone();
+        // 3 GNR asked at 5,000 sat: the best ask now, midway to the 4,000 sat bid.
         book.push(offer(Side::SellGnr, 300_000_000, 15_000));
-        assert_eq!(market(&[], &book, &[], now).price, Some(5_000.0));
+        assert_eq!(market(&[], &book, &[], now).price, Some(4_500.0));
         assert_eq!(market(&[], &[], &[], now).price, None);
         // A swap in progress counts twice as much as an offer of the same size.
         let taken = vec![(offer(Side::SellGnr, 100_000_000, 8_000), now)];
@@ -619,14 +661,64 @@ mod tests {
         // A day later the old swap has faded below the offer.
         let m = market(&trades, &offers, &[], now + 19 * 3600);
         assert_eq!(m.price, Some(10_000.0));
-        // Many cheap offers cannot cut the swaps: kinds count in the centre.
+        // Any number of offers above the cheapest real one change nothing: one honest
+        // 1 GNR ask at 6,000 sat beats 500 asks at 1 BTC.
         let swaps: Vec<_> = (0..3)
             .map(|i| (t(5_000, 100_000_000), now - 60 * i))
             .collect();
-        let spam: Vec<_> = (0..8)
-            .map(|_| offer(Side::SellGnr, 100_000_000, 1_000_000))
+        let mut spam: Vec<_> = (0..500)
+            .map(|_| offer(Side::SellGnr, 100_000_000, 100_000_000))
             .collect();
+        spam.push(offer(Side::SellGnr, 100_000_000, 6_000));
         let m = market(&swaps, &spam, &[], now);
-        assert_eq!(m.source.as_deref(), Some("swaps"), "{m:?}");
+        assert_eq!(m.price, Some(6_000.0), "{m:?}");
+        // With 10 GNR of fresh swaps, the swaps decide.
+        let swaps: Vec<_> = (0..10)
+            .map(|i| (t(5_000, 100_000_000), now - 60 * i))
+            .collect();
+        assert_eq!(market(&swaps, &spam, &[], now).price, Some(5_000.0));
+    }
+
+    #[test]
+    fn joke_offers_do_not_set_the_price() {
+        let t = |sats: u64, gnr: u64| Trade {
+            network: "devnet".into(),
+            hash: "00".repeat(32),
+            gnr,
+            sats,
+            nonce: 0,
+        };
+        let now = 400 * 3600;
+        let g = |x: f64| (x * 1e8) as u64;
+        let ask = |gnr: f64, per: u64| offer(Side::SellGnr, g(gnr), g(gnr) / 100_000_000 * per);
+        // The mainnet board of 7 Nov 2026: real asks around 10,000 sat, one big ask at
+        // 1,000,000 and fifteen 1 GNR asks at 1 or 2 BTC, plus a 10 GNR swap 13.5 h ago.
+        let mut book = vec![
+            offer(Side::SellGnr, g(3.0), 29_100),
+            ask(10.0, 9_800),
+            ask(10.0, 10_000),
+            ask(5.0, 12_000),
+            ask(100.0, 1_000_000),
+        ];
+        book.extend((0..14).map(|_| ask(1.0, 100_000_000)));
+        book.push(ask(1.0, 200_000_000));
+        let trades = vec![(t(10_000, g(10.0)), now - 27 * 1800)];
+        let m = market(&trades, &book, &[], now);
+        assert_eq!(m.price, Some(9_700.0), "{m:?}");
+        assert_eq!(m.offers_price, Some(9_700.0));
+        // Without the swap, the book alone.
+        assert_eq!(market(&[], &book, &[], now).price, Some(9_700.0));
+        // A dust ask below 1 GNR does not set the book; buy and sell sides meet midway.
+        let mut b2 = vec![offer(Side::SellGnr, g(0.3), 300), ask(2.0, 10_000)];
+        assert_eq!(book_price(&b2).map(|b| b.0), Some(10_000.0));
+        b2.push(ask_bid(g(2.0), 16_000));
+        assert_eq!(book_price(&b2).map(|b| b.0), Some(9_000.0));
+        // A fresh swap of 10 GNR outweighs the whole book (it counts at most 25 GNR).
+        let fresh = vec![(t(50_000, g(10.0)), now - 60)];
+        assert_eq!(market(&fresh, &book, &[], now).price, Some(5_000.0));
+    }
+
+    fn ask_bid(gnr: u64, sats: u64) -> Offer {
+        offer(Side::BuyGnr, gnr, sats)
     }
 }

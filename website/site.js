@@ -87,7 +87,7 @@
     put("[data-cost-kwh]", "$" + kwh.toFixed(2));
     // The market price (median of completed swaps) replaces the estimate once it exists.
     var mk = gk.mk || {}, btc = Number(gk.btcUsd) || 0;
-    var sat = function (p) { return (p >= 100 ? Math.round(p).toLocaleString("en-US") : Number(p).toPrecision(3)) + " sat"; };
+    var sat = GKValue.btc;
     var dollars = function (p) { return btc > 0 ? " (" + GKValue.usd(p * btc / 1e8) + ")" : ""; };
     put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) + " · " + mk.trades + " swap" + (mk.trades === 1 ? "" : "s") : "no swaps yet");
     put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));

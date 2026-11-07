@@ -272,9 +272,10 @@ Taking an **online** offer starts the swap within seconds, with no approval: the
 wallet answers by itself, and the GNR of an open sell offer is reserved in the maker's wallet
 so it is always there.
 
-**Price:** the board's market price is a robust median of completed swaps (×3), swaps in
-progress (×2) and online offers (×1), weighted by GNR, fading by half every 12 hours, with
-prices more than 4× off left out. The **GNR price** shown by the wallet and genoryn.io is that
+**Price:** the board's market price is a robust median of completed swaps (×3) and swaps in
+progress (×2), weighted by GNR and fading by half every 12 hours, plus the order book as a
+single point (the best online sell and buy prices with at least 1 GNR, weighing at most
+25 GNR), so offers above the cheapest one cannot move it, however many there are. The **GNR price** shown by the wallet and genoryn.io is that
 market price with the cost to mine one GNR at today's hashrate as its floor: above the cost
 the market alone decides; below it, `price = depth × market + (1 − depth) × cost to mine`, so
 only a deep market can price GNR under what it costs to make. More miners make every GNR

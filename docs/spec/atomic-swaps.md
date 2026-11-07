@@ -261,22 +261,26 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
-  * The market price is one robust, volume-weighted median in sat per GNR (`board::market`).
-    Every input is a price point weighted by its GNR × kind × age:
-    * swaps completed in the last 72 hours, ×3;
+  * The market price is one robust, volume-weighted median, stored in sat per GNR and shown
+    in BTC (`board::market`). Its price points:
+    * swaps completed in the last 72 hours, weighing their GNR (at most 1,000 each) ×3;
     * swaps in progress, ×2: taken offers, which the maker moves to "in progress" with the
       offer's cancel secret; they stay listed and priced, cannot be taken again, and leave
       when the swap ends;
-    * open buy and sell offers whose maker was online in the last 10 minutes, ×1, so the
-      first offer already sets a price.
+    * the order book as **one** point (`board::book_price`): the best sell price with at
+      least 1 GNR behind it, the best buy price likewise, or their midpoint when both
+      exist. Only offers whose maker was online in the last 10 minutes count. It weighs the
+      GNR on offer, but at most 25: offers prove nothing (anyone can post them), so 10 GNR
+      of fresh swaps outweigh any number of them, and offers above the cheapest real one
+      (or below the best real bid) do not move the price at all. The first offer already
+      sets a price.
 
-    Swaps and swaps in progress fade by half every 12 hours. With three or more points,
-    points more than 4× away from their median are left out; that median counts points, not
-    GNR (a made-up giant offer cannot move it), each by its kind (swap 3, in progress 2,
-    offer 1), so cheap offers cannot outvote swaps. Two points have no outlier. With exactly half the weight on each side,
-    the price is the midpoint of the two middle prices. The board also reports `confidence`,
-    `w / (w + 25)` for a total weight `w` in GNR-equivalents, and a `depth` of thin
-    (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are shown next to it.
+    Swaps and swaps in progress fade by half every 12 hours. With three or more of them,
+    those more than 4× away from their median are left out (fat fingers). With exactly half
+    the weight on each side, the price is the midpoint of the two middle prices. The board
+    also reports `confidence`, `w / (w + 25)` for a total weight `w` in GNR-equivalents, and
+    a `depth` of thin (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are
+    shown next to it.
   * **GNR price index** (`GKValue.index`, shared by the wallet and genoryn.io): the market
     price, with the cost to mine as its floor. If the market is at or above the cost, the
     price is the market. Below it, `price = c × market + (1 − c) × cost to mine`, with `c`

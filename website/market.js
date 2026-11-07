@@ -2,7 +2,7 @@
 (function () {
   var PER = 20, page = { sell: 0, buy: 0 }, data = { offers: [], pending: [], market: {}, recent: [], btc: 0, now: 0 };
   var $ = function (id) { return document.getElementById(id); };
-  var sat = function (p) { return p == null ? "—" : (p >= 100 ? Math.round(p).toLocaleString("en-US") : Number(p).toPrecision(3)) + " sat"; };
+  var sat = function (p) { return GKValue.btc(p); };
   var usd = function (p) { return data.btc > 0 && p != null ? GKValue.usd(p * data.btc / 1e8) : ""; };
   var gnr = function (v) { return (v / 1e8).toLocaleString("en-US", { maximumFractionDigits: 8 }); };
   var btc = function (v) { return (v / 1e8).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 8 }); };

@@ -29,6 +29,16 @@
     return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /* A price in satoshis shown in bitcoin: 9700 -> "0.000097 BTC", 1e8 -> "1 BTC". */
+  function btc(sat) {
+    if (sat == null || !isFinite(Number(sat))) return "—";
+    var v = Number(sat) / 1e8;
+    if (v === 0) return "0 BTC";
+    if (v < 1e-8) return "< 0.00000001 BTC";
+    var s = v >= 1 ? v.toLocaleString("en-US", { maximumFractionDigits: 4 }) : v.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+    return s + " BTC";
+  }
+
   /* "≈ $2.92", or "< $0.0001" without the ≈. */
   function approx(v) {
     var s = usd(v);
@@ -81,5 +91,5 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, estimate: estimate, index: index, usd: usd, approx: approx, coin: coin, sprite: sprite };
+  window.GKValue = { REF: REF, estimate: estimate, index: index, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();

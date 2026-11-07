@@ -72,12 +72,11 @@
       <ul class="mk-steps">
         <li><b>Swaps completed</b> count three times per GNR. A swap only counts if its claim is on chain.</li>
         <li><b>Swaps in progress</b> count twice.</li>
-        <li><b>Open buy and sell offers</b> count once, if their maker's wallet is online, so the first offer already sets a price.</li>
-        <li><b>Older data fades</b>: half its weight every 12 hours, gone after 72.</li>
-        <li><b>Absurd prices are left out</b>: anything more than 4× away from the typical price, so nobody can drag it with one joke offer.</li>
+        <li><b>The order book counts as one point</b>: the cheapest online sell offer and the best online buy offer with at least 1 GNR behind them (midway when both exist). It weighs at most 25 GNR, because anyone can post offers: offers above the cheapest one do not move the price, however many there are, and 10 GNR of fresh swaps outweigh the whole book. The first offer already sets a price.</li>
+        <li><b>Older swaps fade</b>: half their weight every 12 hours, gone after 72. With three or more swaps, a swap more than 4× away from the others is left out.</li>
       </ul>
       <p class="muted mk-fine"><b>The GNR price</b> is that market price, with the <b>cost to mine</b> one GNR as its floor. Above the cost, the market alone sets the price. Below it, price = depth × market + (1 − depth) × cost to mine: miners rarely sell below what a coin costs to make, so only a deep market can push GNR under it. Depth grows with the GNR traded behind the price (half at 25 GNR, nearly all at a few hundred). The cost rises as more miners join, because the same 7,200 GNR a day then take more electricity, and the floor rises with it.</p>
-      <p class="muted mk-fine">Cost to mine assumes RTX 5090-class GPUs at <span data-cost-kwh>$0.15</span> per kWh. Prices are shown in sat and in dollars at the current BTC price.</p>
+      <p class="muted mk-fine">Cost to mine assumes RTX 5090-class GPUs at <span data-cost-kwh>$0.15</span> per kWh. Prices are shown in bitcoin and in dollars at the current BTC price.</p>
       <p class="muted mk-fine" id="mkLive">Swaps on mainnet activate at block 3,300.</p>
     </div>
   </section>

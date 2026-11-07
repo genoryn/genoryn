@@ -246,6 +246,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .linkbtn{background:none;border:0;padding:6px 0 0;color:var(--text-secondary);font:500 12.5px var(--font-sans);cursor:pointer;text-decoration:underline;text-underline-offset:3px}.linkbtn:hover{color:var(--text-primary)}
 .bd-preview{margin:14px 0 4px;padding:12px 14px;border-radius:12px;border:1px dashed var(--line-strong);display:grid;gap:3px}
 .bd-preview span{font-size:11.5px;color:var(--text-tertiary);letter-spacing:.3px}.bd-preview b{font:600 18px var(--font-mono)}.bd-preview em{font-style:normal;font-size:12.5px;color:var(--text-secondary)}
+.bd-preview.far{border-color:var(--status-warning);border-style:solid}.bd-preview.far em{color:var(--status-warning)}
 .bdpub{width:100%;margin-top:14px;height:46px}
 .bd-minelist{margin-top:14px}.bd-mine{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px}.bd-mine span{flex:1}.bd-mine .btn{height:30px;padding:0 12px;font-size:12px}
 .sw-mine{margin-top:18px}.sw-past{margin-top:14px}.sw-past summary{cursor:pointer;color:var(--text-secondary);font-size:13px}.sw-past em{font-style:normal;color:var(--text-tertiary)}
@@ -556,7 +557,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
-          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median of everything people do, weighted by GNR: completed swaps ×3, swaps in progress ×2, online offers ×1, older data fading by half every 12 hours, absurd prices (4× off) left out. <b>GNR price</b> is the market price with the cost to mine one GNR as its floor: it rises with the hashrate, and only a deep market can price GNR below it.</p>
+          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median weighted by GNR: completed swaps ×3 and swaps in progress ×2, fading by half every 12 hours, plus the order book as one point (the best online sell and buy prices with at least 1 GNR, weighing at most 25 GNR). Offers above the cheapest one do not move it, however many there are. <b>GNR price</b> is the market price with the cost to mine one GNR as its floor: it rises with the hashrate, and only a deep market can price GNR below it.</p>
         </section>
         <aside class="bd-side">
           <section class="glass card bd-trade">
@@ -860,7 +861,7 @@ document.addEventListener('keydown',e=>{ if(!modalDone) return; if(e.key==='Esca
 const VAL={ show:(()=>{ try{ return localStorage.getItem('gk-showval')!=='0'; }catch(e){ return true; } })(),
             kwh:(()=>{ try{ const v=Number(localStorage.getItem('gk-kwh')); return v>0&&v<10?v:0.15; }catch(e){ return 0.15; } })(),
             src:(()=>{ try{ return localStorage.getItem('gk-valsrc')||'market'; }catch(e){ return 'market'; } })() };
-/* Market: median price of completed swaps (sat per GNR) × BTC/USD. */
+/* Market: the board's price per GNR (stored in sat) × BTC/USD. */
 function marketPerGnr(){ const m=S.market&&S.market.market, usd=Number(S.market&&S.market.btc_usd); return m&&m.price&&usd>0 ? m.price*usd/1e8 : null; }
 /* The GNR price index (value.js): the board's market price, leaning on the cost to mine
    one GNR at today's hashrate while the market is thin. */
@@ -1339,7 +1340,9 @@ async function swapCode(){
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
 const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0};
-const fmtSat=p=>p==null?'-':(p>=100?Math.round(p).toLocaleString():Number(p).toPrecision(3))+' sat';
+/* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
+const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?v.toLocaleString(undefined,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
 const btcUsd=()=>Number((BD.market&&BD.market.btc_usd)||(S.market&&S.market.btc_usd))||0;
 const satUsd=p=>{ const u=btcUsd(); return p!=null&&u>0?' · '+GKValue.usd(p*u/1e8):''; };
 const bdAgo=s=>s>=3600?Math.floor(s/3600)+' h':Math.max(1,Math.floor(s/60))+' min';
@@ -1350,16 +1353,16 @@ async function loadBoard(){
   $('bdBoard').textContent=(BD.board||'').replace(/^https?:\/\//,'');
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
   const ix=m.price!=null&&window.GKValue?GKValue.index({sat:m.price, btcUsd:u, conf:m.confidence, hashrate:(S.tip||{}).hashrate, subsidy:(S.tip||{}).next_subsidy, kwh:VAL.kwh}):null;
-  $('bdUsd').textContent=m.price!=null?(ix&&u?GKValue.usd(ix.usd):fmtSat(m.price)):'No offers yet';
-  $('bdPrice').textContent=m.price!=null?'Market '+fmtSat(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
+  $('bdUsd').textContent=m.price!=null?(ix&&u?GKValue.usd(ix.usd):fmtPx(m.price)):'No offers yet';
+  $('bdPrice').textContent=m.price!=null?'Market '+fmtPx(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
   $('bdPriceL').textContent=m.source==='swaps'?'· robust median of swaps, swaps in progress and online offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' online offer'+(n===1?'':'s'):'';
   const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
   $('bdConfBox').classList.toggle('hidden', m.price==null);
   $('bdDepth').textContent=(m.depth||(conf>=.8?'deep':conf>=.4?'moderate':'thin'))+' · '+Math.round(conf*100)+' %';
   $('bdConf').style.width=Math.max(2,Math.round(conf*100))+'%';
   $('bdIdx').textContent=ix&&ix.floor!=null?(ix.source==='floor'?'Below the cost to mine ('+GKValue.usd(ix.floor)+'): a '+(m.depth||'thin')+' market is held up toward it, '+Math.round(ix.conf*100)+' % market':'Cost to mine one GNR at '+rate((S.tip||{}).hashrate)+': '+GKValue.usd(ix.floor)+', the floor under the price'):'';
-  $('bdAsk').textContent=fmtSat(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
-  $('bdBid').textContent=fmtSat(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
+  $('bdAsk').textContent=fmtPx(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
+  $('bdBid').textContent=fmtPx(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
   $('bdVol').textContent=(m.trades||0)+' done · '+(m.pending||0)+' in progress';
   renderBook(); renderMine(); bdPer();
@@ -1391,13 +1394,13 @@ function renderBook(){
   };
   const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
   const live=o=>o.pending?'':`<span class="bd-live${o.online===false?' off':''}" title="${o.online===false?'Maker offline':'Maker online: the swap starts within seconds'}"></span>`;
-  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtSat(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
+  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtPx(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${list.length} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(list.length?`<span>${list.length} offer${list.length===1?'':'s'}</span>`:'');
 }
 function renderMine(){
   const open=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired);
-  $('bdMine').innerHTML=open.length?`<label>Your open offers</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?'Selling':'Buying'} ${esc(o.gnr_text)} GNR · ${fmtSat(o.price)}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">and ${open.length-3} more under Mine</button>`:''):'';
+  $('bdMine').innerHTML=open.length?`<label>Your open offers</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?'Selling':'Buying'} ${esc(o.gnr_text)} GNR · ${fmtPx(o.price)}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">and ${open.length-3} more under Mine</button>`:''):'';
 }
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
@@ -1407,11 +1410,15 @@ $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
 document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?'Your Bitcoin address to receive the bitcoin':'Your Bitcoin address for a refund'; bdPer(); });
 function bdPer(){
   const g=Number($('bdGnr').value), b=Number($('bdBtc').value), mp=bdMkt().price;
-  if(!(g>0&&b>0)){ $('bdPerP').textContent='-'; $('bdPer').textContent=mp?'Market price now: '+fmtSat(mp)+satUsd(mp)+'. Set any price you like.':'Set any price you like: your offer can set the first market price.'; return; }
-  const p=b*1e8/g, d=mp?((p/mp-1)*100):null;
-  $('bdPerP').textContent=fmtSat(p)+satUsd(p);
-  $('bdPer').textContent=d!=null?`${d>=0?'+':''}${d.toFixed(1)}% vs the market price`:'No market price yet: yours will be the first.';
+  if(!(g>0&&b>0)){ $('bdPerP').textContent='-'; $('bdPer').textContent=mp?'Market price now: '+fmtPx(mp)+satUsd(mp)+'. Set any price you like.':'Set any price you like: your offer can set the first market price.'; return; }
+  const p=b*1e8/g, d=mp?((p/mp-1)*100):null, u=btcUsd(), far=bdFar(p);
+  $('bdPerP').textContent=fmtPx(p)+satUsd(p);
+  const total=(bdSide==='sell_gnr'?'You receive ':'You pay ')+btcFmt(b)+' BTC'+(u?' ≈ '+GKValue.usd(b*u):'')+' for '+btcFmt(g)+' GNR.';
+  $('bdPer').textContent=(d!=null?`${d>=0?'+':''}${Math.abs(d)>=1000?Math.round(d).toLocaleString():d.toFixed(1)}% vs the market price (${fmtPx(mp)}). `:'No market price yet: yours will be the first. ')+total;
+  $('bdPreview').classList.toggle('far', !!far);
 }
+/* An offer far from the market (3× above or below) is most likely a typo. */
+function bdFar(p){ const mp=bdMkt().price; if(!mp||!p) return null; const r=p/mp; return r>=3||r<=1/3 ? r : null; }
 function bdUseMarket(){ const mp=bdMkt().price, g=Number($('bdGnr').value); if(!mp) return toast('There is no market price yet: you set the first one',true); if(!(g>0)) return toast('Enter the GNR amount first',true); $('bdBtc').value=(g*mp/1e8).toFixed(8).replace(/0+$/,'').replace(/\.$/,''); bdPer(); }
 $('bdGnr').oninput=bdPer; $('bdBtc').oninput=bdPer;
 async function boardPublish(){
@@ -1419,8 +1426,10 @@ async function boardPublish(){
   if(!g||!b||!a) return toast('Enter both amounts and your Bitcoin address',true);
   const sell=bdSide==='sell_gnr';
   const when=SW.active?'':'<p class="mtext"><b>Swaps start at the network upgrade.</b> Until then your offer is listed and counts for the market price, and it can be taken once swaps are live.</p>';
-  if(!await ask({title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:'Publish',
-    body:`<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere, so a buyer can take the offer at once. On chain it is locked only after the buyer\'s bitcoin deposit has confirmed. Cancel the offer to free it.':'When someone takes it, you pay the bitcoin into the swap contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`})) return;
+  const per=Number(b)*1e8/Number(g), far=bdFar(per), u=btcUsd();
+  const farMsg=far?`<p class="mtext warn"><b>Check the price:</b> ${fmtPx(per)} per GNR is ${far>=1?Math.round(far).toLocaleString()+'× the':Math.round(1/far).toLocaleString()+'× below the'} market price (${fmtPx(bdMkt().price)}). ${sell?'Buyers are unlikely to take it.':'You would pay far more than the market.'}</p>`:'';
+  if(!await ask({title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:far?'Publish anyway':'Publish', danger:!!far,
+    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}<p class="mtext">The offer stays on the board for 24 hours or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere, so a buyer can take the offer at once. On chain it is locked only after the buyer\'s bitcoin deposit has confirmed. Cancel the offer to free it.':'When someone takes it, you pay the bitcoin into the swap contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`})) return;
   try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
 }
 async function boardTake(id, side, g, b){
