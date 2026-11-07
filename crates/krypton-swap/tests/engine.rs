@@ -611,8 +611,17 @@ fn old_requests_and_unsafe_terms_are_refused() {
         .receive(&long.encode())
         .unwrap_err();
     assert!(e.to_string().contains("week"), "{e}");
-    // The pay check: a week at most, and the GNR must outlast the bitcoin.
+    // Confirmations grow with the size of the swap.
     let t = Timing::MAINNET;
+    assert_eq!(t.gnr_confs_for(10 * GNR), 6);
+    assert_eq!(t.gnr_confs_for(100 * GNR), 15);
+    assert_eq!(t.gnr_confs_for(5_000 * GNR), 30);
+    assert_eq!(
+        (t.btc_confs_for(500_000), t.btc_confs_for(2_000_000)),
+        (1, 2)
+    );
+    assert_eq!(Timing::TEST.gnr_confs_for(10 * GNR), 2);
+    // The pay check: a week at most, and the GNR must outlast the bitcoin.
     let ok = krypton_swap::Timelocks {
         btc_refund_height: 1_036,
         gnr_refund_height: 10_000 + 1_868,

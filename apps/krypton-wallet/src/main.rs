@@ -372,6 +372,38 @@ fn check_open(app: &Arc<App>, h: &HeaderMap) -> Result<(), Response> {
     Ok(())
 }
 
+#[derive(Deserialize)]
+struct QrQ {
+    d: String,
+}
+
+/// A QR code (SVG) for a payment request, drawn here so nothing leaves this computer.
+async fn qr(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<QrQ>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    if q.d.len() > 512 {
+        return err("too long for a QR code");
+    }
+    match qrcode::QrCode::with_error_correction_level(q.d.as_bytes(), qrcode::EcLevel::M) {
+        Ok(c) => {
+            let svg = c
+                .render::<qrcode::render::svg::Color>()
+                .min_dimensions(220, 220)
+                .quiet_zone(true)
+                .dark_color(qrcode::render::svg::Color("#000000"))
+                .light_color(qrcode::render::svg::Color("#ffffff"))
+                .build();
+            ([(header::CONTENT_TYPE, "image/svg+xml")], svg).into_response()
+        }
+        Err(e) => err(e),
+    }
+}
+
 /// Only requests addressed to this computer: a web page that points its own domain at
 /// 127.0.0.1 (DNS rebinding) is refused even before the session token is checked.
 async fn local_only(req: axum::extract::Request, next: axum::middleware::Next) -> Response {
@@ -1889,6 +1921,7 @@ async fn serve(
         .route("/api/history", get(history_page))
         .route("/api/fees", get(fees))
         .route("/api/resolve", get(resolve))
+        .route("/api/qr", get(qr))
         .route("/api/update/check", post(check_update))
         .route("/api/update/auto", post(auto_update))
         .route("/api/chain", get(chain_info))

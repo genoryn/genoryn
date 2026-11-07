@@ -417,6 +417,16 @@ pub fn quick(a: &App, w: &mut Wallet, src: &Multi) {
         block_txs: &blocks,
     };
     crate::board::tick(a, &mut e);
+    // A buyer just took our offer: lock the GNR for them now, not on the next full round.
+    if engine::load(e.wallet).iter().any(|s| {
+        s.gnr_first()
+            && s.role == engine::Role::GnrSeller
+            && s.stage == Stage::Accepted
+            && s.lock_cm.is_none()
+    }) && let Err(x) = e.step(&[])
+    {
+        *a.last_error.lock() = format!("swaps: {x}");
+    }
 }
 
 pub fn active_count(w: &Wallet) -> usize {

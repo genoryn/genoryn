@@ -401,8 +401,8 @@ impl Timing {
         claim_margin: 5,
         btc_confirmations: 1,
         gnr_confirmations: 2,
-        gnr_lock2_blocks: 60,
-        btc_lock2_blocks: 6,
+        gnr_lock2_blocks: 120,
+        btc_lock2_blocks: 20,
         btc_slow_secs: 30,
         gnr_fast_secs: 10,
         min_window2_secs: 120,
@@ -443,6 +443,27 @@ impl Timing {
             ));
         }
         Ok(())
+    }
+
+    /// GNR confirmations the buyer waits for on the seller's lock, by size: undoing a
+    /// lock means rewriting that many blocks, which must cost more than the trade is worth.
+    /// Up to 50 GNR: 6 blocks; up to 500: 15; more: `gnr_confirmations`.
+    pub fn gnr_confs_for(&self, gori: u64) -> u64 {
+        let tier = match gori / 100_000_000 {
+            0..=50 => 6,
+            51..=500 => 15,
+            _ => self.gnr_confirmations,
+        };
+        tier.min(self.gnr_confirmations)
+    }
+
+    /// Bitcoin confirmations the seller waits for on the payment: one up to 0.01 BTC.
+    pub fn btc_confs_for(&self, sats: u64) -> u32 {
+        if sats <= 1_000_000 {
+            1
+        } else {
+            self.btc_confirmations
+        }
     }
 
     /// GNR-first flow, the buyer's check before paying: the GNR stays locked long enough

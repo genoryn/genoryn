@@ -27,8 +27,8 @@ Both chains lock coins under the same hash lock `h = SHA-256(s)`. In the **GNR-f
 |---|---|---|
 | 1 | Buyer | Sends a request: amounts, its bitcoin refund key and its GNR claim outputs. |
 | 2 | GNR seller | Answers with `h`, its bitcoin claim key and the GNR lock terms, and **locks the GNR at once** in a lock note: claimable with `s` by the buyer only, refundable to the seller after `T_gnr` (≈ 32 h). |
-| 3 | Buyer | Waits for the lock to confirm (30 GNR blocks). The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
-| 4 | GNR seller | Waits for the bitcoin to confirm, then **claims the bitcoin** with `s`, at least 6 blocks before `T_btc`. This publishes `s` on Bitcoin. |
+| 3 | Buyer | Waits for the lock to confirm: 6 GNR blocks for up to 50 GNR, 15 up to 500, 30 above (`Timing::gnr_confs_for`), so undoing the lock costs more than the trade. The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
+| 4 | GNR seller | Waits for the bitcoin to confirm (1 block up to 0.01 BTC, else 2), then **claims the bitcoin** with `s`, at least 6 blocks before `T_btc`. This publishes `s` on Bitcoin. |
 | 5 | Buyer | Its wallet reads `s` from that bitcoin transaction and **claims the GNR**, long before `T_gnr`. |
 
 If anyone stops halfway, the timelocks return the coins:

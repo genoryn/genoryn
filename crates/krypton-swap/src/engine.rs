@@ -992,11 +992,11 @@ impl<G: ChainSource> Engine<'_, G> {
                     return Ok(());
                 };
                 let confs = gnr_tip + 1 - h;
-                if confs < t.gnr_confirmations {
+                if confs < t.gnr_confs_for(s.gnr) {
                     s.say(format!(
                         "The seller locked {} GNR for you at block {h}: {confs} of {} confirmations before you pay.",
                         krypton_core::emission::format_amount(s.gnr - s.claim_fee),
-                        t.gnr_confirmations
+                        t.gnr_confs_for(s.gnr)
                     ));
                     return Ok(());
                 }
@@ -1200,10 +1200,10 @@ impl<G: ChainSource> Engine<'_, G> {
                     }
                     Some(u) => {
                         let confs = u.height.map(|h| btc_tip + 1 - h).unwrap_or(0);
-                        if confs < t.btc_confirmations {
+                        if confs < t.btc_confs_for(s.sats) {
                             s.say(format!(
                                 "Bitcoin payment seen, {confs} of {} confirmations.",
-                                t.btc_confirmations
+                                t.btc_confs_for(s.sats)
                             ));
                             false
                         } else if !t.may_claim_btc(&tl, btc_tip) {

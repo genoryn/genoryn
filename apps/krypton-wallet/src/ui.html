@@ -130,6 +130,7 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .swc{padding:16px;border:1px solid var(--line);border-radius:14px;margin-top:12px;background:var(--bg-inset)}
 .swc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.swc-head b{font:600 16px var(--font-sans)}.swc-head span{color:var(--text-secondary);font-size:13px}.swc-head .pill{margin-left:auto}
 .swc-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0 10px}.swc-steps i{font-style:normal;font-size:11px;color:var(--text-tertiary);border-top:2px solid var(--line);padding-top:6px;letter-spacing:.3px}.swc-steps i.on{color:var(--text-primary);border-color:var(--text-primary)}
+.modal-card:has(.pay-box){width:min(700px,100%)}.pay-box{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}.pay-qr{width:200px;height:200px;border-radius:12px;background:#fff;display:grid;place-items:center;overflow:hidden}.pay-qr svg{width:100%;height:100%}.pay-info label{display:block;margin:10px 0 4px;font-size:12px;color:var(--text-tertiary)}.pay-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.pay-row b{font-size:20px}.pay-row .btn{height:30px;padding:0 12px;font-size:12px;margin-left:auto}.pay-addr{font-size:12.5px;word-break:break-all;flex:1;min-width:0}.pay-safe{padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--status-success) 45%,transparent);background:color-mix(in srgb,var(--status-success) 8%,transparent);font-size:12.5px;color:var(--text-secondary)}.pay-safe b{color:var(--text-primary)}@media (max-width:640px){.pay-box{grid-template-columns:1fr}.pay-qr{margin:0 auto}}
 .swc-status{margin:6px 0 10px;font-size:14px}.swc-keep{margin:-4px 0 10px;font-size:12.5px;color:var(--text-tertiary)}.sw-keep{display:flex;gap:12px;align-items:flex-start;margin:4px 0 14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line-strong);background:var(--bg-inset);font-size:13px;color:var(--text-secondary);line-height:1.5}.sw-keep b{color:var(--text-primary)}.sw-keep .ic{flex:none;margin-top:2px}.swc-safe{margin:8px 0;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--status-success) 45%,transparent);background:color-mix(in srgb,var(--status-success) 8%,transparent);font-size:13px;color:var(--text-secondary)}.swc-safe b{color:var(--text-primary)}.swc .addr{margin:6px 0 8px;word-break:break-all;max-height:120px;overflow:auto}
 .swc details{margin-top:8px;font-size:13px}.swc summary{cursor:pointer;color:var(--text-secondary)}.swc-log{margin:8px 0 0;padding-left:18px;color:var(--text-secondary);font-size:12.5px}
 .pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--text-primary)}
@@ -1294,11 +1295,33 @@ async function loadSwaps(first){
   const list=SW.swaps||[], live=list.filter(s=>!s.finished), past=list.filter(s=>s.finished);
   loadBoard();
   $('swCount').textContent=live.length?live.length+' in progress':'';
+  live.filter(s=>s.gnr_first&&s.role==='btc_seller'&&s.stage==='await_deposit'&&s.htlc_address&&!PAY_SHOWN.has(s.id)).slice(0,1).forEach(s=>showPay(s));
   $('swapList').innerHTML=live.length?live.map(swapCard).join(''):'<p class="muted">No swap in progress. Take an offer from the board, or publish your own.</p>';
   $('swPastBox').classList.toggle('hidden', !past.length); $('swPastN').textContent='('+past.length+')';
   $('swapPast').innerHTML=past.slice(0,50).map(swapCard).join('');
 }
 const swLeft=s=>{ const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?h+' h '+m+' min':m+' min'; };
+/* GNR first: once the seller's GNR is locked for us, the payment pops up by itself. */
+const PAY_SHOWN=new Set((()=>{ try{ return JSON.parse(localStorage.getItem('gk-pay-shown')||'[]'); }catch(e){ return []; } })());
+async function showPay(s){
+  PAY_SHOWN.add(s.id); try{ localStorage.setItem('gk-pay-shown', JSON.stringify([...PAY_SHOWN].slice(-200))); }catch(e){}
+  const btc=(Number(s.sats)/1e8).toFixed(8).replace(/0+$/,'').replace(/\.$/,''), u=btcUsd();
+  const uri='bitcoin:'+s.htlc_address+'?amount='+btc;
+  const lockAt=((s.status||'').match(/block (\d+)/)||[])[1];
+  ask({title:'Pay '+btc+' BTC now', icon:'swap', ok:'Done', hideCancel:true, body:`
+    <div class="pay-box">
+      <div class="pay-qr" id="payQr"><span class="muted">QR code…</span></div>
+      <div class="pay-info">
+        <div class="pay-safe"><b>${esc(s.receive_text)} are locked for you on chain${lockAt?' (block '+esc(lockAt)+')':''}.</b> Only you can claim them, with the secret the seller reveals when taking this payment. If the seller never takes it, your bitcoin comes back by itself.</div>
+        <label>Amount, exactly</label>
+        <div class="pay-row"><b class="mono">${esc(btc)} BTC</b>${u?`<span class="muted">${GKValue.usd(Number(s.sats)/1e8*u)}</span>`:''}<button class="btn" type="button" data-c="${esc(btc)}" onclick="copyText(this.dataset.c)">Copy</button></div>
+        <label>To this contract address</label>
+        <div class="pay-row"><span class="mono pay-addr">${esc(s.htlc_address)}</span><button class="btn" type="button" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy</button></div>
+        <p class="mtext">Pay from any Bitcoin wallet (scan the code with your phone wallet, or copy both). ${s.pay_in!=null?'Pay within <b>'+esc(swLeft(s.pay_in))+'</b>. ':''}The wallet does the rest by itself; keep it open.</p>
+      </div>
+    </div>`});
+  try{ const r=await fetch('/api/qr?d='+encodeURIComponent(uri),{headers:{'x-token':token}}); if(r.ok){ const q=$('payQr'); if(q) q.innerHTML=await r.text(); } }catch(e){}
+}function showPayId(id){ const s=(SW.swaps||[]).find(x=>x.id===id); if(s) showPay(s); }
 async function swapCancel(id){
   if(!await ask({title:'Cancel this swap?', icon:'swap', ok:'Cancel swap', cancel:'Keep it', danger:true,
     body:'<p class="mtext">Nothing is locked yet, so nobody loses anything. If you are the buyer, <b>do not pay the bitcoin</b> after cancelling (if you do anyway, your wallet refunds it at the timelock). The other side is told through the board.</p>'})) return;
@@ -1341,7 +1364,7 @@ function swapCard2(s){
     <p class="swc-status">${esc(s.status)}</p>
     ${!s.finished?'<p class="swc-keep">Keep this wallet open and unlocked until this swap is done: only it can lock, take or refund these coins.</p>':''}
     ${s.code?`<label>Send this code to the other person</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">Copy code</button>`:''}
-    ${pay?`<div class="swc-safe"><b>The seller's GNR is locked for you on chain.</b> Only you can claim it, with the secret the seller reveals when taking your bitcoin.</div><label>Pay exactly ${esc(s.btc_text)} BTC to this contract address${s.pay_in!=null?' within '+swLeft(s.pay_in):''}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy address</button>`:''}
+    ${pay?`<button class="btn btn-primary" type="button" onclick="showPayId('${esc(s.id)}')">Show payment details</button><div class="swc-safe"><b>The seller's GNR is locked for you on chain.</b> Only you can claim it, with the secret the seller reveals when taking your bitcoin.</div><label>Pay exactly ${esc(s.btc_text)} BTC to this contract address${s.pay_in!=null?' within '+swLeft(s.pay_in):''}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">Copy address</button>`:''}
     ${acts}
     <details><summary>Details</summary>
       ${row('You receive',s.receive_text)}${row('Your Bitcoin address',s.btc_address)}${row('Contract address',pay||!buy?s.htlc_address:'')}
