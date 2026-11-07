@@ -174,6 +174,9 @@ pub struct Vault {
     pub cache: Mutex<HashMap<String, Cached>>,
     /// Wallets temporarily taken out of `others` by the background sync.
     pub syncing: Mutex<HashSet<String>>,
+    /// Wallets with a swap in progress or an open offer (closing the window keeps the app
+    /// running for them). The 24-hour lock applies to them as to any other.
+    pub hold: Mutex<HashSet<String>>,
 }
 
 impl Vault {
@@ -199,6 +202,14 @@ impl Vault {
                 incoming: w.incoming().iter().map(|i| i.value).sum(),
             },
         );
+    }
+    pub fn set_hold(&self, id: &str, busy: bool) {
+        let mut h = self.hold.lock();
+        if busy {
+            h.insert(id.to_string());
+        } else {
+            h.remove(id);
+        }
     }
     pub fn locks_in(&self, id: &str) -> Option<u64> {
         self.unlocked
@@ -230,6 +241,7 @@ pub fn lock_wallet(app: &App, id: &str) {
         *app.wallet.lock() = None;
         *app.account.lock() = None;
         app.vault.unlocked.lock().remove(id);
+        app.vault.set_hold(id, false);
     } else {
         // `put_back` checks the record, so it goes first here.
         app.vault.unlocked.lock().remove(id);
@@ -326,6 +338,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         };
         app.vault.syncing.lock().insert(id.clone());
         let _ = w.sync(src, |_, _| {});
+        app.vault.set_hold(&id, crate::swaps::busy(&w));
         app.vault.note(&id, &w);
         remember_fp(app, &id, &w);
         crate::snapshot(&w);
@@ -348,6 +361,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         };
         app.vault.syncing.lock().insert(id.clone());
         crate::swaps::tick(app, &mut w, src, txs);
+        app.vault.set_hold(&id, crate::swaps::busy(&w));
         crate::snapshot(&w);
         put_back(app, &id, w);
     }

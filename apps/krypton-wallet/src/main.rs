@@ -1830,6 +1830,7 @@ async fn serve(
                     let fp = vault::fingerprint(w);
                     if let Some(e) = reg.wallets.iter().find(|e| e.fp == fp) {
                         a.vault.note(&e.id, w);
+                        a.vault.set_hold(&e.id, swaps::busy(w));
                     }
                     let owner = krypton_crypto::field::digest_to_bytes(&w.address().owner);
                     let encoded = w.address().encode();
@@ -2045,7 +2046,9 @@ mod window {
                     // the server (and its node); the watcher then posts Quit.
                     Some(a) => {
                         window.set_visible(false);
-                        if !a.miner_running() && a.miner_want.lock().is_none() {
+                        // Open offers and swaps in progress need the wallet running too.
+                        let busy = !a.vault.hold.lock().is_empty();
+                        if !a.miner_running() && a.miner_want.lock().is_none() && !busy {
                             a.quit.notify_one();
                         }
                     }

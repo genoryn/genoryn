@@ -796,6 +796,20 @@ pub fn linked_ids(w: &Wallet) -> std::collections::HashSet<String> {
     load(w).links.into_iter().map(|l| l.swap_id).collect()
 }
 
+/// This wallet's offers that are on the board now, plus takes still waiting for an answer.
+pub fn open_offers(w: &Wallet) -> usize {
+    let st = load(w);
+    let t = now();
+    st.offers
+        .iter()
+        .filter(|o| !o.cancelled && !o.taken && o.offer.expires > t)
+        .count()
+        + st.takes
+            .iter()
+            .filter(|x| !x.gone && x.swap_id.is_none())
+            .count()
+}
+
 /// Whether this wallet has anything on the board to watch.
 pub fn has_work(w: &Wallet) -> bool {
     let st = load(w);

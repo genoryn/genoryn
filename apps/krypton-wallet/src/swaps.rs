@@ -360,6 +360,12 @@ pub async fn settings(
 
 /// Background round, with the active wallet already synced and locked by the caller.
 /// Whether a wallet has swaps in progress or offers on the board to watch.
+/// Whether the wallet must stay unlocked and running: a swap of its own is not finished,
+/// or one of its offers is open (someone may take it now).
+pub fn busy(w: &Wallet) -> bool {
+    engine::load(w).iter().any(|s| !s.stage.finished()) || crate::board::open_offers(w) > 0
+}
+
 pub fn has_work(w: &Wallet) -> bool {
     !engine::load(w).iter().all(|s| s.stage.finished()) || crate::board::has_work(w)
 }
