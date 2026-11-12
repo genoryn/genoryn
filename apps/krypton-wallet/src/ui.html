@@ -1412,7 +1412,8 @@ async function loadBoard(){
   $('bdConfBox').classList.toggle('hidden', m.price==null);
   $('bdDepth').textContent=(m.depth||(conf>=.8?'deep':conf>=.4?'moderate':'thin'))+' · '+Math.round(conf*100)+' %';
   $('bdConf').style.width=Math.max(2,Math.round(conf*100))+'%';
-  $('bdIdx').textContent=m.last_price!=null?'Last swap '+fmtPx(m.last_price)+(m.trades?' · '+m.trades+' in 24 h':''):'No swap yet: the price comes from the offers.';
+  const mc=window.GKValue&&GKValue.mineCost({hs:80e6, watts:575, kwh:0.15, network:(S.tip||{}).hashrate, subsidy:(S.tip||{}).next_subsidy});
+  $('bdIdx').textContent=(m.last_price!=null?'Last swap '+fmtPx(m.last_price)+(m.trades?' · '+m.trades+' in 24 h':''):'No swap yet: the price comes from the offers.')+(mc&&mc.usdPerGnr!=null?' · Mining 1 GNR costs ≈ '+GKValue.usd(mc.usdPerGnr)+' now (RTX 5090, $0.15/kWh; calculator on genoryn.io/market)':'');
   $('bdAsk').textContent=fmtPx(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtPx(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
@@ -1590,7 +1591,7 @@ async function refresh(){
   // Offer a newly found update once per version (automatic mode installs by itself).
   let seen=null; try{ seen=localStorage.getItem('gk-upd-seen'); }catch(e){}
   if(S.update && S.update.version!==seen && !modalDone && !(S.settings&&S.settings.auto_update) && !S.working && !S.busy) offerUpdate(S.update,false); $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
-  const m=S.miner||{}; $('mStat').textContent=m.running?'mining':'stopped'; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
+  const m=S.miner||{}; $('mStat').textContent=m.running?'mining':(m.error?'stopped: '+m.error:'stopped'); $('mStat').title=m.error||''; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';
   const dayUsd=VAL.show&&perGnr()!=null&&m.expected_per_day?' ('+GKValue.approx(m.expected_per_day*perGnr())+' at the market price)':'';

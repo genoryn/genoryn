@@ -48,6 +48,8 @@ pub fn devices() -> Result<Vec<(usize, String, u64)>, ClError> {
 }
 
 pub struct ClMiner {
+    /// Index in the list of OpenCL GPUs (as in `--list-devices`).
+    pub index: usize,
     pub name: String,
     context: Context,
     queue: CommandQueue,
@@ -70,7 +72,9 @@ impl ClMiner {
         let context = Context::from_device(&device).map_err(e)?;
         #[allow(deprecated)]
         let queue = CommandQueue::create_default(&context, CL_QUEUE_PROFILING_ENABLE).map_err(e)?;
-        let src = format!("#define KH_FN inline\n#define KH_G __global\n{CORE}\n{KERNELS}");
+        // `static inline`: a plain C99 `inline` has no external definition, and NVIDIA's
+        // OpenCL compiler fails to link the helpers when it does not inline them.
+        let src = format!("#define KH_FN static inline\n#define KH_G __global\n{CORE}\n{KERNELS}");
         let program = Program::create_and_build_from_source(&context, &src, "-cl-std=CL1.2")
             .map_err(ClError::Cl)?;
         let k_dataset = Kernel::create(&program, "kh_dataset").map_err(e)?;
@@ -91,6 +95,7 @@ impl ClMiner {
             unsafe { Buffer::<cl_uint>::create(&context, CL_MEM_READ_ONLY, 8, ptr::null_mut()) }
                 .map_err(e)?;
         Ok(Self {
+            index,
             name,
             context,
             queue,

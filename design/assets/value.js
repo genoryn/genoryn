@@ -12,6 +12,20 @@
     return (Number(subsidy) || 5e8) / 1e8 * BLOCKS_PER_DAY * Math.min(1, REF.hashrate / hashrate);
   }
 
+  /* What mining one GNR costs one miner: o = { hs: the miner's H/s, watts, kwh: USD per
+     kWh, network: network H/s (at least the miner's own), subsidy: gori per block }.
+     Every block pays its reward to all miners by their share of the work, so a miner earns
+     blocksPerDay × reward × hs / network GNR a day, and pays watts × 24 h × kwh for it. */
+  function mineCost(o) {
+    var hs = Number(o.hs) || 0, w = Number(o.watts) || 0, kwh = Number(o.kwh) || 0;
+    var net = Math.max(Number(o.network) || 0, hs);
+    if (hs <= 0 || net <= 0) return null;
+    var perDay = (Number(o.subsidy) || 5e8) / 1e8 * BLOCKS_PER_DAY;
+    var gnrDay = perDay * hs / net;
+    var usdDay = w / 1000 * 24 * kwh;
+    return { share: hs / net, gnrDay: gnrDay, usdDay: usdDay, usdPerGnr: gnrDay > 0 ? usdDay / gnrDay : null, perDay: perDay };
+  }
+
   /* $0.0031, $0.40, $1,234.56; anything below a hundredth of a cent is "< $0.0001". */
   function usd(v) {
     v = Number(v) || 0;
@@ -66,5 +80,5 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, perGpu: perGpu, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
+  window.GKValue = { REF: REF, perGpu: perGpu, mineCost: mineCost, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();

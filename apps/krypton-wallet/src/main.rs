@@ -101,7 +101,13 @@ struct MinerStats {
     expected_per_day: f64,
     /// Name of the wallet the miner pays, filled in per request.
     wallet: String,
+    /// The miner's last error line (why it stopped, e.g. no usable GPU).
+    error: String,
 }
+
+/// When the miner was last started, and how many times in a row it stopped within a
+/// minute of starting (then the watchdog gives up and shows the reason).
+static MINER_RUN: Mutex<(Option<std::time::Instant>, u32)> = Mutex::new((None, 0));
 
 struct App {
     network: Network,
@@ -1301,6 +1307,8 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
         Some(w) => w.address().encode(),
         None => return err("unlock the wallet first"),
     };
+    // Started by the user: a fresh count for the watchdog.
+    MINER_RUN.lock().1 = 0;
     match spawn_miner(&app, &addr, &r.backend, r.max_cpu.unwrap_or(50)) {
         Ok(()) => Json(json!({"ok": true})).into_response(),
         Err(e) => err(e),
@@ -1339,9 +1347,21 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
         .arg(backend)
         .arg("--json");
     cmd.arg("--max-cpu").arg(max_cpu.clamp(1, 100).to_string());
-    match cmd.stdout(Stdio::piped()).stderr(Stdio::null()).spawn() {
+    match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(mut c) => {
             let out = c.stdout.take();
+            if let Some(err) = c.stderr.take() {
+                let stats = app.miner_stats.clone();
+                std::thread::spawn(move || {
+                    for line in std::io::BufReader::new(err).lines().map_while(|l| l.ok()) {
+                        let l = line.trim().trim_start_matches("Error: ").to_string();
+                        if !l.is_empty() {
+                            stats.lock().error = l.chars().take(600).collect();
+                        }
+                    }
+                });
+            }
+            MINER_RUN.lock().0 = Some(std::time::Instant::now());
             *app.miner_stats.lock() = MinerStats {
                 running: true,
                 backend: backend.to_string(),
@@ -1395,6 +1415,34 @@ fn miner_watchdog(app: &App) {
     };
     if app.miner_running() {
         return;
+    }
+    {
+        // Stopping again and again right after starting is not a crash to retry: show why.
+        let mut run = MINER_RUN.lock();
+        if let Some(t) = run.0.take() {
+            run.1 = if t.elapsed() < std::time::Duration::from_secs(60) {
+                run.1 + 1
+            } else {
+                0
+            };
+        }
+        if run.1 >= 3 {
+            run.1 = 0;
+            drop(run);
+            *app.miner_want.lock() = None;
+            let why = app.miner_stats.lock().error.clone();
+            let msg = format!(
+                "the miner keeps stopping right after it starts ({}); check Mining → Detect devices, or choose another device",
+                if why.is_empty() {
+                    "no reason given".into()
+                } else {
+                    why
+                }
+            );
+            app.miner_stats.lock().error = msg.clone();
+            *app.last_error.lock() = msg;
+            return;
+        }
     }
     let mut last = LAST.lock();
     if last.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(30)) {

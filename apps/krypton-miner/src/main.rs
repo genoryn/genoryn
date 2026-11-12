@@ -179,26 +179,95 @@ enum Engine {
     Opencl(Vec<krypton_pow::opencl::ClMiner>),
 }
 
-fn list_devices() {
-    println!("CPU: {} logical cores", num_cpus::get());
+/// One GPU as the miner sees it, and whether it can mine (with the reason if not).
+struct Probe {
+    backend: &'static str,
+    index: usize,
+    name: String,
+    memory_mib: u64,
+    error: Option<String>,
+}
+
+/// Lists every device and tries to set each one up for mining (compiling the kernel),
+/// so a device that cannot mine says why.
+fn probe_devices() -> (Vec<Probe>, Vec<String>) {
+    let mut v = Vec::new();
+    let mut notes = Vec::new();
     #[cfg(feature = "cuda")]
     match krypton_pow::cuda::devices() {
-        Ok(d) => d.iter().for_each(|x| {
-            println!(
-                "CUDA {}: {} ({} MiB)",
-                x.ordinal,
-                x.name,
-                x.memory_bytes >> 20
-            )
-        }),
-        Err(e) => println!("CUDA: unavailable ({e})"),
+        Ok(d) => {
+            for x in d {
+                let error = krypton_pow::cuda::CudaMiner::new(x.ordinal)
+                    .err()
+                    .map(|e| e.to_string());
+                v.push(Probe {
+                    backend: "cuda",
+                    index: x.ordinal,
+                    name: x.name,
+                    memory_mib: (x.memory_bytes >> 20) as u64,
+                    error,
+                });
+            }
+        }
+        Err(e) => notes.push(format!("CUDA: unavailable ({e})")),
     }
     #[cfg(feature = "opencl")]
     match krypton_pow::opencl::devices() {
-        Ok(d) => d
+        Ok(d) => {
+            for (i, n, m) in d {
+                let error = krypton_pow::opencl::ClMiner::new(i)
+                    .err()
+                    .map(|e| e.to_string());
+                v.push(Probe {
+                    backend: "opencl",
+                    index: i,
+                    name: n,
+                    memory_mib: m >> 20,
+                    error,
+                });
+            }
+        }
+        Err(e) => notes.push(format!("OpenCL: unavailable ({e})")),
+    }
+    (v, notes)
+}
+
+fn list_devices(json: bool) {
+    let (devs, notes) = probe_devices();
+    if json {
+        let list: Vec<Value> = devs
             .iter()
-            .for_each(|(i, n, m)| println!("OpenCL {i}: {n} ({} MiB)", m >> 20)),
-        Err(e) => println!("OpenCL: unavailable ({e})"),
+            .map(|d| {
+                json!({"backend": d.backend, "index": d.index, "name": d.name,
+                       "memory_mib": d.memory_mib, "usable": d.error.is_none(), "error": d.error})
+            })
+            .collect();
+        println!(
+            "{}",
+            json!({"cpu_threads": num_cpus::get(), "gpus": list, "notes": notes})
+        );
+        return;
+    }
+    println!("CPU: {} logical cores", num_cpus::get());
+    for d in &devs {
+        let tag = if d.backend == "cuda" {
+            "CUDA"
+        } else {
+            "OpenCL"
+        };
+        match &d.error {
+            None => println!(
+                "{tag} {}: {} ({} MiB) - usable",
+                d.index, d.name, d.memory_mib
+            ),
+            Some(e) => println!(
+                "{tag} {}: {} ({} MiB) - NOT usable: {e}",
+                d.index, d.name, d.memory_mib
+            ),
+        }
+    }
+    for n in notes {
+        println!("{n}");
     }
 }
 
@@ -209,54 +278,80 @@ fn pick_engine(a: &Args) -> Result<Engine> {
             ((num_cpus::get() as u32 * a.max_cpu.clamp(1, 100)).div_ceil(100)) as usize
         })
         .max(1);
-    let want_gpu = matches!(a.backend, Backend::Auto | Backend::Cuda);
+    // Why each GPU that was tried could not be used (shown if none works).
+    let mut why: Vec<String> = Vec::new();
     #[cfg(feature = "cuda")]
-    if want_gpu {
-        if let Ok(devs) = krypton_pow::cuda::devices() {
-            let ids: Vec<usize> = devs
-                .iter()
-                .map(|d| d.ordinal)
-                .filter(|o| a.devices.is_empty() || a.devices.contains(o))
-                .collect();
-            let miners: Vec<_> = ids
-                .iter()
-                .filter_map(|i| krypton_pow::cuda::CudaMiner::new(*i).ok())
-                .collect();
-            if !miners.is_empty() {
-                return Ok(Engine::Cuda(miners));
+    if matches!(a.backend, Backend::Auto | Backend::Cuda) {
+        match krypton_pow::cuda::devices() {
+            Ok(devs) => {
+                let mut miners = Vec::new();
+                for d in devs
+                    .iter()
+                    .filter(|d| a.devices.is_empty() || a.devices.contains(&d.ordinal))
+                {
+                    match krypton_pow::cuda::CudaMiner::new(d.ordinal) {
+                        Ok(m) => miners.push(m),
+                        Err(e) => why.push(format!("CUDA {} ({}): {e}", d.ordinal, d.name)),
+                    }
+                }
+                if !miners.is_empty() {
+                    return Ok(Engine::Cuda(miners));
+                }
             }
+            Err(e) => why.push(format!("CUDA: {e}")),
         }
         if a.backend == Backend::Cuda {
-            bail!("no usable NVIDIA GPU found");
+            bail!("no usable NVIDIA GPU found: {}", reasons(&why));
         }
     }
     #[cfg(feature = "opencl")]
     if matches!(a.backend, Backend::Auto | Backend::Opencl) {
-        if let Ok(devs) = krypton_pow::opencl::devices() {
-            let miners: Vec<_> = devs
-                .iter()
-                .filter(|(i, _, _)| a.devices.is_empty() || a.devices.contains(i))
-                .filter_map(|(i, _, _)| krypton_pow::opencl::ClMiner::new(*i).ok())
-                .collect();
-            if !miners.is_empty() {
-                return Ok(Engine::Opencl(miners));
+        match krypton_pow::opencl::devices() {
+            Ok(devs) => {
+                let mut miners = Vec::new();
+                for (i, n, _) in devs
+                    .iter()
+                    .filter(|(i, _, _)| a.devices.is_empty() || a.devices.contains(i))
+                {
+                    match krypton_pow::opencl::ClMiner::new(*i) {
+                        Ok(m) => miners.push(m),
+                        Err(e) => why.push(format!("OpenCL {i} ({n}): {e}")),
+                    }
+                }
+                if !miners.is_empty() {
+                    if !why.is_empty() {
+                        eprintln!("skipped: {}", reasons(&why));
+                    }
+                    return Ok(Engine::Opencl(miners));
+                }
             }
+            Err(e) => why.push(format!("OpenCL: {e}")),
         }
         if a.backend == Backend::Opencl {
-            bail!("no usable OpenCL GPU found");
+            bail!("no usable OpenCL GPU found: {}", reasons(&why));
         }
     }
-    let _ = want_gpu;
+    if !why.is_empty() {
+        eprintln!("no GPU could mine, using the CPU: {}", reasons(&why));
+    }
     Ok(Engine::Cpu {
         threads,
         dataset: None,
     })
 }
 
+fn reasons(why: &[String]) -> String {
+    if why.is_empty() {
+        "no GPU of this kind was found (see --list-devices)".into()
+    } else {
+        why.join("; ")
+    }
+}
+
 fn main() -> Result<()> {
     let a = Args::parse();
     if a.list_devices {
-        list_devices();
+        list_devices(a.json);
         return Ok(());
     }
     let address = match (&a.address, &a.address_file) {
@@ -301,13 +396,13 @@ fn main() -> Result<()> {
         #[cfg(feature = "cuda")]
         Engine::Cuda(m) => m
             .iter()
-            .map(|x| x.info.name.clone())
+            .map(|x| format!("CUDA {} {}", x.info.ordinal, x.info.name))
             .collect::<Vec<_>>()
             .join(", "),
         #[cfg(feature = "opencl")]
         Engine::Opencl(m) => m
             .iter()
-            .map(|x| x.name.clone())
+            .map(|x| format!("OpenCL {} {}", x.index, x.name))
             .collect::<Vec<_>>()
             .join(", "),
     };

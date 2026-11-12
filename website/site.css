@@ -406,3 +406,19 @@ main { overflow-x: clip; }
 .mk-swap-kv a { color: var(--text-primary); }
 .mk-hash { cursor: help; }
 @media (max-width: 980px) { .mk-cards { grid-template-columns: 1fr; } }
+/* Market: mining cost calculator */
+.mc { margin-bottom: 18px; }
+.mc-in { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin: 14px 0; }
+.mc-in label { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+.mc-in select, .mc-in input { width: 100%; }
+.mc-now { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.mc-now > div { padding: 14px 16px; border-radius: 14px; background: var(--bg-inset); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mc-now span { font-size: 12px; color: var(--text-tertiary); }
+.mc-now b { font: 600 20px var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-now em { font-style: normal; font-size: 12px; color: var(--text-secondary); }
+.mc-now .mc-hl { border-color: var(--line-strong); box-shadow: var(--glass-rim), 0 0 30px -14px var(--neon-soft); }
+.mc-table td b { font-weight: 700; }
+.bd-up { color: var(--status-success); } .bd-dn { color: var(--status-error-site, var(--status-error)); }
+@media (max-width: 980px) { .mc-in, .mc-now { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .mc-in, .mc-now { grid-template-columns: 1fr; } }
+.mk-tablewrap { overflow-x: auto; }
