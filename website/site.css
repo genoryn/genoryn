@@ -434,3 +434,4 @@ main { overflow-x: clip; }
 .mc-sub { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
 .mc .mc-in.mc-in4 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 760px) { .mc .mc-in, .mc .mc-in.mc-in4 { grid-template-columns: 1fr; } }
+.mc-h5 { font-size: 14.5px; font-weight: 600; margin: 18px 0 6px; }

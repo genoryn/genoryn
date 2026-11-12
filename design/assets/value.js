@@ -44,6 +44,26 @@
   }
   // About 19.95 million BTC exist in late 2026; only used to put a GNR total next to Bitcoin's.
   var BTC_SUPPLY = 19.95e6;
+  var GNR_YEAR = 525960, BTC_YEAR = 52596, GOLD_SF = 60;
+
+  /* Bitcoin by its own schedule: 50 BTC a block halving every 210,000 blocks, ten minutes a
+     block, block 840,000 on 20 April 2024. */
+  function btcSupplyAt(h) {
+    var s = 0, left = Math.max(0, Math.floor(h));
+    for (var e = 0; left > 0 && e < 33; e++) {
+      var n = Math.min(left, 210000);
+      s += n * Math.floor(5e9 / Math.pow(2, e));
+      left -= n;
+    }
+    return s / 1e8;
+  }
+  function btcHeight(ms) { return 840000 + (ms - Date.UTC(2024, 3, 20)) / 6e5; }
+
+  /* Stock-to-flow: the coins that exist divided by the coins mined in the following year,
+     i.e. how many years of mining are already stored. Gold is about 60. */
+  function scarcity(stock, next) { return next > 0 ? stock / next : Infinity; }
+  function gnrScarcity(h) { return scarcity(supplyAt(h), supplyAt(h + GNR_YEAR) - supplyAt(h)); }
+  function btcScarcity(ms) { var b = btcHeight(ms); return scarcity(btcSupplyAt(b), btcSupplyAt(b + BTC_YEAR) - btcSupplyAt(b)); }
   function big(v) {
     return v >= 1e12 ? amt(v / 1e12) + " trillion" : v >= 1e9 ? amt(v / 1e9) + " billion" : v >= 1e6 ? amt(v / 1e6) + " million" : null;
   }
@@ -63,6 +83,8 @@
     var people = [1000, 10000, 100000, 1000000, 10000000, 100000000];
     var holds = [100, 1000, 10000, 100000];
     var joins = [1, 10, 100, 1000, 10000];
+    var shares = [0.0001, 0.001, 0.01, 0.1, 0.5, 1];
+    var sfYears = [0, 4, 8, 12, 16, 20, 30, 40];
     var fmtN = function (n) { return n.toLocaleString("en-US"); };
     root.innerHTML =
       '<div class="mc-now">' +
@@ -91,8 +113,25 @@
       '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Computers mining</th><th>Each one a day</th><th>a month</th><th>a year</th><th>1 GNR takes one computer</th></tr></thead><tbody data-c="rows"></tbody></table></div>' +
       '<p class="mc-note">Every block pays its reward to all miners together, split by the work each one does; here every computer is equally fast. One block a minute; the reward starts at 5 GNR and halves every 2,100,000 blocks (about every 4 years); at most 21,000,000 GNR will ever exist. Electricity and hardware are not counted.</p>' +
       '<div class="mc-px">' +
+      '<h4 class="mc-h">Scarcity: how rare GNR becomes</h4>' +
+      '<p class="mc-sub">Stock-to-flow: the GNR that exist divided by the new GNR mined in the next year, so how many years of mining are already stored. The higher it is, the rarer the coin. Gold is about ' + GOLD_SF + '. Every halving doubles it, and there will never be more than 21,000,000 GNR.</p>' +
+      '<div class="mc-now">' +
+      '<div><span>Scarcity now</span><b data-c="sf0">—</b><em data-c="sf0e">—</em></div>' +
+      '<div><span>Scarcity in the year above</span><b data-c="sfy">—</b><em data-c="sfye">—</em></div>' +
+      '<div class="mc-hl"><span>As scarce as gold</span><b data-c="sfg">—</b><em>stock-to-flow ' + GOLD_SF + '</em></div>' +
+      '<div class="mc-hl"><span>As scarce as Bitcoin is today</span><b data-c="sfb">—</b><em data-c="sfbe">—</em></div></div>' +
+      '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Year</th><th>GNR that exist</th><th>New GNR that year</th><th>GNR scarcity</th><th>Bitcoin then</th><th>Gold</th></tr></thead><tbody data-c="sfrows"></tbody></table></div>' +
+      '<p class="mc-note">Scarcity is a fact of the schedule; it does not set a price by itself. A coin is worth something only while people want it: scarcity decides how much of it each of them can have.</p></div>' +
+      '<div class="mc-px">' +
       '<h4 class="mc-h">Price calculator: what if</h4>' +
-      '<p class="mc-sub">A price is what people pay. If a number of people each hold GNR worth some dollars, one GNR is worth all their dollars divided by the GNR that exist then. The reward halves while more people arrive, so each person can own less and less: there will never be more than 21,000,000 GNR.</p>' +
+      '<p class="mc-sub">Two simple ways to put a number on GNR in the year above. Neither is a forecast; each only shows what a size of GNR would mean per coin.</p>' +
+      '<h5 class="mc-h5">1. A share of Bitcoin\'s value</h5>' +
+      '<p class="mc-sub" data-c="bsub">—</p>' +
+      '<div class="mc-in"><label>GNR worth, as a share of Bitcoin today<select data-c="bs">' + options(shares, 0.01, function (v) { return amt(v * 100) + " %"; }) + '</select></label></div>' +
+      '<div class="mc-res" data-c="bres"></div>' +
+      '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Share of Bitcoin\'s value</th><th>All GNR worth</th><th>One GNR worth</th><th>One computer a day</th></tr></thead><tbody data-c="brows"></tbody></table></div>' +
+      '<h5 class="mc-h5">2. People and dollars</h5>' +
+      '<p class="mc-sub">A price is what people pay. If a number of people each hold GNR worth some dollars, one GNR is worth all their dollars divided by the GNR that exist then. The reward halves while more people arrive, so each person can own less and less.</p>' +
       '<div class="mc-in mc-in4"><label>People holding GNR<select data-c="pp">' + options(people, 10000, fmtN) + '<option value="custom">Other number</option></select></label>' +
       '<label class="mc-cpp" style="display:none">Number of people<input data-c="ppc" type="number" min="1" step="1" inputmode="numeric" value="50000"></label>' +
       '<label>Each one holds<select data-c="ph">' + options(holds, 1000, function (v) { return "$" + fmtN(v); }) + '<option value="custom">Other amount</option></select></label>' +
@@ -165,6 +204,43 @@
       q("mk").textContent = (mkt != null ? "Market price now: " + usd(mkt) + " a GNR (" + btc(L.sat) + "), from real swaps on the offer board; all " + count(liveSupply) + " GNR mined so far are worth " + dollars(mkt * liveSupply) + ". " : "No market price yet: it appears with the first swaps. ") +
         "For scale: at $1,000,000 a GNR, all 21,000,000 GNR would be worth $21 trillion" + (btcCap > 0 ? " (" + vsBtc(full) + ")" : "") + ".";
 
+      // Scarcity by the two schedules, from today's block (GNR) and today's date (Bitcoin).
+      var hh = Math.max(1, h), yearMs = 365.25 * 864e5, t0 = now.getTime();
+      var sfTxt = function (v) { return !isFinite(v) ? "∞" : v < 1 ? amt(v) : Math.round(v).toLocaleString("en-US"); };
+      var sfNow = gnrScarcity(hh), sfAt = gnrScarcity(Math.max(1, at)), btcNow = btcScarcity(t0);
+      var newYear = function (x) { return supplyAt(x + GNR_YEAR) - supplyAt(x); };
+      var when = function (target) {
+        for (var y = 0; y <= 80; y += 0.25) if (gnrScarcity(hh + y * GNR_YEAR) >= target) return y;
+        return null;
+      };
+      var yearOf = function (y) { return y == null ? "after " + (y0 + 80) : y === 0 ? "already" : "around " + new Date(t0 + y * yearMs).getFullYear(); };
+      q("sf0").textContent = sfTxt(sfNow);
+      q("sf0e").textContent = count(supplyAt(hh)) + " GNR exist · " + count(newYear(hh)) + " new in a year";
+      q("sfy").textContent = sfTxt(sfAt);
+      q("sfye").textContent = (k ? y0 + k : "now") + ": " + count(supplyAt(Math.max(1, at))) + " GNR · " + count(newYear(Math.max(1, at))) + " new a year";
+      q("sfg").textContent = yearOf(when(GOLD_SF));
+      q("sfb").textContent = yearOf(when(btcNow));
+      q("sfbe").textContent = "stock-to-flow " + sfTxt(btcNow);
+      q("sfrows").innerHTML = sfYears.map(function (y) {
+        var x = hh + Math.round(y * GNR_YEAR);
+        return "<tr" + (y === k ? ' class="on"' : "") + "><td>" + (y ? y0 + y : "Now") + "</td><td>" + count(supplyAt(x)) + "</td><td>" + count(newYear(x)) + "</td><td>" + sfTxt(gnrScarcity(x)) +
+          "</td><td>" + sfTxt(btcScarcity(t0 + y * yearMs)) + "</td><td>≈ " + GOLD_SF + "</td></tr>";
+      }).join("");
+
+      // A share of Bitcoin's value today, spread over the GNR that exist in the chosen year.
+      var share = Number(q("bs").value) || 0.01;
+      q("bsub").textContent = btcCap > 0 ? "Bitcoin is worth about " + dollars(btcCap) + " today (" + dollars(btcUsd) + " × " + count(BTC_SUPPLY) + " BTC). If all GNR together became worth a part of that, one GNR would be that part divided by the GNR that exist then."
+        : "Waiting for the Bitcoin price…";
+      var sharePx = function (s) { return btcCap > 0 ? s * btcCap / coins : null; };
+      var bp = sharePx(share);
+      q("bres").innerHTML = bp == null ? "—" : "<b>" + (k ? y0 + k : "Now") + "</b>: at <b>" + amt(share * 100) + " %</b> of Bitcoin's value (" + dollars(share * btcCap) + ") and " + count(coins) +
+        " GNR, one GNR would be worth <b>" + dollars(bp) + "</b>" + (mkt != null ? " (" + amt(bp / mkt) + "× today's market price)" : "") + ", and each of " + n.toLocaleString("en-US") +
+        " computers would earn " + dollars(p.day * bp) + " a day.";
+      q("brows").innerHTML = btcCap > 0 ? shares.map(function (s) {
+        var x = sharePx(s);
+        return "<tr" + (s === share ? ' class="on"' : "") + "><td>" + amt(s * 100) + " %</td><td>" + dollars(s * btcCap) + "</td><td>" + dollars(x) + "</td><td>" + dollars(p.day * x) + "</td></tr>";
+      }).join("") : "";
+
       // Join now: your GPUs added to the network's live hashrate, sharing today's block reward.
       var H = Number(L.hashrate) || 0, gpus = H / REF.hashrate, D = Math.round(pick("jd", "jdc", ".mc-cjd"));
       var perDay = rewardAt(h || 1) / 1e8 * 86400 / BLOCK_SECS;
@@ -191,7 +267,7 @@
           (mkt != null ? dollars(x.day * mkt) : "—") + "</td><td>" + dollars(x.day * price) + "</td></tr>";
       }).join("") : "";
     }
-    ["jd", "jdc", "y", "s", "c", "pp", "ppc", "ph", "phc"].forEach(function (k) { q(k).addEventListener("input", draw); q(k).addEventListener("change", draw); });
+    ["jd", "jdc", "y", "s", "c", "bs", "pp", "ppc", "ph", "phc"].forEach(function (k) { q(k).addEventListener("input", draw); q(k).addEventListener("change", draw); });
     draw();
     return { update: draw };
   }
@@ -250,5 +326,5 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, perGpu: perGpu, rewardAt: rewardAt, perComputer: perComputer, supplyAt: supplyAt, mountCalc: mountCalc, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
+  window.GKValue = { REF: REF, perGpu: perGpu, rewardAt: rewardAt, perComputer: perComputer, supplyAt: supplyAt, gnrScarcity: gnrScarcity, btcScarcity: btcScarcity, mountCalc: mountCalc, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();
