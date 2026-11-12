@@ -23,6 +23,11 @@
     <div class="glass stat"><b>2 GiB</b><span>Dataset at launch (+4 MiB per epoch)</span></div>
     <div class="glass stat"><b>~1 ms</b><span>Light verification per block</span></div>
   </div>
+  <section class="glass card mc" id="calc" aria-labelledby="calc-h">
+    <div class="mk-head"><h2 class="h3" id="calc-h">Mining calculator</h2><span class="muted"><span class="dot live ok"></span> live</span></div>
+    <p class="muted mk-fine">How much GNR one computer mines, now and in any year to come: choose when and how many computers mine.</p>
+    <div id="mcCalc"></div>
+  </section>
   <div class="prose">
     <h2>Easiest: from the wallet</h2>
     <p>Open the wallet, go to <b>Mining</b>, choose <b>Automatic</b>, <b>NVIDIA</b>, <b>AMD / Intel</b> or <b>CPU</b>, set a CPU limit and press <b>Start mining</b>. The wallet shows your share of the network, the GNR per day it implies, the shares you found and the rewards accruing to you.</p>
@@ -51,6 +56,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file address.txt --backend
 </main>
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/value.js" defer></script>
 <script src="/site.js" defer></script>
 </body>
 </html>

@@ -72,47 +72,6 @@
   }
 
 
-  // Mining cost calculator: live network figures, and what 1 GNR costs as more computers join.
-  var mc = { info: null };
-  function calc() {
-    if (!$("mcRows") || !window.GKValue) return;
-    var dev = $("mcDev").value, custom = dev === "custom";
-    document.querySelectorAll(".mc-custom").forEach(function (el) { el.classList.toggle("hidden", !custom); });
-    var hs = custom ? Number($("mcHs").value) * 1e6 : Number(dev.split("|")[0]);
-    var w = custom ? Number($("mcW").value) : Number(dev.split("|")[1]);
-    var kwh = Number($("mcKwh").value);
-    if (!(kwh > 0 && kwh < 10)) kwh = 0.15;
-    try { localStorage.setItem("gk-mc", JSON.stringify({ dev: dev, hs: $("mcHs").value, w: $("mcW").value, kwh: kwh })); } catch (e) {}
-    var info = mc.info || {}, sub = info.next_subsidy, netNow = Number(info.hashrate) || 0;
-    var mkUsd = data.market && data.market.price && data.btc ? data.market.price * data.btc / 1e8 : null;
-    var vs = function (c) {
-      if (c == null || mkUsd == null) return "—";
-      var r = mkUsd / c;
-      return r >= 1 ? "<span class=\"bd-up\">market pays " + (r >= 100 ? Math.round(r).toLocaleString("en-US") : r.toFixed(1)) + "× the cost</span>"
-        : "<span class=\"bd-dn\">costs " + (1 / r >= 100 ? Math.round(1 / r).toLocaleString("en-US") : (1 / r).toFixed(1)) + "× the market price</span>";
-    };
-    var gnrFmt = function (v) { return v.toLocaleString("en-US", { maximumFractionDigits: v < 1 ? 4 : v < 100 ? 2 : 0 }); };
-    var now = netNow > 0 ? GKValue.mineCost({ hs: hs, watts: w, kwh: kwh, network: netNow, subsidy: sub }) : null;
-    $("mcNet").textContent = netNow ? gk.rate(netNow) : "—";
-    $("mcNetN").textContent = netNow ? "≈ " + Math.max(1, Math.round(netNow / hs)).toLocaleString("en-US") + " computers like yours" : "—";
-    $("mcDay").textContent = now ? gnrFmt(now.gnrDay) + " GNR" : "—";
-    $("mcShare").textContent = now ? (now.share * 100).toFixed(now.share < 0.01 ? 3 : 2) + " % of the network" : "—";
-    $("mcUsdDay").textContent = now ? GKValue.usd(now.usdDay) : "—";
-    $("mcNow").textContent = now && now.usdPerGnr != null ? GKValue.usd(now.usdPerGnr) : "—";
-    $("mcVs").innerHTML = now ? vs(now.usdPerGnr) : "—";
-    $("mcRows").innerHTML = [100, 1000, 100000, 1000000, 10000000].map(function (n) {
-      var c = GKValue.mineCost({ hs: hs, watts: w, kwh: kwh, network: n * hs, subsidy: sub });
-      return "<tr><td class=\"mono\">" + n.toLocaleString("en-US") + "</td><td class=\"mono\">" + gk.rate(n * hs) + "</td><td class=\"mono\">" + gnrFmt(c.gnrDay) + " GNR</td><td class=\"mono\"><b>" + GKValue.usd(c.usdPerGnr) + "</b></td><td>" + vs(c.usdPerGnr) + "</td></tr>";
-    }).join("");
-  }
-  (function () {
-    if (!$("mcRows")) return;
-    try {
-      var s = JSON.parse(localStorage.getItem("gk-mc") || "null");
-      if (s) { $("mcDev").value = s.dev || $("mcDev").value; $("mcHs").value = s.hs || 80; $("mcW").value = s.w || 575; $("mcKwh").value = s.kwh || 0.15; }
-    } catch (e) {}
-    ["mcDev", "mcHs", "mcW", "mcKwh"].forEach(function (id) { $(id).addEventListener("input", calc); $(id).addEventListener("change", calc); });
-  })();
   function load() {
     Promise.all([
       gk.api("/v1/swap/offers").catch(function () { return { offers: [], now: Date.now() / 1000 }; }),
@@ -123,9 +82,7 @@
       data.offers = r[0].offers || []; data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
       data.market = r[1].market || {}; data.recent = r[1].recent || [];
       data.btc = Number(r[2].USD) || 0;
-      mc.info = r[3];
       render();
-      calc();
     });
   }
   document.addEventListener("click", function (e) {

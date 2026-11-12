@@ -61,29 +61,6 @@
     <div id="mkRecent" class="mk-cards"></div>
   </section>
 
-  <section class="glass card mc" id="cost" aria-labelledby="mc-h">
-    <div class="mk-head"><h2 class="h3" id="mc-h">What it costs to mine 1 GNR</h2><span class="muted" id="mcLive">live</span></div>
-    <p class="muted mk-fine">Every block pays 5 GNR (7,200 GNR a day) to all miners together, by their share of the work. The more computers mine, the smaller each one's share and the more each GNR costs its miner in electricity. This is a production cost for reference, not the market price above.</p>
-    <div class="mc-in">
-      <label>Your computer<select id="mcDev">
-        <option value="80e6|575">RTX 5090 · about 80 MH/s, 575 W</option>
-        <option value="22e6|220">RTX 4070 SUPER · about 22 MH/s, 220 W (estimate)</option>
-        <option value="1.35e6|150">16-core CPU · about 1.35 MH/s, 150 W</option>
-        <option value="custom">My own figures</option>
-      </select></label>
-      <label class="mc-custom hidden">Hashrate (MH/s)<input id="mcHs" type="number" min="0.001" step="0.1" inputmode="decimal" value="80"></label>
-      <label class="mc-custom hidden">Power (W)<input id="mcW" type="number" min="1" step="1" inputmode="numeric" value="575"></label>
-      <label>Electricity (USD per kWh)<input id="mcKwh" type="number" min="0.001" max="9.99" step="0.01" inputmode="decimal" value="0.15"></label>
-    </div>
-    <div class="mc-now">
-      <div><span>Network today</span><b id="mcNet">—</b><em id="mcNetN">—</em></div>
-      <div><span>You mine a day</span><b id="mcDay">—</b><em id="mcShare">—</em></div>
-      <div><span>Your electricity a day</span><b id="mcUsdDay">—</b><em>&nbsp;</em></div>
-      <div class="mc-hl"><span>1 GNR costs you now</span><b id="mcNow">—</b><em id="mcVs">—</em></div>
-    </div>
-    <div class="mk-tablewrap"><table class="mk-table mc-table"><thead><tr><th>Computers like yours mining</th><th>Network hashrate</th><th>Each one mines a day</th><th>1 GNR costs each miner</th><th>vs market price</th></tr></thead><tbody id="mcRows"></tbody></table></div>
-    <p class="muted mk-fine">Cost of 1 GNR = power × 24 h × electricity price ÷ (7,200 GNR × your hashrate ÷ network hashrate). Hardware, cooling and the internet are not included. Live figures come from the node and the offer board.</p>
-  </section>
   <section class="mk-book mk-one">
     <div class="glass card">
       <h2 class="h3">How a swap works</h2>

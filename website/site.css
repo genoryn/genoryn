@@ -253,8 +253,6 @@ main { overflow-x: clip; }
 .value-big b { font: 700 clamp(40px, 5vw, 58px)/1 var(--font-mono); letter-spacing: -1px; }
 .value-big span { color: var(--text-secondary); font-size: 15px; }
 .value-what { font-size: 14px; margin: 8px 0 16px; }
-.kwh-label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
-#kwh { max-width: 160px; margin-bottom: 14px; }
 .value-kv { border-top: 1px solid var(--line); grid-template-columns: 1fr auto; }
 .value-kv > div { padding: 10px 2px; font-size: 14px; }
 .value-kv > div:nth-child(even) { text-align: right; font-family: var(--font-mono); }
@@ -422,3 +420,11 @@ main { overflow-x: clip; }
 @media (max-width: 980px) { .mc-in, .mc-now { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .mc-in, .mc-now { grid-template-columns: 1fr; } }
 .mk-tablewrap { overflow-x: auto; }
+.mc .mc-in { grid-template-columns: 1fr 1fr 1fr; }
+.mc-res { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--bg-inset); font-size: 14.5px; line-height: 1.6; margin-bottom: 14px; }
+.mc-tw { overflow-x: auto; }
+.mc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mc-table th { text-align: left; font-weight: 500; color: var(--text-tertiary); font-size: 12px; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.mc-table td { padding: 9px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; font-family: var(--font-mono); }
+.mc-table tr.on td { background: var(--bg-inset); font-weight: 700; }
+.mc-note { font-size: 12.5px; color: var(--text-tertiary); line-height: 1.55; margin: 12px 0 0; }

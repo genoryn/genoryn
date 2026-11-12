@@ -12,18 +12,71 @@
     return (Number(subsidy) || 5e8) / 1e8 * BLOCKS_PER_DAY * Math.min(1, REF.hashrate / hashrate);
   }
 
-  /* What mining one GNR costs one miner: o = { hs: the miner's H/s, watts, kwh: USD per
-     kWh, network: network H/s (at least the miner's own), subsidy: gori per block }.
-     Every block pays its reward to all miners by their share of the work, so a miner earns
-     blocksPerDay × reward × hs / network GNR a day, and pays watts × 24 h × kwh for it. */
-  function mineCost(o) {
-    var hs = Number(o.hs) || 0, w = Number(o.watts) || 0, kwh = Number(o.kwh) || 0;
-    var net = Math.max(Number(o.network) || 0, hs);
-    if (hs <= 0 || net <= 0) return null;
-    var perDay = (Number(o.subsidy) || 5e8) / 1e8 * BLOCKS_PER_DAY;
-    var gnrDay = perDay * hs / net;
-    var usdDay = w / 1000 * 24 * kwh;
-    return { share: hs / net, gnrDay: gnrDay, usdDay: usdDay, usdPerGnr: gnrDay > 0 ? usdDay / gnrDay : null, perDay: perDay };
+  /* Rewards by year: 5 GNR a block, halving every 2,100,000 blocks, one block a minute. */
+  var HALVING = 2100000, BLOCK_SECS = 60, SUBSIDY0 = 5e8;
+  function rewardAt(h) {
+    if (h < 1) return 0;
+    var e = Math.floor((h - 1) / HALVING);
+    return e >= 33 ? 0 : Math.floor(SUBSIDY0 / Math.pow(2, e));
+  }
+  /* What one of `computers` equally fast computers mines at block `h` (GNR). */
+  function perComputer(computers, h) {
+    var r = rewardAt(h) / 1e8, n = Math.max(1, Number(computers) || 1);
+    var day = r * 86400 / BLOCK_SECS / n;
+    return { reward: r, day: day, month: day * 30.44, year: day * 365.25, secsPer1: day > 0 ? 86400 / day : null };
+  }
+  function span(s) {
+    if (s == null || !isFinite(s)) return "never";
+    var f = function (v, u) { v = v < 10 ? Math.round(v * 10) / 10 : Math.round(v); return v.toLocaleString("en-US") + " " + u + (v === 1 ? "" : "s"); };
+    return s < 60 ? f(s, "second") : s < 3600 ? f(s / 60, "minute") : s < 86400 ? f(s / 3600, "hour") : s < 86400 * 365.25 ? f(s / 86400, "day") : f(s / (86400 * 365.25), "year");
+  }
+  function amt(v) { return v.toLocaleString("en-US", { maximumFractionDigits: v < 0.01 ? 6 : v < 1 ? 4 : v < 100 ? 2 : 0 }); }
+
+  /* The miner calculator, the same on genoryn.io and in the wallet. live() returns
+     { height, miners } from the node (miners: computers mining now, estimated). */
+  function mountCalc(root, live) {
+    var now = new Date(), y0 = now.getFullYear();
+    var years = "";
+    for (var k = 0; k <= 40; k++) years += '<option value="' + k + '">' + (k ? (y0 + k) + " (in " + k + " year" + (k === 1 ? "" : "s") + ")" : "Now (" + y0 + ")") + "</option>";
+    var sizes = [100, 1000, 100000, 1000000, 10000000];
+    root.innerHTML =
+      '<div class="mc-now">' +
+      '<div><span>Block now</span><b data-c="h">—</b><em data-c="hr">—</em></div>' +
+      '<div><span>Computers mining now</span><b data-c="n">—</b><em>estimated from the shares</em></div>' +
+      '<div><span>Each one mines now</span><b data-c="d">—</b><em data-c="dm">—</em></div>' +
+      '<div class="mc-hl"><span>1 GNR takes one computer</span><b data-c="t">—</b><em>on average, right now</em></div></div>' +
+      '<div class="mc-in"><label>When<select data-c="y">' + years + '</select></label>' +
+      '<label>Computers mining<select data-c="s">' + sizes.map(function (n) { return '<option value="' + n + '">' + n.toLocaleString("en-US") + "</option>"; }).join("") +
+      '<option value="now">As many as now</option><option value="custom">Other number</option></select></label>' +
+      '<label class="mc-custom" style="display:none">Number of computers<input data-c="c" type="number" min="1" step="1" inputmode="numeric" value="50000"></label></div>' +
+      '<div class="mc-res" data-c="r"></div>' +
+      '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Computers mining</th><th>Each one a day</th><th>a month</th><th>a year</th><th>1 GNR takes one computer</th></tr></thead><tbody data-c="rows"></tbody></table></div>' +
+      '<p class="mc-note">Every block pays its reward to all miners together, split by the work each one does; here every computer is equally fast. One block a minute; the reward starts at 5 GNR and halves every 2,100,000 blocks (about every 4 years); at most 21,000,000 GNR will ever exist. Electricity and hardware are not counted.</p>';
+    var q = function (k) { return root.querySelector('[data-c="' + k + '"]'); };
+    function draw() {
+      var L = live() || {}, h = Number(L.height) || 0, nNow = Math.max(1, Number(L.miners) || 1);
+      var k = Number(q("y").value), at = h + Math.round(k * 365.25 * 86400 / BLOCK_SECS);
+      var sel = q("s").value;
+      root.querySelector(".mc-custom").style.display = sel === "custom" ? "" : "none";
+      var n = sel === "now" ? nNow : sel === "custom" ? Math.max(1, Math.round(Number(q("c").value) || 1)) : Number(sel);
+      var p0 = perComputer(nNow, h || 1);
+      q("h").textContent = h ? "#" + h.toLocaleString("en-US") : "—";
+      q("hr").textContent = h ? amt(p0.reward) + " GNR a block · next halving at #" + ((Math.floor(Math.max(0, h - 1) / HALVING) + 1) * HALVING + 1).toLocaleString("en-US") : "—";
+      q("n").textContent = L.miners != null ? nNow.toLocaleString("en-US") : "—";
+      q("d").textContent = h ? amt(p0.day) + " GNR a day" : "—";
+      q("dm").textContent = h ? amt(p0.month) + " a month · " + amt(p0.year) + " a year" : "—";
+      q("t").textContent = h ? span(p0.secsPer1) : "—";
+      var p = perComputer(n, at || 1);
+      q("r").innerHTML = "<b>" + (k ? y0 + k : "Now") + "</b>: block ≈ #" + Math.max(1, at).toLocaleString("en-US") + ", " + amt(p.reward) + " GNR a block. With <b>" + n.toLocaleString("en-US") +
+        "</b> computers each mines <b>" + amt(p.day) + " GNR a day</b> (" + amt(p.month) + " a month, " + amt(p.year) + " a year): one GNR every <b>" + span(p.secsPer1) + "</b>.";
+      q("rows").innerHTML = sizes.map(function (m) {
+        var x = perComputer(m, at || 1);
+        return "<tr" + (m === n ? ' class="on"' : "") + "><td>" + m.toLocaleString("en-US") + "</td><td>" + amt(x.day) + " GNR</td><td>" + amt(x.month) + "</td><td>" + amt(x.year) + "</td><td>" + span(x.secsPer1) + "</td></tr>";
+      }).join("");
+    }
+    ["y", "s", "c"].forEach(function (k) { q(k).addEventListener("input", draw); q(k).addEventListener("change", draw); });
+    draw();
+    return { update: draw };
   }
 
   /* $0.0031, $0.40, $1,234.56; anything below a hundredth of a cent is "< $0.0001". */
@@ -80,5 +133,5 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, perGpu: perGpu, mineCost: mineCost, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
+  window.GKValue = { REF: REF, perGpu: perGpu, rewardAt: rewardAt, perComputer: perComputer, mountCalc: mountCalc, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();

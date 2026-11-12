@@ -116,6 +116,17 @@
     setInterval(function () { if (!document.hidden) loadMarket(); }, 60000);
   }
 
+// Mining calculator (genoryn.io/mining): live block height and miners from the node.
+  var calcEl = document.getElementById("mcCalc");
+  if (calcEl && window.GKValue) {
+    var liveInfo = {};
+    var calc = GKValue.mountCalc(calcEl, function () {
+      return { height: liveInfo.height, miners: liveInfo.stats && liveInfo.stats.estimated_miners };
+    });
+    var loadCalc = function () { gk.api("/v1/info").then(function (i) { liveInfo = i; calc.update(); }).catch(function () {}); };
+    loadCalc();
+    setInterval(function () { if (!document.hidden) loadCalc(); }, 60000);
+  }
   var homeNet = document.getElementById("homeNet");
   if (homeNet && window.GKCharts) {
     var homeChart = null;
