@@ -119,11 +119,18 @@
 // Mining calculator (genoryn.io/mining): live block height and miners from the node.
   var calcEl = document.getElementById("mcCalc");
   if (calcEl && window.GKValue) {
-    var liveInfo = {};
+    var liveInfo = {}, liveMk = {}, liveBtc = 0;
     var calc = GKValue.mountCalc(calcEl, function () {
-      return { height: liveInfo.height, miners: liveInfo.stats && liveInfo.stats.estimated_miners };
+      return { height: liveInfo.height, miners: liveInfo.stats && liveInfo.stats.estimated_miners, hashrate: liveInfo.hashrate,
+        supply: liveInfo.supply, sat: liveMk.price, btcUsd: liveBtc };
     });
-    var loadCalc = function () { gk.api("/v1/info").then(function (i) { liveInfo = i; calc.update(); }).catch(function () {}); };
+    var loadCalc = function () {
+      Promise.all([
+        gk.api("/v1/info").then(function (i) { liveInfo = i; }).catch(function () {}),
+        gk.api("/v1/swap/market").then(function (m) { liveMk = m.market || {}; }).catch(function () {}),
+        gk.api("/v1/btc-price").then(function (p) { liveBtc = Number(p.USD) || 0; }).catch(function () {})
+      ]).then(function () { calc.update(); });
+    };
     loadCalc();
     setInterval(function () { if (!document.hidden) loadCalc(); }, 60000);
   }
