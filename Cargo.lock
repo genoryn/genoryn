@@ -2472,10 +2472,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "krypton-core"
-version = "1.0.34"
+name = "krypton-assets"
+version = "1.0.35"
 dependencies = [
  "hex",
+ "krypton-crypto",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "krypton-core"
+version = "1.0.35"
+dependencies = [
+ "hex",
+ "krypton-assets",
  "krypton-crypto",
  "krypton-pow",
  "krypton-zk",
@@ -2492,7 +2503,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-crypto"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2515,7 +2526,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-light"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "hex",
@@ -2530,7 +2541,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-miner"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "clap",
@@ -2546,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-p2p"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "chacha20poly1305",
@@ -2564,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-pow"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "blake3",
  "cudarc",
@@ -2579,18 +2590,19 @@ dependencies = [
 
 [[package]]
 name = "krypton-release"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "hex",
  "krypton-crypto",
  "rand_core 0.6.4",
+ "serde_json",
  "sha2",
 ]
 
 [[package]]
 name = "krypton-sdk"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "krypton-core",
  "krypton-crypto",
@@ -2600,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-setup"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "eframe",
@@ -2613,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-store"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "krypton-core",
@@ -2630,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-swap"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -2654,12 +2666,13 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "hex",
+ "krypton-assets",
  "krypton-core",
  "krypton-crypto",
  "krypton-light",
@@ -2683,11 +2696,12 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-cli"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "clap",
  "hex",
+ "krypton-assets",
  "krypton-core",
  "krypton-crypto",
  "krypton-light",
@@ -2700,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-wallet-core"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "bip39",
@@ -2721,7 +2735,7 @@ dependencies = [
 
 [[package]]
 name = "krypton-zk"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "krypton-crypto",
  "proptest",
@@ -2733,7 +2747,7 @@ dependencies = [
 
 [[package]]
 name = "kryptond"
-version = "1.0.34"
+version = "1.0.35"
 dependencies = [
  "anyhow",
  "axum",

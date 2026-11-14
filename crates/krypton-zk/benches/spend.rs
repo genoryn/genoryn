@@ -23,6 +23,7 @@ fn main() {
         fee: 0,
         mint: 3,
         sighash: rescue::scalar(4),
+        asset: None,
     };
     let runs = 5;
     let mut sizes = 0;

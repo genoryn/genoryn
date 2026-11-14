@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Euro Krypton (EURK)">
+  <defs>
+    <linearGradient id="e-face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141b3d"/>
+      <stop offset="1" stop-color="#070a1c"/>
+    </linearGradient>
+    <linearGradient id="e-ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a5b4fc"/>
+      <stop offset="0.55" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#facc15"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#e-face)"/>
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="url(#e-ring)" stroke-width="3"/>
+  <circle cx="32" cy="32" r="23" fill="none" stroke="#a5b4fc" stroke-opacity=".2" stroke-width="1"/>
+  <path d="M40.4 22.8A11.5 11.5 0 1 0 40.4 41.2" fill="none" stroke="#eef2ff" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M20.5 29h15M20.5 35h13" stroke="#eef2ff" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M44.6 44.2v6.4M44.6 47.4l3.6-3.2M44.6 47.4l3.6 3.2" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

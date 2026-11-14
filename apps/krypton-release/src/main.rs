@@ -6,6 +6,10 @@
 //!     (`-` as the seed file reads the hex seed from standard input, so it never has to
 //!     be written to disk)
 //!   krypton-release verify <public-key-file> <SHA256SUMS> <SHA256SUMS.sig>
+//!   krypton-release sign-coins <secret-seed-file> <verified-assets.json>
+//!   krypton-release verify-coins <public-key-file> <verified-assets.json> <.sig>
+//!     (the list of Krypton coins the project verified, signed under its own context so
+//!     neither kind of signature can stand in for the other)
 //!
 //! A signature is valid only if BOTH ML-DSA-87 (FIPS 204) and SLH-DSA-SHAKE-256s
 //! (FIPS 205, hash-based) verify.
@@ -17,6 +21,7 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 const CTX: &[u8] = b"genoryn-krypton/release/v1";
+const COINS_CTX: &[u8] = b"genoryn-krypton/verified-coins/v1";
 
 fn read_hex(p: &str) -> Result<Vec<u8>> {
     let s = if p == "-" {
@@ -64,28 +69,34 @@ fn main() -> Result<()> {
             std::fs::write(dir.join("SHA256SUMS"), &out)?;
             print!("{out}");
         }
-        Some("sign") if a.len() == 3 => {
+        Some(cmd @ ("sign" | "sign-coins")) if a.len() == 3 => {
+            let ctx = if cmd == "sign" { CTX } else { COINS_CTX };
             let seed: [u8; 128] = read_hex(&a[1])?
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("bad seed"))?;
             let k = HybridKey::from_seed(&seed);
             let msg = std::fs::read(&a[2])?;
-            let sig = k.sign(&msg, CTX).map_err(|e| anyhow::anyhow!("{e}"))?;
-            assert!(hybrid_verify(&k.public_bytes(), &msg, &sig, CTX));
+            if cmd == "sign-coins" {
+                serde_json::from_slice::<serde_json::Value>(&msg)
+                    .context("the coin list is not JSON")?;
+            }
+            let sig = k.sign(&msg, ctx).map_err(|e| anyhow::anyhow!("{e}"))?;
+            assert!(hybrid_verify(&k.public_bytes(), &msg, &sig, ctx));
             println!("signed {} ({} bytes of signature)", a[2], sig.len());
             std::fs::write(format!("{}.sig", a[2]), hex::encode(sig) + "\n")?;
         }
-        Some("verify") if a.len() == 4 => {
+        Some(cmd @ ("verify" | "verify-coins")) if a.len() == 4 => {
+            let ctx = if cmd == "verify" { CTX } else { COINS_CTX };
             let pk = read_hex(&a[1])?;
             let msg = std::fs::read(&a[2])?;
             let sig = read_hex(&a[3])?;
-            if hybrid_verify(&pk, &msg, &sig, CTX) {
+            if hybrid_verify(&pk, &msg, &sig, ctx) {
                 println!("OK: valid ML-DSA-87 + SLH-DSA-SHAKE-256s signature");
             } else {
                 bail!("INVALID signature");
             }
         }
-        _ => bail!("usage: krypton-release keygen|sums|sign|verify ..."),
+        _ => bail!("usage: krypton-release keygen|sums|sign|verify|sign-coins|verify-coins ..."),
     }
     Ok(())
 }

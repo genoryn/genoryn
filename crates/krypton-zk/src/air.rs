@@ -36,6 +36,19 @@ pub struct SpendPublic {
     pub sighash: Digest,
     /// Owner tag of the lock note spent by input 0 (lock spends only).
     pub lock_owner: Option<Digest>,
+    /// Version-2 spends (Krypton coins): the coin section. `None` is a version-1 spend,
+    /// whose notes are GNR by construction.
+    pub asset: Option<AssetStatement>,
+}
+
+/// The public coin section of a version-2 spend. All four notes hold one coin; it is
+/// hidden unless `reveal` is set.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AssetStatement {
+    /// Units of the coin destroyed (balance: `v0 + v1 + mint = w0 + w1 + fee + burn`).
+    pub burn: u64,
+    /// The coin `[a0, a1, pausable]`, when public.
+    pub reveal: Option<[u64; 3]>,
 }
 
 impl ToElements<Felt> for SpendPublic {
@@ -52,6 +65,13 @@ impl ToElements<Felt> for SpendPublic {
         if let Some(o) = &self.lock_owner {
             v.push(Felt::new(domain::LOCK_OWNER));
             v.extend_from_slice(o);
+        }
+        if let Some(a) = &self.asset {
+            let r = a.reveal.unwrap_or([0; 3]);
+            v.push(Felt::new(domain::ASSET));
+            v.push(Felt::new(a.burn));
+            v.push(Felt::new(a.reveal.is_some() as u64));
+            v.extend(r.iter().map(|x| Felt::new(*x)));
         }
         v
     }
@@ -154,6 +174,8 @@ where
             for j in 1..4 {
                 s.push(|| start * cur[h + j], 1, &[N]);
             }
+            // Version 2: note bodies hash `[v, a0, a1, pausable]`, the coin of all notes.
+            let coin = pubs.asset.is_some() && spec.domain == domain::NOTE_BODY;
             for (half, src) in [(4usize, spec.left), (8usize, spec.right)] {
                 for j in 0..4 {
                     s.push(
@@ -164,6 +186,8 @@ where
                                 Src::Scalar(o) => {
                                     if j == 0 {
                                         cur[r + o]
+                                    } else if coin {
+                                        cur[ASSET + j - 1]
                                     } else {
                                         E::ZERO
                                     }
@@ -259,7 +283,16 @@ where
         s.push(|| p[P_ACT] * cur[d] * cur[REG[lane] + R_V], 2, &[N]);
     }
 
-    // Value balance: v0 + v1 + mint = w0 + w1 + fee.
+    // The coin is constant over the program (version 2).
+    if pubs.asset.is_some() {
+        for k in 0..3 {
+            let col = ASSET + k;
+            s.push(|| p[P_ACT] * (nxt[col] - cur[col]), 1, &[N]);
+        }
+    }
+
+    // Value balance: v0 + v1 + mint = w0 + w1 + fee + burn.
+    let burn = pubs.asset.as_ref().map_or(0, |a| a.burn);
     s.push(
         || {
             let (r0, r1) = (REG[0], REG[1]);
@@ -267,7 +300,8 @@ where
                 * (cur[r0 + R_V] + cur[r1 + R_V] + E::from(Felt::new(pubs.mint))
                     - cur[r0 + R_O_V]
                     - cur[r1 + R_O_V]
-                    - E::from(Felt::new(pubs.fee)))
+                    - E::from(Felt::new(pubs.fee))
+                    - E::from(Felt::new(burn)))
         },
         1,
         &[N],
@@ -347,6 +381,18 @@ fn assertions(pubs: &SpendPublic) -> Vec<Assertion<Felt>> {
             a.push(Assertion::single(REG[0] + R_OWNER + j, 0, o[j]));
         }
         a.push(Assertion::single(REG[0] + R_DUMMY, 0, Felt::ZERO));
+    }
+    // The coin (constant over the program, so row 0 pins it): fees are paid in GNR only,
+    // a public coin is exactly that coin, and a hidden coin is never a pausable one.
+    if let Some(s) = &pubs.asset {
+        let fix = |a: &mut Vec<Assertion<Felt>>, k: usize, v: u64| {
+            a.push(Assertion::single(ASSET + k, 0, Felt::new(v)))
+        };
+        match (pubs.fee > 0, s.reveal) {
+            (true, _) => (0..3).for_each(|k| fix(&mut a, k, 0)),
+            (false, Some(c)) => (0..3).for_each(|k| fix(&mut a, k, c[k])),
+            (false, None) => fix(&mut a, 2, 0),
+        }
     }
     a
 }

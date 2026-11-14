@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 krypton-core.workspace = true
+krypton-assets.workspace = true
 krypton-pow.workspace = true
 krypton-crypto.workspace = true
 krypton-light = { workspace = true, features = ["client"] }

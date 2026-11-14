@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 krypton-crypto.workspace = true
+krypton-assets.workspace = true
 krypton-zk.workspace = true
 krypton-pow.workspace = true
 serde.workspace = true

@@ -29,6 +29,18 @@ pub fn offer_bits(secs: u64) -> u32 {
     POW_BITS + (64 - (days - 1).leading_zeros())
 }
 pub const MAX_MESSAGE_BYTES: usize = 8 * 1024;
+/// Coin swaps send a proven transaction (about 100 KB, 160 KB in base32) in one message;
+/// larger messages need 4 more bits of work and count against the board's byte budget.
+pub const MAX_LARGE_MESSAGE_BYTES: usize = 256 * 1024;
+pub const LARGE_POW_BITS: u32 = POW_BITS + 4;
+
+fn message_bits(hex_len: usize) -> u32 {
+    if hex_len <= 2 * MAX_MESSAGE_BYTES {
+        POW_BITS
+    } else {
+        LARGE_POW_BITS
+    }
+}
 /// How long trades count for the market price.
 pub const PRICE_WINDOW_SECS: u64 = 24 * 3600;
 
@@ -204,7 +216,12 @@ impl Envelope {
         [self.to.as_bytes(), b"|", self.data.as_bytes()].concat()
     }
     pub fn pow_ok(&self) -> bool {
-        pow_ok("Krypton/board/msg", &self.body(), self.nonce, POW_BITS)
+        pow_ok(
+            "Krypton/board/msg",
+            &self.body(),
+            self.nonce,
+            message_bits(self.data.len()),
+        )
     }
     pub fn validate(&self) -> Result<()> {
         ensure!(
@@ -212,7 +229,7 @@ impl Envelope {
             "bad inbox"
         );
         ensure!(
-            self.data.len() <= 2 * MAX_MESSAGE_BYTES,
+            self.data.len() <= 2 * MAX_LARGE_MESSAGE_BYTES,
             "message too large"
         );
         hex::decode(&self.data).context("bad message encoding")?;
@@ -224,7 +241,7 @@ impl Envelope {
 /// Seals `body` to `to` on behalf of `from` (whose public key goes inside, for replies).
 pub fn seal(to: &kem::PublicKey, from: &kem::SecretKey, body: &[u8]) -> Result<Envelope> {
     ensure!(
-        body.len() <= MAX_MESSAGE_BYTES - kem::CIPHERTEXT_LEN - kem::PUBLIC_KEY_LEN - 64,
+        body.len() <= MAX_LARGE_MESSAGE_BYTES - kem::CIPHERTEXT_LEN - kem::PUBLIC_KEY_LEN - 64,
         "message too large"
     );
     let (ct, ss) = kem::encapsulate(to)?;
@@ -240,7 +257,7 @@ pub fn seal(to: &kem::PublicKey, from: &kem::SecretKey, body: &[u8]) -> Result<E
         data: hex::encode(data),
         nonce: 0,
     };
-    e.nonce = mine("Krypton/board/msg", &e.body(), POW_BITS);
+    e.nonce = mine("Krypton/board/msg", &e.body(), message_bits(e.data.len()));
     Ok(e)
 }
 
@@ -266,11 +283,236 @@ pub fn open(me: &kem::SecretKey, data_hex: &str) -> Result<(kem::PublicKey, Vec<
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Note {
     /// A seller of GNR takes a buy offer: the maker answers with a request.
-    Take { offer: String },
+    Take {
+        offer: String,
+    },
     /// A swap code (request, accept or deposit).
-    Code { offer: String, code: String },
+    Code {
+        offer: String,
+        code: String,
+    },
     /// The offer is gone (taken by someone else, expired or cancelled).
-    Gone { offer: String },
+    Gone {
+        offer: String,
+    },
+    /// Coin swaps (one transaction, `krypton_wallet_core::coin_swap`): a taker asks for
+    /// the swap and gives its address; a buyer sends its unproven GNR half (JSON); the
+    /// seller returns the transaction with its half proven (base32 of its bytes).
+    CoinTake {
+        offer: String,
+        address: String,
+    },
+    CoinHalf {
+        offer: String,
+        half: String,
+    },
+    CoinTx {
+        offer: String,
+        tx: String,
+    },
+}
+
+/// A standing offer to swap GNR for a Krypton coin. `side` is the maker's side of the
+/// GNR: `sell_gnr` sells GNR for the coin, `buy_gnr` buys GNR with the coin.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CoinOffer {
+    pub id: String,
+    pub network: String,
+    /// The coin's id (hex).
+    pub coin: String,
+    pub side: Side,
+    /// GNR (gori) and coin base units of the whole offer.
+    pub gnr: u64,
+    pub units: u64,
+    pub key: String,
+    pub expires: u64,
+    pub cancel: String,
+    pub nonce: u64,
+}
+
+impl CoinOffer {
+    fn body(&self) -> Vec<u8> {
+        let mut o = self.clone();
+        o.nonce = 0;
+        serde_json::to_vec(&o).expect("serializable")
+    }
+    pub fn seal_pow(&mut self) {
+        let bits = offer_bits(self.expires.saturating_sub(krypton_core::now()));
+        self.nonce = mine("Krypton/board/coin-offer", &self.body(), bits);
+    }
+    pub fn pow_ok_at(&self, now: u64) -> bool {
+        let bits = offer_bits(self.expires.saturating_sub(now));
+        pow_ok("Krypton/board/coin-offer", &self.body(), self.nonce, bits)
+    }
+    pub fn public_key(&self) -> Result<kem::PublicKey> {
+        Ok(kem::PublicKey::from_bytes(&hex::decode(&self.key)?)?)
+    }
+    pub fn inbox(&self) -> Result<String> {
+        Ok(inbox_of(&self.public_key()?))
+    }
+    pub fn coin_id(&self) -> Result<krypton_core::asset::AssetId> {
+        krypton_core::asset::AssetId::from_hex(&self.coin).context("bad coin id")
+    }
+    /// GNR (gori) per base unit of the coin.
+    pub fn price(&self) -> f64 {
+        self.gnr as f64 / self.units as f64
+    }
+    pub fn validate(&self, network: &str, now: u64) -> Result<()> {
+        ensure!(
+            self.id.len() == 32 && hex::decode(&self.id).is_ok(),
+            "bad offer id"
+        );
+        ensure!(self.network == network, "the offer is for another network");
+        let coin = self.coin_id()?;
+        ensure!(!coin.is_gnr(), "GNR is not a Krypton coin");
+        ensure!(
+            self.gnr > 0 && self.gnr <= 21_000_000 * 100_000_000,
+            "bad GNR amount"
+        );
+        ensure!(
+            self.units > 0 && self.units <= krypton_core::asset::MAX_COIN_UNITS,
+            "bad coin amount"
+        );
+        ensure!(
+            self.expires > now && self.expires <= now + MAX_OFFER_SECS + 60,
+            "bad expiry"
+        );
+        ensure!(
+            self.cancel.len() == 64 && hex::decode(&self.cancel).is_ok(),
+            "bad cancel hash"
+        );
+        self.public_key().context("bad offer key")?;
+        ensure!(self.pow_ok_at(now), "missing proof of work");
+        Ok(())
+    }
+}
+
+/// Opens one output of a transaction: its one-time key and owner tag (as in a payment
+/// proof), so the board can confirm what a swap paid without trusting the reporter.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Opening {
+    /// Index among the transaction's outputs (`Transaction::all_outputs`).
+    pub output: u8,
+    pub key: String,
+    pub owner: String,
+}
+
+impl Opening {
+    fn open(&self, tx: &krypton_core::Transaction) -> Result<krypton_core::address::NotePlain> {
+        let outs = tx.all_outputs();
+        let o = outs.get(self.output as usize).context("no such output")?;
+        let key: [u8; 32] = hex::decode(&self.key)?
+            .try_into()
+            .map_err(|_| anyhow!("bad key"))?;
+        let owner: [u8; 32] = hex::decode(&self.owner)?
+            .try_into()
+            .map_err(|_| anyhow!("bad owner"))?;
+        let owner =
+            krypton_crypto::field::digest_from_bytes(&owner).map_err(|_| anyhow!("bad owner"))?;
+        krypton_core::address::open_disclosed_note(&key, &owner, &o.cm, &o.ciphertext)
+            .context("the opening does not match the output")
+    }
+}
+
+/// A completed coin swap, reported for that coin's market price. The board checks it
+/// against the mined transaction: the coin output must hold `units` of `coin` and the
+/// GNR output `gnr`, so a report cannot invent a price.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CoinTrade {
+    pub network: String,
+    pub coin: String,
+    pub txid: String,
+    pub gnr: u64,
+    pub units: u64,
+    pub coin_output: Opening,
+    pub gnr_output: Opening,
+    pub nonce: u64,
+}
+
+impl CoinTrade {
+    fn body(&self) -> Vec<u8> {
+        let mut t = self.clone();
+        t.nonce = 0;
+        serde_json::to_vec(&t).expect("serializable")
+    }
+    pub fn seal_pow(&mut self) {
+        self.nonce = mine("Krypton/board/coin-trade", &self.body(), POW_BITS);
+    }
+    pub fn price(&self) -> f64 {
+        self.gnr as f64 / self.units as f64
+    }
+    pub fn validate(&self, network: &str) -> Result<()> {
+        ensure!(self.network == network, "the trade is for another network");
+        krypton_core::asset::AssetId::from_hex(&self.coin).context("bad coin id")?;
+        ensure!(
+            self.txid.len() == 64 && hex::decode(&self.txid).is_ok(),
+            "bad txid"
+        );
+        ensure!(self.gnr > 0 && self.units > 0, "bad amounts");
+        ensure!(
+            pow_ok(
+                "Krypton/board/coin-trade",
+                &self.body(),
+                self.nonce,
+                POW_BITS
+            ),
+            "missing proof of work"
+        );
+        Ok(())
+    }
+    /// Checks the report against the mined transaction `tx`.
+    pub fn verify(&self, tx: &krypton_core::Transaction) -> Result<()> {
+        ensure!(hex::encode(tx.txid()) == self.txid, "another transaction");
+        let a = tx.asset.as_ref().context("not a coin transaction")?;
+        ensure!(
+            a.op == krypton_core::asset::AssetOp::Transfer && a.fee_action.is_some(),
+            "not a coin swap"
+        );
+        // The coin moves in the transaction's action, the GNR in its fee action.
+        ensure!(
+            self.coin_output.output < 2 && (2..4).contains(&self.gnr_output.output),
+            "the outputs are not the swap's"
+        );
+        let coin = self.coin_output.open(tx)?;
+        let gnr = self.gnr_output.open(tx)?;
+        ensure!(
+            coin.coin().map(|c| c.to_hex()).as_deref() == Some(self.coin.as_str())
+                && coin.value == self.units,
+            "the coin output does not match"
+        );
+        ensure!(
+            gnr.coin().is_none() && gnr.value == self.gnr,
+            "the GNR output does not match"
+        );
+        Ok(())
+    }
+}
+
+/// A coin's market price in gori per base unit: the average of its completed swaps in
+/// the last [`MARKET_WINDOW_SECS`] (or of all if there are none), without outliers more
+/// than [`OUTLIER_FACTOR`] from the median once there are three. `None` with no swaps.
+pub fn coin_market(trades: &[(CoinTrade, u64)], now: u64) -> Option<(f64, usize)> {
+    let recent: Vec<f64> = trades
+        .iter()
+        .filter(|(_, at)| at + MARKET_WINDOW_SECS > now)
+        .map(|(t, _)| t.price())
+        .collect();
+    let mut v = if recent.is_empty() {
+        trades.iter().map(|(t, _)| t.price()).collect()
+    } else {
+        recent
+    };
+    v.retain(|p| p.is_finite() && *p > 0.0);
+    if v.len() >= 3 {
+        let mut s = v.clone();
+        s.sort_by(f64::total_cmp);
+        let med = s[s.len() / 2];
+        v.retain(|p| *p <= med * OUTLIER_FACTOR && *p >= med / OUTLIER_FACTOR);
+    }
+    if v.is_empty() {
+        return None;
+    }
+    Some((v.iter().sum::<f64>() / v.len() as f64, v.len()))
 }
 
 /// A completed swap, reported for the market price.
@@ -706,5 +948,114 @@ mod tests {
 
     fn ask_bid(gnr: u64, sats: u64) -> Offer {
         offer(Side::BuyGnr, gnr, sats)
+    }
+
+    fn coin_offer(gnr: u64, units: u64) -> CoinOffer {
+        let k = kem::SecretKey::from_seed(&[3; 96]);
+        let mut o = CoinOffer {
+            id: "ab".repeat(16),
+            network: "devnet".into(),
+            coin: krypton_core::asset::AssetId {
+                a0: 5,
+                a1: 6,
+                pausable: false,
+            }
+            .to_hex(),
+            side: Side::SellGnr,
+            gnr,
+            units,
+            key: hex::encode(k.public().to_bytes()),
+            expires: krypton_core::now() + 3600,
+            cancel: cancel_hash(&[1; 32]),
+            nonce: 0,
+        };
+        o.seal_pow();
+        o
+    }
+
+    #[test]
+    fn coin_offers_validate() {
+        let now = krypton_core::now();
+        let o = coin_offer(100_000_000, 5_000);
+        o.validate("devnet", now).unwrap();
+        assert!((o.price() - 20_000.0).abs() < 1e-9);
+        let mut bad = o.clone();
+        bad.units = 6_000;
+        assert!(
+            bad.validate("devnet", now).is_err(),
+            "work covers every field"
+        );
+        let mut gnr = o.clone();
+        gnr.coin = krypton_core::asset::GNR.to_hex();
+        gnr.seal_pow();
+        assert!(gnr.validate("devnet", now).is_err(), "GNR is not a coin");
+        assert!(o.validate("mainnet", now).is_err());
+    }
+
+    #[test]
+    fn large_messages_need_more_work() {
+        let a = kem::SecretKey::from_seed(&[1; 96]);
+        let b = kem::SecretKey::from_seed(&[2; 96]);
+        // A coin swap's transaction: about 100 KB, sent in base32.
+        let body = vec![7u8; 170 * 1024];
+        let e = seal(b.public(), &a, &body).unwrap();
+        e.validate().unwrap();
+        assert!(e.data.len() > 2 * MAX_MESSAGE_BYTES);
+        assert!(
+            !pow_ok("Krypton/board/msg", &e.body(), e.nonce, LARGE_POW_BITS + 6),
+            "sanity: not absurdly lucky"
+        );
+        let (_, got) = open(&b, &e.data).unwrap();
+        assert_eq!(got, body);
+        // Work for a small message does not carry a large one.
+        let small = seal(b.public(), &a, b"hi").unwrap();
+        let forged = Envelope {
+            to: e.to.clone(),
+            data: e.data.clone(),
+            nonce: small.nonce,
+        };
+        assert!(forged.validate().is_err());
+    }
+
+    fn coin_trade(gnr: u64, units: u64) -> CoinTrade {
+        let op = Opening {
+            output: 0,
+            key: "00".repeat(32),
+            owner: "00".repeat(32),
+        };
+        CoinTrade {
+            network: "devnet".into(),
+            coin: krypton_core::asset::AssetId {
+                a0: 5,
+                a1: 6,
+                pausable: false,
+            }
+            .to_hex(),
+            txid: "11".repeat(32),
+            gnr,
+            units,
+            coin_output: op.clone(),
+            gnr_output: Opening { output: 2, ..op },
+            nonce: 0,
+        }
+    }
+
+    #[test]
+    fn coin_market_is_the_average_of_swaps_without_outliers() {
+        let now = 1_000_000;
+        assert_eq!(coin_market(&[], now), None);
+        let v = vec![
+            (coin_trade(100, 10), now - 10),
+            (coin_trade(300, 10), now - 20),
+            (coin_trade(1_000_000, 10), now - 30),
+        ];
+        let (p, n) = coin_market(&v, now).unwrap();
+        assert_eq!(n, 2, "the outlier is dropped");
+        assert!((p - 20.0).abs() < 1e-9);
+        // Old swaps count only when there are no recent ones.
+        let old = vec![(coin_trade(500, 10), 0), (coin_trade(100, 10), now - 5)];
+        assert!((coin_market(&old, now).unwrap().0 - 10.0).abs() < 1e-9);
+        let only_old = vec![(coin_trade(500, 10), 0)];
+        assert!((coin_market(&only_old, now).unwrap().0 - 50.0).abs() < 1e-9);
     }
 }

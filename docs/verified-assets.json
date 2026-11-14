@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "about": "Krypton coins verified by the Genoryn project (docs/spec/assets.md). Signed with the release key under the context genoryn-krypton/verified-coins/v1. Verification is about identity only: it says who issues a coin, never that it is safe or worth anything.",
+  "updated": "2026-11-14",
+  "coins": [
+    {
+      "network": "mainnet",
+      "id": "2bb7944efb7c1b58035256a74462776400",
+      "ticker": "USDK",
+      "name": "Dollar Krypton",
+      "issuer": "Genoryn Krypton project",
+      "logo": "coins/usdk.svg",
+      "note": "Issuer-backed by US dollar reserves held by the issuer; redeemed by burning. Never pausable."
+    },
+    {
+      "network": "mainnet",
+      "id": "e0b656584ef43773bac72c96fa2d026200",
+      "ticker": "EURK",
+      "name": "Euro Krypton",
+      "issuer": "Genoryn Krypton project",
+      "logo": "coins/eurk.svg",
+      "note": "Issuer-backed by euro reserves held by the issuer; redeemed by burning. Never pausable."
+    }
+  ]
+}

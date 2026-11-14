@@ -54,8 +54,18 @@
   function block(id) {
     gk.api("/v1/block/" + encodeURIComponent(id)).then(function (b) {
       var h = b.header;
+      // Krypton coins: issues, burns, deploys and pauses are public; transfers stay private
+      // (a pausable coin's transfer shows only which coin moved).
+      var coinKind = function (c) {
+        if (!c) return gk.esc("private transfer");
+        var who = c.ticker ? gk.esc(c.ticker) : c.coin ? '<span class="mono">' + gk.esc(String(c.coin).slice(0, 8)) + "…</span>" : "";
+        if (c.op === "transfer") return who ? "coin transfer · " + who : "private transfer";
+        if (c.op === "issue") return "coin issue · " + who + " · " + nm(c.issue).toLocaleString("en-US") + " units";
+        if (c.op === "burn") return "coin burn · " + who + " · " + nm(c.burn).toLocaleString("en-US") + " units";
+        return "coin " + gk.esc(c.op) + (who ? " · " + who : "");
+      };
       var txs = b.txs.map(function (t) {
-        return '<tr><td data-label="Txid" class="mono"><a href="#/tx/' + hx(t.txid) + '">' + short(t.txid) + '</a></td><td data-label="Kind">' + gk.esc(t.kind) + '</td><td data-label="Fee" class="num">' + gk.gnr(t.fee) +
+        return '<tr><td data-label="Txid" class="mono"><a href="#/tx/' + hx(t.txid) + '">' + short(t.txid) + '</a></td><td data-label="Kind">' + coinKind(t.coin) + '</td><td data-label="Fee" class="num">' + gk.gnr(t.fee) +
           '</td><td data-label="Proof" class="num">' + (nm(t.proof_bytes) / 1024).toFixed(1) + " KB</td></tr>";
       }).join("") || '<tr><td colspan="4" class="muted">No transactions</td></tr>';
       var shares = (b.shares || []).map(function (s) {

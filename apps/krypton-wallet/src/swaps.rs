@@ -372,6 +372,7 @@ pub fn has_work(w: &Wallet) -> bool {
 
 pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types::Transaction]) {
     crate::board::refresh_market(a);
+    crate::coins::tick(a, w, src);
     if !has_work(w) || inactive(a, Some(w)).is_some() {
         return;
     }
@@ -398,6 +399,7 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
 
 /// Between regular rounds: only the board mailboxes, so a take is answered within seconds.
 pub fn quick(a: &App, w: &mut Wallet, src: &Multi) {
+    crate::coins::tick(a, w, src);
     if !crate::board::quick_work(w) || inactive(a, Some(w)).is_some() {
         return;
     }

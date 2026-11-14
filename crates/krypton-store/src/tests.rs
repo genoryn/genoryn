@@ -425,3 +425,160 @@ fn shares_rewards_and_reorgs_are_exact() {
         c.tip().height() - c.params.coinbase_maturity
     );
 }
+
+/// A coin deploy mined in a block registers the coin; a reorganization to a chain
+/// without it removes the coin, frees its ticker and unspends the fee note.
+#[test]
+fn coin_registry_follows_reorganizations() {
+    use krypton_core::asset::*;
+    use krypton_core::types::*;
+    use krypton_zk::{InputWitness, OutputWitness, SpendWitness};
+    let d1 = tempfile::tempdir().unwrap();
+    let d2 = tempfile::tempdir().unwrap();
+    let now = u64::MAX / 4;
+    let a = Chain::open(d1.path(), Network::Devnet).unwrap();
+    let b = Chain::open(d2.path(), Network::Devnet).unwrap();
+    for _ in 0..300 {
+        let blk = mine_next(&a, 0);
+        a.process_block(&blk, now).unwrap();
+        b.process_block(&blk, now).unwrap();
+    }
+    // The two largest matured reward notes of owner(1).
+    let size = a.tip().frontier.size;
+    let leaves = a.leaves(0, size).unwrap();
+    let mut found = Vec::new();
+    for h in 0..=a.tip().height() {
+        for (i, p) in a.payouts_at(h).unwrap().iter().enumerate() {
+            let cm = krypton_core::reward::payout_cm(h, i as u32, p).unwrap();
+            if p.owner == owner(1)
+                && let Some(pos) = leaves.iter().position(|l| *l == cm)
+            {
+                found.push((p.value, h, i as u32, pos as u64));
+            }
+        }
+    }
+    found.sort();
+    let notes = &found[found.len() - 2..];
+    let value: u64 = notes.iter().map(|n| n.0).sum();
+    assert!(value > DEPLOY_FEE, "{found:?}");
+    let input = |n: &(u64, u64, u32, u64)| InputWitness {
+        sk: rescue::scalar(1),
+        value: n.0,
+        rcm: krypton_core::reward::payout_rcm(n.1, n.2, &owner(1)),
+        pos: n.3,
+        path: a.auth_path(n.3).unwrap().0,
+        dummy: false,
+        lock: false,
+    };
+    let key = krypton_crypto::sign::MlDsaKey::from_seed(&[5; 32]);
+    let m = Manifest {
+        name: "Store Test Krypton".into(),
+        ticker: "STORK".into(),
+        decimals: 0,
+        supply: Supply::Mintable,
+        cap: None,
+        burn: false,
+        pause: false,
+        backing: Backing::None,
+        origin: None,
+        reserves: None,
+        website: None,
+        terms: None,
+        logo: None,
+        issuer: key.public_bytes(),
+    };
+    let root = a.note_root_digest();
+    let mut w = SpendWitness {
+        inputs: [input(&notes[0]), input(&notes[1])],
+        outputs: [
+            OutputWitness {
+                owner: rescue::SpendKeys::from_sk(rescue::scalar(1)).owner,
+                value: value - DEPLOY_FEE,
+                rcm: rescue::scalar(77),
+            },
+            OutputWitness::dummy(),
+        ],
+        root,
+        fee: DEPLOY_FEE,
+        mint: 0,
+        sighash: rescue::scalar(0),
+        asset: None,
+    };
+    let p = w.public();
+    let out = |cm: &Digest| Output {
+        cm: digest_to_bytes(cm),
+        ciphertext: vec![1; NOTE_CIPHERTEXT_LEN],
+    };
+    let mut tx = Transaction {
+        version: TX_VERSION_ASSET,
+        kind: TxKind::Transfer,
+        anchor: digest_to_bytes(&root),
+        nullifiers: p.nullifiers.map(|n| HexHash(digest_to_bytes(&n))),
+        outputs: [out(&p.output_cms[0]), out(&p.output_cms[1])],
+        fee: DEPLOY_FEE,
+        mint: 0,
+        expiry_height: 0,
+        lock: None,
+        proof: vec![],
+        asset: Some(AssetPart {
+            op: AssetOp::Deploy,
+            coin: None,
+            burn: 0,
+            manifest: Some(m.canonical()),
+            issuer_sig: None,
+            fee_action: None,
+        }),
+    };
+    w.sighash = tx.sighash();
+    tx.asset.as_mut().unwrap().issuer_sig = Some(key.sign(&tx.sighash_bytes(), SIG_CTX).unwrap());
+    tx.proof = krypton_zk::prove(&w).unwrap().1;
+    a.check_mempool_tx(&tx).unwrap();
+
+    let mut blk = a
+        .template(
+            owner(1),
+            vec![],
+            vec![tx.clone()],
+            a.tip().header.timestamp + 60,
+        )
+        .unwrap();
+    assert_eq!(blk.txs.len(), 1);
+    while !a.pow.verify(
+        blk.header.height,
+        &blk.header.pow_hash(),
+        blk.header.nonce,
+        blk.header.difficulty,
+    ) {
+        blk.header.nonce += 1;
+    }
+    a.process_block(&blk, now).unwrap();
+    let id = m.id();
+    let s = a.asset(&id).unwrap().expect("registered");
+    assert_eq!(
+        (s.manifest.ticker.as_str(), s.height),
+        ("STORK", blk.header.height)
+    );
+    assert_eq!(a.asset_by_ticker("stork").unwrap(), Some(id));
+    assert_eq!(a.assets().unwrap().len(), 1);
+    assert!(a.check_mempool_tx(&tx).is_err(), "spent and deployed");
+    let compact = a.compact_block(blk.header.height).unwrap().unwrap();
+    assert_eq!(compact.nullifiers.len(), 2);
+
+    // The coin survives a restart, then a heavier chain without it removes it.
+    drop(a);
+    let a = Chain::open(d1.path(), Network::Devnet).unwrap();
+    assert!(a.asset(&id).unwrap().is_some());
+    for _ in 0..3 {
+        let blk = mine_next(&b, 9);
+        b.process_block(&blk, now).unwrap();
+        a.process_block(&blk, now).unwrap();
+    }
+    assert_eq!(a.tip().hash, b.tip().hash);
+    assert!(
+        a.asset(&id).unwrap().is_none(),
+        "undone by the reorganization"
+    );
+    assert_eq!(a.asset_by_ticker("STORK").unwrap(), None, "ticker freed");
+    assert!(a.assets().unwrap().is_empty());
+    assert!(a.take_disconnected_txs().contains(&tx));
+}

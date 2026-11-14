@@ -23,6 +23,10 @@ pub const REG: [usize; 2] = [60, 104];
 pub const REG_WIDTH: usize = 44;
 pub const MASK: usize = 148;
 pub const WIDTH: usize = 149;
+/// Version-2 spends (Krypton coins) append the coin `(a0, a1, pausable)`, constant over
+/// the program and hashed into every note body.
+pub const ASSET: usize = 149;
+pub const WIDTH_V2: usize = 152;
 
 // Register offsets inside a lane's register block.
 pub const R_SK: usize = 0;

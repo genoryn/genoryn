@@ -461,6 +461,43 @@ impl NodeClient {
         self.get("/v1/supply")?.json()
     }
 
+    /// Every Krypton coin on chain (summaries, as the node reports them).
+    pub fn assets(&self) -> Result<serde_json::Value> {
+        self.get("/v1/assets")?.json()
+    }
+
+    /// One coin by id or ticker. The manifest must hash to the coin's id, so a node
+    /// cannot misstate what a coin is (its supply figures are the node's report).
+    pub fn asset(
+        &self,
+        coin: &str,
+    ) -> Result<(
+        krypton_core::asset::AssetId,
+        krypton_core::asset::Manifest,
+        serde_json::Value,
+    )> {
+        let v: serde_json::Value = self.get(&format!("/v1/asset/{coin}"))?.json()?;
+        let id = v["id"]
+            .as_str()
+            .and_then(krypton_core::asset::AssetId::from_hex)
+            .context("bad coin id from node")?;
+        let m = krypton_core::asset::Manifest::parse(v["manifest"].as_str().unwrap_or_default())
+            .map_err(|e| anyhow::anyhow!("bad manifest from node: {e}"))?;
+        anyhow::ensure!(
+            m.id() == id,
+            "the node's manifest does not match the coin id"
+        );
+        if let Some(want) = krypton_core::asset::AssetId::from_hex(coin) {
+            anyhow::ensure!(want == id, "the node answered for another coin");
+        } else {
+            anyhow::ensure!(
+                m.ticker.eq_ignore_ascii_case(coin),
+                "the node answered for another ticker"
+            );
+        }
+        Ok((id, m, v))
+    }
+
     pub fn base_url(&self) -> &str {
         &self.base
     }

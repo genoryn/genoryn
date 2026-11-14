@@ -18,8 +18,10 @@ pub mod air;
 pub mod layout;
 mod prover;
 
-pub use air::{SpendAir, SpendPublic};
-pub use prover::{InputWitness, OutputWitness, SpendWitness, proof_options, prove, verify};
+pub use air::{AssetStatement, SpendAir, SpendPublic};
+pub use prover::{
+    AssetWitness, InputWitness, OutputWitness, SpendWitness, proof_options, prove, verify,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ZkError {

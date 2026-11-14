@@ -1,7 +1,7 @@
 use crate::ZkError;
-use crate::air::{SpendAir, SpendPublic};
+use crate::air::{AssetStatement, SpendAir, SpendPublic};
 use crate::layout::*;
-use krypton_crypto::field::{Digest, Felt, ZERO_DIGEST};
+use krypton_crypto::field::{Digest, Felt, MODULUS, ZERO_DIGEST};
 use krypton_crypto::rescue::{self, SpendKeys, domain};
 use rand_core::{OsRng, RngCore};
 use winterfell::crypto::hashers::{Rp64_256, Sha3_256};
@@ -74,7 +74,11 @@ impl InputWitness {
         }
     }
     pub fn commitment(&self) -> Digest {
-        rescue::note_commitment(&self.owner(), self.value, &self.rcm)
+        self.commitment_of(&[0; 3])
+    }
+    /// Commitment of this note holding the coin `asset` (GNR is `[0, 0, 0]`).
+    pub fn commitment_of(&self, asset: &[u64; 3]) -> Digest {
+        rescue::note_commitment_asset(&self.owner(), self.value, asset, &self.rcm)
     }
     pub fn nullifier(&self) -> Digest {
         let nk = self.keys().nk;
@@ -102,8 +106,22 @@ impl OutputWitness {
         }
     }
     pub fn commitment(&self) -> Digest {
-        rescue::note_commitment(&self.owner, self.value, &self.rcm)
+        self.commitment_of(&[0; 3])
     }
+    pub fn commitment_of(&self, asset: &[u64; 3]) -> Digest {
+        rescue::note_commitment_asset(&self.owner, self.value, asset, &self.rcm)
+    }
+}
+
+/// The coin of a version-2 spend: every input and output holds it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AssetWitness {
+    /// `[a0, a1, pausable]`; GNR is `[0, 0, 0]`.
+    pub id: [u64; 3],
+    /// Units destroyed by this spend.
+    pub burn: u64,
+    /// Make the coin public (required for minting, burning and pausable coins).
+    pub reveal: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -114,18 +132,31 @@ pub struct SpendWitness {
     pub fee: u64,
     pub mint: u64,
     pub sighash: Digest,
+    /// Version-2 spends (Krypton coins); `None` is a version-1 (GNR) spend.
+    pub asset: Option<AssetWitness>,
 }
 
 impl SpendWitness {
+    /// The coin all notes hold (GNR for version 1).
+    pub fn coin(&self) -> [u64; 3] {
+        self.asset.map_or([0; 3], |a| a.id)
+    }
     pub fn public(&self) -> SpendPublic {
         SpendPublic {
             root: self.root,
             nullifiers: [self.inputs[0].nullifier(), self.inputs[1].nullifier()],
-            output_cms: [self.outputs[0].commitment(), self.outputs[1].commitment()],
+            output_cms: [
+                self.outputs[0].commitment_of(&self.coin()),
+                self.outputs[1].commitment_of(&self.coin()),
+            ],
             fee: self.fee,
             mint: self.mint,
             sighash: self.sighash,
             lock_owner: self.inputs[0].lock.then(|| self.inputs[0].owner()),
+            asset: self.asset.map(|a| AssetStatement {
+                burn: a.burn,
+                reveal: a.reveal.then_some(a.id),
+            }),
         }
     }
 
@@ -145,10 +176,25 @@ impl SpendWitness {
             if i.dummy && i.value != 0 {
                 return Err(ZkError::Witness("dummy input with value"));
             }
-            if !i.dummy && merkle_root(&i.commitment(), i.pos, &i.path) != self.root {
+            if !i.dummy && merkle_root(&i.commitment_of(&self.coin()), i.pos, &i.path) != self.root
+            {
                 return Err(ZkError::Witness("note is not in the tree"));
             }
         }
+        if let Some(a) = &self.asset {
+            if a.id[0] >= MODULUS || a.id[1] >= MODULUS || a.id[2] > 1 {
+                return Err(ZkError::Witness("not a coin"));
+            }
+            if a.id[2] == 1 && !a.reveal {
+                return Err(ZkError::Witness("a pausable coin must be revealed"));
+            }
+            if self.fee > 0 && (a.id != [0; 3] || a.reveal) {
+                return Err(ZkError::Witness(
+                    "fees are paid in GNR, by a hidden GNR spend",
+                ));
+            }
+        }
+        let burn = self.asset.map_or(0, |a| a.burn);
         let vals = [
             self.inputs[0].value,
             self.inputs[1].value,
@@ -157,13 +203,13 @@ impl SpendWitness {
         ];
         if vals
             .iter()
-            .chain([self.fee, self.mint].iter())
+            .chain([self.fee, self.mint, burn].iter())
             .any(|&v| v > MAX_VALUE)
         {
             return Err(ZkError::Witness("value out of range"));
         }
         let lhs = vals[0] as u128 + vals[1] as u128 + self.mint as u128;
-        let rhs = vals[2] as u128 + vals[3] as u128 + self.fee as u128;
+        let rhs = vals[2] as u128 + vals[3] as u128 + self.fee as u128 + burn as u128;
         if lhs != rhs {
             return Err(ZkError::Witness("values do not balance"));
         }
@@ -213,17 +259,32 @@ fn initial_state(dom: u64, left: &Digest, right: &Digest) -> [Felt; 12] {
 }
 
 fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
-    let mut cols: Vec<Vec<Felt>> = (0..WIDTH).map(|_| vec![Felt::ZERO; TRACE_LEN]).collect();
+    let width = if w.asset.is_some() { WIDTH_V2 } else { WIDTH };
+    let mut cols: Vec<Vec<Felt>> = (0..width).map(|_| vec![Felt::ZERO; TRACE_LEN]).collect();
     let outs = [&w.outputs[0], &w.outputs[1]];
+    let coin = w.coin();
+    if w.asset.is_some() {
+        for k in 0..3 {
+            cols[ASSET + k][..ACTIVE_ROWS].fill(Felt::new(coin[k]));
+        }
+    }
 
     for lane in 0..2 {
         let inp = &w.inputs[lane];
         let keys = inp.keys();
         let out = outs[lane];
         let owner = inp.owner();
-        let o_t = rescue::hash2(domain::NOTE_BODY, &out.owner, &rescue::scalar(out.value));
-        let t = rescue::hash2(domain::NOTE_BODY, &owner, &rescue::scalar(inp.value));
-        let cm = inp.commitment();
+        let o_t = rescue::hash2(
+            domain::NOTE_BODY,
+            &out.owner,
+            &rescue::note_body_word(out.value, &coin),
+        );
+        let t = rescue::hash2(
+            domain::NOTE_BODY,
+            &owner,
+            &rescue::note_body_word(inp.value, &coin),
+        );
+        let cm = inp.commitment_of(&coin);
 
         // Registers.
         let mut reg = [Felt::ZERO; REG_WIDTH];
@@ -249,14 +310,21 @@ fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
         }
 
         // Key/note lane program.
-        let src = |s: Src| -> Digest {
+        let src = |s: Src, body: bool| -> Digest {
             match s {
                 Src::Zero => ZERO_DIGEST,
                 Src::Reg(o) => [reg[o], reg[o + 1], reg[o + 2], reg[o + 3]],
+                Src::Scalar(o) if body => [
+                    reg[o],
+                    Felt::new(coin[0]),
+                    Felt::new(coin[1]),
+                    Felt::new(coin[2]),
+                ],
                 Src::Scalar(o) => [reg[o], Felt::ZERO, Felt::ZERO, Felt::ZERO],
             }
         };
         for (k, spec) in K_PROGRAM.iter().enumerate() {
+            let body = spec.domain == domain::NOTE_BODY;
             let mut dom = spec.domain;
             if k == OWNER_CYCLE && inp.lock {
                 dom = domain::LOCK_OWNER;
@@ -268,7 +336,7 @@ fn build_trace(w: &SpendWitness) -> TraceTable<Felt> {
                 &mut cols,
                 K_LANE[lane],
                 k * CYCLE,
-                initial_state(dom, &src(spec.left), &src(spec.right)),
+                initial_state(dom, &src(spec.left, body), &src(spec.right, body)),
             );
         }
         for k in K_PROGRAM.len()..DEPTH {
@@ -404,9 +472,24 @@ pub fn verify(public: &SpendPublic, proof: &[u8]) -> Result<(), ZkError> {
     if public.fee > MAX_VALUE || public.mint > MAX_VALUE {
         return Err(ZkError::Verify("public value out of range".into()));
     }
+    if let Some(a) = &public.asset {
+        if a.burn > MAX_VALUE {
+            return Err(ZkError::Verify("public value out of range".into()));
+        }
+        if let Some(c) = a.reveal
+            && (c[0] >= MODULUS || c[1] >= MODULUS || c[2] > 1 || public.fee > 0)
+        {
+            return Err(ZkError::Verify("bad coin section".into()));
+        }
+    }
+    let width = if public.asset.is_some() {
+        WIDTH_V2
+    } else {
+        WIDTH
+    };
     let proof = Proof::from_bytes(proof).map_err(|e| ZkError::Verify(e.to_string()))?;
     let ti = proof.trace_info();
-    if ti.length() != TRACE_LEN || ti.main_trace_width() != WIDTH || ti.is_multi_segment() {
+    if ti.length() != TRACE_LEN || ti.main_trace_width() != width || ti.is_multi_segment() {
         return Err(ZkError::Verify("unexpected trace shape".into()));
     }
     let accepted = AcceptableOptions::OptionSet(vec![proof_options()]);

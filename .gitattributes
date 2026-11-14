@@ -1,0 +1,6 @@
+
+# Signed or hashed bytes: never convert line endings.
+docs/verified-assets.json -text
+docs/verified-assets.json.sig -text
+docs/coins/*.kam -text
+design/assets/coins/*.svg -text

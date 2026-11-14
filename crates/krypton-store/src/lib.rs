@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{Context, Result, anyhow, bail};
+use krypton_core::asset::{self, AssetId, AssetState, AssetView};
 use krypton_core::codec::{Reader, Writer};
 use krypton_core::consensus::{self, ParentContext, StateView};
 use krypton_core::mmr::{self, MmrNode, MmrProof, MmrStore};
@@ -45,6 +46,10 @@ const ACCOUNTS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("accounts")
 const DUE: TableDefinition<&[u8], u8> = TableDefinition::new("due");
 /// Height -> payouts made by that main-chain block.
 const PAYOUTS: TableDefinition<u64, &[u8]> = TableDefinition::new("payouts");
+/// Krypton coins: coin id (17 bytes) -> `AssetState`.
+const ASSETS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("assets");
+/// `asset::name_keys` -> coin id.
+const ASSET_NAMES: TableDefinition<&str, &[u8]> = TableDefinition::new("asset_names");
 
 fn due_key(since: u64, owner: &Hash32) -> [u8; 40] {
     let mut k = [0u8; 40];
@@ -161,6 +166,8 @@ pub struct View {
     shares: ReadOnlyTable<&'static [u8], u64>,
     accounts: ReadOnlyTable<&'static [u8], &'static [u8]>,
     due: ReadOnlyTable<&'static [u8], u8>,
+    assets: ReadOnlyTable<&'static [u8], &'static [u8]>,
+    asset_names: ReadOnlyTable<&'static str, &'static [u8]>,
     pool: u64,
     tip_height: u64,
     /// Set when a read failed: validation results are then not trusted (a disk error
@@ -208,6 +215,25 @@ impl StateView for View {
         self.seen(self.shares.get(hash.as_slice()))
             .flatten()
             .is_some()
+    }
+}
+
+impl AssetView for View {
+    fn asset(&self, id: &AssetId) -> Option<AssetState> {
+        let v = self
+            .seen(self.assets.get(id.to_bytes().as_slice()))
+            .flatten()?;
+        match AssetState::from_bytes(v.value()) {
+            Ok(s) => Some(s),
+            Err(_) => {
+                self.failed.set(true);
+                None
+            }
+        }
+    }
+    fn asset_named(&self, key: &str) -> Option<AssetId> {
+        let v = self.seen(self.asset_names.get(key)).flatten()?;
+        AssetId::from_bytes(v.value())
     }
 }
 
@@ -358,6 +384,8 @@ impl Chain {
             w.open_table(ACCOUNTS)?;
             w.open_table(DUE)?;
             w.open_table(PAYOUTS)?;
+            w.open_table(ASSETS)?;
+            w.open_table(ASSET_NAMES)?;
             let meta = w.open_table(META)?;
             if let Some(g) = meta.get("genesis")?
                 && g.value() != genesis.hash()
@@ -528,6 +556,8 @@ impl Chain {
             shares: r.open_table(SHARES)?,
             accounts: r.open_table(ACCOUNTS)?,
             due: r.open_table(DUE)?,
+            assets: r.open_table(ASSETS)?,
+            asset_names: r.open_table(ASSET_NAMES)?,
             pool,
             tip_height: self.tip.read().height(),
             failed: std::cell::Cell::new(false),
@@ -819,6 +849,11 @@ impl Chain {
             .iter()
             .map(|(o, _)| (*o, view.account(o)))
             .collect();
+        let old_assets: Vec<(AssetId, Option<AssetState>)> = fx
+            .assets
+            .iter()
+            .map(|(id, _)| (*id, view.asset(id)))
+            .collect();
         let leaf = MmrNode::leaf(&hash, block.header.difficulty);
         let mmr_nodes = mmr::append(
             &PendingMmr {
@@ -854,6 +889,15 @@ impl Chain {
         undo.u32(fx.shares.len() as u32);
         for s in &fx.shares {
             undo.raw(s);
+        }
+        // Coin registry (absent from undo records written before Krypton coins).
+        undo.u32(old_assets.len() as u32);
+        for (id, old) in &old_assets {
+            undo.raw(&id.to_bytes());
+            match old {
+                Some(s) => undo.u8(1).bytes(&s.to_bytes()),
+                None => undo.u8(0),
+            };
         }
         let w = self.db.begin_write().map_err(anyhow::Error::from)?;
         (|| -> Result<()> {
@@ -926,6 +970,18 @@ impl Chain {
                 w.open_table(PAYOUTS)?
                     .insert(height, encode_payouts(&fx.reward.payouts).as_slice())?;
             }
+            {
+                let mut assets = w.open_table(ASSETS)?;
+                let mut names = w.open_table(ASSET_NAMES)?;
+                for ((id, s), (_, old)) in fx.assets.iter().zip(&old_assets) {
+                    assets.insert(id.to_bytes().as_slice(), s.to_bytes().as_slice())?;
+                    if old.is_none() {
+                        for k in asset::name_keys(&s.manifest) {
+                            names.insert(k.as_str(), id.to_bytes().as_slice())?;
+                        }
+                    }
+                }
+            }
             w.open_table(UNDO)?
                 .insert(hash.as_slice(), undo.0.as_slice())?;
             let mut meta = w.open_table(META)?;
@@ -987,6 +1043,21 @@ impl Chain {
         for _ in 0..n {
             shares.push(rd.array::<32>()?);
         }
+        let mut old_assets = Vec::new();
+        if rd.remaining() > 0 {
+            let n = rd.u32()? as usize;
+            for _ in 0..n {
+                let id = AssetId::from_bytes(&rd.array::<17>()?).context("corrupt undo coin")?;
+                let old = match rd.u8()? {
+                    1 => Some(
+                        AssetState::from_bytes(&rd.bytes(1 << 16)?)
+                            .context("corrupt undo coin state")?,
+                    ),
+                    _ => None,
+                };
+                old_assets.push((id, old));
+            }
+        }
         rd.finish()?;
         let height = tip.height();
         let w = self.db.begin_write()?;
@@ -1021,6 +1092,28 @@ impl Chain {
                 }
             }
             w.open_table(PAYOUTS)?.remove(height)?;
+            {
+                let mut assets = w.open_table(ASSETS)?;
+                let mut names = w.open_table(ASSET_NAMES)?;
+                for (id, old) in old_assets.iter().rev() {
+                    let key = id.to_bytes();
+                    match old {
+                        Some(s) => {
+                            assets.insert(key.as_slice(), s.to_bytes().as_slice())?;
+                        }
+                        None => {
+                            let current = assets
+                                .remove(key.as_slice())?
+                                .map(|v| AssetState::from_bytes(v.value()));
+                            if let Some(Ok(s)) = current {
+                                for k in asset::name_keys(&s.manifest) {
+                                    names.remove(k.as_str())?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             let mut t = w.open_table(TREE)?;
             for (l, i) in tree::nodes_completed_by(frontier.size, tip.frontier.size) {
                 t.remove(tree_key(l, i))?;
@@ -1253,13 +1346,9 @@ impl Chain {
             outputs: b
                 .txs
                 .iter()
-                .flat_map(|t| t.outputs.iter().cloned())
+                .flat_map(|t| t.all_outputs().into_iter().cloned())
                 .collect(),
-            nullifiers: b
-                .txs
-                .iter()
-                .flat_map(|t| t.nullifiers.iter().map(|n| n.0))
-                .collect(),
+            nullifiers: b.txs.iter().flat_map(|t| t.all_nullifiers()).collect(),
             payouts: self.payouts_at(height)?,
             header: b.header,
             leaf_start,
@@ -1352,6 +1441,40 @@ impl Chain {
     ) -> std::result::Result<(), CoreError> {
         let view = self.view().map_err(|_| CoreError::Invalid("storage"))?;
         consensus::check_transfer_state(&self.params, &view, tx, self.tip().height() + 1)
+    }
+
+    /// A Krypton coin's registry state.
+    pub fn asset(&self, id: &AssetId) -> Result<Option<AssetState>> {
+        let v = self.view()?;
+        let s = v.asset(id);
+        if v.failed.get() {
+            bail!("corrupt coin record");
+        }
+        Ok(s)
+    }
+
+    /// The coin registered under a ticker (`USDK`).
+    pub fn asset_by_ticker(&self, ticker: &str) -> Result<Option<AssetId>> {
+        Ok(self
+            .view()?
+            .asset_named(&format!("t:{}", ticker.to_ascii_uppercase())))
+    }
+
+    /// Every deployed coin, in id order.
+    pub fn assets(&self) -> Result<Vec<(AssetId, AssetState)>> {
+        let r = self.db.begin_read()?;
+        let t = r.open_table(ASSETS)?;
+        let mut v = Vec::new();
+        for e in t.iter()? {
+            let (k, s) = e?;
+            if let (Some(id), Ok(s)) = (
+                AssetId::from_bytes(k.value()),
+                AssetState::from_bytes(s.value()),
+            ) {
+                v.push((id, s));
+            }
+        }
+        Ok(v)
     }
 
     /// Coin supply issued through the tip.

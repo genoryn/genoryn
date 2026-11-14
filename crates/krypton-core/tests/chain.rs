@@ -39,6 +39,14 @@ impl RewardView for Mem {
         v
     }
 }
+impl krypton_core::asset::AssetView for Mem {
+    fn asset(&self, _: &krypton_core::asset::AssetId) -> Option<krypton_core::asset::AssetState> {
+        None
+    }
+    fn asset_named(&self, _: &str) -> Option<krypton_core::asset::AssetId> {
+        None
+    }
+}
 impl StateView for Mem {
     fn nullifier_spent(&self, nf: &Hash32) -> bool {
         self.nfs.contains(nf)

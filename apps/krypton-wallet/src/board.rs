@@ -131,6 +131,14 @@ fn http() -> &'static reqwest::blocking::Client {
     })
 }
 
+pub(crate) fn get_json(base: &str, path: &str) -> Result<Value> {
+    get(base, path)
+}
+
+pub(crate) fn post_json(base: &str, path: &str, body: &impl Serialize) -> Result<Value> {
+    post(base, path, body)
+}
+
 fn get(base: &str, path: &str) -> Result<Value> {
     let r = http()
         .get(format!("{}{path}", base.trim_end_matches('/')))
@@ -807,6 +815,8 @@ fn handle(
             }
             Ok(())
         }
+        // Coin swaps have their own keys (`crate::coins`).
+        _ => Ok(()),
     }
 }
 

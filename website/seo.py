@@ -5,13 +5,14 @@ import json
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.34"
+VERSION = "1.0.35"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
             "private cryptocurrency, anonymous cryptocurrency, privacy coin, zk-STARK, ML-KEM, post-quantum privacy coin, "
             "GPU mining, CPU mining, new cryptocurrency to mine, fair launch, no premine, 21 million supply, "
-            "atomic swap bitcoin, light wallet, KryptoHash")
+            "atomic swap bitcoin, light wallet, KryptoHash, quantum coins, Krypton coins, private tokens, "
+            "post-quantum stablecoin, private stablecoin, issue a token, USDK, EURK, Dollar Krypton, Euro Krypton")
 INDEXNOW_KEY = "4cd0c3283a0fa22bc5f39f8d68fb4209"
 
 PAGES = {
@@ -36,6 +37,9 @@ PAGES = {
     "docs": {"path": "/docs", "file": "docs.html", "priority": "0.8", "freq": "weekly",
              "og_title": "Genoryn Krypton documentation",
              "og_desc": "Wallet, security, cryptography, emission and scarcity, mining, atomic swaps with bitcoin, the market price, light clients, the P2P network, node operation, API, SDKs and integration."},
+    "coins": {"path": "/coins", "file": "coins.html", "priority": "0.9", "freq": "daily",
+              "og_title": "Quantum Coins: bring your coin to the quantum network",
+              "og_desc": "Krypton coins anyone can issue on Genoryn Krypton: always shielded, quantum-safe, with every issuer power declared in public and unchangeable. USDK, EURK and more."},
     "about": {"path": "/about", "file": "about.html", "priority": "0.9", "freq": "monthly",
               "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
               "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
@@ -93,6 +97,15 @@ ABOUT_FAQ = [
     ("Has it been audited?", "It has had an internal audit and a privately reported external review, whose findings are fixed. A full independent audit has not been done yet."),
 ]
 
+COINS_FAQ = [
+    ("What is a Krypton coin?", "A coin issued by anyone on Genoryn Krypton. It is held and sent like GNR, always shielded and quantum-safe, and its issuer's powers are declared in a public manifest that can never change."),
+    ("Are coin transfers really private?", "Yes. The coin, the amount, the sender and the recipient are hidden by a zk-STARK proof, exactly like GNR. Only issues and burns are public, so supplies can be audited. Coins whose issuer may pause them show which coin moves, never who or how much."),
+    ("Can an issuer freeze or take my coins?", "No issuer can take coins, see balances or freeze a single holder. Only if the manifest declares it can the issuer pause all transfers of that coin at once, and every wallet shows that risk before you accept it."),
+    ("Can someone make a fake USDK?", "A ticker belongs to the first coin that deploys it, and the names of GNR and Bitcoin are refused. Wallets show the verified mark, the checked issuer and the logo only for coins in the project's signed verified list."),
+    ("What does it cost?", "Deploying a coin costs 10 GNR, paid to miners. Every transfer pays an ordinary network fee in GNR."),
+    ("Is USDK worth a dollar?", "USDK is an issuer-backed coin: it is worth a dollar only if its issuer holds the reserves and redeems it. The network guarantees the supply and the privacy, not the reserves."),
+]
+
 HOWTO = {"@type": "HowTo", "name": "How to mine Genoryn Krypton (GNR)", "totalTime": "PT5M",
          "tool": [{"@type": "HowToTool", "name": "NVIDIA or AMD GPU, or any x86-64 CPU"}],
          "step": [
@@ -126,6 +139,12 @@ def graph(page):
                    "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
                    "about": ["Genoryn Krypton", "quantum-resistant cryptocurrency", "privacy coin", "post-quantum cryptography", "Bitcoin"]},
                   CODE, faq(ABOUT_FAQ), crumbs("About", p["path"])]
+    elif page == "coins":
+        items += [{"@type": "Article", "headline": "Quantum Coins: Krypton coins on Genoryn Krypton", "url": url, "inLanguage": "en",
+                   "dateModified": TODAY, "author": {"@type": "Person", "name": "Zarazi Sokani"},
+                   "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
+                   "about": ["Krypton coins", "private tokens", "post-quantum stablecoin", "zk-STARK", "Genoryn Krypton"]},
+                  faq(COINS_FAQ), crumbs("Quantum coins", p["path"])]
     elif page == "explorer":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Explorer", p["path"])]

@@ -27,6 +27,9 @@ impl ChainSource for Local<'_> {
         self.chain.auth_path(pos)
     }
     fn submit(&self, tx: &Transaction) -> Result<Hash32> {
+        // The relay floor every node applies (kryptond's mempool).
+        let floor = tx.size().div_ceil(1024) as u64 * krypton_core::params::MIN_FEE_PER_KB;
+        anyhow::ensure!(tx.total_fee() >= floor, "fee below the relay floor");
         self.chain
             .check_mempool_tx(tx)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -825,4 +828,206 @@ fn sync_follows_the_most_work_only() {
     assert_eq!(w.synced_height(), Some(16));
     // And the first chain, now lighter, is refused in turn.
     assert!(w.sync(&src_a, |_, _| {}).is_err());
+}
+
+/// Krypton coins through the wallet API on a devnet store: deploy, issue, a hidden
+/// transfer, a burn, the GNR balance kept apart, and recovery from the phrase.
+#[test]
+fn coins_end_to_end() {
+    use krypton_core::asset::{Backing, Manifest, Supply};
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let mk = |name: &str, m: &str| {
+        Wallet::create(
+            &dir.path().join(name),
+            "password-x",
+            m,
+            "",
+            Network::Devnet,
+            0,
+            Argon2Params::TEST,
+        )
+        .unwrap()
+    };
+    let mut issuer = mk("issuer", &keys::new_mnemonic());
+    let holder_phrase = keys::new_mnemonic();
+    let mut holder = mk("holder", &holder_phrase);
+    let (ia, ha) = (issuer.address(), holder.address());
+    for _ in 0..300 {
+        mine(&src, &ia);
+    }
+    issuer.sync(&src, |_, _| {}).unwrap();
+    let gnr_before = issuer.balance().total;
+    let m = Manifest {
+        name: "Test Dollar Krypton".into(),
+        ticker: "TUSDK".into(),
+        decimals: 2,
+        supply: Supply::Mintable,
+        cap: None,
+        burn: true,
+        pause: false,
+        backing: Backing::None,
+        origin: None,
+        reserves: None,
+        website: None,
+        terms: None,
+        logo: None,
+        issuer: issuer.issuer_key(),
+    };
+    let coin = m.id();
+    let fee = MIN_FEE;
+    issuer.deploy_coin(&src, &m, fee).unwrap();
+    mine(&src, &ia);
+    issuer.sync(&src, |_, _| {}).unwrap();
+    assert!(chain.asset(&coin).unwrap().is_some(), "deployed");
+
+    // Issue 1,000.00 to the holder and give it GNR for fees.
+    issuer.issue_coin(&src, coin, &ha, 100_000, fee).unwrap();
+    issuer
+        .send(&src, &ha, 100_000_000, fee, "for fees")
+        .unwrap();
+    mine(&src, &ia);
+    issuer.sync(&src, |_, _| {}).unwrap();
+    holder.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(chain.asset(&coin).unwrap().unwrap().issued, 100_000);
+    assert_eq!(holder.coin_balance(coin), 100_000);
+    assert_eq!(
+        holder.balance().total,
+        100_000_000,
+        "coins never count as GNR"
+    );
+
+    // A hidden transfer back to the issuer: no coin on chain.
+    let txid = holder
+        .send_coin(&src, coin, &ia, 30_000, fee, "thanks")
+        .unwrap();
+    let pending = src.pool.borrow().last().unwrap().clone();
+    assert!(
+        pending.asset.as_ref().unwrap().coin.is_none(),
+        "the coin stays hidden"
+    );
+    mine(&src, &ia);
+    holder.sync(&src, |_, _| {}).unwrap();
+    issuer.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(holder.coin_balance(coin), 70_000);
+    assert_eq!(issuer.coin_balance(coin), 30_000);
+    assert!(
+        holder.balance().total < 100_000_000,
+        "the fee was paid in GNR"
+    );
+    let h = holder
+        .history()
+        .iter()
+        .find(|h| h.txid == hex::encode(txid))
+        .unwrap();
+    assert_eq!(
+        (h.amount, h.coin, h.height.is_some()),
+        (-30_000, Some(coin), true)
+    );
+    let proof = holder.payment_proof(&hex::encode(txid)).unwrap();
+    let report = issuer.verify_payment(&src, &proof).unwrap();
+    assert_eq!((report.value, report.coin), (30_000, Some(coin)));
+
+    // Burn 50.00: public and recorded in the registry.
+    holder.burn_coin(&src, coin, 5_000, fee).unwrap();
+    mine(&src, &ia);
+    holder.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(holder.coin_balance(coin), 65_000);
+    assert_eq!(chain.asset(&coin).unwrap().unwrap().burned, 5_000);
+
+    // The issuer's GNR went to the deploy fee and the other fees only.
+    assert!(gnr_before - issuer.balance().total >= krypton_core::asset::DEPLOY_FEE);
+    // The phrase restores the coins.
+    let mut restored = mk("restored", &holder_phrase);
+    restored.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(restored.coin_balance(coin), 65_000);
+    assert_eq!(restored.balance().total, holder.balance().total);
+    drop(restored);
+
+    // A one-transaction swap: the issuer buys 100.00 from the holder for 0.5 GNR.
+    use coin_swap::SwapTerms;
+    let terms = SwapTerms {
+        coin,
+        units: 10_000,
+        gnr: 50_000_000,
+    };
+    issuer.sync(&src, |_, _| {}).unwrap();
+    let half = issuer.coin_swap_half(&src, terms, &ha, fee).unwrap();
+    let greedy = SwapTerms {
+        units: 20_000,
+        ..terms
+    };
+    assert!(
+        holder.coin_swap_accept(&src, &half, greedy).is_err(),
+        "terms must match"
+    );
+    let mut cheap = half.clone();
+    cheap.terms.gnr = 1;
+    assert!(
+        holder
+            .coin_swap_accept(&src, &cheap, SwapTerms { gnr: 1, ..terms })
+            .is_err(),
+        "pays less GNR"
+    );
+    let tx = holder.coin_swap_accept(&src, &half, terms).unwrap();
+    assert!(
+        src.pool.borrow().is_empty(),
+        "nothing valid exists before the buyer proves"
+    );
+    // The buyer refuses a transaction that changes its half or does not pay it.
+    let mut bad = tx.clone();
+    bad.asset.as_mut().unwrap().fee_action.as_mut().unwrap().fee += 1;
+    assert!(issuer.coin_swap_finish(&src, bad).is_err());
+    let mut bad = tx.clone();
+    bad.outputs.swap(0, 1);
+    assert!(issuer.coin_swap_finish(&src, bad).is_err());
+    let gnr_holder = holder.balance().total;
+    let receipt = issuer.coin_swap_finish(&src, tx).unwrap();
+    let mined = src.pool.borrow().last().unwrap().clone();
+    assert_eq!(receipt.txid, mined.txid());
+    // The receipt opens exactly the two outputs that cross.
+    let open = |o: &(u8, [u8; 32], Hash32)| {
+        let out = mined.all_outputs()[o.0 as usize].clone();
+        krypton_core::address::open_disclosed_note(
+            &o.1,
+            &digest_from_bytes(&o.2).unwrap(),
+            &out.cm,
+            &out.ciphertext,
+        )
+        .unwrap()
+    };
+    assert_eq!(
+        (
+            open(&receipt.coin_output).value,
+            open(&receipt.coin_output).coin()
+        ),
+        (10_000, Some(coin))
+    );
+    assert_eq!(
+        (
+            open(&receipt.gnr_output).value,
+            open(&receipt.gnr_output).coin()
+        ),
+        (50_000_000, None)
+    );
+    assert!(
+        mined.asset.as_ref().unwrap().coin.is_none(),
+        "the swap hides the coin"
+    );
+    mine(&src, &ia);
+    holder.sync(&src, |_, _| {}).unwrap();
+    issuer.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(holder.coin_balance(coin), 55_000);
+    assert_eq!(issuer.coin_balance(coin), 40_000);
+    assert_eq!(holder.balance().total, gnr_holder + 50_000_000);
+    assert!(
+        holder
+            .history()
+            .iter()
+            .any(|h| h.txid.starts_with("swap:") && h.height.is_some())
+    );
 }

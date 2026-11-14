@@ -1,5 +1,6 @@
 //! Consensus validation of headers, shares, transactions and blocks.
 
+use crate::asset::{self, AssetId, AssetOverlay, AssetState, AssetView};
 use crate::difficulty::next_difficulty;
 use crate::emission::subsidy;
 use crate::params::*;
@@ -13,7 +14,7 @@ use krypton_zk::SpendPublic;
 use rayon::prelude::*;
 
 /// State a block is validated against (the main chain up to the block's parent).
-pub trait StateView: RewardView {
+pub trait StateView: RewardView + AssetView {
     fn nullifier_spent(&self, nf: &Hash32) -> bool;
     /// Height of the main-chain block whose note root equals `root`.
     fn anchor_height(&self, root: &Hash32) -> Option<u64>;
@@ -40,7 +41,7 @@ pub struct ParentContext<'a> {
 pub fn appended_leaves(matured: &[Hash32], b: &Block) -> Vec<Hash32> {
     let mut v = matured.to_vec();
     for t in &b.txs {
-        v.extend(t.outputs.iter().map(|o| o.cm));
+        v.extend(t.all_outputs().iter().map(|o| o.cm));
     }
     v
 }
@@ -55,6 +56,8 @@ pub struct BlockEffects {
     pub reward: RewardEffects,
     /// Hashes of the shares this block credits (its own header excluded).
     pub shares: Vec<Hash32>,
+    /// Final registry state of every coin the block touched.
+    pub assets: Vec<(AssetId, AssetState)>,
 }
 
 pub fn genesis_block(p: &ChainParams) -> Block {
@@ -203,15 +206,17 @@ pub fn check_share_pow(pow: &Verifier, s: &BlockHeader) -> Result<()> {
     }
 }
 
-/// Structure checks that need no chain state. Returns the proof statement.
-pub fn check_tx_structure(tx: &Transaction) -> Result<SpendPublic> {
+/// Structure checks that need no chain state. Returns the proof statements: the
+/// outer spend's, then the fee action's (version-3 coin movements).
+pub fn check_tx_structure(tx: &Transaction) -> Result<Vec<SpendPublic>> {
     let bad = |m| Err(CoreError::Invalid(m));
-    match (tx.version, &tx.lock) {
-        (TX_VERSION, None) => {}
-        (TX_VERSION_LOCK, Some(l)) => {
-            l.check([&tx.outputs[0].cm, &tx.outputs[1].cm], tx.expiry_height)?
-        }
+    match (tx.version, &tx.lock, &tx.asset) {
+        (TX_VERSION, None, None) | (TX_VERSION_LOCK, Some(_), None) => {}
+        (TX_VERSION_ASSET, _, Some(_)) => asset::check_structure(tx)?,
         _ => return bad("unsupported transaction version"),
+    }
+    if let Some(l) = &tx.lock {
+        l.check([&tx.outputs[0].cm, &tx.outputs[1].cm], tx.expiry_height)?;
     }
     if tx
         .outputs
@@ -220,32 +225,68 @@ pub fn check_tx_structure(tx: &Transaction) -> Result<SpendPublic> {
     {
         return bad("wrong note ciphertext length");
     }
-    if tx.nullifiers[0] == tx.nullifiers[1] {
+    let mut nfs = tx.all_nullifiers();
+    nfs.sort_unstable();
+    if nfs.windows(2).any(|w| w[0] == w[1]) {
         return bad("duplicate nullifier in transaction");
     }
-    if tx.outputs[0].cm == tx.outputs[1].cm {
+    let mut cms: Vec<Hash32> = tx.all_outputs().iter().map(|o| o.cm).collect();
+    cms.sort_unstable();
+    if cms.windows(2).any(|w| w[0] == w[1]) {
         return bad("duplicate output commitment");
     }
-    if tx.size() > MAX_TX_BYTES {
+    let max = if tx.version == TX_VERSION_ASSET {
+        MAX_TX_BYTES
+    } else {
+        MAX_TX_BYTES_V1
+    };
+    if tx.size() > max {
         return bad("transaction too large");
     }
-    if tx.kind != TxKind::Transfer || tx.mint != 0 {
+    if tx.kind != TxKind::Transfer || (tx.mint != 0 && tx.asset.is_none()) {
         return bad("transactions may not mint");
     }
     if tx.fee > krypton_zk::layout::MAX_VALUE {
         return bad("amount out of range");
     }
-    tx.statement()
+    let mut v = vec![tx.statement()?];
+    v.extend(tx.fee_statement()?);
+    Ok(v)
 }
 
-pub fn verify_proof(tx: &Transaction, st: &SpendPublic) -> Result<()> {
-    krypton_zk::verify(st, &tx.proof).map_err(|_| CoreError::Invalid("invalid spend proof"))
+pub fn verify_proof(tx: &Transaction, st: &[SpendPublic]) -> Result<()> {
+    let fee_proof = tx
+        .asset
+        .as_ref()
+        .and_then(|a| a.fee_action.as_ref())
+        .map(|f| f.proof.as_slice());
+    let proofs: Vec<&[u8]> = std::iter::once(tx.proof.as_slice())
+        .chain(fee_proof)
+        .collect();
+    if proofs.len() != st.len() {
+        return Err(CoreError::Invalid("invalid spend proof"));
+    }
+    st.iter().zip(proofs).try_for_each(|(s, p)| {
+        krypton_zk::verify(s, p).map_err(|_| CoreError::Invalid("invalid spend proof"))
+    })
 }
 
-/// State checks for a transfer to be included at `height`.
+/// State checks for a transfer to be included at `height` (alone).
 pub fn check_transfer_state(
     p: &ChainParams,
     view: &impl StateView,
+    tx: &Transaction,
+    height: u64,
+) -> Result<()> {
+    check_tx_state(p, view, &mut AssetOverlay::default(), tx, height)
+}
+
+/// State checks for a transfer included at `height` after the coin changes in `ov`
+/// (the transactions before it in the block), which it extends.
+pub fn check_tx_state(
+    p: &ChainParams,
+    view: &impl StateView,
+    ov: &mut AssetOverlay,
     tx: &Transaction,
     height: u64,
 ) -> Result<()> {
@@ -255,12 +296,17 @@ pub fn check_transfer_state(
     if let Some(l) = &tx.lock {
         l.check_height(height, p.lock_height)?;
     }
-    match view.anchor_height(&tx.anchor) {
-        Some(h) if h + ANCHOR_WINDOW >= height => {}
-        _ => return Err(CoreError::Invalid("unknown or expired anchor")),
+    for a in tx.anchors() {
+        match view.anchor_height(&a) {
+            Some(h) if h + ANCHOR_WINDOW >= height => {}
+            _ => return Err(CoreError::Invalid("unknown or expired anchor")),
+        }
     }
-    if tx.nullifiers.iter().any(|n| view.nullifier_spent(&n.0)) {
+    if tx.all_nullifiers().iter().any(|n| view.nullifier_spent(n)) {
         return Err(CoreError::DoubleSpend);
+    }
+    if tx.asset.is_some() {
+        asset::check_state(p, view, ov, tx, height)?;
     }
     Ok(())
 }
@@ -339,7 +385,7 @@ pub fn check_block(
         .iter()
         .map(|s| check_share_context(view, &sc, s).map(|w| (s.miner, w)))
         .collect::<Result<_>>()?;
-    let statements: Vec<SpendPublic> = b
+    let statements: Vec<Vec<SpendPublic>> = b
         .txs
         .iter()
         .map(check_tx_structure)
@@ -347,13 +393,14 @@ pub fn check_block(
 
     let mut seen = std::collections::HashSet::new();
     let mut fees: u64 = 0;
+    let mut ov = AssetOverlay::default();
     for t in &b.txs {
-        check_transfer_state(p, view, t, h.height)?;
+        check_tx_state(p, view, &mut ov, t, h.height)?;
         fees = fees
-            .checked_add(t.fee)
+            .checked_add(t.total_fee())
             .ok_or(CoreError::Invalid("fee overflow"))?;
-        for n in &t.nullifiers {
-            if !seen.insert(n.0) {
+        for n in t.all_nullifiers() {
+            if !seen.insert(n) {
                 return Err(CoreError::DoubleSpend);
             }
         }
@@ -391,6 +438,7 @@ pub fn check_block(
         subsidy: subsidy(h.height),
         reward,
         shares: share_hashes,
+        assets: ov.changes(),
     })
 }
 
@@ -442,7 +490,17 @@ pub fn build_template(
     picked.sort_by_key(|(s, _)| s.hash());
     let weights: Vec<_> = picked.iter().map(|(s, w)| (s.miner, *w)).collect();
     let shares: Vec<BlockHeader> = picked.into_iter().map(|(s, _)| s).collect();
-    let fees: u64 = txs.iter().map(|t| t.fee).fold(0, u64::saturating_add);
+    // Coin operations must apply in order (a second deploy of a ticker, an issue past
+    // the cap): whatever no longer applies on top of the earlier ones is left out.
+    let mut ov = AssetOverlay::default();
+    let txs: Vec<Transaction> = txs
+        .into_iter()
+        .filter(|t| t.asset.is_none() || check_tx_state(p, view, &mut ov, t, height).is_ok())
+        .collect();
+    let fees: u64 = txs
+        .iter()
+        .map(|t| t.total_fee())
+        .fold(0, u64::saturating_add);
     let mut header = BlockHeader {
         version: HEADER_VERSION,
         height,

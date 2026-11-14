@@ -250,6 +250,7 @@ impl Wallet {
             expiry_height: tip + 120,
             lock: None,
             proof: vec![],
+            asset: None,
         };
         let w = SpendWitness {
             inputs: [inputs[0].clone(), inputs[1].clone()],
@@ -269,6 +270,7 @@ impl Wallet {
             fee,
             mint: 0,
             sighash: tx.sighash(),
+            asset: None,
         };
         tx.proof = krypton_zk::prove(&w).map_err(|e| anyhow::anyhow!("{e}"))?.1;
         let txid = src.submit(&tx)?;
@@ -289,6 +291,7 @@ impl Wallet {
             change_cm: Some(hex::encode(cm1)),
             disclosure: None,
             expiry: Some(tx.expiry_height),
+            coin: None,
         });
         self.state.locks.push(LockRecord {
             swap,
@@ -490,6 +493,7 @@ impl Wallet {
                 mode,
             }),
             proof: vec![],
+            asset: None,
         };
         let w = SpendWitness {
             inputs: [input, dummy],
@@ -498,6 +502,7 @@ impl Wallet {
             fee: rec.fee,
             mint: 0,
             sighash: tx.sighash(),
+            asset: None,
         };
         tx.proof = krypton_zk::prove(&w).map_err(|e| anyhow::anyhow!("{e}"))?.1;
         let txid = src.submit(&tx)?;
@@ -516,6 +521,7 @@ impl Wallet {
             change_cm: Some(hex::encode(cm0)),
             disclosure: None,
             expiry: Some(expiry),
+            coin: None,
         });
         self.save()?;
         Ok(txid)

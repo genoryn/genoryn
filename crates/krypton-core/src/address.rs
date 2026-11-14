@@ -5,6 +5,7 @@
 //! key. Each output encapsulates a fresh key to that public key and encrypts the
 //! note (value, randomness, memo) with XChaCha20-Poly1305.
 
+use crate::asset::AssetId;
 use crate::params::Network;
 use crate::types::{MEMO_LEN, NOTE_CIPHERTEXT_LEN, NOTE_PLAINTEXT_LEN};
 use crate::{CoreError, Hash32, Result};
@@ -179,9 +180,48 @@ impl NotePlain {
         })
     }
     pub fn memo_text(&self) -> String {
-        let end = self.memo.iter().position(|&c| c == 0).unwrap_or(MEMO_LEN);
-        String::from_utf8_lossy(&self.memo[..end]).into_owned()
+        let text = if self.coin().is_some() {
+            &self.memo[..COIN_AT]
+        } else {
+            &self.memo[..]
+        };
+        let end = text.iter().position(|&c| c == 0).unwrap_or(text.len());
+        String::from_utf8_lossy(&text[..end]).into_owned()
     }
+    /// The Krypton coin this note holds (`None`: GNR). Only the recipient sees it: it
+    /// travels in the encrypted memo, marked by a byte that UTF-8 text never contains.
+    pub fn coin(&self) -> Option<AssetId> {
+        if self.memo[COIN_AT] != COIN_MARKER {
+            return None;
+        }
+        AssetId::from_bytes(&self.memo[COIN_AT + 1..]).filter(|c| !c.is_gnr())
+    }
+    /// Makes this a note of `coin` (the memo text keeps its first 110 bytes).
+    pub fn set_coin(&mut self, coin: Option<AssetId>) {
+        self.memo[COIN_AT..].fill(0);
+        if let Some(c) = coin.filter(|c| !c.is_gnr()) {
+            self.memo[COIN_AT] = COIN_MARKER;
+            self.memo[COIN_AT + 1..].copy_from_slice(&c.to_bytes());
+        }
+    }
+    /// The coin as circuit elements (GNR is `[0, 0, 0]`).
+    pub fn asset(&self) -> [u64; 3] {
+        self.coin().map_or([0; 3], |c| c.elements())
+    }
+}
+
+/// Where a coin note's marker and id sit in the memo (its last 18 bytes).
+pub const COIN_AT: usize = MEMO_LEN - 18;
+pub const COIN_MARKER: u8 = 0xc0;
+
+/// Commitment of `note` under `owner`, for the coin it holds.
+pub fn note_cm(owner: &Digest, note: &NotePlain) -> Hash32 {
+    digest_to_bytes(&rescue::note_commitment_asset(
+        owner,
+        note.value,
+        &note.asset(),
+        &note.rcm,
+    ))
 }
 
 pub fn memo_from_str(s: &str) -> [u8; MEMO_LEN] {
@@ -220,7 +260,7 @@ pub fn encrypt_note_for(
     owner: &Digest,
     note: &NotePlain,
 ) -> Result<(Hash32, Vec<u8>, zeroize::Zeroizing<[u8; 32]>)> {
-    let cm = digest_to_bytes(&rescue::note_commitment(owner, note.value, &note.rcm));
+    let cm = note_cm(owner, note);
     let (ct, ss) = kem::encapsulate(kem).map_err(|_| CoreError::Invalid("encapsulation failed"))?;
     let mut out = ct;
     out.extend_from_slice(&aead::seal(&ss, &nonce_for(&cm), &cm, &note.to_bytes()));
@@ -239,6 +279,15 @@ pub fn decrypt_note_unchecked(sk: &kem::SecretKey, cm: &Hash32, ct: &[u8]) -> Op
     NotePlain::from_bytes(&aead::open(&ss, &nonce_for(cm), cm, body).ok()?)
 }
 
+/// The one-time key of an output encrypted to `sk` (what a payment proof discloses),
+/// recovered by the recipient.
+pub fn note_key(sk: &kem::SecretKey, ct: &[u8]) -> Option<zeroize::Zeroizing<[u8; 32]>> {
+    if ct.len() != NOTE_CIPHERTEXT_LEN {
+        return None;
+    }
+    sk.decapsulate(&ct[..kem::CIPHERTEXT_LEN]).ok()
+}
+
 /// Opens an output with its disclosed one-time key; the note must re-commit to `cm`
 /// under `owner`.
 pub fn open_disclosed_note(
@@ -252,7 +301,7 @@ pub fn open_disclosed_note(
     }
     let pt = aead::open(key, &nonce_for(cm), cm, &ct[kem::CIPHERTEXT_LEN..]).ok()?;
     let note = NotePlain::from_bytes(&pt)?;
-    (digest_to_bytes(&rescue::note_commitment(owner, note.value, &note.rcm)) == *cm).then_some(note)
+    (note_cm(owner, &note) == *cm).then_some(note)
 }
 
 pub fn base32_encode(b: &[u8]) -> String {
@@ -272,7 +321,7 @@ pub fn try_decrypt_note(
     ct: &[u8],
 ) -> Option<NotePlain> {
     let note = decrypt_note_unchecked(sk, cm, ct)?;
-    (digest_to_bytes(&rescue::note_commitment(owner, note.value, &note.rcm)) == *cm).then_some(note)
+    (note_cm(owner, &note) == *cm).then_some(note)
 }
 
 /// Random bytes of ciphertext length for dummy outputs (indistinguishable padding).

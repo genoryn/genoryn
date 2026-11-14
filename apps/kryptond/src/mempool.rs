@@ -15,7 +15,7 @@ pub struct Entry {
 
 impl Entry {
     fn rate(&self) -> u128 {
-        self.tx.fee as u128 * 1_000_000 / self.size.max(1) as u128
+        self.tx.total_fee() as u128 * 1_000_000 / self.size.max(1) as u128
     }
 }
 
@@ -39,13 +39,13 @@ impl Mempool {
     /// Checks pool-level policy (validity against the chain is checked by the caller).
     pub fn precheck(&self, tx: &Transaction) -> Result<(), String> {
         let size = tx.size();
-        if tx.fee < min_fee(size) {
+        if tx.total_fee() < min_fee(size) {
             return Err(format!(
                 "fee below minimum relay fee of {} gori",
                 min_fee(size)
             ));
         }
-        if tx.nullifiers.iter().any(|n| self.nfs.contains_key(&n.0)) {
+        if tx.all_nullifiers().iter().any(|n| self.nfs.contains_key(n)) {
             return Err("conflicts with a pending transaction".into());
         }
         Ok(())
@@ -54,8 +54,8 @@ impl Mempool {
     pub fn insert(&mut self, tx: Transaction) -> Hash32 {
         let id = tx.txid();
         let size = tx.size();
-        for n in &tx.nullifiers {
-            self.nfs.insert(n.0, id);
+        for n in tx.all_nullifiers() {
+            self.nfs.insert(n, id);
         }
         self.bytes += size;
         self.txs.insert(
@@ -84,8 +84,8 @@ impl Mempool {
     pub fn remove(&mut self, id: &Hash32) {
         if let Some(e) = self.txs.remove(id) {
             self.bytes -= e.size;
-            for n in &e.tx.nullifiers {
-                self.nfs.remove(&n.0);
+            for n in e.tx.all_nullifiers() {
+                self.nfs.remove(&n);
             }
             self.revision += 1;
         }

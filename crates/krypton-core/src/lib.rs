@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod address;
+pub mod asset;
 pub mod codec;
 pub mod consensus;
 pub mod difficulty;

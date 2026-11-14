@@ -1,16 +1,19 @@
 //! Blocks, headers and transactions with canonical encodings.
 
+use crate::asset::AssetPart;
 use crate::codec::{Reader, Writer};
 use crate::lock::LockSpend;
 use crate::params::{MAX_BLOCK_BYTES, MAX_PROOF_BYTES};
 use crate::{CoreError, Hash32, Result};
 use krypton_crypto::field::{Digest, digest_from_bytes, digest_from_uniform};
 use krypton_crypto::hash::{tagged, tagged_parts};
-use krypton_zk::SpendPublic;
+use krypton_zk::{AssetStatement, SpendPublic};
 
 pub const TX_VERSION: u16 = 1;
 /// Lock spends (atomic swaps): version 1 plus a [`LockSpend`] for input 0.
 pub const TX_VERSION_LOCK: u16 = 2;
+/// Krypton coins: an optional lock spend plus an [`AssetPart`] (`docs/spec/assets.md`).
+pub const TX_VERSION_ASSET: u16 = 3;
 pub const HEADER_VERSION: u32 = 1;
 pub const MEMO_LEN: usize = 128;
 pub const NOTE_PLAINTEXT_LEN: usize = 8 + 32 + MEMO_LEN;
@@ -137,11 +140,14 @@ pub struct Transaction {
     pub mint: u64,
     /// Last height at which the transaction may be mined (coinbase: its height).
     pub expiry_height: u64,
-    /// Input 0 spends a lock note (version 2 only).
+    /// Input 0 spends a lock note (versions 2 and 3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lock: Option<LockSpend>,
     #[serde(with = "hex::serde")]
     pub proof: Vec<u8>,
+    /// The coin part (version 3 only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset: Option<AssetPart>,
 }
 
 #[derive(
@@ -150,7 +156,8 @@ pub struct Transaction {
 pub struct HexHash(#[serde(with = "hex::serde")] pub Hash32);
 
 impl Transaction {
-    fn encode_body(&self, w: &mut Writer) {
+    /// Everything but the proofs; the issuer signature only when `with_sig`.
+    fn encode_body(&self, w: &mut Writer, with_sig: bool) {
         w.u16(self.version).u8(self.kind as u8).raw(&self.anchor);
         for n in &self.nullifiers {
             w.raw(&n.0);
@@ -159,14 +166,23 @@ impl Transaction {
             w.raw(&o.cm).bytes(&o.ciphertext);
         }
         w.u64(self.fee).u64(self.mint).u64(self.expiry_height);
+        if self.version == TX_VERSION_ASSET {
+            w.u8(self.lock.is_some() as u8);
+        }
         if let Some(l) = &self.lock {
             l.encode(w);
+        }
+        if let Some(a) = &self.asset {
+            a.encode(w, with_sig);
         }
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut w = Writer::default();
-        self.encode_body(&mut w);
+        self.encode_body(&mut w, true);
         w.bytes(&self.proof);
+        if let Some(f) = self.asset.as_ref().and_then(|a| a.fee_action.as_ref()) {
+            w.bytes(&f.proof);
+        }
         w.0
     }
     pub fn from_reader(r: &mut Reader) -> Result<Self> {
@@ -186,11 +202,29 @@ impl Transaction {
         let fee = r.u64()?;
         let mint = r.u64()?;
         let expiry_height = r.u64()?;
-        let lock = if version == TX_VERSION_LOCK {
+        let has_lock = match version {
+            TX_VERSION_LOCK => true,
+            TX_VERSION_ASSET => match r.u8()? {
+                0 => false,
+                1 => true,
+                _ => return Err(CoreError::Decode("bad flag")),
+            },
+            _ => false,
+        };
+        let lock = if has_lock {
             Some(LockSpend::decode(r)?)
         } else {
             None
         };
+        let mut asset = if version == TX_VERSION_ASSET {
+            Some(AssetPart::decode(r)?)
+        } else {
+            None
+        };
+        let proof = r.bytes(MAX_PROOF_BYTES)?;
+        if let Some(f) = asset.as_mut().and_then(|a| a.fee_action.as_mut()) {
+            f.proof = r.bytes(MAX_PROOF_BYTES)?;
+        }
         Ok(Self {
             version,
             kind,
@@ -201,7 +235,8 @@ impl Transaction {
             mint,
             expiry_height,
             lock,
-            proof: r.bytes(MAX_PROOF_BYTES)?,
+            proof,
+            asset,
         })
     }
     pub fn from_bytes(b: &[u8]) -> Result<Self> {
@@ -216,7 +251,7 @@ impl Transaction {
     /// Hash of everything except the proof; the proof commits to it.
     pub fn sighash_bytes(&self) -> Hash32 {
         let mut w = Writer::default();
-        self.encode_body(&mut w);
+        self.encode_body(&mut w, false);
         tagged("Krypton/sighash", &w.0)
     }
     pub fn sighash(&self) -> Digest {
@@ -235,7 +270,66 @@ impl Transaction {
             mint: self.mint,
             sighash: self.sighash(),
             lock_owner: self.lock.as_ref().map(|l| l.terms.owner()),
+            asset: self
+                .asset
+                .as_ref()
+                .filter(|a| a.op.moves_coin())
+                .map(|a| AssetStatement {
+                    burn: a.burn,
+                    reveal: a.coin.map(|c| c.elements()),
+                }),
         })
+    }
+    /// The statement of the fee action (version-3 coin movements).
+    pub fn fee_statement(&self) -> Result<Option<SpendPublic>> {
+        let Some(f) = self.asset.as_ref().and_then(|a| a.fee_action.as_ref()) else {
+            return Ok(None);
+        };
+        let d = |b: &Hash32| {
+            digest_from_bytes(b).map_err(|_| CoreError::Invalid("non-canonical field encoding"))
+        };
+        Ok(Some(SpendPublic {
+            root: d(&f.anchor)?,
+            nullifiers: [d(&f.nullifiers[0].0)?, d(&f.nullifiers[1].0)?],
+            output_cms: [d(&f.outputs[0].cm)?, d(&f.outputs[1].cm)?],
+            fee: f.fee,
+            mint: 0,
+            sighash: self.sighash(),
+            lock_owner: None,
+            asset: None,
+        }))
+    }
+    fn fee_action(&self) -> Option<&crate::asset::FeeAction> {
+        self.asset.as_ref().and_then(|a| a.fee_action.as_ref())
+    }
+    /// Every nullifier the transaction reveals (the fee action's last).
+    pub fn all_nullifiers(&self) -> Vec<Hash32> {
+        let mut v: Vec<Hash32> = self.nullifiers.iter().map(|n| n.0).collect();
+        if let Some(f) = self.fee_action() {
+            v.extend(f.nullifiers.iter().map(|n| n.0));
+        }
+        v
+    }
+    /// Every output the transaction creates, in tree order (the fee action's last).
+    pub fn all_outputs(&self) -> Vec<&Output> {
+        let mut v: Vec<&Output> = self.outputs.iter().collect();
+        if let Some(f) = self.fee_action() {
+            v.extend(f.outputs.iter());
+        }
+        v
+    }
+    /// Every anchor the transaction's spends prove membership against.
+    pub fn anchors(&self) -> Vec<Hash32> {
+        let mut v = vec![self.anchor];
+        if let Some(f) = self.fee_action() {
+            v.push(f.anchor);
+        }
+        v
+    }
+    /// GNR paid to miners: the outer fee plus the fee action's.
+    pub fn total_fee(&self) -> u64 {
+        self.fee
+            .saturating_add(self.fee_action().map_or(0, |f| f.fee))
     }
     pub fn size(&self) -> usize {
         self.to_bytes().len()
@@ -322,10 +416,7 @@ pub fn tx_root(txs: &[Transaction]) -> Hash32 {
 }
 
 pub fn nullifier_digest(txs: &[Transaction]) -> Hash32 {
-    let v: Vec<Hash32> = txs
-        .iter()
-        .flat_map(|t| t.nullifiers.iter().map(|n| n.0))
-        .collect();
+    let v: Vec<Hash32> = txs.iter().flat_map(|t| t.all_nullifiers()).collect();
     nullifier_digest_raw(&v)
 }
 
@@ -338,7 +429,10 @@ pub fn nullifier_digest_raw(nfs: &[Hash32]) -> Hash32 {
 }
 
 pub fn output_digest(txs: &[Transaction]) -> Hash32 {
-    let v: Vec<Output> = txs.iter().flat_map(|t| t.outputs.iter().cloned()).collect();
+    let v: Vec<Output> = txs
+        .iter()
+        .flat_map(|t| t.all_outputs().into_iter().cloned())
+        .collect();
     output_digest_raw(&v)
 }
 

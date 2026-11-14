@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum Coins: private, quantum-safe coins on Genoryn Krypton (USDK, EURK and more)</title>
+<meta name="description" content="Krypton coins are coins anyone can issue on Genoryn Krypton: every transfer is a zk-STARK proof, quantum-safe and private, and what an issuer may do is declared once, in public, and can never change. Live list, risks, verification policy, Dollar Krypton (USDK) and Euro Krypton (EURK).">
+<!--SEO:coins-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="coins">
+<!--NAV-->
+<main id="top">
+  <section class="hero cn-hero">
+    <div class="pool" aria-hidden="true"></div>
+    <div class="wrap">
+      <div>
+        <span class="eyebrow"><span class="dot live ok"></span>Quantum coins</span>
+        <h1 class="display glow" style="margin-top:18px">Bring your coin to the quantum network.</h1>
+        <p class="lead" style="margin-top:20px">Krypton coins are coins anyone can issue on Genoryn Krypton. They move like GNR: every transfer is a zero-knowledge proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing about them can be broken by a quantum computer. What an issuer may ever do is declared once, in public, and can never change.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#list">See every coin</a>
+          <a class="btn" href="#issue">Issue a coin</a>
+          <a class="btn" href="#risks">Read the risks</a>
+        </div>
+        <div class="trust chip-scroll">
+          <span class="chip">Always shielded</span><span class="chip">zk-STARK · no elliptic curves</span><span class="chip">Powers declared up front</span><span class="chip">Fees in GNR</span>
+        </div>
+      </div>
+      <div class="hero-right cn-stage" aria-hidden="true">
+        <div class="cn-orbit">
+          <img src="/assets/coins/usdk.svg" alt="" width="112" height="112" class="cn-o1">
+          <img src="/assets/coins/eurk.svg" alt="" width="96" height="96" class="cn-o2">
+          <svg class="coin cn-o3"><use href="#c-gnr"/></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="list" aria-labelledby="list-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Live on chain</span><h2 id="list-h" class="h2 glow">Every Krypton coin.</h2></div>
+      <div class="glass card">
+        <div class="cn-tools"><input id="cnQ" type="search" placeholder="Search ticker or name" aria-label="Search coins"><div class="seg" id="cnF" role="group" aria-label="Filter"><button type="button" data-f="all" class="on">All</button><button type="button" data-f="verified">Verified</button></div><span class="muted" id="cnState"></span></div>
+        <div id="cnList" class="cn-list"><p class="muted">Loading the coins on chain…</p></div>
+        <p class="muted cn-foot">Read from the network itself. The terms of a coin are its manifest, which is hashed into the coin's id: no node can misstate them. <b>Verified</b> only means the project checked who issues the coin (see <a href="#verification">verification</a>).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="what-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">What a Krypton coin is</span><h2 id="what-h" class="h2 glow">Private like GNR. Honest about its issuer.</h2></div>
+      <div class="features">
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg></div><h3>Every transfer is hidden</h3><p>Coins live in the same shielded note tree as GNR. A transfer proves, in zero knowledge, that the coin and the amounts balance; the chain sees only a proof. There is no transparent mode, for any coin.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Quantum-safe</h3><p>Spends are zk-STARK proofs over hash functions, notes are encrypted with X25519 + ML-KEM-1024 and issuers sign with ML-DSA-87. Nothing that guards a coin depends on elliptic curves.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4M8.5 12h7M8.5 16h7"/></svg></div><h3>Declared, not hidden in code</h3><p>No smart contracts. A coin is a short manifest: its supply, whether the issuer can create more, whether holders can burn, whether the issuer can pause. It is fixed at deploy, part of the coin's id, and shown to every holder in plain words.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></svg></div><h3>GNR is the fuel and the market</h3><p>Every fee is paid in GNR, deploying a coin costs 10 GNR (to the miners), and coins trade only against GNR, in one atomic transaction. Nobody can sell you a coin they do not hand over.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></div><h3>No impostors of the base layer</h3><p>Nobody can deploy a coin named after GNR or Bitcoin (BTCK, GNRK and the like are refused by consensus), and tickers and names are unique: the first deploy owns them.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div><h3>Supply anyone can audit</h3><p>Transfers are private, but issues and burns are public, so every coin's total supply is known to everyone, at every block, without trusting anyone.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="risks" aria-labelledby="risks-h">
+    <div class="wrap"><div class="prose docs-body cn-prose">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Risk disclosure</span><h2 id="risks-h" class="h2 glow">Read the risks of a coin before you accept it.</h2></div>
+      <p>A Krypton coin is only as good as its issuer. The network guarantees that nobody can create, take or freeze coins in ways the manifest does not declare, but it cannot guarantee that a dollar coin is worth a dollar. Wallets show these labels under every coin, generated from its manifest:</p>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Label</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Label"><b>Fixed supply</b></td><td data-label="Meaning">Exactly the cap was issued, once. Nobody, not even the issuer, can ever create more.</td></tr>
+          <tr><td data-label="Label"><b>The issuer can create more, up to N</b></td><td data-label="Meaning">More units can appear, but never beyond the declared cap.</td></tr>
+          <tr><td data-label="Label"><b>The issuer can create any amount at any time</b></td><td data-label="Meaning">No cap. Normal for a stable coin backed by reserves (the issuer issues against deposits), dangerous for anything else.</td></tr>
+          <tr><td data-label="Label"><b>Holders can burn their coins</b></td><td data-label="Meaning">Coins can be destroyed, publicly; a backed coin is usually redeemed this way.</td></tr>
+          <tr><td data-label="Label"><b>The issuer can stop all transfers</b></td><td data-label="Meaning">The issuer may pause the coin for everyone. Transfers of such a coin show which coin moves (never who or how much), so a pause can be enforced.</td></tr>
+          <tr><td data-label="Label"><b>Its value depends on the issuer holding the reserves</b></td><td data-label="Meaning">Issuer-backed coins (like USDK) are claims on the issuer, who must keep the reserves and honour redemptions. The network cannot check bank accounts.</td></tr>
+          <tr><td data-label="Label"><b>Custodial bridge</b></td><td data-label="Meaning">A bridged coin (like a future SOLK) is worth what the custodian holds on the original chain.</td></tr>
+          <tr><td data-label="Label"><b>Not backed by anything</b></td><td data-label="Meaning">Its value is only what people pay for it.</td></tr>
+          <tr><td data-label="Label"><b>Not verified</b></td><td data-label="Meaning">Anyone can deploy a coin with any name. Without verification, the name says nothing about who is behind it.</td></tr>
+          <tr><td data-label="Label"><b>Ticker of a major coin</b></td><td data-label="Meaning">An unverified coin named like ETHK, SOLK or USDTK may be an impersonation.</td></tr>
+        </tbody>
+      </table></div>
+      <p>What no issuer can ever do, whatever the manifest says: move your coins, see your balance, freeze one holder, change the terms, or issue a coin's units without the issuer's post-quantum key. Coins are not GNR: they cannot pay fees and never count in your GNR balance.</p>
+    </div></div>
+  </section>
+
+  <section class="block" id="verification" aria-labelledby="ver-h">
+    <div class="wrap"><div class="prose docs-body cn-prose">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Verification policy</span><h2 id="ver-h" class="h2 glow">Verified means one thing: we know who issues it.</h2></div>
+      <ul>
+        <li><b>What it is.</b> The project keeps a list of coins whose issuer it identified, signed with the same post-quantum release key (ML-DSA-87 + SLH-DSA-SHAKE-256s) that signs every wallet release, under its own context so neither signature can stand in for the other. It is published at <a href="/verified-assets.json">/verified-assets.json</a> with its signature at <a href="/verified-assets.json.sig">/verified-assets.json.sig</a>, and built into every wallet.</li>
+        <li><b>What wallets do with it.</b> They trust no list that is not signed. Verified coins get a check mark, their checked issuer name and their logo; logos of other coins are never shown, so nobody can dress a fake in a real coin's colours.</li>
+        <li><b>What it is not.</b> It is not an endorsement, an audit of reserves or a promise of value. A verified coin can still lose its value if its issuer fails.</li>
+        <li><b>How to apply.</b> Open an issue on <a href="https://github.com/genoryn/genoryn/issues">GitHub</a> with the coin id, the issuer's identity and evidence for its backing. Bridges and stable coins need public proof of reserves.</li>
+        <li><b>Consensus does not depend on it.</b> Any coin can be deployed and moved without verification; the list only labels coins in wallets and on this site.</li>
+      </ul>
+    </div></div>
+  </section>
+
+  <section class="block" id="stable" aria-labelledby="stable-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Stable coins</span><h2 id="stable-h" class="h2 glow">Dollar Krypton and Euro Krypton.</h2></div>
+      <div class="cn-pair">
+        <article class="glass card cn-feature reveal"><img src="/assets/coins/usdk.svg" width="64" height="64" alt="Dollar Krypton logo"><div><h3>Dollar Krypton · USDK</h3><p>A private, quantum-safe dollar. Issued by its issuer against US dollar reserves the issuer holds, redeemed by burning. Mintable without a cap (it issues against deposits), burnable by holders, and it can never be paused.</p></div></article>
+        <article class="glass card cn-feature reveal"><img src="/assets/coins/eurk.svg" width="64" height="64" alt="Euro Krypton logo"><div><h3>Euro Krypton · EURK</h3><p>The same for the euro: issuer-backed, mintable against deposits, burnable, never pausable. Its transfers are as private as GNR's.</p></div></article>
+      </div>
+      <p class="muted cn-foot">Both are issuer-backed coins: their value depends on the issuer actually holding the reserves and honouring redemptions. They appear in the list above with their manifests and live supply once deployed (Krypton coins activate at block 17,100). Manifests: <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/usdk.kam">usdk.kam</a> · <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/eurk.kam">eurk.kam</a>.</p>
+      <div class="glass card cn-reserves" id="reserves">
+        <h3>Reserves</h3>
+        <p>USDK and EURK are issued only against reserves the issuer holds: one US dollar per USDK, one euro per EURK. Their supply on chain is public at every block (issued minus burned, in the list above). The issuer publishes here what it holds against that supply. Until the first issue the supply is zero and there is nothing to back.</p>
+        <div class="table-wrap"><table class="data"><thead><tr><th>Coin</th><th>In circulation</th><th>Reserves held</th><th>Last update</th></tr></thead>
+          <tbody><tr><td data-label="Coin">USDK</td><td data-label="In circulation" data-cn-supply="2bb7944efb7c1b58035256a74462776400">0</td><td data-label="Reserves held">USD 0</td><td data-label="Last update">Not issued yet</td></tr>
+          <tr><td data-label="Coin">EURK</td><td data-label="In circulation" data-cn-supply="e0b656584ef43773bac72c96fa2d026200">0</td><td data-label="Reserves held">EUR 0</td><td data-label="Last update">Not issued yet</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="issue" aria-labelledby="issue-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Issue a coin</span><h2 id="issue-h" class="h2 glow">Your coin, on the quantum network, in minutes.</h2></div>
+      <div class="steps">
+        <div class="step reveal"><span class="n">1</span><h3>Describe it</h3><p>In the wallet's <b>Coins</b> tab: a name ending in “Krypton”, a ticker ending in K, decimals, supply and what backs it.</p></div>
+        <div class="step reveal"><span class="n">2</span><h3>See what holders see</h3><p>The preview shows the exact manifest and the risk labels every holder will read. After the deploy nothing can change.</p></div>
+        <div class="step reveal"><span class="n">3</span><h3>Deploy for 10 GNR</h3><p>The deploy is signed by your issuer key, which comes from your 24 words, and costs 10 GNR, paid to the miners.</p></div>
+        <div class="step reveal"><span class="n">4</span><h3>Issue and trade</h3><p>Issue units (public), send them privately, and list them on the coin market against GNR.</p></div>
+      </div>
+      <div class="glass card cn-cli">
+        <p class="muted">Or from the command line:</p>
+<pre class="mono">krypton-wallet-cli coin new --name "Dollar Krypton" --ticker USDK --decimals 2 \
+    --supply mintable --burn --backing issuer-reserves --reserves https://example.org/reserves --out usdk.kam
+krypton-wallet-cli coin deploy usdk.kam
+krypton-wallet-cli coin issue USDK &lt;address&gt; 1000
+krypton-wallet-cli coin send USDK &lt;address&gt; 25.50
+krypton-wallet-cli coin info USDK</pre>
+      </div>
+      <p class="muted cn-foot"><b>Bridged coins.</b> A bridge can bring another chain's coin here as a custodial coin (for example SOLK for SOL, origin <code>solana:SOL</code>), declared with <code>backing: bridge</code>. The custodian holds the originals; its coins carry the custodial risk label.</p>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="trade-h">
+    <div class="wrap"><div class="prose docs-body cn-prose">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Trading</span><h2 id="trade-h" class="h2 glow">One transaction. Nothing to trust.</h2></div>
+      <p>Coins trade against GNR on the coin market in the wallet. A swap is a single transaction: the seller's coin spend and the buyer's GNR spend are bound to the same signed hash, so either both happen or neither does. Each wallet checks what it will receive before it adds its own proof, and on chain the swap looks like any other private transfer.</p>
+      <p>A coin's market price is the plain average of its completed swaps in the last 72 hours. The board counts a swap only after checking it against the mined transaction (the swap's two crossing outputs are opened with one-time keys), so a report cannot invent a price, and offers never move it.</p>
+    </div></div>
+  </section>
+
+  <section class="block" id="faq" aria-labelledby="faq-h">
+    <div class="wrap"><div class="prose docs-body cn-prose">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">FAQ</span><h2 id="faq-h" class="h2 glow">Questions about Krypton coins.</h2></div>
+      <details class="glass"><summary>What is a Krypton coin?</summary><p>A coin issued by anyone on Genoryn Krypton. It is held and sent like GNR, always shielded and quantum-safe, and its issuer's powers are declared in a public manifest that can never change.</p></details>
+      <details class="glass"><summary>Are coin transfers really private?</summary><p>Yes. The coin, the amount, the sender and the recipient are hidden by a zk-STARK proof, exactly like GNR. Only issues and burns are public, so supplies can be audited. Coins whose issuer may pause them show which coin moves, never who or how much.</p></details>
+      <details class="glass"><summary>Can an issuer freeze or take my coins?</summary><p>No issuer can take coins, see balances or freeze a single holder. If, and only if, the manifest says so, the issuer can pause all transfers of that coin at once; every wallet shows that risk before you accept it.</p></details>
+      <details class="glass"><summary>Can someone make a fake USDK?</summary><p>A ticker belongs to the first coin that deploys it, and the names of GNR and Bitcoin are refused outright. Anyone can still choose a similar name, which is why wallets show the verified mark, the checked issuer and the logo only for coins in the signed verified list.</p></details>
+      <details class="glass"><summary>What does it cost?</summary><p>Deploying a coin costs 10 GNR, paid to miners. Every transfer pays an ordinary network fee in GNR (about twice a GNR transfer's, since it carries two proofs).</p></details>
+      <details class="glass"><summary>Is USDK worth a dollar?</summary><p>USDK is an issuer-backed coin: it is worth a dollar only if its issuer holds the reserves and redeems it. The network guarantees the supply and the privacy, not the reserves.</p></details>
+    </div></div>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/value.js" defer></script>
+<script src="/site.js" defer></script>
+<script src="/coins.js" defer></script>
+</body>
+</html>

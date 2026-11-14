@@ -45,6 +45,11 @@ pub struct ChainParams {
     /// First height at which lock spends (atomic swaps) are valid. `u64::MAX` until an
     /// activation height is announced: older nodes reject them, so this is a hard fork.
     pub lock_height: u64,
+    /// First height at which version-3 transactions (Krypton coins) are valid; a hard
+    /// fork like `lock_height`.
+    pub assets_height: u64,
+    /// Tickers only one issuer may deploy: `(ticker, hex of asset::issuer_fingerprint)`.
+    pub reserved_coins: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -129,6 +134,20 @@ impl Network {
                 // Atomic swaps (lock spends) activate here: announced with 1.0.13, about a
                 // day after its release, so wallets and nodes update first.
                 lock_height: 3_300,
+                // Krypton coins activate here: announced with 1.0.35, about a day after its
+                // release, so wallets and nodes update first.
+                assets_height: 17_100,
+                // The project's stable coins: only its issuer key may deploy them.
+                reserved_coins: &[
+                    (
+                        "USDK",
+                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
+                    ),
+                    (
+                        "EURK",
+                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
+                    ),
+                ],
             },
             Self::Testnet => ChainParams {
                 network: self,
@@ -151,6 +170,8 @@ impl Network {
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:31333"],
                 checkpoint: None,
                 lock_height: u64::MAX,
+                assets_height: u64::MAX,
+                reserved_coins: &[],
             },
             Self::Devnet => ChainParams {
                 network: self,
@@ -170,6 +191,8 @@ impl Network {
                 seeds: &[],
                 checkpoint: None,
                 lock_height: 0,
+                assets_height: 0,
+                reserved_coins: &[],
             },
         }
     }
@@ -214,7 +237,10 @@ impl ChainParams {
 
 // Consensus limits shared by all networks.
 pub const MAX_BLOCK_BYTES: usize = 4 * 1024 * 1024;
-pub const MAX_TX_BYTES: usize = 160 * 1024;
+/// Version-3 transactions carry two proofs (the coin spend and its GNR fee).
+pub const MAX_TX_BYTES: usize = 320 * 1024;
+/// Versions 1 and 2 (one proof).
+pub const MAX_TX_BYTES_V1: usize = 160 * 1024;
 pub const MAX_PROOF_BYTES: usize = 150 * 1024;
 pub const MEDIAN_TIME_WINDOW: usize = 11;
 /// Maximum seconds a block timestamp may lie in the future.

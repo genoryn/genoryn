@@ -3,17 +3,22 @@
 
 #![forbid(unsafe_code)]
 
+pub mod coin_swap;
+mod coins;
 pub mod file;
 pub mod keys;
 pub mod password;
 pub mod proof;
 pub mod swap;
+pub use coins::{CoinBalance, two_proof_fee};
 
 use anyhow::{Context, Result, bail, ensure};
 use keys::Keys;
 use krypton_core::address::{
-    Address, NotePlain, decrypt_note_unchecked, encrypt_note, memo_from_str, try_decrypt_note,
+    Address, NotePlain, decrypt_note_unchecked, encrypt_note, memo_from_str, note_cm,
+    try_decrypt_note,
 };
+use krypton_core::asset::AssetId;
 use krypton_core::reward;
 use krypton_core::tree::Frontier;
 use krypton_core::types::*;
@@ -105,6 +110,9 @@ pub struct OwnedNote {
     pub spent_height: Option<u64>,
     /// Transaction id of a pending spend (unconfirmed).
     pub pending_spend: Option<String>,
+    /// The Krypton coin this note holds; `None` is GNR.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coin: Option<AssetId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -125,6 +133,9 @@ pub struct HistoryEntry {
     /// For our own sends: the last height at which the transaction may be mined.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expiry: Option<u64>,
+    /// The Krypton coin `amount` is counted in; `None` is GNR (fees are always GNR).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coin: Option<AssetId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -187,6 +198,8 @@ pub struct Wallet {
     /// Payments to us seen in the mempool, not in a block yet (not saved: they are
     /// shown as "incoming, pending" and become ordinary notes once mined).
     incoming: Vec<Incoming>,
+    /// Coin swaps this wallet started as the buyer and has not finished.
+    open_halves: Vec<coin_swap::OpenHalf>,
 }
 
 /// A payment to this wallet waiting in the mempool.
@@ -199,6 +212,8 @@ pub struct Incoming {
     pub memo: String,
     /// When this wallet first saw it (unix seconds).
     pub seen: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coin: Option<AssetId>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -267,6 +282,7 @@ impl Wallet {
             pow: std::sync::OnceLock::new(),
             verified_tip: None,
             incoming: Vec::new(),
+            open_halves: Vec::new(),
         };
         w.save()?;
         Ok(w)
@@ -285,6 +301,7 @@ impl Wallet {
             pow: std::sync::OnceLock::new(),
             verified_tip: None,
             incoming: Vec::new(),
+            open_halves: Vec::new(),
         };
         // Checkpoints written by an older format or for an abandoned chain cannot be
         // trusted: drop the chain-derived state and rescan (keys are unaffected).
@@ -350,7 +367,7 @@ impl Wallet {
             if !live.contains(&id) || self.state.history.iter().any(|h| h.txid == id) {
                 continue;
             }
-            for o in &tx.outputs {
+            for o in tx.all_outputs() {
                 if kept.iter().any(|i| i.cm == o.cm)
                     || self.state.notes.iter().any(|n| n.cm == o.cm)
                 {
@@ -365,6 +382,7 @@ impl Wallet {
                         value: note.value,
                         memo: note.memo_text(),
                         seen: krypton_core::now(),
+                        coin: note.coin(),
                     });
                     new += 1;
                 }
@@ -470,7 +488,12 @@ impl Wallet {
 
     pub fn balance(&self) -> Balance {
         let mut b = Balance::default();
-        for n in self.state.notes.iter().filter(|n| n.spent_height.is_none()) {
+        for n in self
+            .state
+            .notes
+            .iter()
+            .filter(|n| n.spent_height.is_none() && n.coin.is_none())
+        {
             b.total += n.value;
             if n.position.is_none() {
                 b.immature += n.value;
@@ -768,6 +791,7 @@ impl Wallet {
                 position: None,
                 spent_height: None,
                 pending_spend: None,
+                coin: None,
             });
             report.new_notes += 1;
             self.state.history.push(HistoryEntry {
@@ -781,17 +805,23 @@ impl Wallet {
                 change_cm: None,
                 disclosure: None,
                 expiry: None,
+                coin: None,
             });
         }
-        for o in &b.outputs {
+        for o in b.outputs.iter() {
             self.lock_mined(&o.cm, height);
             if self.state.notes.iter().any(|n| n.cm == o.cm) {
                 continue;
             }
-            let Some(note) = decrypt_note_unchecked(&self.keys.kem, &o.cm, &o.ciphertext) else {
+            let Some(mut note) = decrypt_note_unchecked(&self.keys.kem, &o.cm, &o.ciphertext)
+            else {
                 continue;
             };
-            if digest_to_bytes(&rescue::note_commitment(&owner, note.value, &note.rcm)) != o.cm {
+            if note.coin().is_some() && note_cm(&owner, &note) != o.cm {
+                // Marked as a coin but committed as GNR: it is GNR.
+                note.set_coin(None);
+            }
+            if note_cm(&owner, &note) != o.cm {
                 // Not our note, but possibly a lock note we funded (recovery from the phrase).
                 self.recover_lock(&note, &o.cm, height);
                 continue;
@@ -807,6 +837,7 @@ impl Wallet {
                     position: None,
                     spent_height: None,
                     pending_spend: None,
+                    coin: note.coin(),
                 });
                 let cm_hex = hex::encode(o.cm);
                 let is_change = self
@@ -829,6 +860,7 @@ impl Wallet {
                         change_cm: None,
                         disclosure: None,
                         expiry: None,
+                        coin: note.coin(),
                     });
                 }
             }
@@ -900,8 +932,13 @@ impl Wallet {
         self.spend_notes(src, &chosen, to, amount, fee, memo)
     }
 
-    /// One or two spendable notes covering `need`.
+    /// One or two spendable GNR notes covering `need`.
     fn select_notes(&self, need: u64) -> Result<Vec<OwnedNote>> {
+        self.select_notes_of(None, need)
+    }
+
+    /// One or two spendable notes of `coin` (`None`: GNR) covering `need`.
+    fn select_notes_of(&self, coin: Option<AssetId>, need: u64) -> Result<Vec<OwnedNote>> {
         let mut spendable: Vec<&OwnedNote> = self
             .state
             .notes
@@ -911,6 +948,7 @@ impl Wallet {
                     && n.spent_height.is_none()
                     && n.pending_spend.is_none()
                     && n.value > 0
+                    && n.coin == coin
             })
             .collect();
         spendable.sort_by_key(|n| std::cmp::Reverse(n.value));
@@ -1040,6 +1078,7 @@ impl Wallet {
             expiry_height: tip + 120,
             lock: None,
             proof: vec![],
+            asset: None,
         };
         let w = SpendWitness {
             inputs: [inputs[0].clone(), inputs[1].clone()],
@@ -1059,6 +1098,7 @@ impl Wallet {
             fee,
             mint: 0,
             sighash: tx.sighash(),
+            asset: None,
         };
         let (_, proof) = krypton_zk::prove(&w).map_err(|e| anyhow::anyhow!("{e}"))?;
         tx.proof = proof;
@@ -1090,6 +1130,7 @@ impl Wallet {
                 recipient: to.short_id().to_vec(),
             }),
             expiry: Some(tx.expiry_height),
+            coin: None,
         });
         if to_self {
             // The payment output is ours too: do not report it as income.
@@ -1104,6 +1145,7 @@ impl Wallet {
                 change_cm: Some(hex::encode(cm0)),
                 disclosure: None,
                 expiry: Some(tx.expiry_height),
+                coin: None,
             });
         }
         self.save()?;
@@ -1127,6 +1169,7 @@ impl Wallet {
                     && n.spent_height.is_none()
                     && n.pending_spend.is_none()
                     && n.value > fee
+                    && n.coin.is_none()
             })
             .cloned()
             .collect();
@@ -1193,7 +1236,10 @@ impl Wallet {
             .notes
             .iter()
             .filter(|n| {
-                n.position.is_some() && n.spent_height.is_none() && n.pending_spend.is_none()
+                n.position.is_some()
+                    && n.spent_height.is_none()
+                    && n.pending_spend.is_none()
+                    && n.coin.is_none()
             })
             .map(|n| n.value)
             .collect();

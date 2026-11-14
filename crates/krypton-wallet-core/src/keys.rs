@@ -33,6 +33,9 @@ pub struct Keys {
     /// Root of every atomic-swap key and secret (Bitcoin keys, swap secrets, lock
     /// outputs), so swaps can be finished after restoring from the phrase.
     pub swap_seed: Zeroizing<[u8; 64]>,
+    /// ML-DSA-87 key that issues Krypton coins (deploy, issue, pause), restorable from
+    /// the phrase like everything else.
+    pub issuer: sign::MlDsaKey,
 }
 
 fn words() -> &'static [&'static str; 2048] {
@@ -183,6 +186,7 @@ impl Keys {
             signing: sign::MlDsaKey::from_seed(&sig_seed),
             account,
             swap_seed: derive::<64>(seed.as_ref(), &ctx("swap")),
+            issuer: sign::MlDsaKey::from_seed(&derive::<32>(seed.as_ref(), &ctx("coin-issuer"))),
         })
     }
     pub fn address(&self) -> Address {

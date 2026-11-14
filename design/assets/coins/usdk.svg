@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Dollar Krypton (USDK)">
+  <defs>
+    <linearGradient id="u-face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f2a2a"/>
+      <stop offset="1" stop-color="#06141a"/>
+    </linearGradient>
+    <linearGradient id="u-ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="0.55" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#u-face)"/>
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="url(#u-ring)" stroke-width="3"/>
+  <circle cx="32" cy="32" r="23" fill="none" stroke="#5eead4" stroke-opacity=".18" stroke-width="1"/>
+  <path d="M38.5 22.6c-1.6-1.6-4-2.6-6.6-2.6-4.3 0-7.3 2.3-7.3 5.6 0 7.4 14.4 4.2 14.4 11.8 0 3.4-3.1 5.8-7.6 5.8-3 0-5.6-1.1-7.4-3" fill="none" stroke="#ecfeff" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M32 15.5v33" stroke="#ecfeff" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M44.6 44.2v6.4M44.6 47.4l3.6-3.2M44.6 47.4l3.6 3.2" stroke="#5eead4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

@@ -22,6 +22,8 @@ pub mod domain {
     /// Owner tag of a lock note (atomic swaps). Ordinary spends hash owners under
     /// `OWNER`, so they can never spend a lock note.
     pub const LOCK_OWNER: u64 = 0x4b52_0009;
+    /// Marks the coin section of a version-2 spend statement (Krypton coins).
+    pub const ASSET: u64 = 0x4b52_000a;
     /// Added to `NULLIFIER` for dummy (zero-value) inputs so they can never
     /// collide with the nullifier of a real note.
     pub const DUMMY_OFFSET: u64 = 0x0100_0000;
@@ -75,7 +77,23 @@ pub fn lock_owner_of(ak: &Digest, nk: &Digest) -> Digest {
 
 /// Note commitment: `cm = H(CM; H(BODY; owner, [value,0,0,0]), rcm)`.
 pub fn note_commitment(owner: &Digest, value: u64, rcm: &Digest) -> Digest {
-    let body = hash2(domain::NOTE_BODY, owner, &scalar(value));
+    note_commitment_asset(owner, value, &[0; 3], rcm)
+}
+
+/// The body word of a note holding `value` of the coin `asset = [a0, a1, pausable]`:
+/// `[value, a0, a1, pausable]`. GNR is the coin `[0, 0, 0]`, whose body is unchanged.
+pub fn note_body_word(value: u64, asset: &[u64; 3]) -> Digest {
+    [
+        Felt::new(value),
+        Felt::new(asset[0]),
+        Felt::new(asset[1]),
+        Felt::new(asset[2]),
+    ]
+}
+
+/// Note commitment of a Krypton coin note: `H(CM; H(BODY; owner, [v, a0, a1, p]), rcm)`.
+pub fn note_commitment_asset(owner: &Digest, value: u64, asset: &[u64; 3], rcm: &Digest) -> Digest {
+    let body = hash2(domain::NOTE_BODY, owner, &note_body_word(value, asset));
     hash2(domain::NOTE_COMMIT, &body, rcm)
 }
 

@@ -119,6 +119,9 @@ pub struct PaymentReport {
     pub height: u64,
     pub confirmations: u64,
     pub value: u64,
+    /// The Krypton coin `value` is counted in; `None` is GNR.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coin: Option<krypton_core::asset::AssetId>,
     pub memo: String,
     pub recipient: String,
     /// Some(true/false) when the verifier supplied the recipient's address.
@@ -214,6 +217,7 @@ fn report(
         height,
         confirmations,
         value: note.value,
+        coin: note.coin(),
         memo: note.memo_text(),
         recipient: proof.recipient_short(),
         recipient_confirmed,

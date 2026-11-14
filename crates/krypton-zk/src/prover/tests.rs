@@ -20,13 +20,24 @@ fn valid_witness() -> SpendWitness {
 /// Two real inputs at different positions sharing one tree root; input 0 is a lock
 /// note if `lock`.
 fn witness(lock: bool) -> SpendWitness {
+    witness_in(lock, [0; 3], [0; 3], None)
+}
+
+/// Like `witness`, but the tree holds notes of the coin `held` and the spend claims
+/// the coin section `asset` (whose id may differ, to model counterfeiting).
+fn witness_in(
+    lock: bool,
+    held: [u64; 3],
+    _claimed: [u64; 3],
+    asset: Option<AssetWitness>,
+) -> SpendWitness {
     let mut a = note_input(11, 700, 5);
     a.lock = lock;
     let mut b = note_input(12, 300, 6);
     // Positions 5 and 6 share all ancestors from level 2 upward: build consistent paths.
     let leaves_left = [rand_digest(), rand_digest()]; // positions 4 and 7
-    let cm_a = a.commitment();
-    let cm_b = b.commitment();
+    let cm_a = a.commitment_of(&held);
+    let cm_b = b.commitment_of(&held);
     a.path[0] = leaves_left[0]; // sibling of 5 is 4
     b.path[0] = leaves_left[1]; // sibling of 6 is 7
     let n45 = rescue::merkle_node(&leaves_left[0], &cm_a);
@@ -54,10 +65,33 @@ fn witness(lock: bool) -> SpendWitness {
             },
         ],
         root,
-        fee: 10,
+        fee: if asset.is_some() { 0 } else { 10 },
         mint: 0,
         sighash: rand_digest(),
+        asset,
     }
+    .rebalanced()
+}
+
+impl SpendWitness {
+    /// Moves the GNR fee of the default witness into output 1 for fee-less coin spends.
+    fn rebalanced(mut self) -> Self {
+        let burn = self.asset.map_or(0, |a| a.burn);
+        let total = self.inputs[0].value + self.inputs[1].value + self.mint;
+        self.outputs[1].value = total - self.outputs[0].value - self.fee - burn;
+        self
+    }
+}
+
+const COIN: [u64; 3] = [0x1234_5678_9abc, 0x0fed_cba9_8765, 0];
+const PAUSABLE: [u64; 3] = [0x1111_2222_3333, 0x4444_5555_6666, 1];
+
+fn coin(id: [u64; 3], burn: u64, reveal: bool) -> Option<AssetWitness> {
+    Some(AssetWitness { id, burn, reveal })
+}
+
+fn coin_witness(id: [u64; 3], burn: u64, reveal: bool) -> SpendWitness {
+    witness_in(false, id, id, coin(id, burn, reveal))
 }
 
 #[test]
@@ -137,6 +171,7 @@ fn coinbase_with_dummy_inputs() {
         fee: 0,
         mint: 500_000_000,
         sighash: rand_digest(),
+        asset: None,
     };
     let (public, proof) = prove(&w).unwrap();
     verify(&public, &proof).unwrap();
@@ -262,6 +297,7 @@ fn coinbase_witness() -> SpendWitness {
         fee: 0,
         mint: 500_000_000,
         sighash: rand_digest(),
+        asset: None,
     }
 }
 
@@ -279,4 +315,144 @@ fn forged_membership_fails() {
     if let Ok(Ok(proof)) = result {
         assert!(verify(&public, &proof.to_bytes()).is_err());
     }
+}
+
+#[test]
+fn hidden_coin_transfer_proves_and_hides_the_coin() {
+    let w = coin_witness(COIN, 0, false);
+    let (public, proof) = prove(&w).expect("prove");
+    let a = public.asset.as_ref().unwrap();
+    assert_eq!((a.burn, a.reveal), (0, None));
+    verify(&public, &proof).expect("verify");
+    // The outputs commit to the coin, not to GNR.
+    assert_eq!(public.output_cms[0], w.outputs[0].commitment_of(&COIN));
+    assert_ne!(public.output_cms[0], w.outputs[0].commitment());
+    // The proof is a coin proof only: not a GNR spend, not another coin, not a burn.
+    let mut p = public.clone();
+    p.asset = None;
+    assert!(verify(&p, &proof).is_err());
+    let mut p = public.clone();
+    p.asset.as_mut().unwrap().reveal = Some([1, 2, 0]);
+    assert!(verify(&p, &proof).is_err());
+    let mut p = public.clone();
+    p.asset.as_mut().unwrap().burn = 1;
+    assert!(verify(&p, &proof).is_err());
+    // And a GNR proof is not a coin proof.
+    let (public, proof) = prove(&valid_witness()).unwrap();
+    let mut p = public.clone();
+    p.asset = Some(AssetStatement {
+        burn: 0,
+        reveal: None,
+    });
+    assert!(verify(&p, &proof).is_err());
+}
+
+#[test]
+fn revealed_coin_binds_exactly_that_coin() {
+    let w = coin_witness(PAUSABLE, 0, true);
+    let (public, proof) = prove(&w).expect("prove");
+    assert_eq!(public.asset.as_ref().unwrap().reveal, Some(PAUSABLE));
+    verify(&public, &proof).unwrap();
+    for other in [
+        [PAUSABLE[0], PAUSABLE[1], 0],
+        [PAUSABLE[0] + 1, PAUSABLE[1], 1],
+        [0; 3],
+    ] {
+        let mut p = public.clone();
+        p.asset.as_mut().unwrap().reveal = Some(other);
+        assert!(verify(&p, &proof).is_err(), "{other:?}");
+    }
+    let mut p = public.clone();
+    p.asset.as_mut().unwrap().reveal = None;
+    assert!(
+        verify(&p, &proof).is_err(),
+        "a pausable coin passed as hidden"
+    );
+}
+
+/// A pausable coin can never move hidden: honest provers refuse and a forged trace
+/// fails the `pausable = 0` assertion, so a pause can always be enforced.
+#[test]
+fn pausable_coin_cannot_hide() {
+    let w = coin_witness(PAUSABLE, 0, false);
+    assert!(matches!(prove(&w), Err(ZkError::Witness(_))));
+    forged_proof_fails(&w, &w.public());
+}
+
+/// Notes of one coin (or GNR) can never be spent as another coin: the commitments
+/// recomputed with the claimed coin are not in the tree.
+#[test]
+fn counterfeiting_fails() {
+    // GNR notes respent as a coin, a coin respent as GNR, coin A respent as coin B.
+    let cases = [
+        witness_in(false, [0; 3], COIN, coin(COIN, 0, false)),
+        witness_in(false, COIN, [0; 3], None),
+        witness_in(false, COIN, [9, 9, 0], coin([9, 9, 0], 0, false)),
+    ];
+    for w in cases {
+        assert!(prove(&w).is_err());
+        forged_proof_fails(&w, &w.public());
+    }
+    // A trace for the real coin presented with outputs of another coin.
+    let w = coin_witness(COIN, 0, false);
+    let mut public = w.public();
+    public.output_cms[0] = w.outputs[0].commitment_of(&[9, 9, 0]);
+    forged_proof_fails(&w, &public);
+    // Outputs worth more than the inputs.
+    let mut w = coin_witness(COIN, 0, false);
+    w.outputs[0].value += 1;
+    assert!(prove(&w).is_err());
+    forged_proof_fails(&w, &w.public());
+}
+
+/// Fees are GNR: a coin spend carries no fee, the fee comes from a separate GNR spend.
+#[test]
+fn fees_are_gnr_only() {
+    let mut w = coin_witness(COIN, 0, false);
+    w.fee = 10;
+    w = w.rebalanced();
+    assert!(matches!(prove(&w), Err(ZkError::Witness(_))));
+    forged_proof_fails(&w, &w.public());
+    // A version-2 GNR spend may pay a fee.
+    let mut w = coin_witness([0; 3], 0, false);
+    w.fee = 10;
+    w = w.rebalanced();
+    let (public, proof) = prove(&w).unwrap();
+    verify(&public, &proof).unwrap();
+}
+
+#[test]
+fn burn_and_issue() {
+    let w = coin_witness(COIN, 50, true);
+    assert_eq!(w.outputs[1].value + w.outputs[0].value + 50, 1000);
+    let (public, proof) = prove(&w).unwrap();
+    verify(&public, &proof).unwrap();
+    let mut p = public.clone();
+    p.asset.as_mut().unwrap().burn = 49;
+    assert!(verify(&p, &proof).is_err());
+    // Burning more than is spent is impossible.
+    let mut w = coin_witness(COIN, 0, true);
+    w.asset.as_mut().unwrap().burn = 1;
+    assert!(prove(&w).is_err());
+    forged_proof_fails(&w, &w.public());
+    // Issue: dummy inputs, minted units of a public coin.
+    let mut w = coinbase_witness();
+    w.asset = coin(COIN, 0, true);
+    let (public, proof) = prove(&w).unwrap();
+    verify(&public, &proof).unwrap();
+    assert_eq!(public.mint, 500_000_000);
+    let mut p = public.clone();
+    p.asset.as_mut().unwrap().reveal = Some([0; 3]);
+    assert!(
+        verify(&p, &proof).is_err(),
+        "a coin issue passed as a GNR mint"
+    );
+}
+
+#[test]
+fn coin_lock_spend_works() {
+    let w = witness_in(true, COIN, COIN, coin(COIN, 0, false));
+    let (public, proof) = prove(&w).unwrap();
+    assert!(public.lock_owner.is_some());
+    verify(&public, &proof).unwrap();
 }

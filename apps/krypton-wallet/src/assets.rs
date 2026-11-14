@@ -21,6 +21,8 @@ const FILES: &[(&str, &[u8])] = &[
     asset!("noise.webp"),
     asset!("genoryn-mark-dark.svg"),
     asset!("genoryn-mark-light.svg"),
+    asset!("coins/usdk.svg"),
+    asset!("coins/eurk.svg"),
     asset!("bg/dark-1.webp"),
     asset!("bg/dark-2.webp"),
     asset!("bg/dark-3.webp"),

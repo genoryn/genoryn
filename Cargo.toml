@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/krypton-crypto", "crates/krypton-zk", "crates/krypton-pow", "crates/krypton-core", "crates/krypton-store", "crates/krypton-light", "crates/krypton-wallet-core", "crates/krypton-p2p", "apps/kryptond", "apps/krypton-miner", "apps/krypton-wallet-cli", "apps/krypton-wallet", "crates/krypton-sdk", "apps/krypton-setup", "apps/krypton-release", "crates/krypton-swap"]
+members = ["crates/krypton-crypto", "crates/krypton-zk", "crates/krypton-pow", "crates/krypton-core", "crates/krypton-store", "crates/krypton-light", "crates/krypton-wallet-core", "crates/krypton-p2p", "apps/kryptond", "apps/krypton-miner", "apps/krypton-wallet-cli", "apps/krypton-wallet", "crates/krypton-sdk", "apps/krypton-setup", "apps/krypton-release", "crates/krypton-swap", "crates/krypton-assets"]
 
 [workspace.package]
-version = "1.0.34"
+version = "1.0.35"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -20,6 +20,7 @@ krypton-p2p = { path = "crates/krypton-p2p" }
 krypton-light = { path = "crates/krypton-light", default-features = false }
 krypton-wallet-core = { path = "crates/krypton-wallet-core" }
 krypton-sdk = { path = "crates/krypton-sdk" }
+krypton-assets = { path = "crates/krypton-assets" }
 
 anyhow = "1"
 thiserror = "2"

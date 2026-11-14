@@ -28,9 +28,11 @@ use std::sync::Arc;
 
 mod assets;
 mod board;
+mod coins;
 mod swaps;
 mod update;
 mod vault;
+mod verified;
 
 /// The project's public mainnet node (genoryn.io explorer and light wallets).
 const PUBLIC_NODE: &str = "https://genoryn.io";
@@ -561,6 +563,7 @@ fn wallet_view(w: &Wallet) -> Value {
         .history()
         .iter()
         .rev()
+        .filter(|h| h.coin.is_none())
         .take(100)
         .map(|h| {
             json!({
@@ -986,6 +989,11 @@ async fn history_page(
         let mining = |e: &krypton_wallet_core::HistoryEntry| e.txid.starts_with("payout:");
         let (mut received, mut sent, mut mined, mut fees) = (0i128, 0i128, 0i128, 0u64);
         for e in w.history() {
+            // Coin amounts are not GNR (the Coins tab shows them); their fees are.
+            if e.coin.is_some() {
+                fees += e.fee;
+                continue;
+            }
             if mining(e) {
                 mined += e.amount;
             } else if e.amount < 0 {
@@ -998,6 +1006,7 @@ async fn history_page(
         let mut items: Vec<_> = w
             .history()
             .iter()
+            .filter(|e| e.coin.is_none())
             .filter(|e| match kind {
                 "in" => e.amount >= 0 && !mining(e),
                 "out" => e.amount < 0,
@@ -1021,6 +1030,7 @@ async fn history_page(
             .incoming()
             .iter()
             .filter(|_| matches!(kind, "all" | "in" | "pending"))
+            .filter(|i| i.coin.is_none())
             .filter(|i| {
                 needle.is_empty()
                     || i.memo.to_lowercase().contains(&needle)
@@ -2001,6 +2011,15 @@ async fn serve(
         .route("/api/board/take", post(board::take))
         .route("/api/board/cancel", post(board::cancel))
         .route("/api/swap/settings", post(swaps::settings))
+        .route("/api/coins", get(coins::list))
+        .route("/api/coin/send", post(coins::send))
+        .route("/api/coin/preview", post(coins::preview))
+        .route("/api/coin/deploy", post(coins::deploy))
+        .route("/api/coin/issuer", post(coins::issuer))
+        .route("/api/coin/market", get(coins::market))
+        .route("/api/coin/offer", post(coins::post_offer))
+        .route("/api/coin/offer/cancel", post(coins::cancel_offer))
+        .route("/api/coin/take", post(coins::take))
         .with_state(app.clone())
         .layer(axum::middleware::from_fn(local_only));
     let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
@@ -2040,6 +2059,7 @@ async fn serve(
 fn main() -> Result<()> {
     let a = Args::parse();
     let network = Network::parse(&a.network).context("unknown network")?;
+    verified::set_network(network);
     let dir = data_dir(network);
     std::fs::create_dir_all(&dir)?;
     // Second launch (desktop icon clicked again): show the running wallet instead.

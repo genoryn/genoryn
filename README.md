@@ -79,6 +79,7 @@ themselves, and trading with bitcoin without an exchange.
 | Payouts | One note per miner every 360 blocks (~6 h), spendable after 100 blocks |
 | Trading | **Atomic BTC ⇄ GNR swaps** on an anonymous offer board; the seller's GNR is locked first |
 | Market price | The plain average of completed swaps; offers never move it |
+| Quantum coins | **Anyone can issue a coin** (Dollar Krypton USDK, Euro Krypton EURK, …): always shielded, every issuer power declared up front and unchangeable, fees in GNR, from block 17,100 |
 | Payment proofs | Prove a payment to anyone without revealing anything else |
 | Recovery phrase | 24 words with numbers (`orbit-42 …`), 384-bit entropy, checksummed |
 | Addresses | Full post-quantum address with a 128-bit checksum, plus a verified short form |
@@ -102,19 +103,20 @@ themselves, and trading with bitcoin without an exchange.
 13. [Atomic swaps with bitcoin](#atomic-swaps-with-bitcoin)
 14. [The offer board](#the-offer-board)
 15. [Market price](#market-price)
-16. [Payment proofs](#payment-proofs)
-17. [Light clients: no full node required](#light-clients-no-full-node-required)
-18. [Peer-to-peer network and node security](#peer-to-peer-network-and-node-security)
-19. [Running a node](#running-a-node)
-20. [Command-line wallet](#command-line-wallet)
-21. [API, SDKs and integration](#api-sdks-and-integration)
-22. [Repository layout and specifications](#repository-layout-and-specifications)
-23. [Designed for a hundred years](#designed-for-a-hundred-years)
-24. [Security and audits](#security-and-audits)
-25. [Troubleshooting](#troubleshooting)
-26. [FAQ](#faq)
-27. [Author and governance](#author-and-governance)
-28. [License](#license)
+16. [Quantum coins (Krypton coins)](#quantum-coins-krypton-coins)
+17. [Payment proofs](#payment-proofs)
+18. [Light clients: no full node required](#light-clients-no-full-node-required)
+19. [Peer-to-peer network and node security](#peer-to-peer-network-and-node-security)
+20. [Running a node](#running-a-node)
+21. [Command-line wallet](#command-line-wallet)
+22. [API, SDKs and integration](#api-sdks-and-integration)
+23. [Repository layout and specifications](#repository-layout-and-specifications)
+24. [Designed for a hundred years](#designed-for-a-hundred-years)
+25. [Security and audits](#security-and-audits)
+26. [Troubleshooting](#troubleshooting)
+27. [FAQ](#faq)
+28. [Author and governance](#author-and-governance)
+29. [License](#license)
 
 The same material, with more detail, is on [genoryn.io/docs](https://genoryn.io/docs).
 
@@ -190,6 +192,7 @@ in its own window. Keys, scanning and proving never leave your computer.
 | **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value), **Receive** (full address, short form, QR, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, and a **Proof** button for every send |
 | **Swap** | The GNR price, the offer board (sell, buy, in progress, yours), publishing an offer (1 hour to 1 year), taking offers, your swaps with their progress, and a payment window with amount, address and QR code when it is time to pay |
+| **Coins** | Krypton coins: your coin balances with each coin's risk labels, private coin sends, the coin market (one-transaction swaps against GNR, per-coin prices), every coin on chain with verified marks, and the issue wizard (preview, deploy, issue, burn, pause) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, miners, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
 | **Security** | Change a wallet's password, lock wallets |
@@ -522,6 +525,57 @@ The GNR price shown by the wallet and genoryn.io is the board's market price and
 what the GNR chain proves: the claim transaction, its block, the hash lock, the revealed secret
 and the refund height.
 
+## Quantum coins (Krypton coins)
+
+**Bring your coin to the quantum network.** Anyone can issue a coin on Genoryn Krypton: a
+stable coin backed by reserves, a bridged coin from another chain, the coin of a project or a
+community. Krypton coins live in the same shielded note tree as GNR and move the same way.
+
+* **Private.** Every coin transfer is a zk-STARK proof: the coin, the amount, the sender and
+  the recipient stay hidden. Issues and burns are public, so every coin's supply can be
+  audited at every block.
+* **Quantum-safe.** Spends are hash-based STARKs, notes are encrypted with X25519 +
+  ML-KEM-1024, issuers sign with ML-DSA-87.
+* **Honest by construction.** There are no smart contracts. A coin is a short, canonical
+  manifest that declares everything its issuer may ever do: fixed or mintable supply (with or
+  without a cap), whether holders may burn, whether the issuer may pause all transfers. The
+  manifest is hashed into the coin's id and can never change, and wallets show it to every
+  holder as plain-language risk labels. No issuer can take coins, see balances or freeze a
+  single holder.
+* **GNR is the fuel.** Every fee is paid in GNR, deploying a coin costs 10 GNR (to the
+  miners), and coins trade only against GNR.
+* **No impostors of the base layer.** Coins named after GNR or Bitcoin are refused, tickers
+  and names are unique, and USDK and EURK are reserved on mainnet for the project's issuer key.
+
+**Dollar Krypton (USDK)** and **Euro Krypton (EURK)** are the project's issuer-backed stable
+coins: mintable against reserves the issuer holds, redeemed by burning, never pausable. Their
+manifests are in [docs/coins](docs/coins); they are deployed once coins activate at block
+**17,100**.
+
+**Trading.** Coins trade against GNR on the coin market in the wallet, in **one
+transaction**: the seller's coin spend and the buyer's GNR spend bind the same signed hash,
+so either both happen or neither does, and each wallet checks what it receives before adding
+its proof. A coin's market price is the average of its completed swaps, each checked against
+the chain.
+
+**Verification.** The project signs a list of coins whose issuer it identified
+([verified-assets.json](docs/verified-assets.json)) with the post-quantum release key, under
+its own context. Wallets trust no unsigned list and show logos only of verified coins.
+Verification is about identity only, never a promise of value.
+
+```bash
+krypton-wallet-cli coin list                       # every coin on chain
+krypton-wallet-cli coin info USDK                  # manifest, supply, risks
+krypton-wallet-cli coin send USDK <address> 25.50  # private
+krypton-wallet-cli coin new --name "Gold Krypton" --ticker GOLDK --decimals 6 \
+    --supply fixed --cap 21000 --out goldk.kam     # then: coin deploy goldk.kam (10 GNR)
+```
+
+In the desktop wallet: the **Coins** tab (balances, private sends, the coin market and the
+issue wizard with a preview of exactly what holders will see). Overview:
+[genoryn.io/coins](https://genoryn.io/coins). Specification:
+[docs/spec/assets.md](docs/spec/assets.md).
+
 ## Payment proofs
 
 Every transfer is private, yet you can still prove you paid. In the wallet's **History** tab,
@@ -682,6 +736,7 @@ withdrawal is disputed. Guides: [docs/integration](docs/integration).
 | `crates/krypton-light` | Light-client protocol and verified HTTP client |
 | `crates/krypton-wallet-core` | Wallet engine: keys, sync, shielded transfers, swap locks |
 | `crates/krypton-swap` | BTC ⇄ GNR atomic swaps: the Bitcoin HTLC, the swap engine, the offer board and the market price |
+| `crates/krypton-assets` | Krypton coins: the canonical manifest, coin ids, reserved names and risk labels |
 | `crates/krypton-sdk` | Integration SDK and C ABI |
 | `apps/kryptond` | Full node, API, offer board |
 | `apps/krypton-miner` | Miner |
@@ -702,6 +757,7 @@ withdrawal is disputed. Guides: [docs/integration](docs/integration).
 | [light-client.md](docs/spec/light-client.md) | Header MMR, FlyClient, work rules, compact blocks |
 | [addresses-and-p2p.md](docs/spec/addresses-and-p2p.md) | Addresses, short forms, the peer protocol |
 | [atomic-swaps.md](docs/spec/atomic-swaps.md) | Swaps, the offer board, the market price |
+| [assets.md](docs/spec/assets.md) | Krypton coins: manifests, version-3 transactions, the coin circuit, verification, coin swaps |
 | [launch.md](docs/launch.md) · [design.md](docs/design.md) | The launch procedure · design rationale |
 
 ## Designed for a hundred years
@@ -828,6 +884,14 @@ block hash. Krypton is a new chain; balances of the earlier Mainnet 1.0 are not 
 
 If you still have the wallet file and its password, show the phrase and write it down now.
 Without the phrase, the file or the password, nobody can recover the coins.
+</details>
+
+<details><summary><b>Can I issue my own coin on Genoryn Krypton?</b></summary>
+
+Yes, from block 17,100: write its manifest in the wallet's Coins tab (or with
+`krypton-wallet-cli coin new`) and deploy it for 10 GNR. Its transfers are as private as GNR's,
+and everything you may do as its issuer is declared up front and shown to every holder. See
+[Quantum coins](#quantum-coins-krypton-coins).
 </details>
 
 ## Author and governance

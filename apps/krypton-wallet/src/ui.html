@@ -305,6 +305,34 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .pw-meter span{font-size:12px;color:var(--text-tertiary);min-height:15px}
 .pw-meter.weak s{background:var(--status-error)}.pw-meter.weak span{color:var(--status-error)}
 .pw-meter.ok s{background:var(--status-warning)}.pw-meter.great s{background:var(--status-success)}
+
+.cn-hero{display:flex;gap:22px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--bg-raised) 92%,#5eead4 8%),var(--bg-raised))}
+.cn-hero-t{max-width:760px}.cn-hero h2.cn-title{font:700 28px/1.15 var(--font-display,var(--font-sans));margin:8px 0 10px;letter-spacing:-.01em;text-transform:none;color:var(--text-primary)}
+.cn-hero .eyebrow-s{display:inline-flex;align-items:center;gap:6px}.cn-hero .eyebrow-s .ic{width:15px;height:15px}
+.cn-status{min-width:220px;display:grid;gap:6px;font-size:13px}.cn-status b{font:600 15px var(--font-sans)}
+.cn-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;margin-bottom:18px}
+@media (max-width:980px){.cn-grid{grid-template-columns:1fr}}
+.cn-list{display:grid;gap:10px}
+.cn-item{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset)}
+.cn-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--font-sans);color:#fff;background:linear-gradient(135deg,#475569,#1e293b);overflow:hidden}
+.cn-av img{width:100%;height:100%;display:block}
+.cn-av.u{background:repeating-linear-gradient(45deg,#3f3f46,#3f3f46 6px,#27272a 6px,#27272a 12px)}
+.cn-name{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.cn-name b{font:600 15px var(--font-sans)}.cn-name span{color:var(--text-secondary);font-size:13px}
+.cn-amt{text-align:right}.cn-amt b{font:600 17px var(--font-sans);font-variant-numeric:tabular-nums}.cn-amt span{display:block;color:var(--text-tertiary);font-size:12px}
+.cn-vf{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid var(--status-success-line);color:var(--text-primary)}
+.cn-uv{display:inline-flex;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--status-warning-line);color:var(--text-secondary)}
+.cn-risks{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.cn-risk{font-size:11.5px;line-height:1.35;padding:4px 9px;border-radius:9px;border:1px solid var(--line);color:var(--text-secondary);background:var(--bg-raised)}
+.cn-risk.bad{border-color:var(--status-warning-line);color:var(--text-primary)}.cn-risk.ok{border-color:var(--status-success-line)}
+.cn-acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.cn-markets{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+.cn-mk{padding:9px 13px;border:1px solid var(--line);border-radius:12px;background:var(--bg-inset);font-size:12.5px}.cn-mk b{display:block;font:600 16px var(--font-sans)}
+.cn-wiz{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px}
+@media (max-width:980px){.cn-wiz{grid-template-columns:1fr}}
+.cn-check{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13.5px;color:var(--text-secondary)}.cn-check input{margin-top:3px;width:auto}
+.cn-preview{border:1px dashed var(--line-strong);border-radius:14px;padding:14px;background:var(--bg-inset)}
+.cn-preview pre{white-space:pre-wrap;word-break:break-all;font:12px var(--font-mono);margin:10px 0 0;color:var(--text-secondary)}
+.cn-deal{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
 </style>
 </head>
 <body>
@@ -314,7 +342,8 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
   <symbol id="i-mining" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
   <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M10.9 7 6.1 16M13.1 7l4.8 9M7.3 18h9.4"/></symbol>
   <symbol id="i-security" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
-  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24"><ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M3 11v4c0 1.7 2.7 3 6 3 1.1 0 2.1-.1 3-.4"/><ellipse cx="16" cy="15" rx="5" ry="2.5"/><path d="M11 15v3c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-3"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></symbol>
   <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/></symbol>
   <symbol id="i-explorer" viewBox="0 0 24 24"><path d="M12 2.8 20 7.3v9.4L12 21.2 4 16.7V7.3Z"/><path d="M4 7.3 12 12l8-4.7M12 12v9.2"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
@@ -387,6 +416,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
       <button class="rail" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swap</span><em class="tab-badge hidden" id="swBadge"></em></button>
+      <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Coins</span></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
       <button class="rail" data-tab="security"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><span>Security</span></button>
@@ -622,6 +652,89 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
           <button class="btn" onclick="swapSettings()">Save</button>
         </div>
       </details>
+    </div>
+    <div id="tab-coins" class="hidden">
+      <section class="glass card cn-hero">
+        <div class="cn-hero-t">
+          <span class="eyebrow-s"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg>Quantum coins</span>
+          <h2 class="cn-title">Bring your coin to the quantum network</h2>
+          <p class="muted">Krypton coins are issued on Genoryn Krypton and move like GNR: every transfer is a zero-knowledge proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing about them can be broken by a quantum computer. Whatever an issuer may ever do is declared once, in public, and can never change: you see it below every coin. Fees are always paid in GNR.</p>
+        </div>
+        <div class="cn-status" id="cnStatus"></div>
+      </section>
+      <div class="cn-grid">
+        <section class="glass card">
+          <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Your coins</h2><span class="muted" id="cnHoldN"></span></div>
+          <div id="cnHold" class="cn-list"><p class="muted">No coins yet. Coins sent to your address appear here.</p></div>
+        </section>
+        <section class="glass card">
+          <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Send a coin privately</h2>
+          <label for="cnCoin">Coin</label><select id="cnCoin" onchange="cnUnits()"></select>
+          <label for="cnTo">To (address or short address)</label><textarea id="cnTo" style="min-height:60px"></textarea>
+          <label for="cnAmt">Amount</label>
+          <div class="unit-in"><input id="cnAmt" inputmode="decimal" placeholder="0.00" autocomplete="off"><span id="cnUnit">-</span></div>
+          <label for="cnMemo">Private memo (only the recipient can read it)</label><input id="cnMemo" maxlength="100">
+          <button class="btn btn-primary" id="cnSendBtn" onclick="coinSend()" style="margin-top:10px">Send</button>
+          <p class="hero-note">A coin transfer carries two proofs: the coin's and the GNR fee's, about twice the fee of a GNR transfer. Coins whose issuer may pause them always show which coin moves.</p>
+        </section>
+      </div>
+      <section class="glass card">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Coin market</h2><span class="muted mono bd-host" id="cnBoard"></span></div>
+        <div class="cn-markets" id="cnMarkets"></div>
+        <div class="bd-layout">
+          <div class="bd-book">
+            <div class="bd-tools"><div class="seg" id="cnBookTab" role="group" aria-label="Offers"><button type="button" data-t="all" class="on">All offers</button><button type="button" data-t="buy">Buy a coin</button><button type="button" data-t="sell">Sell a coin</button><button type="button" data-t="mine">Mine</button></div></div>
+            <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>Coin</th><th>Offer</th><th class="r">Coin</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r">GNR per coin</th><th class="r">Expires</th><th></th></tr></thead><tbody id="cnRows"></tbody></table></div>
+            <p class="hero-note">A coin swap is <b>one transaction</b>: the seller's coin and the buyer's GNR move together or not at all, so nobody can be cheated and nothing is locked. Each wallet checks what it receives before it adds its proof. On chain the swap looks like any private transfer. The price of a coin is the plain average of its completed swaps, each checked against the chain; offers never move it.</p>
+          </div>
+          <aside class="bd-side"><div class="bd-trade">
+            <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Post an offer</h2>
+            <div class="seg bd-sideseg" id="cnSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Buy a coin</button><button type="button" data-s="buy_gnr">Sell a coin</button></div>
+            <label for="cnOCoin">Coin</label><select id="cnOCoin"></select>
+            <label for="cnOUnits">Amount of the coin</label><input id="cnOUnits" inputmode="decimal" placeholder="0.00" autocomplete="off">
+            <label for="cnOGnr">For (GNR in total)</label><div class="unit-in"><input id="cnOGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
+            <div class="bd-preview"><span>GNR per coin</span><b id="cnOPer">-</b></div>
+            <label for="cnODur">Keep it on the board for</label><select id="cnODur"><option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">1 week</option><option value="720">1 month</option><option value="8760">1 year</option></select>
+            <button class="btn btn-primary bdpub" onclick="coinOffer()">Post the offer</button>
+            <p class="hero-note">Keep this wallet open while your offers are up: it answers takers by itself within seconds.</p>
+          </div></aside>
+        </div>
+        <div id="cnDeals"></div>
+      </section>
+      <section class="glass card">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg>All Krypton coins</h2><span class="muted" id="cnAllN"></span></div>
+        <div class="toolbar"><input id="cnQ" type="search" placeholder="Search ticker or name" aria-label="Search coins" oninput="renderAllCoins()"><div class="seg" id="cnAllF" role="group"><button type="button" data-f="all" class="on">All</button><button type="button" data-f="verified">Verified</button></div></div>
+        <div id="cnAll" class="cn-list"></div>
+        <p class="hero-note"><b>Verified</b> means the Genoryn project checked who issues the coin and signed that in its list, nothing more: it is never a promise that a coin is safe or worth anything. Anyone can deploy a coin with any name, so check the risks of every coin before you accept it.</p>
+      </section>
+      <section class="glass card" id="cnIssue">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Issue your own coin</h2><span class="muted" id="cnIssuer"></span></div>
+        <div class="cn-wiz">
+          <div>
+            <div class="add-grid">
+              <div><label for="cwName">Name (ends in “Krypton”)</label><input id="cwName" maxlength="40" placeholder="Dollar Krypton" oninput="cwDirty()"></div>
+              <div><label for="cwTicker">Ticker (ends in K)</label><input id="cwTicker" maxlength="9" placeholder="USDK" oninput="this.value=this.value.toUpperCase();cwDirty()"></div>
+              <div><label for="cwDec">Decimals</label><select id="cwDec" onchange="cwDirty()"><option>0</option><option>2</option><option>4</option><option selected>6</option><option>8</option></select></div>
+              <div><label for="cwSupply">Supply</label><select id="cwSupply" onchange="cwDirty()"><option value="mintable">Mintable: you can issue more</option><option value="fixed">Fixed: issued once, exactly the cap</option></select></div>
+              <div><label for="cwCap">Cap, in whole coins (empty: none)</label><input id="cwCap" inputmode="decimal" placeholder="none" oninput="cwDirty()"></div>
+              <div><label for="cwBacking">Backed by</label><select id="cwBacking" onchange="cwDirty()"><option value="none">Nothing</option><option value="issuer-reserves">Reserves the issuer holds</option><option value="bridge">Coins held by a bridge</option></select></div>
+              <div><label for="cwReserves">Where the reserves are shown (https)</label><input id="cwReserves" placeholder="https://" oninput="cwDirty()"></div>
+              <div><label for="cwOrigin">Original coin (bridges), e.g. solana:SOL</label><input id="cwOrigin" oninput="cwDirty()"></div>
+              <div><label for="cwSite">Website (https)</label><input id="cwSite" placeholder="https://" oninput="cwDirty()"></div>
+              <div><label for="cwTerms">Terms (https)</label><input id="cwTerms" placeholder="https://" oninput="cwDirty()"></div>
+            </div>
+            <label class="cn-check"><input type="checkbox" id="cwBurn" onchange="cwDirty()"> Holders may burn their coins (e.g. to redeem them with you)</label>
+            <label class="cn-check"><input type="checkbox" id="cwPause" onchange="cwDirty()"> You may pause every transfer of the coin (its transfers then show which coin moves)</label>
+            <div class="row-flex" style="margin-top:12px"><button class="btn" onclick="cwPreview()">Preview</button><button class="btn btn-primary" id="cwDeploy" onclick="cwDeploy()" disabled>Deploy for <span id="cwFee">10</span> GNR</button></div>
+          </div>
+          <div class="cn-preview" id="cwOut"><p class="muted">Fill in the coin and press <b>Preview</b>: you will see exactly what every holder sees before receiving it. After the deploy nothing in it can change, not even by you.</p></div>
+        </div>
+        <div id="cnMine"></div>
+      </section>
+      <section class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Coin history</h2>
+        <div id="cnHist"><p class="muted">No coin transactions yet.</p></div>
+      </section>
     </div>
     <div id="tab-mining" class="hidden">
       <div class="mn-kpis">
@@ -1284,10 +1397,10 @@ function weakWarn(r, name){ if(!r||!r.weak_password) return;
     body:`<p class="mtext">The password of ${esc(name||'this wallet')} is easy to guess for a computer. Anyone who copies the wallet file could try passwords offline. A long passphrase of several random words makes that impossible.</p>`}).then(go=>{ if(go){ goTab('security'); $('cpOld').focus(); } }); }
 async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
-const TABS=['wallet','history','swap','mining','network','security','about'];
+const TABS=['wallet','history','swap','coins','mining','network','security','about'];
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t);
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
-  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); }
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='coins') loadCoins(); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=['Request','Accept','Deposit','Lock','Claim','Done'];
@@ -1516,6 +1629,113 @@ function bdNotYet(){
 async function boardCancel(id){ try{ await api('/api/board/cancel',{id}); toast('Offer cancelled'); loadBoard(); }catch(e){ toast(e.message,true) } }
 async function swapSettings(){ try{ const r=await api('/api/swap/settings',{backend:$('swBackend').value.trim()}); $('swBackend').value=r.btc_backend; toast('Saved'); loadSwaps(); }catch(e){ toast(e.message,true) } }
 setInterval(()=>{ if(!document.hidden && !$('tab-swap').classList.contains('hidden')) loadSwaps(); }, 8000);
+
+/* Krypton coins: balances, private sends, the coin market and the issuer's tools. */
+let CN={holdings:[],all:[],mine:[],history:[]}, CM={offers:[],markets:{},deals:[]}, cnBook='all', cnSide='sell_gnr', cnAllF='all', cwOk=false;
+const cnRiskCls=r=>/^Fixed supply|^Holders can burn/.test(r)?'ok':/any amount|stop all transfers|Not verified|impersonation|Not backed/.test(r)?'bad':'';
+const cnLogo=c=>c.verified&&/^coins\/[a-z0-9-]+\.svg$/.test(c.verified_logo||'')?`<span class="cn-av"><img src="/assets/${c.verified_logo}" alt=""></span>`:`<span class="cn-av ${c.verified?'':'u'}">${esc((c.ticker||'?').slice(0,4))}</span>`;
+const cnBadge=c=>c.verified?`<span class="cn-vf" title="${esc(c.verified_issuer||'')}">✓ Verified${c.verified_issuer?' · '+esc(c.verified_issuer):''}</span>`:'<span class="cn-uv">Unverified</span>';
+const cnRisks=c=>`<div class="cn-risks">${(c.risks||[]).map(r=>`<span class="cn-risk ${cnRiskCls(r)}">${esc(r)}</span>`).join('')}${c.paused===true?'<span class="cn-risk bad">Paused by its issuer: no transfers now</span>':''}</div>`;
+async function loadCoins(){
+  try{ CN=await api('/api/coins'); }catch(e){ $('cnStatus').innerHTML=`<span class="muted">${esc(e.message)}</span>`; return; }
+  const act=CN.active===true;
+  $('cnStatus').innerHTML=act?`<span class="badge ok">Active on this network</span><span>Deploy fee <b>${esc(CN.deploy_fee)} GNR</b></span><span>${(CN.all||[]).length} coin${(CN.all||[]).length===1?'':'s'} on chain</span>`
+    :`<span class="badge warn">Not active yet</span><span class="muted">${CN.assets_height?'Krypton coins activate at block '+Number(CN.assets_height).toLocaleString():'Krypton coins activate with an announced block height.'}</span>`;
+  $('cwFee').textContent=CN.deploy_fee||'10';
+  $('cnIssuer').textContent='Issuer key '+String(CN.issuer||'').slice(0,16)+'…';
+  const h=CN.holdings||[]; $('cnHoldN').textContent=h.length?h.length+' coin'+(h.length===1?'':'s'):'';
+  $('cnHold').innerHTML=h.length?h.map(c=>`<div class="cn-item">${cnLogo(c)}<div><div class="cn-name"><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span>${cnBadge(c)}</div></div><div class="cn-amt"><b>${esc(c.spendable)}</b><span>${c.pending&&c.pending!=='0'?esc(c.pending)+' pending':'spendable'}</span></div>${cnRisks(c)}<div class="cn-acts"><button class="btn" onclick="cnPick('${c.id}')">Send</button><button class="btn" onclick="cnOfferFor('${c.id}','buy_gnr')">Sell for GNR</button>${c.burn?`<button class="btn" onclick="cnBurn('${c.id}')">Burn</button>`:''}</div></div>`).join(''):'<p class="muted">No coins yet. Coins sent to your address appear here, with what their issuer can do.</p>';
+  const opts=list=>list.map(c=>`<option value="${c.id}">${esc(c.ticker)} · ${esc(c.name)}${c.verified?' ✓':''}</option>`).join('');
+  const keep=(id,list)=>{ const v=$(id).value; $(id).innerHTML=opts(list)||'<option value="">No coins</option>'; if(v) $(id).value=v; };
+  keep('cnCoin',h); keep('cnOCoin',CN.all||[]); cnUnits();
+  renderAllCoins(); renderMyCoins();
+  $('cnHist').innerHTML=(CN.history||[]).length?`<table class="htable"><thead><tr><th>Block</th><th>Coin</th><th>Amount</th><th>Fee (GNR)</th><th>Memo</th><th>To</th></tr></thead><tbody>${CN.history.map(e=>`<tr><td>${e.height==null?'<span class="pill">pending</span>':Number(e.height).toLocaleString()}</td><td>${esc(e.ticker)}</td><td class="mono">${esc(e.amount)}</td><td class="mono">${esc(e.fee)}</td><td>${esc(e.memo)}</td><td class="mono">${esc((e.to||'').slice(0,14))}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">No coin transactions yet.</p>';
+  loadCoinMarket();
+}
+function cnUnits(){ const c=(CN.holdings||[]).find(x=>x.id===$('cnCoin').value); $('cnUnit').textContent=c?c.ticker:'-'; }
+function cnPick(id){ $('cnCoin').value=id; cnUnits(); $('cnTo').focus(); }
+function renderAllCoins(){
+  const q=($('cnQ').value||'').trim().toLowerCase();
+  const list=(CN.all||[]).filter(c=>cnAllF!=='verified'||c.verified).filter(c=>!q||String(c.ticker).toLowerCase().includes(q)||String(c.name).toLowerCase().includes(q));
+  $('cnAllN').textContent=(CN.all||[]).length+' on chain';
+  $('cnAll').innerHTML=list.length?list.map(c=>`<div class="cn-item">${cnLogo(c)}<div><div class="cn-name"><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span>${cnBadge(c)}</div><span class="muted mono" style="font-size:11.5px">${esc(String(c.id).slice(0,16))}… · since block ${Number(c.height||0).toLocaleString()}</span></div><div class="cn-amt"><b>${esc(c.outstanding)}</b><span>in circulation${c.burned&&c.burned!=='0'?' · '+esc(c.burned)+' burned':''}</span></div>${cnRisks(c)}</div>`).join(''):'<p class="muted">No coins yet. Be the first: issue one below.</p>';
+}
+document.querySelectorAll('#cnAllF button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cnAllF button').forEach(x=>x.classList.toggle('on',x===b)); cnAllF=b.dataset.f; renderAllCoins(); });
+function renderMyCoins(){
+  const m=CN.mine||[];
+  $('cnMine').innerHTML=m.length?`<h3 style="margin:18px 0 10px">Coins you issue</h3><div class="cn-list">${m.map(c=>`<div class="cn-item">${cnLogo(c)}<div><div class="cn-name"><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span>${cnBadge(c)}</div><span class="muted" style="font-size:12px">issued ${esc(c.issued)} · burned ${esc(c.burned)}</span></div><div class="cn-amt"><b>${esc(c.outstanding)}</b><span>in circulation</span></div><div class="cn-acts">${c.supply==='mintable'||(c.supply==='fixed'&&c.issued==='0')?`<button class="btn btn-primary" onclick="cnIssue('${c.id}')">Issue</button>`:''}${c.pause?`<button class="btn" onclick="cnPause('${c.id}',${c.paused===true?'false':'true'})">${c.paused===true?'Resume transfers':'Pause transfers'}</button>`:''}</div></div>`).join('')}</div>`:'';
+}
+async function coinSend(){
+  const c=(CN.holdings||[]).find(x=>x.id===$('cnCoin').value); if(!c) return toast('Choose a coin you hold',true);
+  const amount=$('cnAmt').value.trim(), to=$('cnTo').value.trim(); if(!amount||!to) return toast('Enter the recipient and the amount',true);
+  if(!await ask({title:'Send '+amount+' '+c.ticker+'?', icon:'swap', ok:'Send', pass:true, body:`<p class="mtext">To <span class="mono">${esc(to.slice(0,24))}…</span>. The fee is paid in GNR. The transfer stays private${c.pause?' (this coin can be paused, so the coin itself shows on chain)':''}.</p>`})) return;
+  const pw=takePass(); const b=$('cnSendBtn'); b.disabled=true; window.fxBusy=true;
+  try{ toast('Proving the transfer…'); const r=await api('/api/coin/send',{coin:c.id,to,amount,memo:$('cnMemo').value,password:pw}); toast('Sent: '+r.txid.slice(0,16)+'…'); $('cnAmt').value=''; $('cnMemo').value=''; loadCoins(); }catch(e){ toast(e.message,true) }
+  b.disabled=false; window.fxBusy=false;
+}
+function cwFields(){ return {name:$('cwName').value, ticker:$('cwTicker').value, decimals:Number($('cwDec').value), supply:$('cwSupply').value, cap:$('cwCap').value, burn:$('cwBurn').checked, pause:$('cwPause').checked, backing:$('cwBacking').value, origin:$('cwOrigin').value, reserves:$('cwReserves').value, website:$('cwSite').value, terms:$('cwTerms').value}; }
+function cwDirty(){ cwOk=false; $('cwDeploy').disabled=true; }
+async function cwPreview(){
+  try{ const r=await api('/api/coin/preview',cwFields()); cwOk=!r.taken; $('cwDeploy').disabled=!cwOk;
+    $('cwOut').innerHTML=`<div class="cn-name"><b>${esc(cwFields().ticker)}</b><span>${esc(cwFields().name)}</span></div>${r.taken?'<p class="warn">This ticker or name is already taken on chain: choose another.</p>':''}${r.major?'<p class="warn">This is the ticker of a major coin: wallets will warn that it may be an impersonation unless the project verifies it.</p>':''}<p class="muted" style="margin:10px 0 6px">Every holder will see this, forever:</p><div class="cn-risks">${r.risks.map(x=>`<span class="cn-risk ${cnRiskCls(x)}">${esc(x)}</span>`).join('')}</div><pre>${esc(r.manifest)}</pre><p class="hero-note">Coin id ${esc(String(r.id).slice(0,20))}… · deploying costs ${esc(r.deploy_fee)} GNR (to the miners).</p>`;
+  }catch(e){ cwDirty(); $('cwOut').innerHTML=`<p class="warn">${esc(e.message)}</p>`; }
+}
+async function cwDeploy(){
+  if(!cwOk) return;
+  if(!await ask({title:'Deploy '+$('cwTicker').value+'?', icon:'security', ok:'Deploy', danger:true, pass:true, body:`<p class="mtext">This publishes the coin with exactly the terms in the preview. They can never change, not even by you. It costs ${esc(CN.deploy_fee||'10')} GNR plus the fee. Your issuer key comes from this wallet's 24 words: keep them safe, they are the only way to issue this coin.</p>`})) return;
+  const pw=takePass(); window.fxBusy=true;
+  try{ toast('Deploying…'); const r=await api('/api/coin/deploy',{...cwFields(), password:pw}); toast('Deployed: it appears after the next block'); cwDirty(); setTimeout(loadCoins, 4000); }catch(e){ toast(e.message,true) }
+  window.fxBusy=false;
+}
+async function cnIssuerAct(id, action, amount, to){
+  const c=(CN.mine||[]).concat(CN.holdings||[]).find(x=>x.id===id)||{};
+  const pw=takePass(); window.fxBusy=true;
+  try{ toast('Proving…'); await api('/api/coin/issuer',{coin:id, action, amount:amount||'', to:to||'', password:pw}); toast((c.ticker||'Coin')+': '+action+' sent'); setTimeout(loadCoins, 3000); }catch(e){ toast(e.message,true) }
+  window.fxBusy=false;
+}
+async function cnIssue(id){ const c=(CN.mine||[]).find(x=>x.id===id)||{};
+  const a=await ask({title:'Issue '+(c.ticker||''), icon:'coins', ok:'Issue', pass:true, input:{placeholder:'Amount to issue', max:40}, body:`<p class="mtext">New ${esc(c.ticker)} go to this wallet; send them on from here. Issues are public, so anyone can audit the supply${c.supply==='fixed'?'. A fixed coin issues exactly its cap, once':''}.</p>`});
+  if(a==null||!String(a).trim()) return; cnIssuerAct(id,'issue',String(a).trim(),''); }
+async function cnBurn(id){ const c=(CN.holdings||[]).find(x=>x.id===id)||{};
+  const a=await ask({title:'Burn '+(c.ticker||''), icon:'coins', ok:'Burn', danger:true, pass:true, input:{placeholder:'Amount to burn', max:40}, body:'<p class="mtext">Burned coins are destroyed for good (the issuer may redeem them for you off chain). Burns are public.</p>'});
+  if(a==null||!String(a).trim()) return; cnIssuerAct(id,'burn',String(a).trim(),''); }
+async function cnPause(id, pause){ const c=(CN.mine||[]).find(x=>x.id===id)||{};
+  if(!await ask({title:(pause?'Pause ':'Resume ')+(c.ticker||''), icon:'lock', ok:pause?'Pause':'Resume', danger:pause, pass:true, body:`<p class="mtext">${pause?'No holder can move this coin until you resume it.':'Holders can move the coin again.'}</p>`})) return;
+  cnIssuerAct(id, pause?'pause':'unpause'); }
+async function loadCoinMarket(){
+  try{ CM=await api('/api/coin/market'); }catch(e){ return; }
+  $('cnBoard').textContent=CM.board||'';
+  const mk=CM.markets||{}; const ks=Object.keys(mk);
+  $('cnMarkets').innerHTML=ks.length?ks.map(k=>`<div class="cn-mk"><span class="muted">${esc(k)} price</span><b>${Number(mk[k].price).toLocaleString(undefined,{maximumSignificantDigits:6})} GNR</b><span class="muted">average of ${mk[k].swaps} swap${mk[k].swaps===1?'':'s'}</span></div>`).join(''):'<span class="muted">No completed coin swaps yet: the first swap sets a coin\'s price.</span>';
+  renderCoinBook();
+  const d=CM.deals||[];
+  $('cnDeals').innerHTML=d.length?`<h3 style="margin:16px 0 4px">Your coin swaps</h3>${d.map(x=>`<div class="cn-deal"><span class="pill">${esc(x.stage.startsWith('failed')?'stopped':x.stage.replace('_',' '))}</span><b>${x.role==='buyer'?'Buy':'Sell'} ${esc(x.units)} ${esc(x.ticker)}</b><span>for ${esc(x.gnr)} GNR</span>${x.txid?`<span class="mono muted">${esc(x.txid.slice(0,16))}…</span>`:''}${x.stage.startsWith('failed')?`<span class="muted">${esc(x.stage.slice(8))}</span>`:''}</div>`).join('')}`:'';
+}
+function renderCoinBook(){
+  const rows=(CM.offers||[]).filter(o=>cnBook==='all'||(cnBook==='mine'?o.mine:cnBook==='buy'?o.side==='buy_gnr':o.side==='sell_gnr'));
+  const dur=s=>s>86400?Math.round(s/86400)+' d':s>3600?Math.round(s/3600)+' h':Math.max(1,Math.round(s/60))+' min';
+  $('cnRows').innerHTML=rows.length?rows.map(o=>`<tr><td><b>${esc(o.ticker)}</b> ${o.verified?'<span class="cn-vf">✓</span>':'<span class="cn-uv">unverified</span>'}</td><td>${o.side==='buy_gnr'?'sells the coin':'buys the coin'}</td><td class="r mono">${esc(o.units)}</td><td class="r mono">${esc(o.gnr)}</td><td class="r mono">${Number(o.price).toLocaleString(undefined,{maximumSignificantDigits:6})}</td><td class="r">${dur(o.expires_in)}</td><td class="r">${o.mine?`<button class="btn" onclick="cnCancel('${o.id}')">Cancel</button>`:o.online?`<button class="btn btn-primary" onclick="cnTake('${o.id}')">${o.side==='buy_gnr'?'Buy':'Sell'}</button>`:'<span class="muted">offline</span>'}</td></tr>`).join(''):'<tr><td colspan="7" class="muted">No offers here yet.</td></tr>';
+}
+document.querySelectorAll('#cnBookTab button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cnBookTab button').forEach(x=>x.classList.toggle('on',x===b)); cnBook=b.dataset.t; renderCoinBook(); });
+document.querySelectorAll('#cnSide button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cnSide button').forEach(x=>x.classList.toggle('on',x===b)); cnSide=b.dataset.s; });
+const cnPer=()=>{ const u=Number($('cnOUnits').value), g=Number($('cnOGnr').value); $('cnOPer').textContent=u>0&&g>0?(g/u).toLocaleString(undefined,{maximumSignificantDigits:6})+' GNR':'-'; };
+$('cnOUnits').oninput=cnPer; $('cnOGnr').oninput=cnPer;
+function cnOfferFor(id, side){ $('cnOCoin').value=id; document.querySelector(`#cnSide button[data-s="${side}"]`).click(); $('cnOUnits').focus(); }
+async function coinOffer(){
+  const c=(CN.all||[]).find(x=>x.id===$('cnOCoin').value); if(!c) return toast('Choose a coin',true);
+  const units=$('cnOUnits').value.trim(), g=$('cnOGnr').value.trim(); if(!units||!g) return toast('Enter both amounts',true);
+  if(!await ask({title:(cnSide==='sell_gnr'?'Buy ':'Sell ')+units+' '+c.ticker+'?', icon:'swap', ok:'Post', pass:true, body:`<p class="mtext">${cnSide==='sell_gnr'?'You pay':'You receive'} ${esc(g)} GNR in total. ${c.verified?'':'<b>This coin is not verified.</b> '}Whoever takes it first gets it; the swap is one transaction, so it completes whole or not at all.</p>`})) return;
+  const pw=takePass(); window.fxBusy=true;
+  try{ toast('Posting (a moment of proof of work)…'); await api('/api/coin/offer',{coin:c.id, side:cnSide, gnr:g, units, hours:Number($('cnODur').value), password:pw}); toast('Offer posted'); $('cnOUnits').value=''; $('cnOGnr').value=''; cnPer(); loadCoinMarket(); }catch(e){ toast(e.message,true) }
+  window.fxBusy=false;
+}
+async function cnTake(id){
+  const o=(CM.offers||[]).find(x=>x.id===id); if(!o) return;
+  if(!await ask({title:(o.side==='buy_gnr'?'Buy ':'Sell ')+o.units+' '+o.ticker+'?', icon:'swap', ok:'Swap', pass:true, body:`<p class="mtext">For ${esc(o.gnr)} GNR. ${o.verified?'':'<b>'+esc(o.ticker)+' is not verified:</b> anyone can deploy a coin with any name. '}Both wallets check the transaction before adding their proof; it takes about a minute.</p>`})) return;
+  const pw=takePass();
+  try{ await api('/api/coin/take',{id, password:pw}); toast('Swap started: see Your coin swaps'); loadCoinMarket(); }catch(e){ toast(e.message,true) }
+}
+async function cnCancel(id){ try{ await api('/api/coin/offer/cancel',{id}); toast('Offer cancelled'); loadCoinMarket(); }catch(e){ toast(e.message,true) } }
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 function copyText(t){ navigator.clipboard.writeText(t); toast('Copied'); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }

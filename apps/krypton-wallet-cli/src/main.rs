@@ -86,6 +86,86 @@ enum Cmd {
     ProvePayment { txid: String },
     /// Check a payment proof against the chain
     VerifyPayment { proof: String },
+    /// Krypton coins: private coins issued on Genoryn Krypton (fees are paid in GNR)
+    Coin {
+        #[command(subcommand)]
+        cmd: CoinCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum CoinCmd {
+    /// Every coin on chain
+    List,
+    /// One coin (ticker or id): its manifest, supply and risks
+    Info { coin: String },
+    /// This wallet's coin balances
+    Balance,
+    /// Send a coin: <coin> <address or short address> <amount>
+    Send {
+        coin: String,
+        to: String,
+        amount: String,
+        #[arg(long, default_value = "")]
+        memo: String,
+        #[arg(long)]
+        fee: Option<String>,
+    },
+    /// Write the manifest of a new coin, with this wallet's issuer key, to a file
+    New {
+        /// Name ending in " Krypton", e.g. "Dollar Krypton"
+        #[arg(long)]
+        name: String,
+        /// Ticker ending in K, e.g. USDK
+        #[arg(long)]
+        ticker: String,
+        #[arg(long, default_value_t = 2)]
+        decimals: u8,
+        /// fixed (issued once, exactly --cap) or mintable
+        #[arg(long, default_value = "mintable")]
+        supply: String,
+        /// Cap in whole coins (none: no cap; required for fixed)
+        #[arg(long)]
+        cap: Option<String>,
+        /// Holders may burn their coins
+        #[arg(long)]
+        burn: bool,
+        /// The issuer may pause all transfers (makes transfers show the coin)
+        #[arg(long)]
+        pause: bool,
+        /// none, issuer-reserves or bridge
+        #[arg(long, default_value = "none")]
+        backing: String,
+        #[arg(long)]
+        origin: Option<String>,
+        #[arg(long)]
+        reserves: Option<String>,
+        #[arg(long)]
+        website: Option<String>,
+        #[arg(long)]
+        terms: Option<String>,
+        /// SHA-256 of the logo file (hex)
+        #[arg(long)]
+        logo: Option<String>,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Deploy a coin from its manifest file (pays the 10 GNR deploy fee)
+    Deploy { manifest: PathBuf },
+    /// Issue new units of a coin you issue: <coin> <address> <amount>
+    Issue {
+        coin: String,
+        to: String,
+        amount: String,
+    },
+    /// Burn units of a coin you hold: <coin> <amount>
+    Burn { coin: String, amount: String },
+    /// Stop every transfer of a pausable coin you issue
+    Pause { coin: String },
+    /// Resume the transfers of a paused coin you issue
+    Unpause { coin: String },
+    /// This wallet's issuer key: its fingerprint (as reserved tickers pin it) and the key
+    Issuer,
 }
 
 fn default_wallet(network: Network) -> PathBuf {
@@ -323,6 +403,7 @@ fn main() -> Result<()> {
                 ),
             }
         }
+        Cmd::Coin { cmd } => coin_cmd(cmd, &path, &clients)?,
         Cmd::Status => {
             for c in &clients {
                 match c.info() {
@@ -427,4 +508,253 @@ impl ChainSource for Multi<'_> {
             last_err.unwrap_or_else(|| anyhow::anyhow!("no node accepted the transaction"))
         })
     }
+}
+
+fn resolve_to(src: &NodeClient, to: String) -> Result<Address> {
+    let full = if to.contains("s1") && to.len() < 120 {
+        src.resolve_short(&to)?
+    } else {
+        to
+    };
+    Ok(Address::decode(&full)?)
+}
+
+fn coin_cmd(cmd: CoinCmd, path: &std::path::Path, clients: &[NodeClient]) -> Result<()> {
+    use krypton_assets::{format_units, parse_units};
+    use krypton_core::asset::{Backing, Manifest, Supply};
+    let src = &clients[0];
+    let open_synced = || -> Result<Wallet> {
+        let mut w = Wallet::open(path, &password("Wallet password: ")?)?;
+        cross_check(clients)?;
+        w.sync(src, |_, _| {})?;
+        Ok(w)
+    };
+    let fee = suggested_fee(clients);
+    match cmd {
+        CoinCmd::List => {
+            let v = src.assets()?;
+            if v["active"] != serde_json::json!(true) {
+                println!("Krypton coins are not active on this network yet.");
+            }
+            for a in v["assets"].as_array().cloned().unwrap_or_default() {
+                let d = a["decimals"].as_u64().unwrap_or(0) as u8;
+                println!(
+                    "{:<8} {:<28} outstanding {:>22}  {}{}",
+                    a["ticker"].as_str().unwrap_or(""),
+                    a["name"].as_str().unwrap_or(""),
+                    format_units(a["outstanding"].as_u64().unwrap_or(0), d),
+                    a["id"].as_str().unwrap_or(""),
+                    if a["paused"] == serde_json::json!(true) {
+                        "  PAUSED"
+                    } else {
+                        ""
+                    }
+                );
+            }
+        }
+        CoinCmd::Info { coin } => {
+            let (id, m, v) = src.asset(&coin)?;
+            println!("{} ({})  id {}", m.name, m.ticker, id);
+            println!(
+                "issued {}  burned {}  outstanding {}{}",
+                format_units(v["issued"].as_u64().unwrap_or(0), m.decimals),
+                format_units(v["burned"].as_u64().unwrap_or(0), m.decimals),
+                format_units(v["outstanding"].as_u64().unwrap_or(0), m.decimals),
+                if v["paused"] == serde_json::json!(true) {
+                    "  (PAUSED)"
+                } else {
+                    ""
+                }
+            );
+            println!("\nWhat the issuer can do (declared at deploy, unchangeable):");
+            for r in m.risk_labels(false) {
+                println!("  - {r}");
+            }
+            println!(
+                "\nmanifest:\n{}",
+                m.canonical()
+                    .lines()
+                    .filter(|l| !l.starts_with("issuer:"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+        }
+        CoinCmd::Balance => {
+            let w = open_synced()?;
+            let bs = w.coin_balances();
+            if bs.is_empty() {
+                println!("no coins");
+            }
+            for b in bs {
+                match src.asset(&b.coin.to_hex()) {
+                    Ok((_, m, _)) => println!(
+                        "{:<8} {:>22} spendable  {:>18} pending  ({})",
+                        m.ticker,
+                        format_units(b.spendable, m.decimals),
+                        format_units(b.pending, m.decimals),
+                        m.name
+                    ),
+                    Err(_) => println!(
+                        "{}  {} base units (coin unknown to the node)",
+                        b.coin, b.spendable
+                    ),
+                }
+            }
+        }
+        CoinCmd::Send {
+            coin,
+            to,
+            amount,
+            memo,
+            fee: f,
+        } => {
+            let (id, m, _) = src.asset(&coin)?;
+            let amount = parse_units(&amount, m.decimals).context("invalid amount")?;
+            let f = f
+                .map(|f| parse_amount(&f).context("invalid fee"))
+                .transpose()?
+                .unwrap_or(fee);
+            let to = resolve_to(src, to)?;
+            let mut w = open_synced()?;
+            eprintln!(
+                "proving a private transfer of {} {} (fee {} GNR) ...",
+                format_units(amount, m.decimals),
+                m.ticker,
+                format_amount(f)
+            );
+            let id = w.send_coin(&Multi(clients), id, &to, amount, f, &memo)?;
+            println!("sent: {}", hex::encode(id));
+        }
+        CoinCmd::New {
+            name,
+            ticker,
+            decimals,
+            supply,
+            cap,
+            burn,
+            pause,
+            backing,
+            origin,
+            reserves,
+            website,
+            terms,
+            logo,
+            out,
+        } => {
+            let w = Wallet::open(path, &password("Wallet password: ")?)?;
+            let supply = match supply.as_str() {
+                "fixed" => Supply::Fixed,
+                "mintable" => Supply::Mintable,
+                _ => bail!("--supply is fixed or mintable"),
+            };
+            let backing = match backing.as_str() {
+                "none" => Backing::None,
+                "issuer-reserves" => Backing::IssuerReserves,
+                "bridge" => Backing::Bridge,
+                _ => bail!("--backing is none, issuer-reserves or bridge"),
+            };
+            let cap = cap
+                .map(|c| parse_units(&c, decimals).context("invalid cap"))
+                .transpose()?;
+            let logo = logo
+                .map(|h| -> Result<[u8; 32]> {
+                    hex::decode(h.trim())?
+                        .try_into()
+                        .map_err(|_| anyhow::anyhow!("--logo is 64 hex characters"))
+                })
+                .transpose()?;
+            let m = Manifest {
+                name,
+                ticker,
+                decimals,
+                supply,
+                cap,
+                burn,
+                pause,
+                backing,
+                origin,
+                reserves,
+                website,
+                terms,
+                logo,
+                issuer: w.issuer_key(),
+            };
+            m.validate().map_err(|e| anyhow::anyhow!("{e}"))?;
+            std::fs::write(&out, m.canonical())?;
+            println!("manifest written to {} (coin id {})", out.display(), m.id());
+            println!("\nAnyone holding this coin will see, before receiving it:");
+            for r in m.risk_labels(false) {
+                println!("  - {r}");
+            }
+            println!(
+                "\nNothing in it can ever change. Deploy it with `coin deploy {}`.",
+                out.display()
+            );
+        }
+        CoinCmd::Deploy { manifest } => {
+            let text = std::fs::read_to_string(&manifest)?;
+            let m = Manifest::parse(&text).map_err(|e| anyhow::anyhow!("{e}"))?;
+            m.validate().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let mut w = open_synced()?;
+            eprintln!(
+                "deploying {} ({}), paying the 10 GNR deploy fee ...",
+                m.name, m.ticker
+            );
+            let id = w.deploy_coin(&Multi(clients), &m, fee)?;
+            println!("sent: {}  (coin id {})", hex::encode(id), m.id());
+        }
+        CoinCmd::Issue { coin, to, amount } => {
+            let (id, m, _) = src.asset(&coin)?;
+            let amount = parse_units(&amount, m.decimals).context("invalid amount")?;
+            let to = resolve_to(src, to)?;
+            let mut w = open_synced()?;
+            let txid = w.issue_coin(&Multi(clients), id, &to, amount, fee)?;
+            println!(
+                "issued {} {}: {}",
+                format_units(amount, m.decimals),
+                m.ticker,
+                hex::encode(txid)
+            );
+        }
+        CoinCmd::Burn { coin, amount } => {
+            let (id, m, _) = src.asset(&coin)?;
+            let amount = parse_units(&amount, m.decimals).context("invalid amount")?;
+            let mut w = open_synced()?;
+            let txid = w.burn_coin(&Multi(clients), id, amount, fee)?;
+            println!(
+                "burned {} {}: {}",
+                format_units(amount, m.decimals),
+                m.ticker,
+                hex::encode(txid)
+            );
+        }
+        CoinCmd::Issuer => {
+            let w = Wallet::open(path, &password("Wallet password: ")?)?;
+            let key = w.issuer_key();
+            println!(
+                "fingerprint {}",
+                hex::encode(krypton_core::asset::issuer_fingerprint(&key))
+            );
+            println!("key {}", hex::encode(key));
+        }
+        CoinCmd::Pause { coin } => {
+            let (id, m, _) = src.asset(&coin)?;
+            let mut w = open_synced()?;
+            println!(
+                "paused {}: {}",
+                m.ticker,
+                hex::encode(w.set_coin_paused(&Multi(clients), id, true, fee)?)
+            );
+        }
+        CoinCmd::Unpause { coin } => {
+            let (id, m, _) = src.asset(&coin)?;
+            let mut w = open_synced()?;
+            println!(
+                "resumed {}: {}",
+                m.ticker,
+                hex::encode(w.set_coin_paused(&Multi(clients), id, false, fee)?)
+            );
+        }
+    }
+    Ok(())
 }

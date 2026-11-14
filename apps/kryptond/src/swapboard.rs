@@ -9,7 +9,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use krypton_core::lock::LockMode;
-use krypton_swap::board::{self, Envelope, Offer, Trade};
+use krypton_swap::board::{self, CoinOffer, CoinTrade, Envelope, Offer, Trade};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -20,6 +20,8 @@ use std::sync::Arc;
 const MAX_OFFERS: usize = 5_000;
 const MAX_PER_INBOX: usize = 100;
 const MAX_MESSAGES: usize = 5_000;
+/// All stored messages together (coin swaps send ~200 KB ones).
+const MAX_MESSAGE_BYTES_TOTAL: usize = 96 * 1024 * 1024;
 const MESSAGE_SECS: u64 = 24 * 3600;
 const MAX_TRADES: usize = 20_000;
 const TRADE_KEEP_SECS: u64 = 30 * 24 * 3600;
@@ -51,7 +53,12 @@ struct Inner {
     seen: HashMap<String, u64>,
     inbox: HashMap<String, VecDeque<(u64, String)>>,
     messages: usize,
+    message_bytes: usize,
     trades: Vec<(Trade, u64)>,
+    /// Krypton coin offers and verified coin swaps (kept apart from the bitcoin board,
+    /// which older wallets read).
+    coin_offers: HashMap<String, CoinOffer>,
+    coin_trades: Vec<(CoinTrade, u64)>,
     /// Claims of locked GNR seen on chain, by hash lock, and the highest block scanned.
     claims: HashMap<String, Claim>,
     scanned: Option<u64>,
@@ -89,22 +96,32 @@ impl Board {
         let seen = &i.seen;
         i.offers
             .retain(|id, _| seen.get(id).is_some_and(|s| s + STALE_SECS > t));
+        i.coin_offers
+            .retain(|id, o| o.expires > t && seen.get(id).is_some_and(|s| s + STALE_SECS > t));
         let ps = &i.pending_seen;
         i.pending.retain(|id, (_, at)| {
             *at + PENDING_SECS > t && ps.get(id).copied().unwrap_or(*at) + PENDING_IDLE_SECS > t
         });
         let pids: std::collections::HashSet<String> = i.pending.keys().cloned().collect();
         i.pending_seen.retain(|id, _| pids.contains(id));
-        let ids: std::collections::HashSet<String> = i.offers.keys().cloned().collect();
+        let ids: std::collections::HashSet<String> = i
+            .offers
+            .keys()
+            .chain(i.coin_offers.keys())
+            .cloned()
+            .collect();
         i.seen.retain(|id, _| ids.contains(id));
-        let mut n = 0;
+        let (mut n, mut bytes) = (0, 0);
         i.inbox.retain(|_, q| {
             q.retain(|(at, _)| at + MESSAGE_SECS > t);
             n += q.len();
+            bytes += q.iter().map(|(_, d)| d.len()).sum::<usize>();
             !q.is_empty()
         });
         i.messages = n;
+        i.message_bytes = bytes;
         i.trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
+        i.coin_trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
     }
 
     fn load(&self, i: &mut Inner) {
@@ -120,15 +137,30 @@ impl Board {
         {
             i.trades = t;
         }
+        if let Ok(b) = std::fs::read(p.with_file_name("swap-coin-trades.json"))
+            && let Ok(t) = serde_json::from_slice::<Vec<(CoinTrade, u64)>>(&b)
+        {
+            i.coin_trades = t;
+        }
         // Offers and sealed messages survive restarts too (a node update must not drop
         // them, or a swap in progress could lose a code).
         if let Ok(b) = std::fs::read(p.with_file_name("swap-board.json"))
             && let Ok(s) = serde_json::from_slice::<Saved>(&b)
         {
             i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
+            i.coin_offers = s
+                .coin_offers
+                .into_iter()
+                .map(|o| (o.id.clone(), o))
+                .collect();
             // After a restart every maker gets the usual grace to show it is still online.
             let t = now();
-            i.seen = i.offers.keys().map(|id| (id.clone(), t)).collect();
+            i.seen = i
+                .offers
+                .keys()
+                .chain(i.coin_offers.keys())
+                .map(|id| (id.clone(), t))
+                .collect();
             i.pending = s
                 .pending
                 .into_iter()
@@ -152,10 +184,13 @@ impl Board {
     }
 
     fn save(&self, i: &Inner) {
-        if let Some(p) = self.path.lock().as_ref()
-            && let Ok(b) = serde_json::to_vec(&i.trades)
-        {
-            Board::write(p, b);
+        if let Some(p) = self.path.lock().as_ref() {
+            if let Ok(b) = serde_json::to_vec(&i.trades) {
+                Board::write(p, b);
+            }
+            if let Ok(b) = serde_json::to_vec(&i.coin_trades) {
+                Board::write(&p.with_file_name("swap-coin-trades.json"), b);
+            }
         }
     }
 
@@ -165,6 +200,7 @@ impl Board {
         };
         let s = Saved {
             offers: i.offers.values().cloned().collect(),
+            coin_offers: i.coin_offers.values().cloned().collect(),
             pending: i.pending.values().cloned().collect(),
             inbox: i
                 .inbox
@@ -181,6 +217,8 @@ impl Board {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Saved {
     offers: Vec<Offer>,
+    #[serde(default)]
+    coin_offers: Vec<CoinOffer>,
     #[serde(default)]
     pending: Vec<(Offer, u64)>,
     inbox: Vec<(String, Vec<(u64, String)>)>,
@@ -358,7 +396,10 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
     let mut ok = 0;
     let mut missing = vec![];
     for it in r.items {
-        if !i.offers.contains_key(&it.id) && !i.pending.contains_key(&it.id) {
+        if !i.offers.contains_key(&it.id)
+            && !i.pending.contains_key(&it.id)
+            && !i.coin_offers.contains_key(&it.id)
+        {
             missing.push(it.id);
             continue;
         }
@@ -369,7 +410,9 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
             continue;
         };
         let h = board::cancel_hash(&secret);
-        if i.offers.get(&it.id).is_some_and(|o| o.cancel == h) {
+        if i.offers.get(&it.id).is_some_and(|o| o.cancel == h)
+            || i.coin_offers.get(&it.id).is_some_and(|o| o.cancel == h)
+        {
             i.seen.insert(it.id, t);
             ok += 1;
         } else if i.pending.get(&it.id).is_some_and(|(o, _)| o.cancel == h) {
@@ -398,11 +441,14 @@ pub async fn cancel_offer(State(node): S, Json(r): Json<CancelReq>) -> Response 
     let found = i
         .offers
         .get(&r.id)
-        .or_else(|| i.pending.get(&r.id).map(|x| &x.0));
+        .or_else(|| i.pending.get(&r.id).map(|x| &x.0))
+        .map(|o| o.cancel.clone())
+        .or_else(|| i.coin_offers.get(&r.id).map(|o| o.cancel.clone()));
     match found {
-        Some(o) if o.cancel == board::cancel_hash(&secret) => {
+        Some(c) if c == board::cancel_hash(&secret) => {
             i.offers.remove(&r.id);
             i.pending.remove(&r.id);
+            i.coin_offers.remove(&r.id);
             node.board.save_board(&i);
             Json(json!({"ok": true})).into_response()
         }
@@ -419,7 +465,7 @@ pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
-    if i.messages >= MAX_MESSAGES {
+    if i.messages >= MAX_MESSAGES || i.message_bytes + e.data.len() > MAX_MESSAGE_BYTES_TOTAL {
         return bad("the mailbox service is full; try again later");
     }
     let q = i.inbox.entry(e.to.clone()).or_default();
@@ -429,8 +475,10 @@ pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
     if q.iter().any(|(_, d)| *d == e.data) {
         return Json(json!({"ok": true})).into_response();
     }
+    let len = e.data.len();
     q.push_back((t, e.data));
     i.messages += 1;
+    i.message_bytes += len;
     node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
 }
@@ -522,4 +570,117 @@ pub async fn market(State(node): S) -> Response {
         .collect();
     Json(json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS}))
         .into_response()
+}
+
+pub async fn coin_offers(State(node): S) -> Response {
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let t = now();
+    Board::expire(&mut i, t);
+    let mut list: Vec<&CoinOffer> = i.coin_offers.values().collect();
+    list.sort_by(|a, b| a.coin.cmp(&b.coin).then(a.price().total_cmp(&b.price())));
+    let offers: Vec<Value> = list
+        .into_iter()
+        .map(|o| {
+            let mut x = serde_json::to_value(o).unwrap_or_default();
+            let seen = i.seen.get(&o.id).copied().unwrap_or(0);
+            x["online"] = json!(seen + ONLINE_SECS > t);
+            x["seen"] = json!(seen);
+            x
+        })
+        .collect();
+    let mut by_coin: HashMap<&str, Vec<(CoinTrade, u64)>> = HashMap::new();
+    for (x, at) in &i.coin_trades {
+        by_coin
+            .entry(x.coin.as_str())
+            .or_default()
+            .push((x.clone(), *at));
+    }
+    let markets: serde_json::Map<String, Value> = by_coin
+        .iter()
+        .filter_map(|(c, v)| {
+            board::coin_market(v, t)
+                .map(|(price, swaps)| (c.to_string(), json!({"price": price, "swaps": swaps})))
+        })
+        .collect();
+    let recent: Vec<Value> = i
+        .coin_trades
+        .iter()
+        .rev()
+        .take(100)
+        .map(|(x, at)| json!({"at": at, "coin": x.coin, "gnr": x.gnr, "units": x.units, "price": x.price(), "txid": x.txid}))
+        .collect();
+    Json(json!({"offers": offers, "markets": markets, "recent": recent, "now": t})).into_response()
+}
+
+pub async fn post_coin_offer(State(node): S, Json(o): Json<CoinOffer>) -> Response {
+    if let Err(e) = o.validate(node.chain.params.network.as_str(), now()) {
+        return bad(e);
+    }
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    Board::expire(&mut i, now());
+    if i.offers.len() + i.coin_offers.len() >= MAX_OFFERS {
+        return bad("the board is full; try again later");
+    }
+    if i.coin_offers.contains_key(&o.id) || i.offers.contains_key(&o.id) {
+        return bad("an offer with this id exists");
+    }
+    i.seen.insert(o.id.clone(), now());
+    i.coin_offers.insert(o.id.clone(), o);
+    node.board.save_board(&i);
+    Json(json!({"ok": true})).into_response()
+}
+
+/// A completed coin swap: checked against the mined transaction before it counts.
+pub async fn post_coin_trade(State(node): S, Json(x): Json<CoinTrade>) -> Response {
+    if let Err(e) = x.validate(node.chain.params.network.as_str()) {
+        return bad(e);
+    }
+    let n = node.clone();
+    let r = tokio::task::spawn_blocking(move || -> Result<bool, String> {
+        {
+            let mut i = n.board.inner.lock();
+            n.board.load(&mut i);
+            if i.coin_trades.iter().any(|(y, _)| y.txid == x.txid) {
+                return Ok(false);
+            }
+        }
+        let txid: [u8; 32] = hex::decode(&x.txid)
+            .ok()
+            .and_then(|b| b.try_into().ok())
+            .ok_or("bad txid")?;
+        let h = n
+            .chain
+            .tx_height(&txid)
+            .map_err(|e| e.to_string())?
+            .ok_or("the swap is not mined yet")?;
+        let b = n
+            .chain
+            .block_at(h)
+            .map_err(|e| e.to_string())?
+            .ok_or("block missing")?;
+        let tx = b
+            .txs
+            .iter()
+            .find(|t| t.txid() == txid)
+            .ok_or("transaction missing")?;
+        x.verify(tx).map_err(|e| e.to_string())?;
+        let mut i = n.board.inner.lock();
+        if i.coin_trades.iter().any(|(y, _)| y.txid == x.txid) {
+            return Ok(false);
+        }
+        if i.coin_trades.len() >= MAX_TRADES {
+            i.coin_trades.remove(0);
+        }
+        i.coin_trades.push((x, b.header.timestamp));
+        n.board.save(&i);
+        Ok(true)
+    })
+    .await;
+    match r {
+        Ok(Ok(added)) => Json(json!({"ok": true, "added": added})).into_response(),
+        Ok(Err(e)) => bad(e),
+        Err(e) => bad(e),
+    }
 }

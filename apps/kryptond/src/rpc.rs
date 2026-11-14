@@ -55,6 +55,8 @@ pub fn router(node: Arc<Node>) -> Router {
     Router::new()
         .route("/v1/info", get(info))
         .route("/v1/supply", get(supply))
+        .route("/v1/assets", get(assets_list))
+        .route("/v1/asset/{id}", get(asset_one))
         .route("/v1/header/{height}", get(header_at))
         .route("/v1/block/{id}", get(block_json))
         .route("/v1/rawblock/{height}", get(raw_block))
@@ -97,6 +99,14 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/swap/inbox/{id}", get(crate::swapboard::inbox))
         .route("/v1/swap/trade", post(crate::swapboard::post_trade))
         .route("/v1/swap/market", get(crate::swapboard::market))
+        .route(
+            "/v1/swap/coins",
+            get(crate::swapboard::coin_offers).post(crate::swapboard::post_coin_offer),
+        )
+        .route(
+            "/v1/swap/coin-trade",
+            post(crate::swapboard::post_coin_trade),
+        )
         .route("/rpc", post(json_rpc))
         .with_state(node.clone())
         .layer(tower_http::limit::RequestBodyLimitLayer::new(
@@ -183,6 +193,7 @@ fn info_value(node: &Node) -> Value {
         "share_difficulty": reward::share_difficulty(tip.header.difficulty).to_string(),
         "payout_interval": p.payout_interval,
         "coinbase_maturity": p.coinbase_maturity,
+        "assets_height": (p.assets_height != u64::MAX).then_some(p.assets_height),
         "uptime": node.started.elapsed().as_secs(),
         "launch_anchor": p.launch_anchor.map(|a| json!({"bitcoin_height": a.bitcoin_height, "bitcoin_hash": a.bitcoin_hash})),
         "crypto": {
@@ -211,6 +222,68 @@ async fn supply(State(n): S) -> Json<Value> {
     }))
 }
 
+/// A Krypton coin as the explorer and wallets show it: its manifest, supply and the
+/// risk labels generated from the manifest (verification is a separate, signed list).
+fn asset_json(id: &krypton_core::asset::AssetId, s: &krypton_core::asset::AssetState) -> Value {
+    let m = &s.manifest;
+    json!({
+        "id": id,
+        "name": m.name,
+        "ticker": m.ticker,
+        "decimals": m.decimals,
+        "supply": m.supply,
+        "cap": m.cap,
+        "burn": m.burn,
+        "pause": m.pause,
+        "backing": m.backing,
+        "origin": m.origin,
+        "reserves": m.reserves,
+        "website": m.website,
+        "terms": m.terms,
+        "logo": m.logo.map(hex::encode),
+        "issuer": hex::encode(krypton_core::asset::issuer_fingerprint(&m.issuer)),
+        "issued": s.issued,
+        "burned": s.burned,
+        "outstanding": s.outstanding(),
+        "paused": s.paused,
+        "height": s.height,
+        "risks": m.risk_labels(false),
+    })
+}
+
+async fn assets_list(State(n): S) -> R<Json<Value>> {
+    let list = n.chain.assets().map_err(ise)?;
+    let tip = n.chain.tip().height();
+    let active_from = n.chain.params.assets_height;
+    Ok(Json(json!({
+        "active": tip + 1 >= active_from,
+        "assets_height": (active_from != u64::MAX).then_some(active_from),
+        "deploy_fee": krypton_core::asset::DEPLOY_FEE,
+        "assets": list.iter().map(|(id, s)| asset_json(id, s)).collect::<Vec<_>>(),
+    })))
+}
+
+/// One coin by id (hex) or ticker, with its canonical manifest.
+async fn asset_one(State(n): S, Path(x): Path<String>) -> R<Json<Value>> {
+    let id = match krypton_core::asset::AssetId::from_hex(&x) {
+        Some(id) => id,
+        None => n
+            .chain
+            .asset_by_ticker(&x)
+            .map_err(ise)?
+            .ok_or_else(|| nf("no such coin"))?,
+    };
+    let s = n
+        .chain
+        .asset(&id)
+        .map_err(ise)?
+        .ok_or_else(|| nf("no such coin"))?;
+    let mut v = asset_json(&id, &s);
+    v["manifest"] = json!(s.manifest.canonical());
+    v["issuer_key"] = json!(hex::encode(&s.manifest.issuer));
+    Ok(Json(v))
+}
+
 async fn header_at(State(n): S, Path(h): Path<u64>) -> R<Json<Value>> {
     let hd = n
         .chain
@@ -223,7 +296,22 @@ async fn header_at(State(n): S, Path(h): Path<u64>) -> R<Json<Value>> {
 }
 
 fn fees(b: &Block) -> u64 {
-    b.txs.iter().map(|t| t.fee).sum()
+    b.txs.iter().map(|t| t.total_fee()).sum()
+}
+
+/// The public part of a coin operation (hidden transfers show no coin).
+fn coin_action(a: &krypton_core::asset::AssetPart, mint: u64) -> Value {
+    let manifest = a
+        .manifest
+        .as_deref()
+        .and_then(|m| krypton_core::asset::Manifest::parse(m).ok());
+    json!({
+        "op": a.op.as_str(),
+        "coin": a.coin.or_else(|| manifest.as_ref().map(|m| m.id())),
+        "burn": a.burn,
+        "issue": mint,
+        "ticker": manifest.as_ref().map(|m| m.ticker.clone()),
+    })
 }
 
 fn block_summary(b: &Block, payouts: &[reward::Payout], confirmations: u64) -> Value {
@@ -234,11 +322,12 @@ fn block_summary(b: &Block, payouts: &[reward::Payout], confirmations: u64) -> V
             json!({
                 "txid": hex::encode(t.txid()),
                 "kind": t.kind,
-                "fee": t.fee,
+                "fee": t.total_fee(),
                 "size": t.size(),
-                "nullifiers": t.nullifiers.iter().map(|x| hex::encode(x.0)).collect::<Vec<_>>(),
-                "commitments": t.outputs.iter().map(|o| hex::encode(o.cm)).collect::<Vec<_>>(),
+                "nullifiers": t.all_nullifiers().iter().map(hex::encode).collect::<Vec<_>>(),
+                "commitments": t.all_outputs().iter().map(|o| hex::encode(o.cm)).collect::<Vec<_>>(),
                 "proof_bytes": t.proof.len(),
+                "coin": t.asset.as_ref().map(|a| coin_action(a, t.mint)),
             })
         })
         .collect();
@@ -492,7 +581,7 @@ async fn tx_lookup(State(n): S, Path(x): Path<String>) -> R<Json<Value>> {
     let id = parse_hash(&x)?;
     if let Some(e) = n.mempool.lock().txs.get(&id) {
         return Ok(Json(
-            json!({"txid": x, "status": "pending", "fee": e.tx.fee, "size": e.size}),
+            json!({"txid": x, "status": "pending", "fee": e.tx.total_fee(), "size": e.size}),
         ));
     }
     let h = n
@@ -565,7 +654,7 @@ async fn mempool(State(n): S) -> Json<Value> {
     let mut txs: Vec<Value> = mp
         .txs
         .iter()
-        .map(|(id, e)| json!({"txid": hex::encode(id), "fee": e.tx.fee, "size": e.size, "added": e.added}))
+        .map(|(id, e)| json!({"txid": hex::encode(id), "fee": e.tx.total_fee(), "size": e.size, "added": e.added}))
         .collect();
     txs.truncate(500);
     Json(json!({"count": mp.txs.len(), "bytes": mp.bytes(), "txs": txs}))
