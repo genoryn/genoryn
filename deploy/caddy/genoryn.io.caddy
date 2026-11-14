@@ -65,6 +65,9 @@
 		redir @htmlq /{re.htmlq.1}?{query} 301
 		root * /var/www/genoryn-krypton
 		header /assets/* Cache-Control "public, max-age=604800"
+		# Files crawlers and language models read: refreshed within the hour after a change.
+		@crawl path /robots.txt /sitemap.xml /llms.txt /llms-full.txt
+		header @crawl Cache-Control "public, max-age=3600"
 		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 		try_files {path} {path}.html
 		file_server
