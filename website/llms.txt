@@ -1,0 +1,36 @@
+# Genoryn Krypton (GNR)
+
+> Genoryn Krypton (ticker GNR) is a quantum-resistant, private-by-default proof-of-work cryptocurrency with Bitcoin's monetary design: at most 21,000,000 coins, a 5 GNR block reward halving every 2,100,000 blocks (about four years), 60-second blocks and a fair launch with no premine. Funds are protected by hash-based zk-STARK proofs instead of elliptic curves, every transfer is shielded, payment data is encrypted with hybrid X25519 + ML-KEM-1024, mining rewards are shared by every miner in proportion to its work (no pool needed), and GNR is traded with bitcoin through atomic swaps in the wallet. Open source (MIT or Apache-2.0), created by the pseudonymous Zarazi Sokani; no company or person controls it.
+
+Key facts:
+
+- Mainnet launched 3 November 2026; its genesis commits to Bitcoin block 974,438, so no GNR could be mined before that moment. Genesis hash 3c10136cd72a74d673257249752522e0102b6268f5b8c348ba34ae36740ca3b3.
+- Quantum resistance: spends are zk-STARK proofs over hash functions (no elliptic curve, no trusted setup); note encryption X25519 + ML-KEM-1024 (FIPS 203); peer links X25519 + ML-KEM-768; release signatures ML-DSA-87 and SLH-DSA-SHAKE-256s (FIPS 204/205); 384-bit recovery phrases.
+- Privacy: amounts, senders, recipients and memos are hidden for everyone; there is no transparent mode. Mining payouts are public per miner.
+- Mining: KryptoHash v1, memory-bandwidth bound, GPU-first (CUDA, OpenCL) and CPU-capable; an RTX 5090 does about 75-83 MH/s. About 32 shares per block each earn an equal slice of the reward pool; payouts every 360 blocks.
+- Trading: atomic BTC-GNR swaps on an anonymous offer board; the seller's GNR is locked on chain before the buyer pays. The market price is the plain average of completed swaps; offers never move it. Not listed on exchanges; no presale.
+- Wallet: Windows and Linux desktop wallet with built-in miner and optional full node; light mode verifies the chain itself (FlyClient-style proofs, follows the most work).
+- Relation to Bitcoin: an independent network (not a fork, not affiliated) that keeps Bitcoin's monetary rules and adds quantum resistance and privacy by default.
+- Status: internal audit and a privately reported external review, findings fixed; no full independent audit yet.
+
+## Main pages
+
+- [What is Genoryn Krypton?](https://genoryn.io/about): definition, key facts, relation to Bitcoin, comparison with Bitcoin, Monero and Zcash, FAQ
+- [Documentation](https://genoryn.io/docs): wallet, security, cryptography, emission, mining, atomic swaps, market price, light clients, P2P network, node, API
+- [Download](https://genoryn.io/download): wallet, node and miner for Windows and Linux
+- [Mining](https://genoryn.io/mining): how to mine on GPU or CPU, rewards, live mining and price calculator
+- [Market](https://genoryn.io/market): live offer board, market price and completed swaps
+- [Explorer](https://genoryn.io/explorer): live blocks, supply, hashrate and network stats
+
+## Source and specifications
+
+- [Source code (GitHub)](https://github.com/genoryn/genoryn): Rust workspace with node, miner, wallets and swap engine
+- [README](https://github.com/genoryn/genoryn/blob/main/README.md): complete overview
+- [Specifications](https://github.com/genoryn/genoryn/tree/main/docs/spec): consensus, spend circuit, rewards, KryptoHash, light client, addresses and P2P, atomic swaps
+- [Security policy](https://github.com/genoryn/genoryn/blob/main/SECURITY.md)
+- [Releases](https://github.com/genoryn/genoryn/releases/latest): signed binaries
+
+## Optional
+
+- [Full text for language models](https://genoryn.io/llms-full.txt)
+- [Public node API](https://genoryn.io/v1/info): live network data (JSON)

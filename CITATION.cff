@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you refer to Genoryn Krypton, please cite it as below."
+title: "Genoryn Krypton: quantum-resistant, private-by-default proof-of-work cryptocurrency"
+abstract: >-
+  Genoryn Krypton (GNR) is a proof-of-work cryptocurrency with Bitcoin's monetary design
+  (21,000,000 coins, halvings every 2,100,000 blocks, fair launch, no premine) whose funds
+  and privacy depend on no elliptic curve: spends are zk-STARK proofs over hash functions,
+  every transfer is shielded, notes are encrypted with hybrid X25519 + ML-KEM-1024, mining
+  rewards are shared by every miner in proportion to its work, light clients verify the
+  chain with Merkle Mountain Range proofs, and GNR is exchanged with bitcoin through atomic
+  swaps.
+type: software
+authors:
+  - alias: "Zarazi Sokani"
+repository-code: "https://github.com/genoryn/genoryn"
+url: "https://genoryn.io"
+license:
+  - MIT
+  - Apache-2.0
+keywords:
+  - cryptocurrency
+  - post-quantum cryptography
+  - quantum-resistant
+  - privacy
+  - zk-STARK
+  - ML-KEM
+  - proof of work
+  - atomic swaps
+  - Bitcoin
+date-released: "2026-11-03"

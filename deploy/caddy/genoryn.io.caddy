@@ -66,8 +66,22 @@
 		root * /var/www/genoryn-krypton
 		header /assets/* Cache-Control "public, max-age=604800"
 		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-		try_files {path} {path}.html /index.html
+		try_files {path} {path}.html
 		file_server
+	}
+	# An address that does not exist answers 404 with a helpful page, never the home page
+	# (search engines treat a 200 for every address as a broken site).
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			root * /var/www/genoryn-krypton
+			rewrite * /404.html
+			header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			file_server
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
 	}
 }
 

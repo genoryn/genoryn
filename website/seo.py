@@ -8,9 +8,11 @@ NAME = "Genoryn Krypton"
 VERSION = "1.0.34"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
-KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum crypto, private cryptocurrency, "
-            "zk-STARK, ML-KEM, privacy coin, GPU mining, CPU mining, new cryptocurrency to mine, fair launch, "
-            "no premine, 21 million supply, light wallet, KryptoHash")
+KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
+            "private cryptocurrency, anonymous cryptocurrency, privacy coin, zk-STARK, ML-KEM, post-quantum privacy coin, "
+            "GPU mining, CPU mining, new cryptocurrency to mine, fair launch, no premine, 21 million supply, "
+            "atomic swap bitcoin, light wallet, KryptoHash")
+INDEXNOW_KEY = "4cd0c3283a0fa22bc5f39f8d68fb4209"
 
 PAGES = {
     "home": {"path": "/", "file": "index.html", "priority": "1.0", "freq": "daily",
@@ -33,12 +35,20 @@ PAGES = {
                  "og_desc": "Quantum-resistant private wallet with built-in miner and optional full node. Windows installer, Linux packages, source code."},
     "docs": {"path": "/docs", "file": "docs.html", "priority": "0.8", "freq": "weekly",
              "og_title": "Genoryn Krypton documentation",
-             "og_desc": "Protocol, cryptography, emission, mining, light clients, node operation, REST and JSON-RPC API, SDKs and exchange integration."},
+             "og_desc": "Wallet, security, cryptography, emission and scarcity, mining, atomic swaps with bitcoin, the market price, light clients, the P2P network, node operation, API, SDKs and integration."},
+    "about": {"path": "/about", "file": "about.html", "priority": "0.9", "freq": "monthly",
+              "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
+              "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
 }
 
 ORG = {"@type": "Organization", "@id": SITE + "/#org", "name": NAME, "url": SITE + "/",
        "logo": {"@type": "ImageObject", "url": SITE + "/assets/icon-512.png", "width": 512, "height": 512},
-       "sameAs": ["https://github.com/genoryn/genoryn"]}
+       "sameAs": ["https://github.com/genoryn/genoryn"],
+       "description": "Genoryn Krypton (GNR) is a quantum-resistant, private-by-default proof-of-work cryptocurrency with Bitcoin's monetary design."}
+CODE = {"@type": "SoftwareSourceCode", "@id": SITE + "/#code", "name": "Genoryn Krypton",
+        "codeRepository": "https://github.com/genoryn/genoryn", "programmingLanguage": "Rust",
+        "license": "https://opensource.org/licenses/MIT", "author": {"@type": "Person", "name": "Zarazi Sokani"},
+        "description": "Full node, miner, wallets and swap engine of Genoryn Krypton: zk-STARK shielded transfers, ML-KEM encryption, KryptoHash proof of work, light clients and atomic swaps with bitcoin."}
 WEBSITE = {"@type": "WebSite", "@id": SITE + "/#website", "name": NAME, "alternateName": "GNR", "url": SITE + "/",
            "inLanguage": "en", "publisher": {"@id": SITE + "/#org"}}
 APP = {"@type": "SoftwareApplication", "@id": SITE + "/#wallet", "name": "Genoryn Krypton Wallet",
@@ -72,6 +82,17 @@ HOME_FAQ = [
     ("Who controls the project?", "Nobody. It was created by the pseudonymous Zarazi Sokani, whose identity will never be revealed. No one can change the rules without the nodes that run them."),
 ]
 
+ABOUT_FAQ = [
+    ("What is Genoryn Krypton?", "A quantum-resistant, private-by-default proof-of-work cryptocurrency (ticker GNR) with Bitcoin's monetary design: 21 million coins, halvings, mining and a fair launch with no premine."),
+    ("Is Genoryn Krypton a fork of Bitcoin?", "No. It is an independent network with its own code and chain. It follows Bitcoin's monetary rules, its launch is tied to a Bitcoin block hash, and it trades with bitcoin through atomic swaps, but it shares no code or coins with Bitcoin."),
+    ("What makes it quantum-resistant?", "Funds are protected by zk-STARK proofs over hash functions, not by elliptic curves, so Shor's algorithm does not apply. Payment data is encrypted with hybrid X25519 + ML-KEM-1024, and releases are signed with ML-DSA and SLH-DSA."),
+    ("Is it anonymous?", "Transfers hide amounts, senders, recipients and memos for everyone, always. Mining payouts are public per miner, as on every chain; mine to a separate wallet to keep them unlinked."),
+    ("How is it different from Monero and Zcash?", "Monero and Zcash protect funds with elliptic-curve cryptography; GNR uses hash-based zk-STARKs and post-quantum encryption. Unlike Zcash, every GNR transfer is shielded; unlike Monero, supply is capped at 21 million."),
+    ("How can I get GNR?", "Mine it with a GPU or CPU from the wallet, or buy it with bitcoin through an atomic swap on the offer board. There was no presale and GNR is not listed on exchanges."),
+    ("Who created it, and who controls it?", "It was created by the pseudonymous Zarazi Sokani. Nobody controls the protocol: rules change only when node operators choose to run new software."),
+    ("Has it been audited?", "It has had an internal audit and a privately reported external review, whose findings are fixed. A full independent audit has not been done yet."),
+]
+
 HOWTO = {"@type": "HowTo", "name": "How to mine Genoryn Krypton (GNR)", "totalTime": "PT5M",
          "tool": [{"@type": "HowToTool", "name": "NVIDIA or AMD GPU, or any x86-64 CPU"}],
          "step": [
@@ -86,7 +107,7 @@ def graph(page):
     url = SITE + p["path"]
     items = [ORG, WEBSITE]
     if page == "home":
-        items += [APP, faq(HOME_FAQ),
+        items += [APP, CODE, faq(HOME_FAQ),
                   {"@type": "WebPage", "@id": url, "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"},
                    "about": {"@id": SITE + "/#wallet"}, "primaryImageOfPage": OG, "dateModified": TODAY}]
     elif page == "download":
@@ -99,6 +120,12 @@ def graph(page):
                    "publisher": {"@id": SITE + "/#org"}, "image": OG,
                    "about": ["post-quantum cryptography", "zk-STARK", "cryptocurrency mining", "light clients"]},
                   crumbs("Documentation", p["path"])]
+    elif page == "about":
+        items += [{"@type": "Article", "headline": "What is Genoryn Krypton?", "url": url, "inLanguage": "en",
+                   "dateModified": TODAY, "author": {"@type": "Person", "name": "Zarazi Sokani"},
+                   "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
+                   "about": ["Genoryn Krypton", "quantum-resistant cryptocurrency", "privacy coin", "post-quantum cryptography", "Bitcoin"]},
+                  CODE, faq(ABOUT_FAQ), crumbs("About", p["path"])]
     elif page == "explorer":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Explorer", p["path"])]
@@ -147,7 +174,21 @@ def sitemap():
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n'
 
 
-ROBOTS = f"User-agent: *\nAllow: /\nDisallow: /v1/\nDisallow: /rpc\n\nSitemap: {SITE}/sitemap.xml\n"
+_BOTS = ["Googlebot", "Google-Extended", "Bingbot", "GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot",
+         "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User", "Applebot", "Applebot-Extended",
+         "DuckDuckBot", "YandexBot", "CCBot", "Meta-ExternalAgent", "Amazonbot", "cohere-ai", "MistralAI-User"]
+ROBOTS = ("# Search engines and AI assistants are welcome. A plain-text summary for language models:\n"
+          f"# {SITE}/llms.txt (and the full version at {SITE}/llms-full.txt)\n\n"
+          + "".join(f"User-agent: {b}\n" for b in _BOTS)
+          + "Allow: /\nDisallow: /v1/\nDisallow: /rpc\n\n"
+          "User-agent: *\nAllow: /\nDisallow: /v1/\nDisallow: /rpc\n\n"
+          f"Sitemap: {SITE}/sitemap.xml\n")
+
+SECURITY_TXT = ("Contact: https://github.com/genoryn/genoryn/security/advisories/new\n"
+                "Policy: https://github.com/genoryn/genoryn/blob/main/SECURITY.md\n"
+                "Preferred-Languages: en\n"
+                f"Canonical: {SITE}/.well-known/security.txt\n"
+                "Expires: " + (datetime.date.today() + datetime.timedelta(days=365)).isoformat() + "T00:00:00Z\n")
 
 MANIFEST = json.dumps({
     "name": NAME, "short_name": "Genoryn", "description": "Quantum-resistant, private money.",

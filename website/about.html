@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is Genoryn Krypton (GNR)? The quantum-resistant, private cryptocurrency with Bitcoin's monetary design</title>
+<meta name="description" content="Genoryn Krypton (GNR) is a quantum-resistant, private-by-default proof-of-work cryptocurrency: Bitcoin's 21 million cap and halvings, zk-STARK shielded transfers, ML-KEM encryption, fair GPU/CPU mining and atomic swaps with bitcoin. Facts, comparison with Bitcoin, Monero and Zcash, and FAQ.">
+<!--SEO:about-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="about">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>About</span></nav>
+    <span class="eyebrow">About</span>
+    <h1 class="h2 glow">What is Genoryn Krypton?</h1>
+    <p class="lead"><b>Genoryn Krypton (GNR)</b> is a quantum-resistant, private-by-default proof-of-work cryptocurrency. It keeps Bitcoin's monetary design (21,000,000 coins, halvings about every four years, mining, no premine) and rebuilds the cryptography for the quantum era: coins are protected by hash-based zk-STARK proofs instead of elliptic curves, every transfer is shielded, and payment data is encrypted with NIST's post-quantum ML-KEM.</p>
+  </div>
+
+  <article class="prose docs-body about-body">
+    <section id="facts">
+      <h2>Key facts</h2>
+      <div class="table-wrap"><table class="data">
+        <tbody>
+          <tr><td data-label="Fact">Name / ticker</td><td data-label="Value">Genoryn Krypton · GNR (1 GNR = 100,000,000 gori)</td></tr>
+          <tr><td data-label="Fact">Type</td><td data-label="Value">Layer-1 proof-of-work cryptocurrency, open source (MIT or Apache-2.0)</td></tr>
+          <tr><td data-label="Fact">Launched</td><td data-label="Value">3 November 2026 (mainnet genesis bound to Bitcoin block 974,438)</td></tr>
+          <tr><td data-label="Fact">Supply</td><td data-label="Value">21,000,000 GNR at most; 5 GNR per block, halving every 2,100,000 blocks; no premine, no dev fee</td></tr>
+          <tr><td data-label="Fact">Block time</td><td data-label="Value">60 seconds</td></tr>
+          <tr><td data-label="Fact">Quantum resistance</td><td data-label="Value">zk-STARK spends (hash functions only), X25519 + ML-KEM-1024 note encryption, ML-DSA + SLH-DSA release signatures</td></tr>
+          <tr><td data-label="Fact">Privacy</td><td data-label="Value">Every transfer shielded: amounts, senders, recipients and memos hidden; no transparent mode</td></tr>
+          <tr><td data-label="Fact">Mining</td><td data-label="Value">KryptoHash (GPU-first, CPU-capable); rewards shared by every miner in proportion to its work, no pool needed</td></tr>
+          <tr><td data-label="Fact">Trading</td><td data-label="Value">Atomic BTC ⇄ GNR swaps on an anonymous offer board in the wallet; no exchange, no custody</td></tr>
+          <tr><td data-label="Fact">Creator</td><td data-label="Value">The pseudonymous Zarazi Sokani; no company, foundation or person controls the protocol</td></tr>
+          <tr><td data-label="Fact">Website / code</td><td data-label="Value"><a href="https://genoryn.io">genoryn.io</a> · <a href="https://github.com/genoryn/genoryn">github.com/genoryn/genoryn</a></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="bitcoin">
+      <h2>Genoryn Krypton and Bitcoin</h2>
+      <p>Genoryn Krypton follows Bitcoin's monetary rules almost exactly: a fixed cap of 21,000,000 coins, a block reward that halves about every four years, open proof-of-work mining and a fair launch with no premine. Its launch is even tied to Bitcoin: the genesis block commits to the hash of Bitcoin block 974,438, so no GNR could be mined before that moment, not even by its author.</p>
+      <p>What it adds is what Bitcoin does not have:</p>
+      <ul>
+        <li><b>Quantum resistance.</b> Bitcoin's coins are protected by elliptic-curve signatures (ECDSA and Schnorr on secp256k1), which a large quantum computer running Shor's algorithm could break. GNR is protected by hash functions only.</li>
+        <li><b>Privacy by default.</b> Bitcoin transactions show every amount and address forever. GNR transfers hide them for everyone, always.</li>
+        <li><b>Fair mining without pools.</b> Every block's reward is split among all miners by their work, so a single computer earns its share every block.</li>
+        <li><b>Wallets that verify.</b> Light wallets check the chain themselves with proofs of work and Merkle Mountain Range proofs, without trusting a server.</li>
+      </ul>
+      <p>In short: <b>Bitcoin's monetary design, rebuilt for the quantum era and private by default.</b> Genoryn Krypton is an independent network with its own code and chain; it is not a fork of Bitcoin and is not affiliated with Bitcoin's developers. The two are connected in practice by atomic swaps: GNR and bitcoin are exchanged directly between wallets.</p>
+    </section>
+
+    <section id="quantum">
+      <h2>Why quantum resistance matters</h2>
+      <p>Almost every cryptocurrency, Bitcoin included, rests on elliptic-curve cryptography. A sufficiently large quantum computer running <b>Shor's algorithm</b> could derive private keys from public keys and spend other people's coins, and could decrypt private transactions recorded today ("harvest now, decrypt later"). Money meant to hold value for decades cannot depend on that assumption.</p>
+      <p>Genoryn Krypton's protection of funds and privacy uses no elliptic curve at all:</p>
+      <ul>
+        <li><b>Spending</b> is a zero-knowledge proof (zk-STARK) of knowing a secret behind a hash. STARKs need no trusted setup and rely only on collision-resistant hashes, which quantum computers weaken only quadratically (Grover's algorithm); 256-bit hashes keep a 128-bit margin.</li>
+        <li><b>Encryption</b> of payment data is hybrid X25519 + ML-KEM-1024 (NIST FIPS 203), secure as long as either part holds.</li>
+        <li><b>Releases</b> are signed with ML-DSA-87 and SLH-DSA-SHAKE-256s (NIST FIPS 204 and 205), both of which must verify.</li>
+        <li>Every algorithm has a versioned identifier, so a weakened one can be replaced by a soft fork.</li>
+      </ul>
+    </section>
+
+    <section id="compare">
+      <h2>Comparison with Bitcoin, Monero and Zcash</h2>
+      <p>A factual comparison of the cryptography and design. Each project has its own strengths; this table only shows how they differ on quantum safety, privacy and mining.</p>
+      <div class="table-wrap"><table class="data cmp">
+        <thead><tr><th></th><th>Bitcoin</th><th>Monero</th><th>Zcash</th><th>Genoryn Krypton</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Compared">Spend authorization</td><td data-label="Bitcoin">ECDSA / Schnorr (secp256k1)</td><td data-label="Monero">Ring signatures (Ed25519)</td><td data-label="Zcash">zk-SNARKs over elliptic curves; transparent addresses use ECDSA</td><td data-label="Genoryn Krypton"><b>zk-STARK over hash functions</b></td></tr>
+          <tr><td data-label="Compared">Funds rely on elliptic curves (breakable by Shor's algorithm)</td><td data-label="Bitcoin">Yes</td><td data-label="Monero">Yes</td><td data-label="Zcash">Yes</td><td data-label="Genoryn Krypton"><b>No</b></td></tr>
+          <tr><td data-label="Compared">Post-quantum encryption of payment data</td><td data-label="Bitcoin">No (no encryption)</td><td data-label="Monero">No (Curve25519)</td><td data-label="Zcash">No (elliptic-curve key agreement)</td><td data-label="Genoryn Krypton"><b>Yes (X25519 + ML-KEM-1024)</b></td></tr>
+          <tr><td data-label="Compared">Privacy by default</td><td data-label="Bitcoin">No (transparent)</td><td data-label="Monero">Yes</td><td data-label="Zcash">Optional (transparent and shielded)</td><td data-label="Genoryn Krypton"><b>Yes, always</b></td></tr>
+          <tr><td data-label="Compared">Supply cap</td><td data-label="Bitcoin">21,000,000</td><td data-label="Monero">No hard cap (tail emission)</td><td data-label="Zcash">21,000,000</td><td data-label="Genoryn Krypton"><b>21,000,000</b></td></tr>
+          <tr><td data-label="Compared">Proof of work</td><td data-label="Bitcoin">SHA-256 (ASICs)</td><td data-label="Monero">RandomX (CPUs)</td><td data-label="Zcash">Equihash (ASICs)</td><td data-label="Genoryn Krypton"><b>KryptoHash (GPUs and CPUs)</b></td></tr>
+          <tr><td data-label="Compared">Small miners</td><td data-label="Bitcoin">Join a pool</td><td data-label="Monero">Join a pool (or P2Pool)</td><td data-label="Zcash">Join a pool</td><td data-label="Genoryn Krypton"><b>Paid by share every block, no pool</b></td></tr>
+          <tr><td data-label="Compared">Trusted setup</td><td data-label="Bitcoin">None</td><td data-label="Monero">None</td><td data-label="Zcash">None since Halo 2 (earlier ones had one)</td><td data-label="Genoryn Krypton"><b>None</b></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="how">
+      <h2>How it works, in five lines</h2>
+      <ol class="steps-list">
+        <li><b>Notes:</b> coins are private notes; spending reveals only a nullifier that prevents double spending.</li>
+        <li><b>Proofs:</b> each transfer carries a ~92 KB zk-STARK proof, built in about half a second and verified in about 2 ms.</li>
+        <li><b>Mining:</b> KryptoHash is memory-bandwidth bound; about 32 shares per block share every reward by work.</li>
+        <li><b>Wallets:</b> light wallets verify sampled headers, total work and every block they read; keys never leave the device.</li>
+        <li><b>Swaps:</b> GNR and bitcoin are exchanged with hash and time locks; the seller's GNR is locked before the buyer pays.</li>
+      </ol>
+      <p>Full details: <a href="/docs">documentation</a> · <a href="https://github.com/genoryn/genoryn/tree/main/docs/spec">specifications</a>.</p>
+    </section>
+
+    <section id="start">
+      <h2>Get started</h2>
+      <p><a href="/download">Download the wallet</a> for Windows or Linux, create a wallet, and <a href="/mining">mine</a> on a GPU or CPU, or buy GNR with bitcoin on the <a href="/market">offer board</a>. See the live network in the <a href="/explorer">explorer</a>.</p>
+    </section>
+
+    <section id="faq">
+      <h2>Frequently asked questions</h2>
+      <details class="glass"><summary>What is Genoryn Krypton?</summary><p>A quantum-resistant, private-by-default proof-of-work cryptocurrency (ticker GNR) with Bitcoin's monetary design: 21 million coins, halvings, mining and a fair launch with no premine.</p></details>
+      <details class="glass"><summary>Is Genoryn Krypton a fork of Bitcoin?</summary><p>No. It is an independent network with its own code and chain. It follows Bitcoin's monetary rules, its launch is tied to a Bitcoin block hash, and it trades with bitcoin through atomic swaps, but it shares no code or coins with Bitcoin.</p></details>
+      <details class="glass"><summary>What makes it quantum-resistant?</summary><p>Funds are protected by zk-STARK proofs over hash functions, not by elliptic curves, so Shor's algorithm does not apply. Payment data is encrypted with hybrid X25519 + ML-KEM-1024, and releases are signed with ML-DSA and SLH-DSA.</p></details>
+      <details class="glass"><summary>Is it anonymous?</summary><p>Transfers hide amounts, senders, recipients and memos for everyone, always. Mining payouts are public per miner, as on every chain; mine to a separate wallet to keep them unlinked.</p></details>
+      <details class="glass"><summary>How is it different from Monero and Zcash?</summary><p>Monero and Zcash protect funds with elliptic-curve cryptography; GNR uses hash-based zk-STARKs and post-quantum encryption. Unlike Zcash, every GNR transfer is shielded; unlike Monero, supply is capped at 21 million.</p></details>
+      <details class="glass"><summary>How can I get GNR?</summary><p>Mine it with a GPU or CPU from the wallet, or buy it with bitcoin through an atomic swap on the offer board. There was no presale and GNR is not listed on exchanges.</p></details>
+      <details class="glass"><summary>Who created it, and who controls it?</summary><p>It was created by the pseudonymous Zarazi Sokani. Nobody controls the protocol: rules change only when node operators choose to run new software.</p></details>
+      <details class="glass"><summary>Has it been audited?</summary><p>It has had an internal audit and a privately reported external review, whose findings are fixed. A full independent audit has not been done yet.</p></details>
+    </section>
+  </article>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

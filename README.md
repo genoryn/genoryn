@@ -22,6 +22,8 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
+**Genoryn Krypton (GNR)** is a quantum-resistant, private-by-default proof-of-work cryptocurrency with **Bitcoin's monetary design**: at most 21,000,000 coins, a 5 GNR block reward that halves every 2,100,000 blocks (about four years), 60-second blocks and a fair launch with no premine. Its funds are protected by hash-based **zk-STARK** proofs instead of elliptic curves, every transfer is **shielded**, payment data is encrypted with hybrid **X25519 + ML-KEM-1024** (NIST FIPS 203), every miner is paid in proportion to its work without a pool, light wallets verify the chain themselves, and GNR is exchanged with bitcoin through **atomic swaps** in the wallet. In short: Bitcoin's monetary design, rebuilt for the quantum era and private by default. Open source (MIT or Apache-2.0); website [genoryn.io](https://genoryn.io), overview [genoryn.io/about](https://genoryn.io/about).
+
 <table>
   <tr>
     <td width="50%"><img src="docs/images/wallet.webp" alt="Network tab: hashrate, estimated miners, supply and live charts"></td>

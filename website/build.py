@@ -16,6 +16,17 @@ DESIGN = ROOT.parent / "design"
 DIST = ROOT / "dist"
 
 
+def llms_full():
+    """README.md as plain Markdown for language models: no HTML, absolute links."""
+    text = (ROOT.parent / "README.md").read_text(encoding="utf-8")
+    text = text[text.index("## Why this exists"):]
+    repo = "https://github.com/genoryn/genoryn/blob/main/"
+    text = re.sub(r"\]\((?!https?:|#)([^)]+)\)", lambda m: f"]({repo}{m.group(1)})", text)
+    text = re.sub(r"</?(details|summary|b)>", "", text)
+    head = (ROOT / "llms.txt").read_text(encoding="utf-8").split("\n## ", 1)[0].rstrip()
+    return head + "\n\n" + text
+
+
 def main():
     if DIST.exists():
         shutil.rmtree(DIST)
@@ -48,6 +59,12 @@ def main():
     (DIST / "sitemap.xml").write_text(seo.sitemap(), encoding="utf-8")
     (DIST / "robots.txt").write_text(seo.ROBOTS, encoding="utf-8")
     (DIST / "site.webmanifest").write_text(seo.MANIFEST, encoding="utf-8")
+    # For language models: the summary, and the full README with absolute links.
+    shutil.copy(ROOT / "llms.txt", DIST / "llms.txt")
+    (DIST / "llms-full.txt").write_text(llms_full(), encoding="utf-8")
+    (DIST / ".well-known").mkdir()
+    (DIST / ".well-known" / "security.txt").write_text(seo.SECURITY_TXT, encoding="utf-8")
+    (DIST / f"{seo.INDEXNOW_KEY}.txt").write_text(seo.INDEXNOW_KEY, encoding="utf-8")
     if (ROOT / "assets" / "favicon.ico").exists():
         shutil.copy(ROOT / "assets" / "favicon.ico", DIST / "favicon.ico")
     print("built", DIST)
