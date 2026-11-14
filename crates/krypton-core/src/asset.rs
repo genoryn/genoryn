@@ -410,7 +410,6 @@ pub fn check_state(
             Some((_, fp)) if hex::encode(issuer_fingerprint(&m.issuer)) != *fp => {
                 return bad("ticker reserved for another issuer");
             }
-            None if m.is_project_coin() => return bad("this ticker is reserved"),
             _ => {}
         }
         for k in keys {

@@ -23,10 +23,6 @@ pub const MAX_DECIMALS: u8 = 8;
 pub const RESERVED_TICKERS: &[&str] = &["GNRK", "BTCK", "XBTK", "KRK", "KRYPTONK", "GENORYNK"];
 /// Words no coin name may contain (any case).
 pub const RESERVED_NAME_WORDS: &[&str] = &["genoryn", "bitcoin"];
-/// The project's own coins whose name or ticker is otherwise reserved: the manifest rules
-/// allow exactly these pairs, and consensus accepts them only from the issuer key a network
-/// reserves them for (no one else can ever deploy them).
-pub const PROJECT_COINS: &[(&str, &str)] = &[("BTCK", "Bitcoin Krypton")];
 /// Tickers of major coins: wallets mark coins using them as possible impersonations
 /// unless verified (this is not a consensus rule).
 pub const MAJOR_TICKERS: &[&str] = &[
@@ -244,11 +240,6 @@ impl Manifest {
         Ok(m)
     }
 
-    /// One of [`PROJECT_COINS`]: valid only where the network reserves it.
-    pub fn is_project_coin(&self) -> bool {
-        PROJECT_COINS.contains(&(self.ticker.as_str(), self.name.as_str()))
-    }
-
     /// The consensus rules every manifest must satisfy.
     pub fn validate(&self) -> Result<(), AssetError> {
         let name = &self.name;
@@ -260,11 +251,10 @@ impl Manifest {
             return bad("the name must be 3 to 40 printable ASCII characters");
         }
         if !name.ends_with(" Krypton") || name.len() == " Krypton".len() {
-            return bad("the name must end with \" Krypton\" (e.g. \"Dollar Krypton\")");
+            return bad("the name must end with \" Krypton\" (e.g. \"Nova Krypton\")");
         }
-        let project = self.is_project_coin();
         let lower = name.to_ascii_lowercase();
-        if !project && RESERVED_NAME_WORDS.iter().any(|w| lower.contains(w)) {
+        if RESERVED_NAME_WORDS.iter().any(|w| lower.contains(w)) {
             return bad("this name is reserved");
         }
         let t = &self.ticker;
@@ -274,9 +264,9 @@ impl Manifest {
                 .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
             || !t.ends_with('K')
         {
-            return bad("the ticker must be 2 to 9 characters A-Z 0-9 ending with K (e.g. USDK)");
+            return bad("the ticker must be 2 to 9 characters A-Z 0-9 ending with K (e.g. NOVAK)");
         }
-        if !project && RESERVED_TICKERS.contains(&t.as_str()) {
+        if RESERVED_TICKERS.contains(&t.as_str()) {
             return bad("this ticker is reserved");
         }
         if self.decimals > MAX_DECIMALS {
@@ -608,19 +598,6 @@ mod tests {
         assert!(!ok(&|m| m.ticker = "usdk".into()), "upper case");
         assert!(!ok(&|m| m.ticker = "BTCK".into()), "reserved ticker");
         assert!(!ok(&|m| m.ticker = "GNRK".into()), "reserved ticker");
-        // The project's Bitcoin coin: exactly that name with exactly that ticker.
-        assert!(ok(&|m| {
-            m.ticker = "BTCK".into();
-            m.name = "Bitcoin Krypton".into();
-        }));
-        assert!(!ok(&|m| {
-            m.ticker = "BTCK".into();
-            m.name = "Bitcoin Gold Krypton".into();
-        }));
-        assert!(!ok(&|m| {
-            m.ticker = "XBTCK".into();
-            m.name = "Bitcoin Krypton".into();
-        }));
         assert!(
             ok(&|m| m.ticker = "SOLK".into()),
             "majors are a wallet warning, not consensus"

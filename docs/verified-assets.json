@@ -1,42 +1,6 @@
 {
   "version": 1,
   "about": "Krypton coins verified by the Genoryn project (docs/spec/assets.md). Signed with the release key under the context genoryn-krypton/verified-coins/v1. Verification is about identity only: it says who issues a coin, never that it is safe or worth anything.",
-  "updated": "2026-11-14T19:30Z",
-  "coins": [
-    {
-      "network": "mainnet",
-      "id": "9276b70f351cc3f8f7257be9fed1c15f00",
-      "ticker": "USDK",
-      "name": "Dollar Krypton",
-      "issuer": "Genoryn Krypton project",
-      "logo": "coins/usdk.svg",
-      "note": "Issuer-backed by US dollar reserves held by the issuer: 1 USDK per US dollar; redeemed by burning. Never pausable."
-    },
-    {
-      "network": "mainnet",
-      "id": "03fac234af5d2e0fd809a6f374750a8f00",
-      "ticker": "EURK",
-      "name": "Euro Krypton",
-      "issuer": "Genoryn Krypton project",
-      "logo": "coins/eurk.svg",
-      "note": "Issuer-backed by euro reserves held by the issuer: 1 EURK per euro; redeemed by burning. Never pausable."
-    },
-    {
-      "network": "mainnet",
-      "id": "1ad328cd4e460782828081bb1634438e00",
-      "ticker": "BTCK",
-      "name": "Bitcoin Krypton",
-      "issuer": "Genoryn Krypton project",
-      "logo": "coins/btck.svg",
-      "note": "Issuer-backed by bitcoin held by the issuer: 1 BTCK per BTC, so it follows the price of bitcoin; redeemed by burning. At most 21,000,000. Never pausable."
-    },
-    {
-      "network": "mainnet",
-      "id": "72ea2606f0ce1d4d2330a06d74972e3a00",
-      "ticker": "GENOK",
-      "name": "Geno Krypton",
-      "issuer": "Genoryn Krypton project",
-      "note": "The project's test coin: exactly 10,000 GENOK, issued once, not backed by anything. Never pausable."
-    }
-  ]
+  "updated": "2026-11-14T20:00Z",
+  "coins": []
 }

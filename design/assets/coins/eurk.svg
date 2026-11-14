@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Euro Krypton (EURK)">
-  <circle cx="32" cy="32" r="31" fill="#0b0b0c"/>
-  <circle cx="32" cy="32" r="28.5" fill="none" stroke="#fafafa" stroke-width="2.6"/>
-  <circle cx="32" cy="32" r="24" fill="none" stroke="#fafafa" stroke-opacity=".16" stroke-width="1"/>
-  <g fill="none" stroke="#fafafa" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M40.4 23.4A11 11 0 1 0 40.4 40.6" stroke-width="3"/>
-    <path d="M21 29.2h14.5M21 34.8h12.5" stroke-width="2.6"/>
-  </g>
-</svg>

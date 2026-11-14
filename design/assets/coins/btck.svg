@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bitcoin Krypton (BTCK)">
-  <circle cx="32" cy="32" r="31" fill="#0b0b0c"/>
-  <circle cx="32" cy="32" r="28.5" fill="none" stroke="#fafafa" stroke-width="2.6"/>
-  <circle cx="32" cy="32" r="24" fill="none" stroke="#fafafa" stroke-opacity=".16" stroke-width="1"/>
-  <g fill="none" stroke="#fafafa" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M25.5 20.5h8.3c3.3 0 5.7 2 5.7 5.1 0 3-2.4 5-5.7 5h-8.3M25.5 30.6h9.4c3.6 0 6.1 2.1 6.1 5.4 0 3.4-2.5 5.5-6.1 5.5h-9.4V20.5" stroke-width="3"/>
-    <path d="M29 16.5v4M34 16.5v4M29 41.5v4.5M34 41.5v4.5" stroke-width="2.4"/>
-  </g>
-</svg>

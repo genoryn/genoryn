@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.36</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.37</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -50,12 +50,8 @@
         <li><a href="#swaps">Atomic swaps</a></li>
         <li><a href="#board">The offer board</a></li>
         <li><a href="#market">Market price</a></li>
-        <li class="toc-group">Krypton coins</li>
+        <li class="toc-group">Coming soon</li>
         <li><a href="#coins">Quantum coins</a></li>
-        <li><a href="#coin-manifest">The coin manifest</a></li>
-        <li><a href="#coin-ops">Issuing, sending, burning</a></li>
-        <li><a href="#coin-swaps">Coin swaps</a></li>
-        <li><a href="#coin-verify">Verification &amp; risks</a></li>
         <li class="toc-group">Protocol</li>
         <li><a href="#consensus">Consensus rules</a></li>
         <li><a href="#transactions">Transactions</a></li>
@@ -440,92 +436,15 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
       </section>
 
       <section id="coins">
-        <h2>Quantum coins</h2>
-        <p><b>Krypton coins</b> are coins anyone can issue on Genoryn Krypton: stable coins backed by an issuer's reserves (Dollar Krypton, USDK; Euro Krypton, EURK; Bitcoin Krypton, BTCK, which follows the price of bitcoin), bridged coins from other chains (a future SOLK), or coins of a project or community. They live in the same shielded note tree as GNR and move the same way: every transfer is a zk-STARK proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
+        <h2>Quantum coins (coming soon)</h2>
+        <p><b>Coming in a future release.</b> Quantum coins will be coins anyone can issue on Genoryn Krypton, or bring from another network. They will live in the same shielded note tree as GNR and move the same way: every transfer a zk-STARK proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
         <ul>
-          <li><b>No smart contracts.</b> A coin is a short declarative <a href="#coin-manifest">manifest</a>. What its issuer can do (create more, pause transfers) is declared once, hashed into the coin's id and shown to every holder in plain words. It can never change.</li>
-          <li><b>GNR is the fuel.</b> Every fee is paid in GNR, a deploy costs 10 GNR (paid to the miners), and coins trade only against GNR.</li>
-          <li><b>Supply anyone can audit.</b> Transfers are private; issues and burns are public, so every coin's supply is known at every block.</li>
-          <li><b>Activation.</b> Coins are a consensus upgrade (version-3 transactions), valid from an announced block height on, like the lock spends of atomic swaps before them. <code>/v1/info</code> reports it as <code>assets_height</code>.</li>
+          <li><b>No smart contracts.</b> A coin is a short public declaration of everything its issuer may ever do (supply, burning, pausing). It is hashed into the coin's id, can never change, and every wallet shows it to holders in plain words.</li>
+          <li><b>GNR at the core.</b> Fees are paid in GNR, creating a coin carries a fee paid to the miners, and coins trade against GNR in one atomic transaction between two wallets.</li>
+          <li><b>Supply anyone can audit.</b> Transfers stay private; creating and destroying coins is public.</li>
+          <li><b>Status.</b> The design is implemented and tested, but not active on mainnet: coin transactions are a consensus upgrade whose activation height will be announced with a future release. <code>/v1/info</code> will report it as <code>assets_height</code>.</li>
         </ul>
-        <p>In the wallet: the <b>Coins</b> tab (balances, private sends, the coin market, the issue wizard). On the command line: <code>krypton-wallet-cli coin ...</code>. Overview for everyone: <a href="/coins">genoryn.io/coins</a>. Specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/assets.md">docs/spec/assets.md</a>.</p>
-      </section>
-
-      <section id="coin-manifest">
-        <h2>The coin manifest</h2>
-        <p>A manifest (Krypton Asset Manifest, KAM v1) is plain text with one canonical encoding: fixed keys in a fixed order, one per line. Consensus accepts only the canonical form, so the same coin can never have two encodings.</p>
-        <pre class="code">kam: 1
-name: Dollar Krypton
-ticker: USDK
-decimals: 2
-supply: mintable
-cap: none
-burn: holders
-pause: no
-backing: issuer-reserves
-reserves: https://example.org/reserves
-website: https://example.org
-issuer: &lt;ML-DSA-87 public key, hex&gt;</pre>
-        <div class="table-wrap"><table class="data">
-          <thead><tr><th>Field</th><th>Rule</th></tr></thead>
-          <tbody>
-            <tr><td data-label="Field"><code>name</code></td><td data-label="Rule">3 to 40 ASCII characters ending in “ Krypton”; may not contain “Genoryn” or “Bitcoin” (the one exception is the project's “Bitcoin Krypton”, see below); unique on chain (case-insensitive).</td></tr>
-            <tr><td data-label="Field"><code>ticker</code></td><td data-label="Rule">2 to 9 of A–Z and 0–9 ending in K; unique on chain. GNRK, XBTK, KRK, KRYPTONK and GENORYNK are refused. BTCK exists only as the project's Bitcoin Krypton: consensus accepts exactly that name and ticker, and only from the issuer key the network reserves it for. Any ticker can be reserved for one issuer key by the network parameters (on mainnet USDK, EURK and BTCK).</td></tr>
-            <tr><td data-label="Field"><code>decimals</code></td><td data-label="Rule">0 to 8.</td></tr>
-            <tr><td data-label="Field"><code>supply</code>, <code>cap</code></td><td data-label="Rule"><code>fixed</code>: issued once, exactly <code>cap</code>. <code>mintable</code>: the issuer may issue more, up to <code>cap</code> (or without limit with <code>none</code>). Never above 2<sup>60</sup> − 1 base units.</td></tr>
-            <tr><td data-label="Field"><code>burn</code></td><td data-label="Rule"><code>holders</code> (holders may destroy their coins, publicly) or <code>none</code>.</td></tr>
-            <tr><td data-label="Field"><code>pause</code></td><td data-label="Rule"><code>yes</code>: the issuer may stop all transfers. Such a coin's transfers always show which coin moves (never who or how much), so a pause can be enforced. <code>no</code>: nobody can ever stop it.</td></tr>
-            <tr><td data-label="Field"><code>backing</code></td><td data-label="Rule"><code>none</code>, <code>issuer-reserves</code> (needs <code>reserves</code>) or <code>bridge</code> (needs <code>origin</code>, e.g. <code>solana:SOL</code>).</td></tr>
-            <tr><td data-label="Field"><code>reserves</code>, <code>website</code>, <code>terms</code></td><td data-label="Rule">Optional https URLs, at most 200 characters.</td></tr>
-            <tr><td data-label="Field"><code>logo</code></td><td data-label="Rule">Optional SHA-256 of the logo file. Wallets show logos of verified coins only.</td></tr>
-            <tr><td data-label="Field"><code>issuer</code></td><td data-label="Rule">The issuer's ML-DSA-87 public key. Wallets derive it from the 24 words, so a coin can always be issued again after a restore.</td></tr>
-          </tbody>
-        </table></div>
-        <p>The coin id is a hash of the canonical manifest, with one extra bit that says whether the coin can be paused. The id goes into every note of the coin: a note commits to <code>[value, a0, a1, pausable]</code>, so notes of one coin can never be spent as another, or as GNR.</p>
-      </section>
-
-      <section id="coin-ops">
-        <h2>Issuing, sending, burning</h2>
-        <p>Coins use version-3 transactions. Each carries one action and a coin part:</p>
-        <div class="table-wrap"><table class="data">
-          <thead><tr><th>Operation</th><th>What happens</th><th>Fee</th></tr></thead>
-          <tbody>
-            <tr><td data-label="Operation"><b>deploy</b></td><td data-label="What happens">Publishes the manifest, signed by the issuer key. The ticker and name are taken from then on.</td><td data-label="Fee">10 GNR + the network fee</td></tr>
-            <tr><td data-label="Operation"><b>issue</b></td><td data-label="What happens">Creates units to any address, signed by the issuer, within the declared supply. Public amount.</td><td data-label="Fee">Network fee in GNR</td></tr>
-            <tr><td data-label="Operation"><b>transfer</b></td><td data-label="What happens">A private coin spend. The coin stays hidden unless the coin is pausable.</td><td data-label="Fee">Network fee in GNR</td></tr>
-            <tr><td data-label="Operation"><b>burn</b></td><td data-label="What happens">Destroys units of a coin that allows burning. Public amount.</td><td data-label="Fee">Network fee in GNR</td></tr>
-            <tr><td data-label="Operation"><b>pause / unpause</b></td><td data-label="What happens">Stops or resumes all transfers of a pausable coin, signed by the issuer.</td><td data-label="Fee">Network fee in GNR</td></tr>
-          </tbody>
-        </table></div>
-        <p>A coin movement carries two proofs: the coin spend (which pays no fee) and a GNR spend that pays it, both bound to the same signed hash, so neither can be lifted into another transaction. That makes a coin transfer about twice the size of a GNR transfer, and it pays about twice the fee. The issuer's signature covers everything but the proofs.</p>
-        <pre class="code">krypton-wallet-cli coin new --name "Dollar Krypton" --ticker USDK --decimals 2 --supply mintable \
-    --burn --backing issuer-reserves --reserves https://example.org/reserves --out usdk.kam
-krypton-wallet-cli coin deploy usdk.kam          # 10 GNR
-krypton-wallet-cli coin issue USDK &lt;address&gt; 1000
-krypton-wallet-cli coin send USDK &lt;address&gt; 25.50 --memo "invoice 17"
-krypton-wallet-cli coin burn USDK 10
-krypton-wallet-cli coin balance
-krypton-wallet-cli coin info USDK                # manifest, supply, risks</pre>
-        <p>Payment proofs work for coins too: the proof names the coin and the amount of the one payment it discloses.</p>
-      </section>
-
-      <section id="coin-swaps">
-        <h2>Coin swaps</h2>
-        <p>Coins trade against GNR on the coin market in the wallet (the same anonymous board as bitcoin swaps, with its own offers). Because both sides are on the same chain, a swap is <b>one transaction</b>:</p>
-        <ol class="steps-list">
-          <li>The buyer's wallet builds an unproven GNR spend that pays the seller (and the fee).</li>
-          <li>The seller's wallet checks that it pays the agreed GNR, adds its coin spend paying the buyer, proves it and sends the transaction back.</li>
-          <li>The buyer's wallet checks that it pays the agreed coin and keeps its half unchanged, adds its proof and submits.</li>
-        </ol>
-        <p>Until the buyer's proof exists the transaction is invalid, and it expires 20 blocks later, so nobody can lose anything or hold the other side's offer open. On chain the swap is an ordinary private transfer. Messages between the wallets are sealed with each offer's one-time post-quantum key; the seller's message carries a proof (about 100 KB) and needs a little more proof of work.</p>
-        <p><b>Market price.</b> The plain average of a coin's completed swaps in the last 72 hours (or of all if there are none), without outliers more than 4× from the median once there are three. The buyer reports a swap with the one-time keys of the two outputs that cross; the board opens them on the mined transaction and counts the swap only if they hold exactly the reported amounts, so a report cannot invent a price. Offers never move it.</p>
-      </section>
-
-      <section id="coin-verify">
-        <h2>Verification &amp; risks</h2>
-        <p>Anyone can deploy a coin with any name the rules allow. The project keeps a list of coins whose issuer it identified, signed with the post-quantum release key under its own context (<a href="/verified-assets.json">/verified-assets.json</a> and <a href="/verified-assets.json.sig">.sig</a>). Wallets trust no unsigned list; verified coins get a check mark, their checked issuer name and their logo, and no other coin's logo is ever shown. Verification is about identity only: it never says that a coin is safe or worth anything.</p>
-        <p>Wallets show these risk labels under every coin, generated from its manifest: fixed supply, the issuer can create more (up to a cap, or without limit), holders can burn, the issuer can stop all transfers, the value depends on the issuer's reserves or on a custodial bridge, not backed by anything, not verified, and the ticker of a major coin (possible impersonation). Read them before accepting a coin.</p>
-        <p><b>API.</b> <code>GET /v1/assets</code> lists every coin (manifest fields, supply, risk labels); <code>GET /v1/asset/{id or ticker}</code> adds the canonical manifest, whose hash must equal the id, so a light client can check what a node tells it; <code>GET /v1/swap/coins</code> returns coin offers and markets; <code>POST /v1/swap/coin-trade</code> reports a completed swap.</p>
+        <p>The wallet's <b>Coins</b> tab explains them and turns on by itself once they are active. Overview: <a href="/coins">genoryn.io/coins</a>. Design: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/assets.md">docs/spec/assets.md</a>.</p>
       </section>
 
       <section id="consensus">

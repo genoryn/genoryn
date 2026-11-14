@@ -137,12 +137,7 @@ mod tests {
     fn unsigned_or_altered_lists_are_ignored() {
         assert!(check(b"{\"version\":1,\"updated\":\"x\",\"coins\":[]}", "00").is_none());
         // The bundled list is signed by the release key, and one changed byte voids it.
-        let (_, coins) = check(BUNDLED.as_bytes(), BUNDLED_SIG).expect("bundled list signed");
-        assert!(
-            coins
-                .iter()
-                .any(|c| c.ticker == "USDK" && c.network == "mainnet")
-        );
+        check(BUNDLED.as_bytes(), BUNDLED_SIG).expect("bundled list signed");
         let mut altered = BUNDLED.as_bytes().to_vec();
         altered.push(b' ');
         assert!(check(&altered, BUNDLED_SIG).is_none());

@@ -9,7 +9,7 @@ Key facts:
 - Privacy: amounts, senders, recipients and memos are hidden for everyone; there is no transparent mode. Mining payouts are public per miner.
 - Mining: KryptoHash v1, memory-bandwidth bound, GPU-first (CUDA, OpenCL) and CPU-capable; an RTX 5090 does about 75-83 MH/s. About 32 shares per block each earn an equal slice of the reward pool; payouts every 360 blocks.
 - Trading: atomic BTC-GNR swaps on an anonymous offer board; the seller's GNR is locked on chain before the buyer pays. The market price is the plain average of completed swaps; offers never move it. Not listed on exchanges; no presale.
-- Quantum coins (Krypton coins): anyone can issue a coin on Genoryn Krypton (the project's Dollar Krypton USDK, Euro Krypton EURK and Bitcoin Krypton BTCK, which follows the price of bitcoin; bridged coins; project coins). Coin transfers are as private as GNR's (zk-STARK proofs hide the coin, amounts and parties); what an issuer may do (create more, let holders burn, pause) is declared once in a public manifest hashed into the coin's id and can never change; fees are paid in GNR; deploying costs 10 GNR; coins trade against GNR in one atomic transaction. GNR names are refused and the Bitcoin name belongs only to the project's BTCK; the project publishes a signed list of verified issuers. Slogan: "Bring your coin to the quantum network."
+- Quantum coins (coming in a future release): coins anyone will be able to issue or bring from another network, as private and quantum-safe as GNR (zk-STARK proofs hide the coin, amounts and parties), with everything an issuer may do declared up front and unchangeable, fees in GNR and trading against GNR in one atomic transaction. Designed and tested, not active on mainnet yet; the activation height will be announced with a future release.
 - Wallet: Windows and Linux desktop wallet with built-in miner and optional full node; light mode verifies the chain itself (FlyClient-style proofs, follows the most work).
 - Relation to Bitcoin: an independent network (not a fork, not affiliated) that keeps Bitcoin's monetary rules and adds quantum resistance and privacy by default.
 - Status: internal audit and a privately reported external review, findings fixed; no full independent audit yet.
@@ -21,7 +21,7 @@ Key facts:
 - [Download](https://genoryn.io/download): wallet, node and miner for Windows and Linux
 - [Mining](https://genoryn.io/mining): how to mine on GPU or CPU, rewards, live mining and price calculator
 - [Market](https://genoryn.io/market): live offer board, market price and completed swaps
-- [Quantum coins](https://genoryn.io/coins): every Krypton coin on chain, risks, verification policy, USDK, EURK and BTCK with their reserves, how to issue a coin
+- [Quantum coins](https://genoryn.io/coins): what quantum coins will be (coming in a future release)
 - [Explorer](https://genoryn.io/explorer): live blocks, supply, hashrate and network stats
 
 ## Source and specifications

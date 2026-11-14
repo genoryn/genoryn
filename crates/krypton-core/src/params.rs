@@ -134,25 +134,10 @@ impl Network {
                 // Atomic swaps (lock spends) activate here: announced with 1.0.13, about a
                 // day after its release, so wallets and nodes update first.
                 lock_height: 3_300,
-                // Krypton coins activate here: announced with 1.0.35, about a day after its
-                // release, so wallets and nodes update first.
-                assets_height: 17_100,
-                // The project's coins: only its issuer key may deploy them (BTCK is
-                // otherwise refused to everyone, see krypton_assets::PROJECT_COINS).
-                reserved_coins: &[
-                    (
-                        "USDK",
-                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
-                    ),
-                    (
-                        "EURK",
-                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
-                    ),
-                    (
-                        "BTCK",
-                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
-                    ),
-                ],
+                // Krypton coins are planned: their activation height will be announced with a
+                // future release (older nodes reject them, so it is a hard fork).
+                assets_height: u64::MAX,
+                reserved_coins: &[],
             },
             Self::Testnet => ChainParams {
                 network: self,

@@ -1,11 +1,11 @@
-# Krypton coins (assets)
+# Quantum coins (Krypton coins)
 
-*"Bring your coin to the quantum network."*
+> **Status: coming in a future release.** This design is implemented and tested but not
+> active on mainnet. Its activation height will be announced with a future release.
 
-Krypton coins are coins issued by anyone on Genoryn Krypton: a dollar coin backed by an
-issuer's reserves (`Dollar Krypton`, USDK), a euro coin (`Euro Krypton`, EURK), a bridged
-coin from another chain (`Solana Krypton`, SOLK), a community coin. They are as private and
-as quantum-safe as GNR, and they follow three rules that ordinary token platforms do not:
+Quantum coins are coins anyone will be able to issue on Genoryn Krypton, or bring from
+another network. They are as private and as quantum-safe as GNR, and they follow three rules
+that ordinary token platforms do not:
 
 1. **Transfers are always shielded.** Amounts, senders, recipients and even *which coin*
    moves are hidden. Only issuance, burns and pauses are public, so every coin's supply can
@@ -24,17 +24,17 @@ KAM v1). It is not code: there is nothing to execute and nothing to hide.
 
 ```
 kam: 1
-name: Dollar Krypton
-ticker: USDK
+name: Example Krypton
+ticker: EXAMPLEK
 decimals: 6
 supply: mintable
 cap: none
 burn: holders
 pause: no
 backing: issuer-reserves
-reserves: https://genoryn.io/coins/usdk/reserves
-website: https://genoryn.io/coins/usdk
-terms: https://genoryn.io/coins/usdk/terms
+reserves: https://example.org/reserves
+website: https://example.org
+terms: https://example.org/terms
 logo: 3f1c…(SHA-256 of the logo file, hex)
 issuer: 9a07…(ML-DSA-87 public key, hex)
 ```
@@ -50,7 +50,7 @@ issuer: 9a07…(ML-DSA-87 public key, hex)
 | `burn` | `holders` (anyone holding the coin may destroy it, e.g. to redeem it) or `none` |
 | `pause` | `yes` (the issuer may stop all transfers of this coin) or `no` |
 | `backing` | `none`, `issuer-reserves` (needs `reserves`), or `bridge` (needs `origin` and `reserves`) |
-| `origin` | for bridges: the original chain and coin, e.g. `solana:SOL` |
+| `origin` | for bridges: the original chain and coin, as `chain:COIN` |
 | `reserves`, `website`, `terms` | optional HTTPS URLs (≤ 200 characters) |
 | `logo` | optional SHA-256 of the logo image (shown only once the coin is verified) |
 | `issuer` | the issuer's ML-DSA-87 public key (post-quantum signatures) |
@@ -64,12 +64,8 @@ endings, no trailing spaces. Anything else is refused, so one coin has exactly o
 `(a0, a1)` is already registered or is `(0, 0)`.
 
 **Reserved names.** Consensus refuses tickers `GNRK`, `BTCK`, `XBTK`, `KRK`, `KRYPTONK`,
-`GENORYNK` and names containing `Genoryn` or `Bitcoin` (any case), with one exception: the
-project's own coin `Bitcoin Krypton` / `BTCK` (exactly that pair, `PROJECT_COINS`), which
-consensus accepts only from the issuer key the network reserves `BTCK` for (since 1.0.36;
-nowhere else can anyone deploy it). Wallets additionally mark
-coins using the ticker of a major coin (`ETHK`, `SOLK`, `USDTK`, `USDCK`, …) as possible
-impersonations until verified (below).
+`GENORYNK` and names containing `Genoryn` or `Bitcoin` (any case). Wallets additionally mark
+coins using the ticker of a major coin as possible impersonations until verified (below).
 
 ## Risk labels
 
@@ -135,14 +131,13 @@ Version-1 proofs (GNR only) stay valid. Consensus requires `mint > 0` only with 
 
 ## Activation and reserved tickers
 
-Version-3 transactions are valid from `assets_height` on: block **17,100** on mainnet
-(released with 1.0.35, about a day earlier), devnet from genesis, testnet not yet. Older
-nodes reject them, so this is a hard fork like the activation of lock spends.
+Version-3 transactions are valid from `assets_height` on: on devnet from genesis; on mainnet
+and testnet not yet (the height will be announced with a future release, about a day ahead).
+Older nodes reject them, so this is a hard fork like the activation of lock spends.
 
 Each network may reserve tickers for one issuer key, by the key's fingerprint
-`SHA3("Krypton/asset/issuer", key)` in the network parameters. On mainnet USDK, EURK and BTCK are
-reserved for the project's issuer key, so nobody can deploy them first. Tickers and names are
-otherwise first come, first served.
+`SHA3("Krypton/asset/issuer", key)` in the network parameters, so nobody else can deploy
+them first. Tickers and names are otherwise first come, first served.
 
 ## Supply and state
 

@@ -1453,7 +1453,7 @@ impl Chain {
         Ok(s)
     }
 
-    /// The coin registered under a ticker (`USDK`).
+    /// The coin registered under a ticker (`NOVAK`).
     pub fn asset_by_ticker(&self, ticker: &str) -> Result<Option<AssetId>> {
         Ok(self
             .view()?

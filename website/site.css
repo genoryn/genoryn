@@ -567,3 +567,11 @@ main { overflow-x: clip; }
 .cn-reserves { padding: 22px 24px; }
 .stats-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; } @media (max-width: 860px) { .stats-4 { grid-template-columns: 1fr 1fr; } }
 .cn-statsb { padding-top: 0; }
+
+.cn-orbit-soon { display: grid; place-items: center; animation: cn-spin 60s linear infinite; }
+.cn-orbit-soon .cn-big { position: static; width: 120px; height: 120px; color: var(--text-primary); animation: cn-spin 60s linear infinite reverse; filter: none; }
+.cn-sat { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg-inset); box-shadow: 0 0 18px var(--neon-soft, transparent); }
+.cn-sat.s1 { top: -17px; left: calc(50% - 17px); } .cn-sat.s2 { bottom: 40px; left: 6px; width: 24px; height: 24px; } .cn-sat.s3 { bottom: 60px; right: -8px; width: 28px; height: 28px; }
+@keyframes cn-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cn-orbit-soon, .cn-orbit-soon .cn-big { animation: none; } }
+.cn-band-soon { text-align: left; }

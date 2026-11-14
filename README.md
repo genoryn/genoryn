@@ -79,7 +79,7 @@ themselves, and trading with bitcoin without an exchange.
 | Payouts | One note per miner every 360 blocks (~6 h), spendable after 100 blocks |
 | Trading | **Atomic BTC ⇄ GNR swaps** on an anonymous offer board; the seller's GNR is locked first |
 | Market price | The plain average of completed swaps; offers never move it |
-| Quantum coins | **Anyone can issue a coin** (Dollar Krypton USDK, Euro Krypton EURK, Bitcoin Krypton BTCK, …): always shielded, every issuer power declared up front and unchangeable, fees in GNR, from block 17,100 |
+| Quantum coins | **Coming in a future release:** coins anyone can issue or bring from another network, as private and quantum-safe as GNR |
 | Payment proofs | Prove a payment to anyone without revealing anything else |
 | Recovery phrase | 24 words with numbers (`orbit-42 …`), 384-bit entropy, checksummed |
 | Addresses | Full post-quantum address with a 128-bit checksum, plus a verified short form |
@@ -103,7 +103,7 @@ themselves, and trading with bitcoin without an exchange.
 13. [Atomic swaps with bitcoin](#atomic-swaps-with-bitcoin)
 14. [The offer board](#the-offer-board)
 15. [Market price](#market-price)
-16. [Quantum coins (Krypton coins)](#quantum-coins-krypton-coins)
+16. [Quantum coins (coming soon)](#quantum-coins-coming-soon)
 17. [Payment proofs](#payment-proofs)
 18. [Light clients: no full node required](#light-clients-no-full-node-required)
 19. [Peer-to-peer network and node security](#peer-to-peer-network-and-node-security)
@@ -192,7 +192,7 @@ in its own window. Keys, scanning and proving never leave your computer.
 | **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value), **Receive** (full address, short form, QR, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, and a **Proof** button for every send |
 | **Swap** | The GNR price, the offer board (sell, buy, in progress, yours), publishing an offer (1 hour to 1 year), taking offers, your swaps with their progress, and a payment window with amount, address and QR code when it is time to pay |
-| **Coins** | Krypton coins: your coin balances with each coin's risk labels, private coin sends, the coin market (one-transaction swaps against GNR, per-coin prices), every coin on chain with verified marks, and the issue wizard (preview, deploy, issue, burn, pause) |
+| **Coins** | Quantum coins: coming in a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, miners, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
 | **Security** | Change a wallet's password, lock wallets |
@@ -525,79 +525,28 @@ The GNR price shown by the wallet and genoryn.io is the board's market price and
 what the GNR chain proves: the claim transaction, its block, the hash lock, the revealed secret
 and the refund height.
 
-## Quantum coins (Krypton coins)
+## Quantum coins (coming soon)
 
-**Bring your coin to the quantum network.** Anyone can issue a coin on Genoryn Krypton: a
-stable coin backed by reserves, a bridged coin from another chain, the coin of a project or a
-community. Krypton coins live in the same shielded note tree as GNR and move the same way.
+**Coming in a future release.** Soon anyone will be able to issue a coin on Genoryn Krypton,
+or bring one from another network. Quantum coins will live in the same shielded note tree as
+GNR and move the same way:
 
-* **Private.** Every coin transfer is a zk-STARK proof: the coin, the amount, the sender and
-  the recipient stay hidden. Issues and burns are public, so every coin's supply can be
-  audited at every block.
-* **Quantum-safe.** Spends are hash-based STARKs, notes are encrypted with X25519 +
-  ML-KEM-1024, issuers sign with ML-DSA-87.
-* **Honest by construction.** There are no smart contracts. A coin is a short, canonical
-  manifest that declares everything its issuer may ever do: fixed or mintable supply (with or
-  without a cap), whether holders may burn, whether the issuer may pause all transfers. The
-  manifest is hashed into the coin's id and can never change, and wallets show it to every
-  holder as plain-language risk labels. No issuer can take coins, see balances or freeze a
-  single holder.
-* **GNR is the fuel.** Every fee is paid in GNR, deploying a coin costs 10 GNR (to the
-  miners), and coins trade only against GNR.
-* **No impostors of the base layer.** Coins named after GNR are refused, the Bitcoin name
-  belongs only to the project's Bitcoin Krypton, tickers and names are unique, and USDK, EURK
-  and BTCK are reserved on mainnet for the project's issuer key.
+* **Private.** Every transfer a zk-STARK proof: the coin, the amount, the sender and the
+  recipient hidden. Only the creation and destruction of coins public, so every supply can
+  be audited.
+* **Quantum-safe.** Hash-based STARK spends, post-quantum encryption and post-quantum
+  issuer signatures.
+* **Declared up front.** No smart contracts: a coin is a short public declaration of
+  everything its issuer may ever do (supply, burning, pausing). It is fixed for good and shown
+  to every holder in plain words. No issuer can take coins, see balances or freeze a holder.
+* **GNR at the core.** Fees in GNR, and coins trade against GNR in one atomic transaction
+  between two wallets.
 
-The project issues three coins, each backed one to one by reserves its issuer holds,
-redeemed by burning and never pausable:
-
-| Coin | Backed by | Follows | Decimals | Supply | Deployed |
-|---|---|---|---|---|---|
-| **Dollar Krypton (USDK)** | US dollars | the US dollar | 6 | mintable against deposits | block 17,100 |
-| **Euro Krypton (EURK)** | euros | the euro | 6 | mintable against deposits | block 17,100 |
-| **Bitcoin Krypton (BTCK)** | bitcoin | the price of bitcoin | 8 | at most 21,000,000 | block 18,600 |
-
-Plus a test coin, **Geno Krypton (GENOK)**: exactly 10,000, issued once to the project's issuer
-wallet, not backed by anything.
-
-Their manifests are in [docs/coins](docs/coins), their ids in the signed
-[verified list](docs/verified-assets.json), and their supply and reserves on
-[genoryn.io/coins](https://genoryn.io/coins#reserves). Holding them means trusting the issuer's
-reserves; the network guarantees their supply, their privacy and their terms.
-
-**Trading.** Coins trade against GNR on the coin market in the wallet, in **one
-transaction**: the seller's coin spend and the buyer's GNR spend bind the same signed hash,
-so either both happen or neither does, and each wallet checks what it receives before adding
-its proof. A coin's market price is the average of its completed swaps, each checked against
-the chain.
-
-**Verification.** The project signs a list of coins whose issuer it identified
-([verified-assets.json](docs/verified-assets.json)) with the post-quantum release key, under
-its own context. Wallets trust no unsigned list and show logos only of verified coins.
-Verification is about identity only, never a promise of value.
-
-```bash
-krypton-wallet-cli coin list                       # every coin on chain
-krypton-wallet-cli coin info USDK                  # manifest, supply, risks
-krypton-wallet-cli coin send USDK <address> 25.50  # private
-krypton-wallet-cli coin new --name "Gold Krypton" --ticker GOLDK --decimals 6 \
-    --supply fixed --cap 21000 --out goldk.kam     # then: coin deploy goldk.kam (10 GNR)
-```
-
-In the desktop wallet: the **Coins** tab, in four parts. **Overview** shows your coins with
-their balance and value, every coin on chain and your recent coin activity; **Send** sends a
-coin privately (with your address to receive); **Market** is the order book of each coin
-against GNR, where you buy or sell at a price per coin; **Issue** is a four-step wizard that
-ends with exactly what every holder will see, then deploys, and lets you issue, burn or pause
-the coins you issue.
-
-<p align="center">
-  <img src="docs/images/coins-overview.webp" alt="The Coins tab: your coins with balance and value, every coin on chain and recent activity" width="32%">
-  <img src="docs/images/coins-market.webp" alt="The coin market: sell and buy orders of a coin against GNR, and posting an order at a price per coin" width="32%">
-  <img src="docs/images/coins-issue.webp" alt="Issuing a coin: the review step with the risk labels every holder sees and the exact manifest" width="32%">
-</p> Overview:
-[genoryn.io/coins](https://genoryn.io/coins). Specification:
-[docs/spec/assets.md](docs/spec/assets.md).
+The design is implemented and tested (circuit, consensus, wallet, trading); it is **not
+active on mainnet**. Its activation height will be announced with a future release, since
+older nodes reject coin transactions. The wallet's **Coins** tab turns on by itself then.
+Design: [docs/spec/assets.md](docs/spec/assets.md) · Overview:
+[genoryn.io/coins](https://genoryn.io/coins).
 
 ## Payment proofs
 
@@ -909,12 +858,10 @@ If you still have the wallet file and its password, show the phrase and write it
 Without the phrase, the file or the password, nobody can recover the coins.
 </details>
 
-<details><summary><b>Can I issue my own coin on Genoryn Krypton?</b></summary>
+<details><summary><b>Will I be able to issue my own coin on Genoryn Krypton?</b></summary>
 
-Yes, from block 17,100: write its manifest in the wallet's Coins tab (or with
-`krypton-wallet-cli coin new`) and deploy it for 10 GNR. Its transfers are as private as GNR's,
-and everything you may do as its issuer is declared up front and shown to every holder. See
-[Quantum coins](#quantum-coins-krypton-coins).
+Yes, in a future release: quantum coins are designed and tested but not active yet. See
+[Quantum coins](#quantum-coins-coming-soon).
 </details>
 
 ## Author and governance

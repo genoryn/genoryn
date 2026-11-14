@@ -113,10 +113,10 @@ enum CoinCmd {
     },
     /// Write the manifest of a new coin, with this wallet's issuer key, to a file
     New {
-        /// Name ending in " Krypton", e.g. "Dollar Krypton"
+        /// Name ending in " Krypton", e.g. "Nova Krypton"
         #[arg(long)]
         name: String,
-        /// Ticker ending in K, e.g. USDK
+        /// Ticker ending in K, e.g. NOVAK
         #[arg(long)]
         ticker: String,
         #[arg(long, default_value_t = 2)]

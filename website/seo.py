@@ -5,14 +5,14 @@ import json
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.36"
+VERSION = "1.0.37"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
             "private cryptocurrency, anonymous cryptocurrency, privacy coin, zk-STARK, ML-KEM, post-quantum privacy coin, "
             "GPU mining, CPU mining, new cryptocurrency to mine, fair launch, no premine, 21 million supply, "
             "atomic swap bitcoin, light wallet, KryptoHash, quantum coins, Krypton coins, private tokens, "
-            "post-quantum stablecoin, private stablecoin, issue a token, USDK, EURK, BTCK, Dollar Krypton, Euro Krypton, Bitcoin Krypton, private bitcoin, quantum-safe bitcoin")
+            "private tokens, issue a token")
 INDEXNOW_KEY = "4cd0c3283a0fa22bc5f39f8d68fb4209"
 
 PAGES = {
@@ -38,8 +38,8 @@ PAGES = {
              "og_title": "Genoryn Krypton documentation",
              "og_desc": "Wallet, security, cryptography, emission and scarcity, mining, atomic swaps with bitcoin, the market price, light clients, the P2P network, node operation, API, SDKs and integration."},
     "coins": {"path": "/coins", "file": "coins.html", "priority": "0.9", "freq": "daily",
-              "og_title": "Quantum Coins: bring your coin to the quantum network",
-              "og_desc": "Krypton coins anyone can issue on Genoryn Krypton: always shielded, quantum-safe, with every issuer power declared in public and unchangeable. Dollar Krypton (USDK), Euro Krypton (EURK), Bitcoin Krypton (BTCK) and more."},
+              "og_title": "Quantum Coins: coming to Genoryn Krypton",
+              "og_desc": "Coming in a future release: coins anyone can issue or bring from another network, as private and quantum-safe as GNR, with every issuer power declared up front."},
     "about": {"path": "/about", "file": "about.html", "priority": "0.9", "freq": "monthly",
               "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
               "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
@@ -98,13 +98,10 @@ ABOUT_FAQ = [
 ]
 
 COINS_FAQ = [
-    ("What is a Krypton coin?", "A coin issued by anyone on Genoryn Krypton. It is held and sent like GNR, always shielded and quantum-safe, and its issuer's powers are declared in a public manifest that can never change."),
-    ("Are coin transfers really private?", "Yes. The coin, the amount, the sender and the recipient are hidden by a zk-STARK proof, exactly like GNR. Only issues and burns are public, so supplies can be audited. Coins whose issuer may pause them show which coin moves, never who or how much."),
-    ("Can an issuer freeze or take my coins?", "No issuer can take coins, see balances or freeze a single holder. Only if the manifest declares it can the issuer pause all transfers of that coin at once, and every wallet shows that risk before you accept it."),
-    ("Can someone make a fake USDK?", "A ticker belongs to the first coin that deploys it, the names of GNR are refused, and the Bitcoin name belongs only to the project's Bitcoin Krypton (BTCK). Wallets show the verified mark, the checked issuer and the logo only for coins in the project's signed verified list."),
-    ("What does it cost?", "Deploying a coin costs 10 GNR, paid to miners. Every transfer pays an ordinary network fee in GNR."),
-    ("What is Bitcoin Krypton (BTCK)?", "A bitcoin-backed coin: the issuer holds one bitcoin for each BTCK, so it follows the price of bitcoin while moving privately and quantum-safely on Genoryn Krypton. It is redeemed by burning."),
-    ("Is USDK worth a dollar?", "USDK is an issuer-backed coin: it is worth a dollar only if its issuer holds the reserves and redeems it. The network guarantees the supply and the privacy, not the reserves."),
+    ("When will quantum coins arrive?", "In a future release. The network turns them on at a block height announced with that update, so every node and wallet can update first."),
+    ("Will coin transfers be private?", "Yes, exactly like GNR: the coin, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of coins will be public."),
+    ("Could an issuer freeze or take my coins?", "No. No issuer will be able to take coins, see balances or freeze a single holder; anything an issuer may do will be declared before the coin exists."),
+    ("Do I need to do anything now?", "No. Keep your wallet up to date; its Coins tab turns on by itself when coins are activated."),
 ]
 
 HOWTO = {"@type": "HowTo", "name": "How to mine Genoryn Krypton (GNR)", "totalTime": "PT5M",
@@ -141,10 +138,10 @@ def graph(page):
                    "about": ["Genoryn Krypton", "quantum-resistant cryptocurrency", "privacy coin", "post-quantum cryptography", "Bitcoin"]},
                   CODE, faq(ABOUT_FAQ), crumbs("About", p["path"])]
     elif page == "coins":
-        items += [{"@type": "Article", "headline": "Quantum Coins: Krypton coins on Genoryn Krypton", "url": url, "inLanguage": "en",
+        items += [{"@type": "Article", "headline": "Quantum Coins: coming to Genoryn Krypton", "url": url, "inLanguage": "en",
                    "dateModified": TODAY, "author": {"@type": "Person", "name": "Zarazi Sokani"},
                    "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
-                   "about": ["Krypton coins", "private tokens", "post-quantum stablecoin", "zk-STARK", "Genoryn Krypton"]},
+                   "about": ["quantum coins", "private tokens", "zk-STARK", "Genoryn Krypton"]},
                   faq(COINS_FAQ), crumbs("Quantum coins", p["path"])]
     elif page == "explorer":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
