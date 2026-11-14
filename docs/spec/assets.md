@@ -64,7 +64,10 @@ endings, no trailing spaces. Anything else is refused, so one coin has exactly o
 `(a0, a1)` is already registered or is `(0, 0)`.
 
 **Reserved names.** Consensus refuses tickers `GNRK`, `BTCK`, `XBTK`, `KRK`, `KRYPTONK`,
-`GENORYNK` and names containing `Genoryn` or `Bitcoin` (any case). Wallets additionally mark
+`GENORYNK` and names containing `Genoryn` or `Bitcoin` (any case), with one exception: the
+project's own coin `Bitcoin Krypton` / `BTCK` (exactly that pair, `PROJECT_COINS`), which
+consensus accepts only from the issuer key the network reserves `BTCK` for (since 1.0.36;
+nowhere else can anyone deploy it). Wallets additionally mark
 coins using the ticker of a major coin (`ETHK`, `SOLK`, `USDTK`, `USDCK`, …) as possible
 impersonations until verified (below).
 
@@ -137,7 +140,7 @@ Version-3 transactions are valid from `assets_height` on: block **17,100** on ma
 nodes reject them, so this is a hard fork like the activation of lock spends.
 
 Each network may reserve tickers for one issuer key, by the key's fingerprint
-`SHA3("Krypton/asset/issuer", key)` in the network parameters. On mainnet USDK and EURK are
+`SHA3("Krypton/asset/issuer", key)` in the network parameters. On mainnet USDK, EURK and BTCK are
 reserved for the project's issuer key, so nobody can deploy them first. Tickers and names are
 otherwise first come, first served.
 

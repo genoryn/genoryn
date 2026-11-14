@@ -406,10 +406,12 @@ pub fn check_state(
         if keys.iter().any(|k| ov.named(view, k).is_some()) {
             return bad("ticker or name already taken");
         }
-        if let Some((_, fp)) = p.reserved_coins.iter().find(|(t, _)| *t == m.ticker)
-            && hex::encode(issuer_fingerprint(&m.issuer)) != *fp
-        {
-            return bad("ticker reserved for another issuer");
+        match p.reserved_coins.iter().find(|(t, _)| *t == m.ticker) {
+            Some((_, fp)) if hex::encode(issuer_fingerprint(&m.issuer)) != *fp => {
+                return bad("ticker reserved for another issuer");
+            }
+            None if m.is_project_coin() => return bad("this ticker is reserved"),
+            _ => {}
         }
         for k in keys {
             ov.names.insert(k, id);

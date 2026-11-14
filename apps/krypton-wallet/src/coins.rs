@@ -904,10 +904,40 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi) {
     }
 }
 
+/// Tells the board our open coin offers are online (at most once a minute): only offers
+/// of makers seen lately can be taken.
+fn ping(base: &str, book: &Book) {
+    static LAST: OnceLock<Mutex<Option<Instant>>> = OnceLock::new();
+    let last = LAST.get_or_init(|| Mutex::new(None));
+    if last
+        .lock()
+        .is_some_and(|t| t.elapsed() < Duration::from_secs(60))
+    {
+        return;
+    }
+    let t = now();
+    let items: Vec<Value> = book
+        .offers
+        .iter()
+        .filter(|o| !o.cancelled && !o.taken && o.offer.expires > t)
+        .map(|o| json!({"id": o.offer.id, "secret": o.cancel_secret}))
+        .collect();
+    if items.is_empty() {
+        return;
+    }
+    *last.lock() = Some(Instant::now());
+    if let Err(e) =
+        crate::board::post_json(base, "/v1/swap/offers/ping", &json!({ "items": items }))
+    {
+        event(format!("ping: {e}"));
+    }
+}
+
 fn round(a: &App, w: &mut Wallet, src: &Multi) -> Result<()> {
     let base = crate::board::board_url(a);
     let mut book = load(w);
     let t = now();
+    ping(&base, &book);
     let mut keys: Vec<u32> = book
         .offers
         .iter()

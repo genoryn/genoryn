@@ -137,7 +137,8 @@ impl Network {
                 // Krypton coins activate here: announced with 1.0.35, about a day after its
                 // release, so wallets and nodes update first.
                 assets_height: 17_100,
-                // The project's stable coins: only its issuer key may deploy them.
+                // The project's coins: only its issuer key may deploy them (BTCK is
+                // otherwise refused to everyone, see krypton_assets::PROJECT_COINS).
                 reserved_coins: &[
                     (
                         "USDK",
@@ -145,6 +146,10 @@ impl Network {
                     ),
                     (
                         "EURK",
+                        "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
+                    ),
+                    (
+                        "BTCK",
                         "1fafd41353d89c9721f6a3143bec1a6dd5ff4568141845359a57ea39889d3fe4",
                     ),
                 ],

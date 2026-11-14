@@ -33,9 +33,9 @@
       </div>
       <div class="hero-right cn-stage" aria-hidden="true">
         <div class="cn-orbit">
-          <img src="/assets/coins/usdk.svg" alt="" width="112" height="112" class="cn-o1">
-          <img src="/assets/coins/eurk.svg" alt="" width="96" height="96" class="cn-o2">
-          <svg class="coin cn-o3"><use href="#c-gnr"/></svg>
+          <img src="/assets/coins/usdk.svg" alt="" width="104" height="104" class="cn-o1">
+          <img src="/assets/coins/eurk.svg" alt="" width="88" height="88" class="cn-o2">
+          <img src="/assets/coins/btck.svg" alt="" width="96" height="96" class="cn-o3">
         </div>
       </div>
     </div>
@@ -60,7 +60,7 @@
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Quantum-safe</h3><p>Spends are zk-STARK proofs over hash functions, notes are encrypted with X25519 + ML-KEM-1024 and issuers sign with ML-DSA-87. Nothing that guards a coin depends on elliptic curves.</p></article>
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4M8.5 12h7M8.5 16h7"/></svg></div><h3>Declared, not hidden in code</h3><p>No smart contracts. A coin is a short manifest: its supply, whether the issuer can create more, whether holders can burn, whether the issuer can pause. It is fixed at deploy, part of the coin's id, and shown to every holder in plain words.</p></article>
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></svg></div><h3>GNR is the fuel and the market</h3><p>Every fee is paid in GNR, deploying a coin costs 10 GNR (to the miners), and coins trade only against GNR, in one atomic transaction. Nobody can sell you a coin they do not hand over.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></div><h3>No impostors of the base layer</h3><p>Nobody can deploy a coin named after GNR or Bitcoin (BTCK, GNRK and the like are refused by consensus), and tickers and names are unique: the first deploy owns them.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></div><h3>No impostors of the base layer</h3><p>Nobody can deploy a coin named after GNR, and the Bitcoin name belongs only to the project's Bitcoin Krypton: everyone else's BTCK is refused by consensus. Tickers and names are unique: the first deploy owns them.</p></article>
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div><h3>Supply anyone can audit</h3><p>Transfers are private, but issues and burns are public, so every coin's total supply is known to everyone, at every block, without trusting anyone.</p></article>
       </div>
     </div>
@@ -104,18 +104,20 @@
 
   <section class="block" id="stable" aria-labelledby="stable-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Stable coins</span><h2 id="stable-h" class="h2 glow">Dollar Krypton and Euro Krypton.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Stable coins</span><h2 id="stable-h" class="h2 glow">Dollar, Euro and Bitcoin Krypton.</h2></div>
       <div class="cn-pair">
         <article class="glass card cn-feature reveal"><img src="/assets/coins/usdk.svg" width="64" height="64" alt="Dollar Krypton logo"><div><h3>Dollar Krypton · USDK</h3><p>A private, quantum-safe dollar. Issued by its issuer against US dollar reserves the issuer holds, redeemed by burning. Mintable without a cap (it issues against deposits), burnable by holders, and it can never be paused.</p></div></article>
         <article class="glass card cn-feature reveal"><img src="/assets/coins/eurk.svg" width="64" height="64" alt="Euro Krypton logo"><div><h3>Euro Krypton · EURK</h3><p>The same for the euro: issuer-backed, mintable against deposits, burnable, never pausable. Its transfers are as private as GNR's.</p></div></article>
+        <article class="glass card cn-feature reveal"><img src="/assets/coins/btck.svg" width="64" height="64" alt="Bitcoin Krypton logo"><div><h3>Bitcoin Krypton · BTCK</h3><p>Bitcoin's price, on a private, quantum-safe chain: one BTCK for each bitcoin the issuer holds, so it follows the price of bitcoin. At most 21,000,000, redeemed by burning, never pausable. Only the project's issuer key can deploy it.</p></div></article>
       </div>
-      <p class="muted cn-foot">Both are issuer-backed coins: their value depends on the issuer actually holding the reserves and honouring redemptions. They appear in the list above with their manifests and live supply once deployed (Krypton coins activate at block 17,100). Manifests: <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/usdk.kam">usdk.kam</a> · <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/eurk.kam">eurk.kam</a>.</p>
+      <p class="muted cn-foot">All three are issuer-backed coins: their value depends on the issuer actually holding the reserves and honouring redemptions. They appear in the list above with their manifests and live supply once deployed (USDK and EURK from block 17,100, BTCK from block 18,600). Manifests: <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/usdk.kam">usdk.kam</a> · <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/eurk.kam">eurk.kam</a> · <a href="https://github.com/genoryn/genoryn/blob/main/docs/coins/btck.kam">btck.kam</a>.</p>
       <div class="glass card cn-reserves" id="reserves">
         <h3>Reserves</h3>
-        <p>USDK and EURK are issued only against reserves the issuer holds: one US dollar per USDK, one euro per EURK. Their supply on chain is public at every block (issued minus burned, in the list above). The issuer publishes here what it holds against that supply. Until the first issue the supply is zero and there is nothing to back.</p>
+        <p>USDK, EURK and BTCK are issued only against reserves the issuer holds: one US dollar per USDK, one euro per EURK, one bitcoin per BTCK. Their supply on chain is public at every block (issued minus burned, in the list above). The issuer publishes here what it holds against that supply. Until the first issue the supply is zero and there is nothing to back.</p>
         <div class="table-wrap"><table class="data"><thead><tr><th>Coin</th><th>In circulation</th><th>Reserves held</th><th>Last update</th></tr></thead>
-          <tbody><tr><td data-label="Coin">USDK</td><td data-label="In circulation" data-cn-supply="2bb7944efb7c1b58035256a74462776400">0</td><td data-label="Reserves held">USD 0</td><td data-label="Last update">Not issued yet</td></tr>
-          <tr><td data-label="Coin">EURK</td><td data-label="In circulation" data-cn-supply="e0b656584ef43773bac72c96fa2d026200">0</td><td data-label="Reserves held">EUR 0</td><td data-label="Last update">Not issued yet</td></tr></tbody></table></div>
+          <tbody><tr><td data-label="Coin">USDK</td><td data-label="In circulation" data-cn-supply="9276b70f351cc3f8f7257be9fed1c15f00">0</td><td data-label="Reserves held">USD 0</td><td data-label="Last update">Not issued yet</td></tr>
+          <tr><td data-label="Coin">EURK</td><td data-label="In circulation" data-cn-supply="03fac234af5d2e0fd809a6f374750a8f00">0</td><td data-label="Reserves held">EUR 0</td><td data-label="Last update">Not issued yet</td></tr>
+          <tr><td data-label="Coin">BTCK</td><td data-label="In circulation" data-cn-supply="1ad328cd4e460782828081bb1634438e00">0</td><td data-label="Reserves held">BTC 0</td><td data-label="Last update">Not issued yet</td></tr></tbody></table></div>
       </div>
     </div>
   </section>
@@ -158,6 +160,7 @@ krypton-wallet-cli coin info USDK</pre>
       <details class="glass"><summary>Can an issuer freeze or take my coins?</summary><p>No issuer can take coins, see balances or freeze a single holder. If, and only if, the manifest says so, the issuer can pause all transfers of that coin at once; every wallet shows that risk before you accept it.</p></details>
       <details class="glass"><summary>Can someone make a fake USDK?</summary><p>A ticker belongs to the first coin that deploys it, and the names of GNR and Bitcoin are refused outright. Anyone can still choose a similar name, which is why wallets show the verified mark, the checked issuer and the logo only for coins in the signed verified list.</p></details>
       <details class="glass"><summary>What does it cost?</summary><p>Deploying a coin costs 10 GNR, paid to miners. Every transfer pays an ordinary network fee in GNR (about twice a GNR transfer's, since it carries two proofs).</p></details>
+      <details class="glass"><summary>What is Bitcoin Krypton (BTCK)?</summary><p>A bitcoin-backed coin: the issuer holds one bitcoin for each BTCK, so BTCK follows the price of bitcoin while moving privately and quantum-safely on Genoryn Krypton. Like USDK it is a claim on the issuer's reserves, redeemed by burning.</p></details>
       <details class="glass"><summary>Is USDK worth a dollar?</summary><p>USDK is an issuer-backed coin: it is worth a dollar only if its issuer holds the reserves and redeems it. The network guarantees the supply and the privacy, not the reserves.</p></details>
     </div></div>
   </section>

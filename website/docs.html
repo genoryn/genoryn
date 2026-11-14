@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.35</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.36</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -441,7 +441,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
 
       <section id="coins">
         <h2>Quantum coins</h2>
-        <p><b>Krypton coins</b> are coins anyone can issue on Genoryn Krypton: stable coins backed by an issuer's reserves (Dollar Krypton, USDK; Euro Krypton, EURK), bridged coins from other chains (a future SOLK), or coins of a project or community. They live in the same shielded note tree as GNR and move the same way: every transfer is a zk-STARK proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
+        <p><b>Krypton coins</b> are coins anyone can issue on Genoryn Krypton: stable coins backed by an issuer's reserves (Dollar Krypton, USDK; Euro Krypton, EURK; Bitcoin Krypton, BTCK, which follows the price of bitcoin), bridged coins from other chains (a future SOLK), or coins of a project or community. They live in the same shielded note tree as GNR and move the same way: every transfer is a zk-STARK proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
         <ul>
           <li><b>No smart contracts.</b> A coin is a short declarative <a href="#coin-manifest">manifest</a>. What its issuer can do (create more, pause transfers) is declared once, hashed into the coin's id and shown to every holder in plain words. It can never change.</li>
           <li><b>GNR is the fuel.</b> Every fee is paid in GNR, a deploy costs 10 GNR (paid to the miners), and coins trade only against GNR.</li>
@@ -469,8 +469,8 @@ issuer: &lt;ML-DSA-87 public key, hex&gt;</pre>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Field</th><th>Rule</th></tr></thead>
           <tbody>
-            <tr><td data-label="Field"><code>name</code></td><td data-label="Rule">3 to 40 ASCII characters ending in “ Krypton”; may not contain “Genoryn” or “Bitcoin”; unique on chain (case-insensitive).</td></tr>
-            <tr><td data-label="Field"><code>ticker</code></td><td data-label="Rule">2 to 9 of A–Z and 0–9 ending in K; unique on chain. GNRK, BTCK, XBTK, KRK, KRYPTONK and GENORYNK are refused; a ticker can be reserved for one issuer key by the network parameters.</td></tr>
+            <tr><td data-label="Field"><code>name</code></td><td data-label="Rule">3 to 40 ASCII characters ending in “ Krypton”; may not contain “Genoryn” or “Bitcoin” (the one exception is the project's “Bitcoin Krypton”, see below); unique on chain (case-insensitive).</td></tr>
+            <tr><td data-label="Field"><code>ticker</code></td><td data-label="Rule">2 to 9 of A–Z and 0–9 ending in K; unique on chain. GNRK, XBTK, KRK, KRYPTONK and GENORYNK are refused. BTCK exists only as the project's Bitcoin Krypton: consensus accepts exactly that name and ticker, and only from the issuer key the network reserves it for. Any ticker can be reserved for one issuer key by the network parameters (on mainnet USDK, EURK and BTCK).</td></tr>
             <tr><td data-label="Field"><code>decimals</code></td><td data-label="Rule">0 to 8.</td></tr>
             <tr><td data-label="Field"><code>supply</code>, <code>cap</code></td><td data-label="Rule"><code>fixed</code>: issued once, exactly <code>cap</code>. <code>mintable</code>: the issuer may issue more, up to <code>cap</code> (or without limit with <code>none</code>). Never above 2<sup>60</sup> − 1 base units.</td></tr>
             <tr><td data-label="Field"><code>burn</code></td><td data-label="Rule"><code>holders</code> (holders may destroy their coins, publicly) or <code>none</code>.</td></tr>

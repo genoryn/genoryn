@@ -10,16 +10,17 @@
     return s;
   };
   var cls = function (r) {
-    if (/^Fixed supply|^Holders can burn/.test(r)) return "ok";
-    if (/any amount|stop all transfers|Not verified|impersonation|Not backed/.test(r)) return "bad";
+    if (/^Fixed supply|^Holders can burn/.test(r)) return "good";
+    if (/any amount|stop all transfers|Not verified|impersonation|Not backed|depends on|Custodial/.test(r)) return "alert";
     return "";
   };
+  var mark = function (k) { return k === "good" ? "✓" : k === "alert" ? "!" : "·"; };
   function risks(c, v) {
     return (c.risks || []).filter(function (r) { return !(v && /Not verified|impersonation/.test(r)); });
   }
   function avatar(c, v) {
     if (v && /^coins\/[a-z0-9-]+\.svg$/.test(v.logo || "")) return '<span class="cn-av"><img src="/assets/' + v.logo + '" alt="" width="44" height="44"></span>';
-    return '<span class="cn-av ' + (v ? "" : "u") + '">' + esc(String(c.ticker || "?").slice(0, 4)) + "</span>";
+    return '<span class="cn-av">' + esc(String(c.ticker || "?").slice(0, 3)) + "</span>";
   }
   function render() {
     var q = (el("cnQ").value || "").trim().toLowerCase();
@@ -47,7 +48,7 @@
         '<span class="cn-id mono">' + esc(String(c.id).slice(0, 18)) + "… · since block " + Number(c.height || 0).toLocaleString() + "</span></div>" +
         '<div class="cn-amt"><b>' + units(c.outstanding, d) + '</b><span>in circulation' + (Number(c.burned) ? " · " + units(c.burned, d) + " burned" : "") + "</span>" +
         (price ? '<span class="cn-px">' + price + " · average of " + m.swaps + " swap" + (m.swaps === 1 ? "" : "s") + "</span>" : "") + "</div>" +
-        '<div class="cn-risks">' + risks(c, v).map(function (r) { return '<span class="cn-risk ' + cls(r) + '">' + esc(r) + "</span>"; }).join("") + "</div></article>";
+        '<div class="cn-risks">' + risks(c, v).map(function (r) { var k = cls(r); return '<span class="cn-risk ' + k + '"><i>' + mark(k) + "</i>" + esc(r) + "</span>"; }).join("") + "</div></article>";
     }).join("");
   }
   function load() {

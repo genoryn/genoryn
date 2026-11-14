@@ -688,6 +688,7 @@ fn project_coins_are_consistent() {
     for (text, ticker) in [
         (include_str!("../../../docs/coins/usdk.kam"), "USDK"),
         (include_str!("../../../docs/coins/eurk.kam"), "EURK"),
+        (include_str!("../../../docs/coins/btck.kam"), "BTCK"),
     ] {
         let m = Manifest::parse(text).expect("canonical manifest");
         m.validate().unwrap();
@@ -708,4 +709,50 @@ fn project_coins_are_consistent() {
         assert_eq!(listed["id"].as_str().unwrap(), m.id().to_hex());
     }
     assert!(p.assets_height > 15_553 && p.assets_height < u64::MAX);
+}
+
+/// Bitcoin Krypton (BTCK) can be deployed only by the issuer a network reserves it for;
+/// without a reservation nobody can.
+#[test]
+fn the_bitcoin_coin_is_only_the_reserved_issuers() {
+    let mut w = World::new();
+    let key = MlDsaKey::from_seed(&[7; 32]);
+    let other = MlDsaKey::from_seed(&[8; 32]);
+    let n = w.fund(1, 50 * GNR);
+    let n2 = w.fund(1, 50 * GNR);
+    let m = manifest(
+        "Bitcoin Krypton",
+        "BTCK",
+        Supply::Mintable,
+        None,
+        false,
+        &key,
+    );
+    m.validate().unwrap();
+    let (tx, _) = deploy(&w, &m, &n, &key);
+    assert_eq!(
+        w.check(&tx).unwrap_err(),
+        CoreError::Invalid("this ticker is reserved")
+    );
+    let fp = hex::encode(issuer_fingerprint(&key.public_bytes()));
+    let mut p = w.p.clone();
+    p.reserved_coins =
+        Box::leak(vec![("BTCK", &*Box::leak(fp.into_boxed_str()))].into_boxed_slice());
+    let tx = Transaction::from_bytes(&tx.to_bytes()).unwrap();
+    check_tx_structure(&tx).unwrap();
+    check_tx_state(&p, &w.mem, &mut AssetOverlay::default(), &tx, w.height).unwrap();
+    let fake = manifest(
+        "Bitcoin Krypton",
+        "BTCK",
+        Supply::Mintable,
+        None,
+        false,
+        &other,
+    );
+    let (tx, _) = deploy(&w, &fake, &n2, &other);
+    let tx = Transaction::from_bytes(&tx.to_bytes()).unwrap();
+    assert_eq!(
+        check_tx_state(&p, &w.mem, &mut AssetOverlay::default(), &tx, w.height).unwrap_err(),
+        CoreError::Invalid("ticker reserved for another issuer")
+    );
 }

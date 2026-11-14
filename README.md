@@ -79,7 +79,7 @@ themselves, and trading with bitcoin without an exchange.
 | Payouts | One note per miner every 360 blocks (~6 h), spendable after 100 blocks |
 | Trading | **Atomic BTC ⇄ GNR swaps** on an anonymous offer board; the seller's GNR is locked first |
 | Market price | The plain average of completed swaps; offers never move it |
-| Quantum coins | **Anyone can issue a coin** (Dollar Krypton USDK, Euro Krypton EURK, …): always shielded, every issuer power declared up front and unchangeable, fees in GNR, from block 17,100 |
+| Quantum coins | **Anyone can issue a coin** (Dollar Krypton USDK, Euro Krypton EURK, Bitcoin Krypton BTCK, …): always shielded, every issuer power declared up front and unchangeable, fees in GNR, from block 17,100 |
 | Payment proofs | Prove a payment to anyone without revealing anything else |
 | Recovery phrase | 24 words with numbers (`orbit-42 …`), 384-bit entropy, checksummed |
 | Addresses | Full post-quantum address with a 128-bit checksum, plus a verified short form |
@@ -544,13 +544,23 @@ community. Krypton coins live in the same shielded note tree as GNR and move the
   single holder.
 * **GNR is the fuel.** Every fee is paid in GNR, deploying a coin costs 10 GNR (to the
   miners), and coins trade only against GNR.
-* **No impostors of the base layer.** Coins named after GNR or Bitcoin are refused, tickers
-  and names are unique, and USDK and EURK are reserved on mainnet for the project's issuer key.
+* **No impostors of the base layer.** Coins named after GNR are refused, the Bitcoin name
+  belongs only to the project's Bitcoin Krypton, tickers and names are unique, and USDK, EURK
+  and BTCK are reserved on mainnet for the project's issuer key.
 
-**Dollar Krypton (USDK)** and **Euro Krypton (EURK)** are the project's issuer-backed stable
-coins: mintable against reserves the issuer holds, redeemed by burning, never pausable. Their
-manifests are in [docs/coins](docs/coins); they are deployed once coins activate at block
-**17,100**.
+The project issues three coins, each backed one to one by reserves its issuer holds,
+redeemed by burning and never pausable:
+
+| Coin | Backed by | Follows | Decimals | Supply | Deployed |
+|---|---|---|---|---|---|
+| **Dollar Krypton (USDK)** | US dollars | the US dollar | 6 | mintable against deposits | block 17,100 |
+| **Euro Krypton (EURK)** | euros | the euro | 6 | mintable against deposits | block 17,100 |
+| **Bitcoin Krypton (BTCK)** | bitcoin | the price of bitcoin | 8 | at most 21,000,000 | block 18,600 |
+
+Their manifests are in [docs/coins](docs/coins), their ids in the signed
+[verified list](docs/verified-assets.json), and their supply and reserves on
+[genoryn.io/coins](https://genoryn.io/coins#reserves). Holding them means trusting the issuer's
+reserves; the network guarantees their supply, their privacy and their terms.
 
 **Trading.** Coins trade against GNR on the coin market in the wallet, in **one
 transaction**: the seller's coin spend and the buyer's GNR spend bind the same signed hash,
@@ -571,8 +581,18 @@ krypton-wallet-cli coin new --name "Gold Krypton" --ticker GOLDK --decimals 6 \
     --supply fixed --cap 21000 --out goldk.kam     # then: coin deploy goldk.kam (10 GNR)
 ```
 
-In the desktop wallet: the **Coins** tab (balances, private sends, the coin market and the
-issue wizard with a preview of exactly what holders will see). Overview:
+In the desktop wallet: the **Coins** tab, in four parts. **Overview** shows your coins with
+their balance and value, every coin on chain and your recent coin activity; **Send** sends a
+coin privately (with your address to receive); **Market** is the order book of each coin
+against GNR, where you buy or sell at a price per coin; **Issue** is a four-step wizard that
+ends with exactly what every holder will see, then deploys, and lets you issue, burn or pause
+the coins you issue.
+
+<p align="center">
+  <img src="docs/images/coins-overview.webp" alt="The Coins tab: your coins with balance and value, every coin on chain and recent activity" width="32%">
+  <img src="docs/images/coins-market.webp" alt="The coin market: sell and buy orders of a coin against GNR, and posting an order at a price per coin" width="32%">
+  <img src="docs/images/coins-issue.webp" alt="Issuing a coin: the review step with the risk labels every holder sees and the exact manifest" width="32%">
+</p> Overview:
 [genoryn.io/coins](https://genoryn.io/coins). Specification:
 [docs/spec/assets.md](docs/spec/assets.md).
 
