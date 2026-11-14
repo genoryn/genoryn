@@ -320,8 +320,12 @@ pub fn uninstall(dir: &Path, p: &Arc<Progress>) -> Result<()> {
         use winreg::enums::HKEY_CURRENT_USER;
         let _ = RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(UNINSTALL_KEY);
     }
-    // The running uninstaller removes itself and the folder after it exits.
+    // The running uninstaller removes itself and the folder after it exits. The path goes
+    // into a cmd line, so one with characters cmd would interpret is left in place.
     #[cfg(windows)]
+    if !dir
+        .to_string_lossy()
+        .contains(['"', '%', '^', '&', '|', '<', '>', '!'])
     {
         use std::os::windows::process::CommandExt;
         let script = format!(

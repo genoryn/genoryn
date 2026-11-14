@@ -77,7 +77,8 @@ https://genoryn.io, https://www.genoryn.io {
 	import site
 }
 
-# Cloudflare "Flexible" mode and direct HTTP.
+# Plain HTTP only sends visitors to HTTPS: neither the site nor the node API is ever served
+# unencrypted (Cloudflare reaches this origin over HTTPS).
 http://genoryn.io, http://www.genoryn.io, :80 {
-	import site
+	redir https://genoryn.io{uri} 308
 }

@@ -30,11 +30,9 @@
 
   function render() {
     var m = data.market || {};
-    $("mkPrice").textContent = m.price != null ? sat(m.price) : "no offers yet";
-    var nOff = (m.asks || 0) + (m.bids || 0);
-    $("mkPriceL").textContent = (m.source === "swaps" ? "Market price · swaps, swaps in progress and offers"
-      : m.source === "pending" ? "Market price · " + m.pending + " swap" + (m.pending === 1 ? "" : "s") + " in progress, " + nOff + " offer" + (nOff === 1 ? "" : "s")
-      : m.source === "offers" ? "Market price · from " + nOff + " offer" + (nOff === 1 ? "" : "s") : "Market price per GNR") + (m.price != null && data.btc ? " · " + usd(m.price) : "");
+    $("mkPrice").textContent = m.price != null ? sat(m.price) : "no swaps yet";
+    var np = Number(m.priced) || 0;
+    $("mkPriceL").textContent = (m.price != null ? "Market price · average of " + np + " completed swap" + (np === 1 ? "" : "s") : "Market price · after the first completed swap") + (m.price != null && data.btc ? " · " + usd(m.price) : "");
     $("mkAsk").textContent = sat(m.best_ask); $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
     $("mkBid").textContent = sat(m.best_bid); $("mkBidN").textContent = m.bids ? "(" + m.bids + ")" : "";
     $("mkVol").textContent = (m.trades || 0) + " done · " + (m.pending || 0) + " in progress";
@@ -55,23 +53,37 @@
   var short = function (h) { return h ? h.slice(0, 10) + "…" + h.slice(-8) : "—"; };
   var when = function (t) { return t ? new Date(t * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }) : "—"; };
   function card(t) {
-    var c = t.claim, kv = function (k, v, mono) { return "<div>" + k + "</div><div" + (mono ? " class=\"mono\"" : "") + ">" + v + "</div>"; };
-    var copy = function (v) { return "<span class=\"mk-hash\" title=\"" + esc(v) + "\">" + esc(short(v)) + "</span>"; };
-    return "<article class=\"glass mk-swap\">" +
-      "<div class=\"mk-swap-head\"><span class=\"hp-coins\" aria-hidden=\"true\">" + GKValue.coin("btc") + GKValue.coin("gnr") + "</span>" +
-      "<b>" + gnr(t.gnr) + " GNR</b><span class=\"muted\">for</span><b>" + btc(t.sats) + " BTC</b>" +
-      "<span class=\"mk-swap-p\">" + sat(t.price) + " per GNR <span class=\"muted\">" + usd(t.price) + "</span></span></div>" +
-      "<div class=\"kv mk-swap-kv\">" +
-      kv("Completed", c ? when(c.time) + " · " + ago(Math.max(0, data.now - c.time)) + " ago" : ago(Math.max(0, data.now - t.at)) + " ago") +
-      (c ? kv("GNR claim", "<a href=\"/explorer#/tx/" + esc(c.txid) + "\">" + esc(short(c.txid)) + "</a>", true) : "") +
-      (c ? kv("In block", "<a href=\"/explorer#/block/" + c.height + "\">#" + Number(c.height).toLocaleString("en-US") + "</a> · " + Number(t.confirmations || 0).toLocaleString("en-US") + " confirmations", true) : "") +
-      kv("Hash lock (SHA-256)", copy(t.hash), true) +
-      (c ? kv("Secret revealed", copy(c.secret), true) : "") +
-      (c ? kv("GNR refundable from", "block #" + Number(c.refund_height).toLocaleString("en-US") + " (not needed: claimed)", true) : "") +
-      "</div></article>";
+    var c = t.claim, conf = Number(t.confirmations || 0);
+    var hash = function (label, v) {
+      return "<div class=\"mk-sw-h\"><span>" + label + "</span><code title=\"" + esc(v) + "\">" + esc(short(v)) + "</code>" +
+        "<button type=\"button\" class=\"mk-copy\" data-copy=\"" + esc(v) + "\" aria-label=\"Copy " + label + "\">Copy</button></div>";
+    };
+    var step = function (on, label, sub) {
+      return "<li class=\"" + (on ? "on" : "") + "\"><i aria-hidden=\"true\"></i><b>" + label + "</b><span>" + sub + "</span></li>";
+    };
+    return "<article class=\"glass mk-sw\">" +
+      "<header class=\"mk-sw-top\">" +
+        "<div class=\"mk-sw-amt\"><span class=\"mk-sw-coin\">" + GKValue.coin("gnr") + "<b>" + gnr(t.gnr) + "</b><em>GNR</em></span>" +
+        "<span class=\"mk-sw-arrow\" aria-hidden=\"true\">⇄</span>" +
+        "<span class=\"mk-sw-coin\">" + GKValue.coin("btc") + "<b>" + btc(t.sats) + "</b><em>BTC</em></span></div>" +
+        "<span class=\"mk-sw-badge" + (c ? "" : " wait") + "\">" + (c ? "Completed" : "Reported") + "</span>" +
+      "</header>" +
+      "<div class=\"mk-sw-price\"><b>" + sat(t.price) + "</b> per GNR" + (usd(t.price) ? " <span>≈ " + usd(t.price) + "</span>" : "") +
+        "<span class=\"mk-sw-when\">" + (c ? when(c.time) + " · " + ago(Math.max(0, data.now - c.time)) + " ago" : ago(Math.max(0, data.now - t.at)) + " ago") + "</span></div>" +
+      "<ol class=\"mk-sw-steps\">" +
+        step(true, "GNR locked", "for the buyer only") +
+        step(!!c, "Bitcoin paid", "into the bitcoin contract") +
+        step(!!c, "Secret revealed", "the seller took the bitcoin") +
+        step(!!c, "GNR claimed", c ? "block #" + Number(c.height).toLocaleString("en-US") : "waiting") +
+      "</ol>" +
+      (c ? "<div class=\"mk-sw-links\"><a href=\"/explorer#/tx/" + esc(c.txid) + "\">GNR claim " + esc(short(c.txid)) + " ↗</a>" +
+        "<a href=\"/explorer#/block/" + Number(c.height) + "\">Block #" + Number(c.height).toLocaleString("en-US") + " · " + conf.toLocaleString("en-US") + " confirmations</a></div>" : "") +
+      "<details class=\"mk-sw-more\"><summary>What the blockchain proves</summary>" +
+        hash("Hash lock (SHA-256)", t.hash) +
+        (c ? hash("Secret revealed", c.secret) : "") +
+        (c ? "<p>The secret hashes to the lock, and the same secret unlocked the bitcoin side. The GNR could only have been refunded to the seller from block #" + Number(c.refund_height).toLocaleString("en-US") + "; it was claimed before that.</p>" : "<p>Counted once its claim is on chain.</p>") +
+      "</details></article>";
   }
-
-
   function load() {
     Promise.all([
       gk.api("/v1/swap/offers").catch(function () { return { offers: [], now: Date.now() / 1000 }; }),
@@ -86,6 +98,13 @@
     });
   }
   document.addEventListener("click", function (e) {
+    var cp = e.target.closest ? e.target.closest("[data-copy]") : null;
+    if (cp) {
+      navigator.clipboard && navigator.clipboard.writeText(cp.getAttribute("data-copy")).then(function () {
+        cp.textContent = "Copied"; setTimeout(function () { cp.textContent = "Copy"; }, 1400);
+      });
+      return;
+    }
     var b = e.target.closest ? e.target.closest("[data-mk]") : null;
     if (!b) return;
     page[b.getAttribute("data-mk")] += Number(b.getAttribute("data-d"));

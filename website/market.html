@@ -57,7 +57,7 @@
 
   <section class="mk-swaps">
     <div class="mk-head"><h2 class="h3">Completed swaps</h2><span class="muted" id="mkRecentN"></span></div>
-    <p class="muted mk-fine">Everything the GNR blockchain shows of each swap: the claim transaction and its block, the hash lock and the secret it revealed (the same secret unlocks the bitcoin side), and the block from which the GNR could have been refunded instead. Amounts are private on chain; the ones shown were reported by the wallets and only count once their claim is on chain.</p>
+    <p class="muted mk-fine">Each swap as the GNR blockchain proves it: the claim, its block and the secret that unlocked both sides. Amounts are private on chain; the ones shown were reported by the two wallets and count only once their claim is on chain.</p>
     <div id="mkRecent" class="mk-cards"></div>
   </section>
 
@@ -70,14 +70,13 @@
         <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.</li>
         <li><b>The wallets finish alone.</b> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 6 hours, the GNR after about 32. No swap lasts longer than a week.</li>
       </ol>
-      <p class="muted mk-fine"><b>How the market price is computed:</b> a robust, volume-weighted median of what people do.</p>
+      <p class="muted mk-fine"><b>How the market price is computed:</b> the plain average of what people actually paid.</p>
       <ul class="mk-steps">
-        <li><b>Swaps completed</b> count three times per GNR. A swap only counts if its claim is on chain.</li>
-        <li><b>Swaps in progress</b> count twice.</li>
-        <li><b>The order book counts as one point</b>: the cheapest online sell offer and the best online buy offer with at least 1 GNR behind them (midway when both exist). It weighs at most 25 GNR, because anyone can post offers: offers above the cheapest one do not move the price, however many there are, and 10 GNR of fresh swaps outweigh the whole book. The first offer already sets a price.</li>
-        <li><b>Older swaps fade</b>: half their weight every 12 hours, gone after 72. With three or more swaps, a swap more than 4× away from the others is left out.</li>
+        <li><b>Only completed swaps count</b>, each one the same, and only once its claim is on chain. Offers and swaps in progress are shown but never move the price: anyone can post an offer at any price.</li>
+        <li><b>The last 72 hours</b>: the average of the swaps completed in that time, or of all recorded swaps while there are none that recent.</li>
+        <li><b>Typos are left out</b>: with three or more swaps, a swap more than 4× away from their median does not count (amounts are reported by the wallets, since they are private on chain).</li>
       </ul>
-      <p class="muted mk-fine"><b>What the board refuses:</b> offers more than 20× above or below the market price, offers for more than 1,000 BTC, offers without proof of work, and offers whose maker is offline (they stay listed, greyed out, and cannot be taken). Prices are shown in bitcoin and in dollars at the current BTC price.</p>
+      <p class="muted mk-fine"><b>Your price is free:</b> publish an offer at any price you like. The board only refuses offers for more than 1,000 BTC and offers without proof of work; offers whose maker is offline stay listed, greyed out, and cannot be taken. Prices are shown in bitcoin and in dollars at the current BTC price.</p>
     </div>
   </section>
 </main>

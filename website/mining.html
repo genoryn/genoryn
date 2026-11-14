@@ -34,15 +34,20 @@
     <h2>Paid by your share of the work</h2>
     <p>Each block adds its 5 GNR and fees to a reward pool held by consensus. Every hash your miner computes is checked against a <b>share target</b> 32 times easier than the block target, so the network finds about 32 shares per block. Each share earns its miner an equal slice of the pool, whoever finds the block. A miner with 88 % of the hashrate earns about 88 %, one with 1 % about 1 %, and nobody needs a pool.</p>
     <div class="table-wrap"><table class="data">
-      <thead><tr><th>Your hashrate (of the network)</th><th class="num">Shares per hour</th><th class="num">Expected GNR per day</th></tr></thead>
+      <thead><tr><th>Your hashrate (of the network)</th><th class="num">Shares per hour</th><th class="num">Expected GNR per day</th><th class="num">In dollars a day</th></tr></thead>
       <tbody>
-        <tr><td data-label="Hashrate">88 %</td><td data-label="Shares/hour" class="num">≈ 1,690</td><td data-label="GNR/day" class="num">≈ 6,336</td></tr>
-        <tr><td data-label="Hashrate">10 %</td><td data-label="Shares/hour" class="num">≈ 192</td><td data-label="GNR/day" class="num">≈ 720</td></tr>
-        <tr><td data-label="Hashrate">1 %</td><td data-label="Shares/hour" class="num">≈ 19</td><td data-label="GNR/day" class="num">≈ 72</td></tr>
-        <tr><td data-label="Hashrate">0.1 %</td><td data-label="Shares/hour" class="num">≈ 2</td><td data-label="GNR/day" class="num">≈ 7.2</td></tr>
+        <tr><td data-label="Hashrate">88 %</td><td data-label="Shares/hour" class="num">≈ 1,690</td><td data-label="GNR/day" class="num">≈ 6,336</td><td data-label="Dollars/day" class="num" data-usd-gnr="6336">—</td></tr>
+        <tr><td data-label="Hashrate">10 %</td><td data-label="Shares/hour" class="num">≈ 192</td><td data-label="GNR/day" class="num">≈ 720</td><td data-label="Dollars/day" class="num" data-usd-gnr="720">—</td></tr>
+        <tr><td data-label="Hashrate">1 %</td><td data-label="Shares/hour" class="num">≈ 19</td><td data-label="GNR/day" class="num">≈ 72</td><td data-label="Dollars/day" class="num" data-usd-gnr="72">—</td></tr>
+        <tr><td data-label="Hashrate">0.1 %</td><td data-label="Shares/hour" class="num">≈ 2</td><td data-label="GNR/day" class="num">≈ 7.2</td><td data-label="Dollars/day" class="num" data-usd-gnr="7.2">—</td></tr>
       </tbody>
     </table></div>
     <p>Earnings accrue and are paid as one note every 360 blocks (about 6 hours), spendable 100 blocks later. Shares only count once they reach the network, so keep the miner online. The full rules are in <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/rewards.md">docs/spec/rewards.md</a>.</p>
+    <p class="muted" data-usd-note>Dollars at the market price: the average of completed BTC ⇄ GNR swaps, at today's bitcoin price.</p>
+    <h2>What your mining is worth</h2>
+    <p><b>Today</b> a GNR is worth what people pay for it: the <a href="/market">market price</a>, the plain average of the swaps they completed. The calculator above turns your GNR into dollars at that price.</p>
+    <p><b>Tomorrow</b> nobody knows the price, but one thing is certain: GNR gets harder to mine. Every block pays 5 GNR to all miners together, so the more computers join, the less each one gets; and every 2,100,000 blocks (about four years) the reward halves. With 28 computers one of them mines about 250 GNR a day; with 100,000 computers the same machine mines 0.07 GNR a day. That is the idea behind the calculator's first price model: <b>if a day of mining stays worth what it is worth today, one GNR becomes worth as many times more as it takes more work</b>. Someone who gets 1,000 GNR for $3 today would need about 3,500 times as much work for them among 100,000 miners.</p>
+    <p>The calculator also shows two other yardsticks: what GNR would be worth at a share of Bitcoin's value, and with a number of people each holding some dollars of it. There will never be more than 21,000,000 GNR. These are what-if numbers, not forecasts or advice.</p>
     <h2>Command line</h2>
     <pre class="code">krypton-miner --list-devices
 krypton-miner --node http://127.0.0.1:30334 --address-file address.txt --backend auto

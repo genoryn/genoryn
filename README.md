@@ -24,20 +24,20 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/wallet.webp" alt="Wallet overview: network hashrate, estimated miners, mining share, rewards and live charts"></td>
-    <td width="50%"><img src="docs/images/wallets.webp" alt="All wallets expanded on the Wallet tab: several wallets with their own passwords and one total"></td>
+    <td width="50%"><img src="docs/images/wallet.webp" alt="Network tab: hashrate, estimated miners, supply and live charts"></td>
+    <td width="50%"><img src="docs/images/swap.webp" alt="Swap tab: the market price from completed swaps, the offer board and publishing an offer"></td>
   </tr>
   <tr>
     <td align="center"><sub>Live network and mining overview</sub></td>
-    <td align="center"><sub>Several wallets, one total</sub></td>
+    <td align="center"><sub>Atomic BTC ⇄ GNR swaps on the offer board</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/mining.webp" alt="Mining: share of the network, expected earnings and accruing rewards"></td>
-    <td width="50%"><img src="docs/images/proofs.webp" alt="History with a verified payment proof"></td>
+    <td width="50%"><img src="docs/images/proofs.webp" alt="History: mining rewards, sends and swap locks"></td>
   </tr>
   <tr>
     <td align="center"><sub>Proportional GPU / CPU mining</sub></td>
-    <td align="center"><sub>Payment proofs</sub></td>
+    <td align="center"><sub>History</sub></td>
   </tr>
 </table>
 
@@ -269,14 +269,13 @@ GNR with that same secret. If anyone stops, timeouts refund both (the bitcoin af
 
 The Swap tab's **offer board** lets anyone publish an offer or take someone else's; the two
 wallets pass the swap codes to each other through sealed mailboxes on the board, and an
-online maker's wallet answers within seconds. The board refuses offers more than 20× away
-from the market price or for more than 1,000 BTC.
+online maker's wallet answers within seconds. Any price may be offered; the board only
+refuses offers for more than 1,000 BTC.
 
-**Price:** the GNR price is the board's market price and nothing else: a robust median of
-completed swaps (×3) and swaps in progress (×2), weighted by GNR and fading by half every
-12 hours, plus the order book as a single point (the best online sell and buy prices with
-at least 1 GNR, weighing at most 25 GNR), so offers above the cheapest one cannot move it,
-however many there are. [genoryn.io/market](https://genoryn.io/market) lists every offer
+**Price:** the GNR price is the board's market price and nothing else: the plain average of
+the swaps completed in the last 72 hours, each counted once its claim is on chain (a swap
+more than 4× from the others' median is left out as a typo). Offers and swaps in progress
+never move it. [genoryn.io/market](https://genoryn.io/market) lists every offer
 and every completed swap with what the chain shows of it. See
 [docs/spec/atomic-swaps.md](docs/spec/atomic-swaps.md).
 

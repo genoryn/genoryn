@@ -144,16 +144,16 @@
       var m = a.mining || {}, act = m.activity || {}, pays = act.payouts || [];
       rows.push(["Published", a.published ? "yes, the short form resolves on this node" : 'no (Wallet → Receive → Publish short form)'], ["Owner tag", '<span class="mono wrap-any">' + gk.esc(a.owner) + "</span>"], ["Cryptography", gk.esc(a.crypto)]);
       var paid = pays.reduce(function (s, p) { return s + Number(p.value); }, 0);
-      var eta = m.next_payout_height ? m.next_payout_height + " (in ~" + Math.max(0, m.next_payout_height - a.height) + " min)" : "—";
+      var nph = Number(m.next_payout_height) || 0, eta = nph ? nph + " (in ~" + Math.max(0, nph - Number(a.height)) + " min)" : "—";
       var mining = kv([
         ["Rewards accruing", "<b>" + gk.gnr(m.unpaid) + " GNR</b>"], ["Next payout", "block " + eta],
         ["Paid so far", gk.gnr(paid) + " GNR in " + pays.length + " payout" + (pays.length === 1 ? "" : "s")],
-        ["Blocks found", String(act.blocks_found || 0)], ["Blocks with its shares", String(act.blocks_with_shares || 0)],
-        ["Mining since", act.first_seen ? '<a href="#/block/' + act.first_seen + '">block ' + act.first_seen + "</a>" : "—"], ["Last share", act.last_seen ? '<a href="#/block/' + act.last_seen + '">block ' + act.last_seen + "</a>" : "—"]
+        ["Blocks found", String(Number(act.blocks_found) || 0)], ["Blocks with its shares", String(Number(act.blocks_with_shares) || 0)],
+        ["Mining since", act.first_seen ? '<a href="#/block/' + Number(act.first_seen) + '">block ' + Number(act.first_seen) + "</a>" : "—"], ["Last share", act.last_seen ? '<a href="#/block/' + Number(act.last_seen) + '">block ' + Number(act.last_seen) + "</a>" : "—"]
       ]);
       var payRows = pays.slice().reverse().map(function (p) {
-        var spend = p.height + (m.maturity || 100);
-        return '<tr><td data-label="Block"><a href="#/block/' + p.height + '">' + p.height + '</a></td><td data-label="Amount" class="num">' + gk.gnr(p.value) + ' GNR</td><td data-label="Spendable">' + (a.height >= spend ? '<span class="ok">yes</span>' : "from block " + spend) + "</td></tr>";
+        var ph = Number(p.height), spend = ph + (Number(m.maturity) || 100);
+        return '<tr><td data-label="Block"><a href="#/block/' + ph + '">' + ph + '</a></td><td data-label="Amount" class="num">' + gk.gnr(p.value) + ' GNR</td><td data-label="Spendable">' + (Number(a.height) >= spend ? '<span class="ok">yes</span>' : "from block " + spend) + "</td></tr>";
       }).join("");
       view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Address</h2>' + card(kv(rows)) +
         '<h2 style="font-size:20px;margin:22px 0 12px">Mining</h2>' + card(mining) +

@@ -442,7 +442,7 @@ pub fn build_template(
     picked.sort_by_key(|(s, _)| s.hash());
     let weights: Vec<_> = picked.iter().map(|(s, w)| (s.miner, *w)).collect();
     let shares: Vec<BlockHeader> = picked.into_iter().map(|(s, _)| s).collect();
-    let fees: u64 = txs.iter().map(|t| t.fee).sum();
+    let fees: u64 = txs.iter().map(|t| t.fee).fold(0, u64::saturating_add);
     let mut header = BlockHeader {
         version: HEADER_VERSION,
         height,

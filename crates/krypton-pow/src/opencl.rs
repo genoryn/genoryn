@@ -76,7 +76,13 @@ impl ClMiner {
         // OpenCL compiler fails to link the helpers when it does not inline them.
         let src = format!("#define KH_FN static inline\n#define KH_G __global\n{CORE}\n{KERNELS}");
         let program = Program::create_and_build_from_source(&context, &src, "-cl-std=CL1.2")
-            .map_err(ClError::Cl)?;
+            .map_err(|log| {
+                ClError::Cl(if log.trim().is_empty() || log.contains("BUILD_PROGRAM_FAILURE") {
+                    format!("{log}: the GPU driver could not compile the mining kernel; reinstall the driver (a clean install) and try again")
+                } else {
+                    log
+                })
+            })?;
         let k_dataset = Kernel::create(&program, "kh_dataset").map_err(e)?;
         let k_search = Kernel::create(&program, "kh_search").map_err(e)?;
         let results = unsafe {

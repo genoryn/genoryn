@@ -246,8 +246,12 @@ pub fn sample_heights(tip_height: u64, count: usize, seed: u64) -> Vec<u64> {
     v
 }
 
+/// How far ahead of this computer's clock a block may be dated, beyond consensus drift.
+pub const CLOCK_SKEW_SECS: u64 = 2 * 3600;
+
 /// Verifies a tip: sampled headers carry valid PoW and are committed by the tip's MMR,
-/// recent headers link up to the tip. Returns the cumulative work implied.
+/// recent headers link up to the tip. Returns the total work the tip's MMR commits to
+/// (every block before the tip) plus the tip's own.
 pub fn verify_flyclient(
     params: &ChainParams,
     genesis_hash: &Hash32,
@@ -280,8 +284,24 @@ pub fn verify_flyclient(
         p.recent.len() as u64 >= need,
         "the node sent too few recent headers to check the difficulty rule"
     );
+    ensure!(
+        p.recent.len() as u64 <= need + 64,
+        "the node sent too many recent headers"
+    );
+    // No header from the future: a chain whose clock runs ahead could lower its own
+    // difficulty quickly (two hours of tolerance for this computer's clock).
+    let latest = krypton_core::now() + krypton_core::params::MAX_FUTURE_DRIFT + CLOCK_SKEW_SECS;
+    ensure!(
+        p.recent
+            .iter()
+            .chain(std::iter::once(tip))
+            .all(|h| h.timestamp <= latest),
+        "the node's chain has blocks dated in the future"
+    );
     let leaves = tip.height;
     let mut found = std::collections::BTreeSet::new();
+    let mut total_work: Option<u128> = None;
+    let mut before_checkpoint: Option<u128> = None;
     let wanted: std::collections::BTreeSet<u64> = expected.iter().copied().collect();
     ensure!(
         p.samples.len() <= wanted.len(),
@@ -308,10 +328,12 @@ pub fn verify_flyclient(
                 h.height
             );
         }
-        ensure!(
-            mmr::verify(&tip.mmr_root, &MmrNode::leaf(&hash, h.difficulty), &s.proof),
-            "sample not in tip MMR"
-        );
+        let Some((before, total)) =
+            mmr::verify_work(&tip.mmr_root, &MmrNode::leaf(&hash, h.difficulty), &s.proof)
+        else {
+            bail!("sample not in tip MMR");
+        };
+        total_work = Some(total);
         ensure!(
             floor_ok(h),
             "sample difficulty far below the checkpoint at {}",
@@ -324,6 +346,7 @@ pub fn verify_flyclient(
                 hex::encode(hash) == c.hash,
                 "the node's chain does not contain this release's checkpoint"
             );
+            before_checkpoint = Some(before);
         }
         found.insert(h.height);
     }
@@ -364,8 +387,17 @@ pub fn verify_flyclient(
         history.push((h.timestamp, h.difficulty));
         prev = Some(h);
     }
-    // The MMR root carries the total work of all committed blocks.
-    Ok(p.samples.iter().map(|s| s.header.difficulty).sum())
+    let total = total_work.unwrap_or(0);
+    // Since the checkpoint the blocks carry real work on average, not only one by one.
+    if let (Some(c), Some(b)) = (cp, before_checkpoint) {
+        let blocks = u128::from(tip.height - c.height);
+        ensure!(
+            total.saturating_sub(b) >= blocks * c.min_difficulty(),
+            "the node's chain carries too little work since the checkpoint"
+        );
+    }
+    // The MMR root commits to the work of every block before the tip.
+    Ok(total.saturating_add(tip.difficulty))
 }
 
 #[cfg(test)]

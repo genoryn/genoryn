@@ -23,8 +23,12 @@ const MAX_MESSAGES: usize = 5_000;
 const MESSAGE_SECS: u64 = 24 * 3600;
 const MAX_TRADES: usize = 20_000;
 const TRADE_KEEP_SECS: u64 = 30 * 24 * 3600;
-/// A swap in progress is shown at most this long (the longest timelocks end before).
-const PENDING_SECS: u64 = 48 * 3600;
+/// A swap in progress is shown at most this long (a GNR-first swap pays within two hours
+/// of its lock and completes within a few more).
+const PENDING_SECS: u64 = 12 * 3600;
+/// The maker's wallet says its swap still runs every few minutes; an entry not confirmed
+/// for this long is dropped (the swap was cancelled, or the wallet is gone).
+const PENDING_IDLE_SECS: u64 = 30 * 60;
 /// A maker seen this recently is "online" (its wallet answers takes within seconds).
 const ONLINE_SECS: u64 = 120;
 /// Offers of makers not seen for this long stop counting for the price.
@@ -38,6 +42,8 @@ struct Inner {
     /// Offers taken whose swaps are in progress (shown and priced, no longer takeable),
     /// with when they were taken.
     pending: HashMap<String, (Offer, u64)>,
+    /// When each swap in progress was last confirmed by its maker.
+    pending_seen: HashMap<String, u64>,
     /// When each offer's maker was last online (posted or pinged). Only offers whose maker
     /// is online can be taken at once, so only they count for the price.
     seen: HashMap<String, u64>,
@@ -76,20 +82,17 @@ impl Board {
     fn expire(i: &mut Inner, t: u64) {
         i.offers
             .retain(|_, o| o.expires > t && o.sats <= board::MAX_OFFER_SATS);
-        // Offers whose maker has been offline for half an hour, and offers priced far from
-        // the market, are dropped; their makers' wallets see that in their next ping and
-        // free the GNR. Swaps in progress are never touched.
+        // Offers whose maker has been offline for half an hour are dropped; their makers'
+        // wallets see that in their next ping and free the GNR. Any price may stay.
         let seen = &i.seen;
         i.offers
             .retain(|id, _| seen.get(id).is_some_and(|s| s + STALE_SECS > t));
-        if let Some(p) = current_market(i, t).price {
-            let f = board::MAX_PRICE_FACTOR;
-            i.offers.retain(|_, o| {
-                let q = o.price();
-                q <= p * f && q >= p / f
-            });
-        }
-        i.pending.retain(|_, (_, at)| *at + PENDING_SECS > t);
+        let ps = &i.pending_seen;
+        i.pending.retain(|id, (_, at)| {
+            *at + PENDING_SECS > t && ps.get(id).copied().unwrap_or(*at) + PENDING_IDLE_SECS > t
+        });
+        let pids: std::collections::HashSet<String> = i.pending.keys().cloned().collect();
+        i.pending_seen.retain(|id, _| pids.contains(id));
         let ids: std::collections::HashSet<String> = i.offers.keys().cloned().collect();
         i.seen.retain(|id, _| ids.contains(id));
         let mut n = 0;
@@ -129,6 +132,7 @@ impl Board {
                 .into_iter()
                 .map(|(o, at)| (o.id.clone(), (o, at)))
                 .collect();
+            i.pending_seen = i.pending.keys().map(|id| (id.clone(), t)).collect();
             i.inbox = s
                 .inbox
                 .into_iter()
@@ -180,22 +184,28 @@ struct Saved {
     inbox: Vec<(String, Vec<(u64, String)>)>,
 }
 
-/// Scans new blocks for lock claims (their hash locks prove a swap completed).
-fn scan_claims(node: &Node, i: &mut Inner) {
+/// Scans new blocks for lock claims (their hash locks prove a swap completed). The blocks
+/// are read without holding the board, which stays answerable meanwhile.
+fn scan_claims(node: &Node) {
+    let scanned = {
+        let mut i = node.board.inner.lock();
+        node.board.load(&mut i);
+        i.scanned
+    };
     let tip = node.chain.tip().height();
     let start = node.chain.params.lock_height.min(tip.saturating_add(1));
-    let from = i
-        .scanned
+    let from = scanned
         .map(|s| s + 1)
         .unwrap_or(start)
         .max(tip.saturating_sub(20_000));
+    let mut found = Vec::new();
     for h in from..=tip {
         if let Ok(Some(b)) = node.chain.block_at(h) {
             for t in &b.txs {
                 if let Some(l) = &t.lock
                     && let LockMode::Claim { secret } = &l.mode
                 {
-                    i.claims.insert(
+                    found.push((
                         hex::encode(l.terms.hash),
                         Claim {
                             height: h,
@@ -204,11 +214,18 @@ fn scan_claims(node: &Node, i: &mut Inner) {
                             secret: hex::encode(secret),
                             refund_height: l.terms.refund_height,
                         },
-                    );
+                    ));
                 }
             }
         }
-        i.scanned = Some(h);
+    }
+    if from > tip {
+        return;
+    }
+    let mut i = node.board.inner.lock();
+    i.claims.extend(found);
+    if i.scanned.is_none_or(|s| s < tip) {
+        i.scanned = Some(tip);
     }
 }
 
@@ -254,12 +271,17 @@ pub async fn offers(State(node): S) -> Response {
 
 #[derive(Deserialize)]
 pub struct ProgressReq {
-    offer: Offer,
+    /// Older wallets send the whole offer; only its id is used.
+    #[serde(default)]
+    offer: Option<Offer>,
+    #[serde(default)]
+    id: Option<String>,
     secret: String,
 }
 
-/// The maker of a taken offer moves it to "in progress": still shown and priced, no
-/// longer takeable. Only the maker can, with the offer's cancel secret.
+/// The maker of a taken offer moves it to "in progress" (shown, no longer takeable), and
+/// says every few minutes that its swap still runs. Only the offer stored on the board can
+/// move, proven with its cancel secret: the request's own copy of the offer is ignored.
 pub async fn post_progress(State(node): S, Json(r): Json<ProgressReq>) -> Response {
     let Some(secret) = hex::decode(&r.secret)
         .ok()
@@ -267,30 +289,30 @@ pub async fn post_progress(State(node): S, Json(r): Json<ProgressReq>) -> Respon
     else {
         return bad("bad secret");
     };
-    let o = r.offer;
-    if o.cancel != board::cancel_hash(&secret) {
-        return bad("wrong cancel secret");
-    }
-    // Everything but the expiry: the swap may run past the offer's 24 hours.
-    if let Err(e) = o.validate(
-        node.chain.params.network.as_str(),
-        o.expires.saturating_sub(1),
-    ) {
-        return bad(e);
-    }
+    let Some(id) = r.id.or(r.offer.map(|o| o.id)) else {
+        return bad("missing offer id");
+    };
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
-    Board::expire(&mut i, now());
-    if i.pending.len() >= MAX_OFFERS && !i.pending.contains_key(&o.id) {
-        return bad("the board is full; try again later");
+    let t = now();
+    Board::expire(&mut i, t);
+    let stored = i
+        .offers
+        .get(&id)
+        .or_else(|| i.pending.get(&id).map(|x| &x.0));
+    match stored {
+        None => return bad("no such offer on the board"),
+        Some(o) if o.cancel != board::cancel_hash(&secret) => return bad("wrong cancel secret"),
+        Some(_) => {}
     }
-    i.offers.remove(&o.id);
-    let at = i.pending.get(&o.id).map(|x| x.1).unwrap_or_else(now);
-    i.pending.insert(o.id.clone(), (o, at));
+    if let Some(o) = i.offers.remove(&id) {
+        i.seen.remove(&id);
+        i.pending.insert(id.clone(), (o, t));
+    }
+    i.pending_seen.insert(id, t);
     node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
 }
-
 pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
     if let Err(e) = o.validate(node.chain.params.network.as_str(), now()) {
         return bad(e);
@@ -303,17 +325,6 @@ pub async fn post_offer(State(node): S, Json(o): Json<Offer>) -> Response {
     }
     if i.offers.contains_key(&o.id) {
         return bad("an offer with this id exists");
-    }
-    // Joke prices fill the board without moving anyone: far from the market, refused.
-    if let Some(p) = current_market(&i, now()).price {
-        let q = o.price();
-        if q > p * board::MAX_PRICE_FACTOR || q < p / board::MAX_PRICE_FACTOR {
-            return bad(format!(
-                "this price is more than {}× away from the market price ({:.8} BTC per GNR); offers must stay within that range",
-                board::MAX_PRICE_FACTOR,
-                p / 1e8
-            ));
-        }
     }
     i.seen.insert(o.id.clone(), now());
     i.offers.insert(o.id.clone(), o);
@@ -355,11 +366,12 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
         else {
             continue;
         };
-        if i.offers
-            .get(&it.id)
-            .is_some_and(|o| o.cancel == board::cancel_hash(&secret))
-        {
+        let h = board::cancel_hash(&secret);
+        if i.offers.get(&it.id).is_some_and(|o| o.cancel == h) {
             i.seen.insert(it.id, t);
+            ok += 1;
+        } else if i.pending.get(&it.id).is_some_and(|(o, _)| o.cancel == h) {
+            i.pending_seen.insert(it.id, t);
             ok += 1;
         }
     }
@@ -446,12 +458,12 @@ pub async fn post_trade(State(node): S, Json(t): Json<Trade>) -> Response {
     }
     let n = node.clone();
     let r = tokio::task::spawn_blocking(move || {
+        scan_claims(&n);
         let mut i = n.board.inner.lock();
         n.board.load(&mut i);
         if i.trades.iter().any(|(x, _)| x.hash == t.hash) {
             return Ok(false);
         }
-        scan_claims(&n, &mut i);
         if !i.claims.contains_key(&t.hash) {
             return Err("no claim with this hash lock on chain yet");
         }
@@ -483,13 +495,14 @@ fn current_market(i: &Inner, t: u64) -> board::Market {
 }
 
 pub async fn market(State(node): S) -> Response {
+    // Each swap with what the GNR chain shows of it: its claim, block, time and secret.
+    let n = node.clone();
+    let _ = tokio::task::spawn_blocking(move || scan_claims(&n)).await;
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
     let m = current_market(&i, t);
-    // Each swap with what the GNR chain shows of it: its claim, block, time and secret.
-    scan_claims(&node, &mut i);
     let tip = node.chain.tip().height();
     let recent: Vec<_> = i
         .trades

@@ -21,13 +21,27 @@ An attacker who forks away from the honest chain must produce proof of work for 
 sampled height on its branch; with enough samples the probability of a successful fake is
 negligible, while the cost stays logarithmic in the chain length.
 
-**Limitation (v1).** Samples are chosen by height and checked against the difficulty each
-header claims; the client does not compare total work. A server can therefore present a
-fabricated low-difficulty chain from the real genesis. Configure several independently
-operated nodes: wallets refuse to sync when they disagree. Work-weighted sampling and a
-minimum chain work per release are planned
-([review](../audit/2026-11-security-review.md), H-6).
+**Work rules (1.0.33).** Each release carries a checkpoint (mainnet: block 14,800). Above
+it:
 
+* every sampled and recent header needs at least 1/16 of the checkpoint's difficulty, and the
+  blocks since the checkpoint must carry that much work on average, as proven by the MMR;
+* no header may be dated more than 2 hours (plus the 5-minute consensus drift) ahead of the
+  client's clock, so a fork cannot lower its own difficulty quickly;
+* the node may send at most 64 recent headers beyond the difficulty window.
+
+`verify_flyclient` returns the **total work** the tip commits to: every MMR node hashes the
+work beneath it, so an inclusion proof (`mmr::verify_work`) proves the work of all leaves
+before and after its own. The wallet remembers the most work it has verified and refuses a
+chain with less (an honest chain only gains work), so a cheap fork cannot replace the chain
+it already follows; faking confirmations for it costs as much work as the honest network
+spends on them. When a node proves a different block at the wallet's height inside an at
+least as heavy chain, the wallet goes back to the fork point (or rescans) and follows it; a
+node that only sends bad proofs proves nothing and changes nothing.
+
+**Limitation.** A wallet that has never synced trusts the first chain shown to it above the
+checkpoint. Configure several independently operated nodes (wallets refuse to sync when
+they disagree), or run your own node for large swaps.
 ## Compact blocks
 
 `GET /v1/compact?from=h&count=n` returns, per block: header, tree size before the block, all

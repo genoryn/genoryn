@@ -91,6 +91,57 @@ fn ip_key(ip: IpAddr) -> IpAddr {
 /// An inbound peer must introduce itself (Hello) this soon or lose its slot.
 const HELLO_DEADLINE: Duration = Duration::from_secs(30);
 const MAX_ADDR_BOOK: usize = 5000;
+/// Addresses kept from one network group (IPv4 /16, IPv6 /32), so one provider's range
+/// cannot fill the book and surround a node with its own peers.
+const MAX_PER_GROUP: usize = 16;
+
+/// Whether `ip` is a public internet address. Peers may only point a node at those: never
+/// at this computer, its local network or special ranges, where a node's connection
+/// attempts could probe or flood other machines.
+pub fn routable(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(a) => {
+            let o = a.octets();
+            !(a.is_unspecified()
+                || a.is_loopback()
+                || a.is_private()
+                || a.is_link_local()
+                || a.is_broadcast()
+                || a.is_multicast()
+                || a.is_documentation()
+                || o[0] == 0
+                || (o[0] == 100 && (o[1] & 0xc0) == 64)
+                || (o[0] == 192 && o[1] == 0 && o[2] == 0)
+                || (o[0] == 198 && (o[1] & 0xfe) == 18)
+                || o[0] >= 240)
+        }
+        IpAddr::V6(a) => {
+            if let Some(v4) = a.to_ipv4_mapped() {
+                return routable(IpAddr::V4(v4));
+            }
+            let s = a.segments();
+            !(a.is_unspecified()
+                || a.is_loopback()
+                || a.is_multicast()
+                || (s[0] & 0xfe00) == 0xfc00
+                || (s[0] & 0xffc0) == 0xfe80
+                || (s[0] == 0x2001 && s[1] == 0x0db8))
+        }
+    }
+}
+
+fn group(ip: IpAddr) -> (u8, u32) {
+    match ip {
+        IpAddr::V4(a) => {
+            let o = a.octets();
+            (4, u32::from(o[0]) << 8 | u32::from(o[1]))
+        }
+        IpAddr::V6(a) => {
+            let s = a.segments();
+            (6, u32::from(s[0]) << 16 | u32::from(s[1]))
+        }
+    }
+}
 
 struct Inner {
     cfg: Config,
@@ -430,11 +481,9 @@ impl Net {
         if let Some(p) = ps.get_mut(&peer) {
             // Only a peer's first Hello may add its listening address to the book.
             if p.info.hello.is_none() && p.info.inbound && h.listen_port != 0 {
-                let a = SocketAddr::new(p.info.addr.ip(), h.listen_port).to_string();
+                let a = SocketAddr::new(p.info.addr.ip(), h.listen_port);
                 let mut book = self.inner.addrs.lock();
-                if book.len() < MAX_ADDR_BOOK {
-                    book.insert(a);
-                }
+                self.insert_addr(&mut book, a);
             }
             p.info.hello = Some(h);
         }
@@ -482,34 +531,130 @@ impl Net {
         b.contains_key(&ip_key(*ip))
     }
 
+    /// Whether a peer may point this node at `s`: a public address on an unprivileged
+    /// port. A node that itself listens on a local address (a test network) accepts local
+    /// peers too.
+    fn acceptable(&self, s: &SocketAddr) -> bool {
+        let local_net = self
+            .inner
+            .cfg
+            .listen
+            .is_some_and(|l| !l.ip().is_unspecified() && !routable(l.ip()));
+        s.port() >= 1024 && !s.ip().is_unspecified() && (routable(s.ip()) || local_net)
+    }
+
+    fn insert_addr(&self, book: &mut HashSet<String>, s: SocketAddr) {
+        if book.len() >= MAX_ADDR_BOOK || !self.acceptable(&s) {
+            return;
+        }
+        let g = group(s.ip());
+        let same = book
+            .iter()
+            .filter_map(|x| x.parse::<SocketAddr>().ok())
+            .filter(|x| group(x.ip()) == g)
+            .count();
+        if same < MAX_PER_GROUP {
+            book.insert(s.to_string());
+        }
+    }
+
     pub fn add_addrs(&self, v: Vec<String>) {
         let mut a = self.inner.addrs.lock();
         for x in v.into_iter().take(message::MAX_ADDRS) {
-            if a.len() >= MAX_ADDR_BOOK {
-                break;
-            }
-            if x.parse::<SocketAddr>()
-                .is_ok_and(|s| !s.ip().is_unspecified() && s.port() != 0)
-            {
-                a.insert(x);
+            if let Ok(s) = x.parse::<SocketAddr>() {
+                self.insert_addr(&mut a, s);
             }
         }
     }
 
+    /// Addresses to share with a peer: public ones only (never a seed's host name or
+    /// anything local), in random order so no peer learns the whole book at once.
     pub fn addrs(&self) -> Vec<String> {
-        self.inner
+        use rand::seq::SliceRandom;
+        let mut v: Vec<String> = self
+            .inner
             .addrs
             .lock()
             .iter()
-            .take(message::MAX_ADDRS)
+            .filter(|x| {
+                x.parse::<SocketAddr>()
+                    .is_ok_and(|s| routable(s.ip()) && s.port() >= 1024)
+            })
             .cloned()
-            .collect()
+            .collect();
+        v.shuffle(&mut rand::thread_rng());
+        v.truncate(message::MAX_ADDRS);
+        v
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn peers_cannot_point_a_node_at_local_or_special_addresses() {
+        for bad in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.9",
+            "192.168.1.1",
+            "169.254.1.1",
+            "100.64.0.1",
+            "0.0.0.0",
+            "255.255.255.255",
+            "224.0.0.1",
+            "192.0.2.7",
+            "198.18.0.1",
+            "240.0.0.1",
+            "::1",
+            "::",
+            "fc00::1",
+            "fd12::1",
+            "fe80::1",
+            "ff02::1",
+            "2001:db8::1",
+            "::ffff:192.168.1.1",
+        ] {
+            assert!(!routable(bad.parse().unwrap()), "{bad}");
+        }
+        for good in [
+            "2.24.162.163",
+            "8.8.8.8",
+            "2a01:4f8::1",
+            "::ffff:2.24.162.163",
+        ] {
+            assert!(routable(good.parse().unwrap()), "{good}");
+        }
+    }
+
+    #[tokio::test]
+    async fn the_address_book_keeps_only_public_diverse_addresses() {
+        let (n, _rx) = Net::start(Config {
+            magic: *b"TEST",
+            listen: None,
+            seeds: vec![],
+            max_outbound: 0,
+            max_inbound: 0,
+            max_per_ip: 4,
+        });
+        n.add_addrs(vec![
+            "127.0.0.1:30334".into(),
+            "192.168.1.1:30333".into(),
+            "8.8.8.8:22".into(),
+            "8.8.8.8:30333".into(),
+            "[fe80::1]:30333".into(),
+            "not an address".into(),
+        ]);
+        assert_eq!(n.addrs(), vec!["8.8.8.8:30333".to_string()]);
+        // One /16 fills at most MAX_PER_GROUP places.
+        n.add_addrs(
+            (0..200)
+                .map(|i| format!("5.6.{}.{}:30333", i / 250, i % 250 + 1))
+                .collect(),
+        );
+        let same = n.addrs().iter().filter(|a| a.starts_with("5.6.")).count();
+        assert_eq!(same, MAX_PER_GROUP);
+    }
     #[tokio::test]
     async fn two_nodes_handshake_and_exchange() {
         let la: SocketAddr = "127.0.0.1:38711".parse().unwrap();

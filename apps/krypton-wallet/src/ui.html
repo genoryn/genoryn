@@ -563,7 +563,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
-          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: a robust median weighted by GNR: completed swaps ×3 and swaps in progress ×2, fading by half every 12 hours, plus the order book as one point (the best online sell and buy prices with at least 1 GNR, weighing at most 25 GNR). Offers above the cheapest one do not move it, however many there are.</p>
+          <p class="hero-note">Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself, and the GNR of sell offers is reserved so it is always there. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: the plain average of the swaps completed in the last 72 hours, each counted once its claim is on chain. Offers and swaps in progress never move it, so offer at any price you like.</p>
         </section>
         <aside class="bd-side">
           <section class="glass card bd-trade">
@@ -716,11 +716,13 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <div class="grid" style="margin-top:18px">
       <div class="glass card"><h2>Display</h2>
         <label class="mcheck" style="margin-top:0"><input type="checkbox" id="showVal" onchange="setShowVal(this.checked)"> Show the market value next to balances and mining earnings</label>
-        <p class="hero-note"><b>Market price:</b> set by the people who trade GNR on the offer board. A robust median of completed swaps, swaps in progress and the best online offers, weighted by GNR. Converted to dollars with the BTC price, which arrives through genoryn.io so no third party sees this wallet. With no offers and no swaps yet, no value is shown.</p>
+        <p class="hero-note"><b>Market price:</b> set by the people who trade GNR on the offer board. The plain average of the swaps people completed (each one the same, counted once its claim is on chain); offers never move it, so you may offer at any price. Converted to dollars with the BTC price, which arrives through genoryn.io so no third party sees this wallet. Before the first completed swap, no value is shown.</p>
       </div>
       <div class="glass card"><h2>Connection mode</h2>
         <label><input type="radio" name="mode" value="light"> Light (recommended): remote nodes provide data, everything is verified on this device</label>
         <label><input type="radio" name="mode" value="full"> Full node: download and validate the whole chain on this computer</label>
+        <label class="mcheck"><input type="checkbox" id="acceptPeers"> Let other nodes connect to my full node (helps the network; needs a restart of the node)</label>
+        <p class="hero-note">Off by default: your node then only connects out to other nodes, so nothing on the internet can open a connection to this computer. Either way the node never runs commands or reads files for other nodes, and refuses invalid data from them.</p>
         <label for="nodes" style="margin-top:14px">Nodes for light mode (one per line; several are cross-checked)</label><textarea id="nodes"></textarea>
         <div class="row-flex"><button class="btn btn-primary" onclick="saveSettings()">Save</button><button class="btn" onclick="api('/api/node/start',{}).then(refresh)">Start my full node</button><button class="btn" onclick="api('/api/node/stop',{}).then(refresh)">Stop node</button></div>
       </div>
@@ -878,7 +880,7 @@ function perGnr(){ return marketPerGnr(); }
 function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
 const coin=(k,c)=>`<svg class="coin coin-${k}${c?' '+c:''}" aria-hidden="true"><use href="#c-${k}"/></svg>`;
 function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0);
-  const from=m.source==='swaps' ? `${m.trades} swap${m.trades===1?'':'s'} in 24 h, swaps in progress and offers` : m.source==='pending' ? `${m.pending} swap${m.pending===1?'':'s'} in progress and ${n} offer${n===1?'':'s'}` : `${n} offer${n===1?'':'s'} on the board`;
+  const np=Number(m.priced)||0, from=`average of ${np} completed swap${np===1?'':'s'}`;
   return 'at the market price · '+from; }
 function renderValue(){
   const on=VAL.show && perGnr()!=null;
@@ -1261,7 +1263,7 @@ function renderMnBlocks(){
 }
 document.querySelectorAll('#mnBf button').forEach(b=>b.onclick=()=>{ MN.f=b.dataset.f; MN.page=0; document.querySelectorAll('#mnBf button').forEach(x=>x.classList.toggle('on',x===b)); renderMnBlocks(); });
 setInterval(()=>{ if(!document.hidden && !$('tab-mining').classList.contains('hidden') && Date.now()-MN.t>30000) loadMining(); }, 5000);
-async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean)}); toast('Saved'); }catch(e){ toast(e.message,true) } }
+async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean), accept_peers:$('acceptPeers').checked}); toast('Saved'); }catch(e){ toast(e.message,true) } }
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 /* Password strength while typing (estimated by the wallet; nothing is stored or sent away). */
 document.querySelectorAll('.pw-meter').forEach(m=>{ const inp=$(m.dataset.for); if(!inp) return; let t=null, seq=0;
@@ -1412,7 +1414,7 @@ async function loadBoard(){
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
   $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtPx(m.price)):'No offers yet';
   $('bdPrice').textContent=m.price!=null?'Market '+fmtPx(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
-  $('bdPriceL').textContent=m.source==='swaps'?'· robust median of swaps, swaps in progress and online offers':m.source==='pending'?'· median of '+m.pending+' swap'+(m.pending===1?'':'s')+' in progress and '+n+' offer'+(n===1?'':'s'):m.source==='offers'?'· median of '+n+' online offer'+(n===1?'':'s'):'';
+  $('bdPriceL').textContent=m.price!=null?'· average of '+(Number(m.priced)||0)+' completed swap'+(Number(m.priced)===1?'':'s'):'· after the first completed swap';
   const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
   $('bdConfBox').classList.toggle('hidden', m.price==null);
   $('bdDepth').textContent=(m.depth||(conf>=.8?'deep':conf>=.4?'moderate':'thin'))+' · '+Math.round(conf*100)+' %';
@@ -1607,7 +1609,7 @@ async function refresh(){
   mnSample(); renderMining();
   renderValue();
   if(!settingsLoaded && S.settings){ $('showVal').checked=VAL.show; }
-  if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); }
+  if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); $('acceptPeers').checked=!!S.settings.accept_peers; }
 }
 refresh(); setInterval(refresh, 4000);
 </script>

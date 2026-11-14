@@ -266,43 +266,47 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
-  * The market price is one robust, volume-weighted median, stored in sat per GNR and shown
-    in BTC (`board::market`). Its price points:
-    * swaps completed in the last 72 hours, weighing their GNR (at most 1,000 each) ×3;
-    * swaps in progress, ×2: taken offers, which the maker moves to "in progress" with the
-      offer's cancel secret; they stay listed and priced, cannot be taken again, and leave
-      when the swap ends;
-    * the order book as **one** point (`board::book_price`): the best sell price with at
-      least 1 GNR behind it, the best buy price likewise, or their midpoint when both
-      exist. Only offers whose maker was online in the last 10 minutes count. It weighs the
-      GNR on offer, but at most 25: offers prove nothing (anyone can post them), so 10 GNR
-      of fresh swaps outweigh any number of them, and offers above the cheapest real one
-      (or below the best real bid) do not move the price at all. The first offer already
-      sets a price.
+  * The market price is the **arithmetic mean of completed swaps**, stored in sat per GNR
+    and shown in BTC (`board::market`, `board::priced_swaps`):
+    * the swaps completed in the last 72 hours, each counting the same whatever its size
+      (all recorded swaps while none is that recent);
+    * with three or more, a swap more than 4× away from their median is left out: amounts
+      are reported by the wallets (they are private on chain), so a typo or a fake report
+      must not move the average;
+    * open offers and swaps in progress are listed and counted, but **never** move the
+      price: anyone can post an offer at any price, and nothing proves a swap in progress
+      runs. The best sell and buy offers are shown next to the price.
 
-    Swaps and swaps in progress fade by half every 12 hours. With three or more of them,
-    those more than 4× away from their median are left out (fat fingers). With exactly half
-    the weight on each side, the price is the midpoint of the two middle prices. The board
-    also reports `confidence`, `w / (w + 25)` for a total weight `w` in GNR-equivalents, and
-    a `depth` of thin (< 0.4), moderate or deep (≥ 0.8). The best sell and buy offers are
-    shown next to it.
-  * **The GNR price** shown by the wallet and genoryn.io is this market price and nothing
+    The board also reports how many swaps were averaged (`priced`), `confidence`,
+    `v / (v + 25)` for the GNR `v` behind them, and a `depth` of thin (< 0.4), moderate or
+    deep (≥ 0.8).
+  * **Swaps in progress:** a taken offer moves to "in progress" when its maker proves it
+    with the offer's cancel secret, checked against the offer stored on the board (never a
+    copy sent with the request). The maker's wallet confirms every 10 minutes that the swap
+    still runs; an entry not confirmed for 30 minutes, or older than 12 hours, is dropped.
+    The wallet removes it as soon as the swap can no longer complete: finished, or the other
+    side gave up before any bitcoin arrived (its locked GNR then waits for the refund).  * **The GNR price** shown by the wallet and genoryn.io is this market price and nothing
     else (`GKValue.market`). The wallet values balances and mining earnings at it, and shows
     nothing before there is one.
-  * **What the board refuses:** offers more than 20× above or below the market price
-    (`MAX_PRICE_FACTOR`), offers for more than 1,000 BTC (`MAX_OFFER_SATS`), offers without
-    proof of work. Offers of makers offline for 2 minutes cannot be taken, and after 10
-    minutes stop counting for the price.
+  * **Any price may be offered.** The board refuses only offers for more than 1,000 BTC
+    (`MAX_OFFER_SATS`) and offers without proof of work. Offers of makers offline for
+    2 minutes cannot be taken.
   * **Swap details on genoryn.io/market:** for each completed swap the board shows what the
     GNR chain holds: the claim transaction, its block and time, the hash lock, the secret it
     revealed (the same secret unlocks the bitcoin side) and the refund height. Amounts are
     private on chain; the reported ones count only once their claim is on chain.
   * The wallet and genoryn.io convert it to dollars with the BTC price, which genoryn.io
     fetches from mempool.space, so visitors' browsers contact no third party.
-  * Until swaps exist, both fall back to the cost-to-mine estimate and say so.
+  * Before the first completed swap there is no price, and nothing is shown.
 * **Known limit:** the GNR amount of a trade cannot be checked on chain (it is private). Wash
   trades (someone trading with themselves at a made-up price) are possible, as on any
-  exchange. The median, the outlier cut, the fading and the confidence limit their effect.
+  exchange. The outlier cut, the equal weight of every swap (a large made-up amount counts no
+  more than a small one) and the confidence limit their effect.
+* **Swap secrets are never reused:** every swap number is random (from the upper half of
+  32-bit numbers), so a wallet restored from its recovery phrase, which has no swap records,
+  or the same phrase in a second wallet, never derives an earlier swap's secret, keys or
+  outputs again. A repeated secret already revealed by an earlier swap would let anyone
+  claim the new lock.
 
 ## Plan
 

@@ -84,6 +84,7 @@
     var holds = [100, 1000, 10000, 100000];
     var joins = [1, 10, 100, 1000, 10000];
     var shares = [0.0001, 0.001, 0.01, 0.1, 0.5, 1];
+    var worths = [0.001, 0.003, 0.01, 0.1, 1];
     var sfYears = [0, 4, 8, 12, 16, 20, 30, 40];
     var fmtN = function (n) { return n.toLocaleString("en-US"); };
     root.innerHTML =
@@ -124,13 +125,19 @@
       '<p class="mc-note">Scarcity is a fact of the schedule; it does not set a price by itself. A coin is worth something only while people want it: scarcity decides how much of it each of them can have.</p></div>' +
       '<div class="mc-px">' +
       '<h4 class="mc-h">Price calculator: what if</h4>' +
-      '<p class="mc-sub">Two simple ways to put a number on GNR in the year above. Neither is a forecast; each only shows what a size of GNR would mean per coin.</p>' +
-      '<h5 class="mc-h5">1. A share of Bitcoin\'s value</h5>' +
+      '<p class="mc-sub">Three simple ways to put a number on GNR in the year and with the computers chosen above. None is a forecast; each shows what one assumption means per coin.</p>' +
+      '<h5 class="mc-h5">1. The work behind one GNR</h5>' +
+      '<p class="mc-sub">GNR only comes from mining. The more computers share the same reward, and the more halvings have passed, the more work one GNR takes. If a day of a computer\'s mining stays worth what it is worth today, one GNR is worth more in proportion.</p>' +
+      '<div class="mc-in"><label>One GNR is worth today<select data-c="ws"><option value="market">the market price</option>' + options(worths, -1, function (v) { return "$" + v + " (1,000 GNR for $" + amt(v * 1000) + ")"; }) + '<option value="custom">Other amount</option></select></label>' +
+      '<label class="mc-cws" style="display:none">Dollars for one GNR today<input data-c="wsc" type="number" min="0" step="any" inputmode="decimal" value="0.003"></label></div>' +
+      '<div class="mc-res" data-c="wres"></div>' +
+      '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Computers mining</th><th>Each one a day</th><th>Work behind 1 GNR</th><th>One GNR worth</th><th>1,000 GNR worth</th></tr></thead><tbody data-c="wrows"></tbody></table></div>' +
+      '<h5 class="mc-h5">2. A share of Bitcoin\'s value</h5>' +
       '<p class="mc-sub" data-c="bsub">—</p>' +
       '<div class="mc-in"><label>GNR worth, as a share of Bitcoin today<select data-c="bs">' + options(shares, 0.01, function (v) { return amt(v * 100) + " %"; }) + '</select></label></div>' +
       '<div class="mc-res" data-c="bres"></div>' +
       '<div class="mc-tw"><table class="mc-table"><thead><tr><th>Share of Bitcoin\'s value</th><th>All GNR worth</th><th>One GNR worth</th><th>One computer a day</th></tr></thead><tbody data-c="brows"></tbody></table></div>' +
-      '<h5 class="mc-h5">2. People and dollars</h5>' +
+      '<h5 class="mc-h5">3. People and dollars</h5>' +
       '<p class="mc-sub">A price is what people pay. If a number of people each hold GNR worth some dollars, one GNR is worth all their dollars divided by the GNR that exist then. The reward halves while more people arrive, so each person can own less and less.</p>' +
       '<div class="mc-in mc-in4"><label>People holding GNR<select data-c="pp">' + options(people, 10000, fmtN) + '<option value="custom">Other number</option></select></label>' +
       '<label class="mc-cpp" style="display:none">Number of people<input data-c="ppc" type="number" min="1" step="1" inputmode="numeric" value="50000"></label>' +
@@ -227,6 +234,22 @@
           "</td><td>" + sfTxt(btcScarcity(t0 + y * yearMs)) + "</td><td>≈ " + GOLD_SF + "</td></tr>";
       }).join("");
 
+      // The work behind one GNR: today's price × how much less one computer mines then.
+      var wsel = q("ws").value;
+      show(".mc-cws", wsel === "custom");
+      var p0 = wsel === "market" ? (mkt != null ? mkt : 0.003) : wsel === "custom" ? Math.max(0, Number(q("wsc").value) || 0) : Number(wsel);
+      var dayNow = perComputer(nNow, h || 1).day;
+      var workPx = function (m) { var d = perComputer(m, at || 1).day; return d > 0 ? p0 * dayNow / d : null; };
+      var wp = workPx(n);
+      q("wres").innerHTML = "Today one computer of " + nNow.toLocaleString("en-US") + " mines <b>" + amt(dayNow) + " GNR a day</b>, worth " + dollars(dayNow * p0) + " at " + usd(p0) + " a GNR" +
+        (wsel === "market" && mkt == null ? " (no market price yet: $0.003 assumed)" : "") + ". <b>" + (k ? y0 + k : "Now") + "</b> with <b>" + n.toLocaleString("en-US") + "</b> computers it mines " +
+        amt(p.day) + " GNR a day, so one GNR takes <b>" + amt(dayNow / Math.max(p.day, 1e-18)) + "× the work</b>. For that day of mining to be worth the same, one GNR would be worth <b>" +
+        (wp != null ? dollars(wp) : "—") + "</b> and 1,000 GNR " + (wp != null ? dollars(wp * 1000) : "—") + ".";
+      q("wrows").innerHTML = sizes.map(function (m) {
+        var x = workPx(m), d = perComputer(m, at || 1).day;
+        return "<tr" + (m === n ? ' class="on"' : "") + "><td>" + m.toLocaleString("en-US") + "</td><td>" + amt(d) + " GNR</td><td>" + amt(dayNow / Math.max(d, 1e-18)) + "×</td><td>" + (x != null ? dollars(x) : "—") + "</td><td>" + (x != null ? dollars(x * 1000) : "—") + "</td></tr>";
+      }).join("");
+
       // A share of Bitcoin's value today, spread over the GNR that exist in the chosen year.
       var share = Number(q("bs").value) || 0.01;
       q("bsub").textContent = btcCap > 0 ? "Bitcoin is worth about " + dollars(btcCap) + " today (" + dollars(btcUsd) + " × " + count(BTC_SUPPLY) + " BTC). If all GNR together became worth a part of that, one GNR would be that part divided by the GNR that exist then."
@@ -267,7 +290,7 @@
           (mkt != null ? dollars(x.day * mkt) : "—") + "</td><td>" + dollars(x.day * price) + "</td></tr>";
       }).join("") : "";
     }
-    ["jd", "jdc", "y", "s", "c", "bs", "pp", "ppc", "ph", "phc"].forEach(function (k) { q(k).addEventListener("input", draw); q(k).addEventListener("change", draw); });
+    ["jd", "jdc", "y", "s", "c", "ws", "wsc", "bs", "pp", "ppc", "ph", "phc"].forEach(function (k) { q(k).addEventListener("input", draw); q(k).addEventListener("change", draw); });
     draw();
     return { update: draw };
   }

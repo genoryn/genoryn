@@ -411,6 +411,9 @@ impl ChainSource for Multi<'_> {
     ) -> Result<bool> {
         ChainSource::header_in(&self.0[0], h, tip)
     }
+    fn tip_work(&self, tip: &krypton_core::BlockHeader) -> Result<Option<u128>> {
+        ChainSource::tip_work(&self.0[0], tip)
+    }
     fn submit(&self, tx: &krypton_core::Transaction) -> Result<krypton_core::Hash32> {
         let mut last_err = None;
         let mut ok = None;

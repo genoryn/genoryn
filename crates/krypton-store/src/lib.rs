@@ -671,6 +671,20 @@ impl Chain {
                 )));
             }
             if self.has_block(&hash)? {
+                // Stored but never connected because of a passing error: try it again, or
+                // a node could be held one block behind by its own earlier refusal.
+                let tip = self.tip();
+                if rec.status == STATUS_UNVERIFIED && block.header.prev == tip.hash {
+                    return match self.connect(block, now) {
+                        Ok(()) => Ok(Outcome::Connected { reorg_depth: 0 }),
+                        Err(e) => {
+                            if e.is_permanent() {
+                                self.mark_invalid(&hash)?;
+                            }
+                            Err(e)
+                        }
+                    };
+                }
                 return Ok(Outcome::AlreadyKnown);
             }
         }

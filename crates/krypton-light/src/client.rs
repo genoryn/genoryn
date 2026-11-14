@@ -317,6 +317,24 @@ impl NodeClient {
             ))
     }
 
+    /// The total work of the chain ending at the verified `tip`: what its MMR commits to
+    /// (every block before it, proven with the genesis leaf's proof) plus its own.
+    pub fn tip_work(&self, tip: &BlockHeader) -> Result<u128> {
+        if tip.height == 0 {
+            return Ok(tip.difficulty);
+        }
+        let g = self.header(0)?;
+        let p = self.mmr_proof(0, tip.height)?;
+        anyhow::ensure!(p.leaf_index == 0 && p.leaves == tip.height, "proof shape");
+        let (_, total) = krypton_core::mmr::verify_work(
+            &tip.mmr_root,
+            &krypton_core::mmr::MmrNode::leaf(&g.hash(), g.difficulty),
+            &p,
+        )
+        .context("the node's work proof does not match its tip")?;
+        Ok(total.saturating_add(tip.difficulty))
+    }
+
     pub fn mmr_proof(&self, leaf: u64, at: u64) -> Result<MmrProof> {
         self.get(&format!("/v1/mmrproof?leaf={leaf}&at={at}"))?
             .json()

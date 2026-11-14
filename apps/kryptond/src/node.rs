@@ -107,6 +107,8 @@ pub struct Node {
     pub jobs: Mutex<HashMap<u64, Job>>,
     pub templates: Mutex<HashMap<String, (Hash32, u64, Instant, u64)>>,
     pub template_budget: Mutex<Vec<Instant>>,
+    /// When each peer last sent us addresses (one list per peer every 10 minutes).
+    pub addr_from: Mutex<HashMap<PeerId, Instant>>,
     /// Recent address-directory writes (bounds disk use from the public API).
     pub address_budget: Mutex<Vec<Instant>>,
     /// Per-client HTTP budgets and connection caps.
@@ -145,6 +147,7 @@ impl Node {
             jobs: Mutex::new(HashMap::new()),
             templates: Mutex::new(HashMap::new()),
             template_budget: Mutex::new(Vec::new()),
+            addr_from: Mutex::new(HashMap::new()),
             address_budget: Mutex::new(Vec::new()),
             guard: Arc::new(crate::guard::Guard::default()),
             tx_verify: tokio::sync::Semaphore::new(4),
@@ -240,6 +243,7 @@ impl Node {
                     self.peer_heights.lock().remove(&p);
                     self.hash_requests.lock().remove(&p);
                     self.share_counts.lock().remove(&p);
+                    self.addr_from.lock().remove(&p);
                     // Whatever it was asked for may be asked from others right away.
                     self.in_flight.lock().retain(|_, (q, _)| *q != p);
                 }
@@ -503,7 +507,17 @@ impl Node {
                 }
             }
             Message::GetAddr => self.net.send(p, &Message::Addr(self.net.addrs())),
-            Message::Addr(v) => self.net.add_addrs(v),
+            Message::Addr(v) => {
+                let mut seen = self.addr_from.lock();
+                let fresh = seen
+                    .get(&p)
+                    .is_none_or(|t| t.elapsed() >= Duration::from_secs(600));
+                if fresh {
+                    seen.insert(p, Instant::now());
+                    drop(seen);
+                    self.net.add_addrs(v);
+                }
+            }
         }
         Ok(())
     }

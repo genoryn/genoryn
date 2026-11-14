@@ -82,6 +82,19 @@ impl ChainSource for Local<'_> {
             &p,
         ))
     }
+    fn tip_work(&self, tip: &BlockHeader) -> Result<Option<u128>> {
+        if tip.height == 0 {
+            return Ok(Some(tip.difficulty));
+        }
+        let g = self.chain.header_at(0)?.context("genesis")?;
+        let p = self.chain.mmr_proof(0, tip.height)?.context("proof")?;
+        Ok(krypton_core::mmr::verify_work(
+            &tip.mmr_root,
+            &krypton_core::mmr::MmrNode::leaf(&g.hash(), g.difficulty),
+            &p,
+        )
+        .map(|(_, total)| total + tip.difficulty))
+    }
 }
 
 impl proof::ProofSource for Local<'_> {
@@ -178,8 +191,20 @@ fn light_client_rejects_forged_data() {
     };
     let genesis = chain.genesis.hash();
     let good = mk(&heights);
-    krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &good, &heights)
-        .expect("honest proof verifies");
+    let work =
+        krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &good, &heights)
+            .expect("honest proof verifies");
+    let all: u128 = (0..=tip.height())
+        .map(|h| chain.header_at(h).unwrap().unwrap().difficulty)
+        .sum();
+    assert_eq!(work, all, "the proven total work of every block");
+    let mut flood = good.clone();
+    flood.recent = (0..200).map(|_| good.recent[0].clone()).collect();
+    assert!(
+        krypton_light::verify_flyclient(&chain.params, &genesis, &chain.pow, &flood, &heights)
+            .is_err(),
+        "an unbounded list of recent headers"
+    );
     let mut forged = good.clone();
     forged.samples[0].header.timestamp += 1;
     assert!(
@@ -742,4 +767,62 @@ fn sync_rejects_blocks_outside_the_proven_chain() {
     assert_eq!(w.balance().total, 0, "nothing applied from unproven blocks");
     w.sync(&src, |_, _| {}).unwrap();
     assert!(w.balance().total > 0);
+}
+
+/// A wallet keeps the heaviest chain it has verified: a lighter one from a node is refused
+/// (a cheap fork cannot fake payments to it), and a heavier fork replaces what it followed.
+#[test]
+fn sync_follows_the_most_work_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = Chain::open(&dir.path().join("a"), Network::Devnet).unwrap();
+    let b = Chain::open(&dir.path().join("b"), Network::Devnet).unwrap();
+    let src_a = Local {
+        chain: &a,
+        pool: RefCell::new(vec![]),
+    };
+    let src_b = Local {
+        chain: &b,
+        pool: RefCell::new(vec![]),
+    };
+    let mut w = Wallet::create(
+        &dir.path().join("w.wallet"),
+        "password-f",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    let other = Wallet::create(
+        &dir.path().join("o.wallet"),
+        "password-o",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap()
+    .address();
+    for _ in 0..10 {
+        mine(&src_a, &w.address());
+    }
+    for _ in 0..6 {
+        mine(&src_b, &other);
+    }
+    w.sync(&src_a, |_, _| {}).unwrap();
+    assert_eq!(w.synced_height(), Some(10));
+    let err = w.sync(&src_b, |_, _| {}).unwrap_err().to_string();
+    assert!(err.contains("less proof of work"), "{err}");
+    assert_eq!(w.synced_height(), Some(10), "nothing changed");
+    // The other chain grows heavier: the wallet moves to it.
+    for _ in 0..10 {
+        mine(&src_b, &other);
+    }
+    let r = w.sync(&src_b, |_, _| {}).unwrap();
+    assert!(r.reorged > 0 || r.reset, "{r:?}");
+    assert_eq!(w.synced_height(), Some(16));
+    // And the first chain, now lighter, is refused in turn.
+    assert!(w.sync(&src_a, |_, _| {}).is_err());
 }

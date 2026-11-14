@@ -72,7 +72,16 @@ impl CudaMiner {
             name: ctx.name().map_err(e)?,
             memory_bytes: ctx.total_mem().map_err(e)?,
         };
-        let module = ctx.load_module(Ptx::from_src(PTX)).map_err(e)?;
+        let module = ctx.load_module(Ptx::from_src(PTX)).map_err(|x| {
+            let m = format!("{x:?}");
+            // The kernel is compiled by the driver (PTX JIT): a broken driver install fails
+            // here while the card itself is listed fine.
+            if m.contains("JIT") || m.contains("PTX") || m.contains("INVALID_IMAGE") {
+                GpuError::Cuda(format!("{m}: the NVIDIA driver could not compile the mining kernel; reinstall the driver (a clean install) and try again"))
+            } else {
+                GpuError::Cuda(m)
+            }
+        })?;
         let stream = ctx.default_stream();
         let results = stream
             .alloc_zeros::<u32>(1 + 2 * MAX_RESULTS as usize)

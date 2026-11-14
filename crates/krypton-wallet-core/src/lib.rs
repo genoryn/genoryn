@@ -46,6 +46,11 @@ pub trait ChainSource {
     ) -> Result<Option<BlockHeader>>;
     /// Whether `h` belongs to the chain committed by `tip`.
     fn header_in(&self, h: &BlockHeader, tip: &BlockHeader) -> Result<bool>;
+    /// The total proof of work of the chain ending at the verified `tip`, as committed by
+    /// its MMR. `None` where it is not known (trusted local sources).
+    fn tip_work(&self, _tip: &BlockHeader) -> Result<Option<u128>> {
+        Ok(None)
+    }
 }
 
 impl ChainSource for krypton_light::client::NodeClient {
@@ -59,6 +64,9 @@ impl ChainSource for krypton_light::client::NodeClient {
     }
     fn header_in(&self, h: &BlockHeader, tip: &BlockHeader) -> Result<bool> {
         krypton_light::client::NodeClient::header_in(self, h, tip)
+    }
+    fn tip_work(&self, tip: &BlockHeader) -> Result<Option<u128>> {
+        krypton_light::client::NodeClient::tip_work(self, tip).map(Some)
     }
     fn tip_height(&self) -> Result<u64> {
         Ok(self.info()?.height)
@@ -157,6 +165,13 @@ struct State {
     /// Application records stored (encrypted) with the wallet, e.g. swaps in progress.
     #[serde(default)]
     app: std::collections::BTreeMap<String, serde_json::Value>,
+    /// The most proof of work this wallet has verified for its chain (decimal), and that
+    /// tip's hash: a node showing a chain with less work is refused, so a cheap fork
+    /// cannot replace the chain the wallet already knows.
+    #[serde(default)]
+    best_work: Option<String>,
+    #[serde(default)]
+    best_tip: Option<String>,
 }
 
 pub struct Wallet {
@@ -240,6 +255,8 @@ impl Wallet {
             genesis: None,
             locks: vec![],
             app: Default::default(),
+            best_work: None,
+            best_tip: None,
         };
         let w = Self {
             keys,
@@ -283,6 +300,8 @@ impl Wallet {
         self.state.history.clear();
         self.state.checkpoints.clear();
         self.state.genesis = None;
+        self.state.best_work = None;
+        self.state.best_tip = None;
         self.verifier = None;
         self.lock_rollback(0, 0, true);
     }
@@ -481,6 +500,32 @@ impl Wallet {
         Ok(t)
     }
 
+    /// Refuses a proven tip with less total work than the best this wallet has verified
+    /// (an honest chain only gains work), and remembers it otherwise. Whether it is
+    /// strictly heavier than the best before.
+    fn check_work(&mut self, src: &impl ChainSource, t: &BlockHeader) -> Result<bool> {
+        let hash = hex::encode(t.hash());
+        if self.state.best_tip.as_deref() == Some(hash.as_str()) {
+            return Ok(false);
+        }
+        let Some(work) = src.tip_work(t)? else {
+            return Ok(false);
+        };
+        let best = self
+            .state
+            .best_work
+            .as_deref()
+            .and_then(|s| s.parse::<u128>().ok());
+        if best.is_some_and(|b| work < b) {
+            bail!(
+                "this node shows a chain with less proof of work than one this wallet has already verified (it may be behind, or dishonest); try again later or use another node"
+            );
+        }
+        self.state.best_work = Some(work.to_string());
+        self.state.best_tip = Some(hash);
+        Ok(best.is_none_or(|b| work > b))
+    }
+
     /// Synchronizes with `src`. The tip is proven by proof of work (FlyClient); every
     /// batch of compact blocks must hash-link to it and is checked against its headers
     /// before any of it is applied.
@@ -521,6 +566,32 @@ impl Wallet {
             report.reset = true;
         }
         self.state.genesis = Some(genesis);
+        if let Some(t) = &vtip {
+            let heavier = self.check_work(src, t)?;
+            // We followed a fork: the proven chain (at least as heavy) has another block at
+            // our height, itself proven by the tip's MMR, or is strictly heavier and shorter.
+            // A node that merely sends bad proofs proves nothing and changes nothing. Go
+            // back to where the chains meet, or rescan if that is deeper than we keep.
+            let fork = match self.verifier.as_ref().map(|v| v.last.clone()) {
+                Some(last) if last.height > t.height => heavier,
+                Some(last) if last.height == t.height => last.hash() != t.hash(),
+                Some(last) => {
+                    let theirs = src.header(last.height)?;
+                    theirs.hash() != last.hash() && src.header_in(&theirs, t)?
+                }
+                None => false,
+            };
+            if fork {
+                match self.rollback(src, vtip.as_ref()) {
+                    Ok(n) => report.reorged += n,
+                    Err(_) => {
+                        self.reset_chain_state();
+                        self.check_work(src, t)?;
+                        report.reset = true;
+                    }
+                }
+            }
+        }
         if self.verifier.is_none() {
             let start = (self.state.birthday / CHECKPOINT) * CHECKPOINT;
             let start = start.min(tip / CHECKPOINT * CHECKPOINT);

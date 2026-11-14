@@ -85,6 +85,10 @@ struct Settings {
     /// Report completed swaps (amounts and hash lock only) for the market price.
     #[serde(default)]
     share_prices: Option<bool>,
+    /// Let other nodes connect to our own node (helps the network). Off by default: the
+    /// node then only connects out, so nothing on the internet can reach this computer.
+    #[serde(default)]
+    accept_peers: Option<bool>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -277,6 +281,9 @@ impl ChainSource for Multi {
         tip: &krypton_core::BlockHeader,
     ) -> Result<bool> {
         ChainSource::header_in(self.first()?, h, tip)
+    }
+    fn tip_work(&self, tip: &krypton_core::BlockHeader) -> Result<Option<u128>> {
+        ChainSource::tip_work(self.first()?, tip)
     }
     fn submit(&self, tx: &krypton_core::Transaction) -> Result<krypton_core::Hash32> {
         let mut ok = None;
@@ -1247,6 +1254,9 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
         s.btc_backend = cur.btc_backend.clone();
         s.btc_network = cur.btc_network.clone();
         s.share_prices = cur.share_prices;
+        if s.accept_peers.is_none() {
+            s.accept_peers = cur.accept_peers;
+        }
     }
     *app.settings.lock() = s;
     match app.save_settings() {
@@ -1273,8 +1283,12 @@ fn spawn_node(app: &App) -> Result<()> {
     {
         return Ok(());
     }
-    let c = hidden(&mut Command::new(sibling("kryptond")))
-        .args(["--network", app.network.as_str()])
+    let mut cmd = Command::new(sibling("kryptond"));
+    cmd.args(["--network", app.network.as_str()]);
+    if !app.settings.lock().accept_peers.unwrap_or(false) {
+        cmd.arg("--no-listen");
+    }
+    let c = hidden(&mut cmd)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
@@ -1783,6 +1797,7 @@ async fn serve(
             btc_backend: None,
             btc_network: None,
             share_prices: None,
+            accept_peers: None,
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);

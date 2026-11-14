@@ -215,6 +215,34 @@ pub fn verify(root: &Hash32, leaf: &MmrNode, proof: &MmrProof) -> bool {
     root_from_peaks(&all, proof.leaves) == *root
 }
 
+/// Like [`verify`], and on success returns the work committed by the root: (work of all
+/// leaves before this one, work of all leaves). Both are authenticated by the root, since
+/// every node hashes the work beneath it.
+pub fn verify_work(root: &Hash32, leaf: &MmrNode, proof: &MmrProof) -> Option<(u128, u128)> {
+    if !verify(root, leaf, proof) {
+        return None;
+    }
+    let first = peaks(proof.leaves)[proof.peak_index as usize].2;
+    let offset = proof.leaf_index - first;
+    let mut node = *leaf;
+    let mut before = 0u128;
+    for (k, s) in proof.siblings.iter().enumerate() {
+        node = if (offset >> k) & 1 == 0 {
+            MmrNode::parent(&node, s)
+        } else {
+            before = before.saturating_add(s.work);
+            MmrNode::parent(s, &node)
+        };
+    }
+    let pi = proof.peak_index as usize;
+    let left: u128 = proof.peaks[..pi].iter().map(|p| p.work).sum();
+    let right: u128 = proof.peaks[pi + 1..].iter().map(|p| p.work).sum();
+    Some((
+        left.saturating_add(before),
+        left.saturating_add(node.work).saturating_add(right),
+    ))
+}
+
 mod nodes_hex {
     use super::MmrNode;
     use serde::{Deserialize, Deserializer, Serializer};
@@ -279,6 +307,11 @@ mod tests {
                 assert!(verify(&r, &leaf, &p), "leaf {j} of {}", m.leaves);
                 let wrong = MmrNode::leaf(&[j as u8; 32], 11 + j as u128);
                 assert!(!verify(&r, &wrong, &p));
+                // The work before leaf j and the total, both proven by the root.
+                let before: u128 = (0..j as u128).map(|k| 10 + k).sum();
+                let all: u128 = (0..=i as u128).map(|k| 10 + k).sum();
+                assert_eq!(verify_work(&r, &leaf, &p), Some((before, all)));
+                assert_eq!(verify_work(&r, &wrong, &p), None);
             }
         }
         let total: u128 = (0..40u128).map(|i| 10 + i).sum();

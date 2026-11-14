@@ -122,9 +122,9 @@ impl Network {
                 payout_interval: 360,
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:30333"],
                 checkpoint: Some(Checkpoint {
-                    height: 1400,
-                    hash: "8d650ee7c81cf920bd24ae4aaa3997bb7fcf4bba0e3ffa8205d388a75484a68d",
-                    difficulty: 40_547_978_637,
+                    height: 14_800,
+                    hash: "913387e26ae3a743954179c27a9ca6b20b7f2465d1db55b5cca3b391334ce01c",
+                    difficulty: 38_870_722_540,
                 }),
                 // Atomic swaps (lock spends) activate here: announced with 1.0.13, about a
                 // day after its release, so wallets and nodes update first.

@@ -38,16 +38,23 @@ struct MyOffer {
     pending_sent: bool,
     #[serde(default)]
     pending_cleared: bool,
+    /// When the board was last told that the swap still runs.
+    #[serde(default)]
+    pending_at: u64,
 }
 
-/// Moves a taken offer to "in progress" on the board.
-fn announce_pending(base: &str, m: &MyOffer) -> bool {
+/// The board drops a swap in progress that its maker has not confirmed for half an hour.
+const PENDING_REFRESH_SECS: u64 = 10 * 60;
+
+/// Moves a taken offer to "in progress" on the board, or says that its swap still runs.
+/// `Err` with "no such offer" means the board no longer has it.
+fn announce_pending(base: &str, m: &MyOffer) -> Result<()> {
     post(
         base,
         "/v1/swap/progress",
-        &json!({"offer": m.offer, "secret": m.cancel_secret}),
+        &json!({"id": m.offer.id, "offer": m.offer, "secret": m.cancel_secret}),
     )
-    .is_ok()
+    .map(|_| ())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -296,6 +303,7 @@ fn publish_offer(
         republished: false,
         pending_sent: false,
         pending_cleared: false,
+        pending_at: 0,
     });
     save(e.wallet, &st)?;
     Ok(offer)
@@ -581,10 +589,14 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
         let Some(l) = st.links.iter().find(|l| l.offer == m.offer.id) else {
             continue;
         };
-        let over = swaps
-            .iter()
-            .find(|s| s.id == l.swap_id)
-            .is_none_or(|s| s.stage.finished());
+        // Over for the board once it can no longer complete: finished, or the other side
+        // gave up (or never paid) before any bitcoin arrived. Locked GNR still waits for
+        // its refund, but nobody should see the swap as running.
+        let over = swaps.iter().find(|s| s.id == l.swap_id).is_none_or(|s| {
+            s.stage.finished()
+                || (s.deposit.is_none()
+                    && (l.gone_sent || s.created + engine::DEPOSIT_TIMEOUT_SECS + 3600 < t))
+        });
         if over {
             let gone = post(
                 &base,
@@ -592,8 +604,15 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
                 &json!({"id": m.offer.id, "secret": m.cancel_secret}),
             );
             m.pending_cleared = gone.is_ok();
-        } else if !m.pending_sent {
-            m.pending_sent = announce_pending(&base, m);
+        } else if !m.pending_sent || m.pending_at + PENDING_REFRESH_SECS <= t {
+            match announce_pending(&base, m) {
+                Ok(()) => {
+                    m.pending_sent = true;
+                    m.pending_at = t;
+                }
+                Err(x) if x.to_string().contains("no such offer") => m.pending_cleared = true,
+                Err(_) => {}
+            }
         }
     }
     // Swaps that ended before anything was locked (cancelled or expired): tell the other
@@ -692,7 +711,10 @@ fn handle(
                 );
                 let addr = mo.btc_address.clone();
                 mo.taken = true;
-                mo.pending_sent = announce_pending(base, mo);
+                if announce_pending(base, mo).is_ok() {
+                    mo.pending_sent = true;
+                    mo.pending_at = now();
+                }
                 let s = e.accept(&code, &addr)?;
                 st.links.push(Link {
                     swap_id: s.id,
@@ -746,7 +768,10 @@ fn handle(
                 return send_note(base, from, key, &Note::Gone { offer });
             }
             mo.taken = true;
-            mo.pending_sent = announce_pending(base, mo);
+            if announce_pending(base, mo).is_ok() {
+                mo.pending_sent = true;
+                mo.pending_at = now();
+            }
             let (gnr, sats, addr) = (mo.offer.gnr, mo.offer.sats, mo.btc_address.clone());
             let s = e.request(gnr, sats, &addr)?;
             st.links.push(Link {

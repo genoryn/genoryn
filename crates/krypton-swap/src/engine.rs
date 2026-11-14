@@ -360,9 +360,15 @@ impl<G: ChainSource> Engine<'_, G> {
         );
         Ok(())
     }
+    /// A new swap number. Its secret, keys and outputs all derive from it and the wallet
+    /// seed, so it must never repeat, even in a wallet restored from its recovery phrase
+    /// (which has no swap records) or the same phrase in a second wallet: a repeated
+    /// secret already revealed by an earlier swap would let anyone claim the new lock.
+    /// Random numbers from the upper half never meet the counted ones of older versions.
     fn next_index(swaps: &[Swap]) -> u32 {
-        swaps.iter().map(|s| s.index).max().unwrap_or(0) + 1
+        new_index(swaps.iter().map(|s| s.index))
     }
+
     fn lock(&self, s: &Swap) -> Option<LockRecord> {
         let cm = s.lock_cm.as_deref()?;
         self.wallet
@@ -1431,5 +1437,36 @@ impl<G: ChainSource> Engine<'_, G> {
             _ => {}
         }
         Ok(())
+    }
+}
+
+fn new_index(used: impl Iterator<Item = u32> + Clone) -> u32 {
+    loop {
+        let i = rand::random::<u32>() | (1 << 31);
+        if !used.clone().any(|u| u == i) {
+            return i;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn swap_numbers_never_repeat_after_a_restore() {
+        // Older versions counted 1, 2, 3, ...; new numbers come from the upper half.
+        let mut used: Vec<u32> = (1..=3).collect();
+        for _ in 0..1_000 {
+            let i = new_index(used.iter().copied());
+            assert!(i >= 1 << 31 && !used.contains(&i));
+            used.push(i);
+        }
+        // Two wallets from the same recovery phrase, without each other's records: their
+        // first swaps get different numbers, hence different secrets.
+        let seed = [7u8; 64];
+        let a = derive_secret(&seed, new_index(std::iter::empty()));
+        let b = derive_secret(&seed, new_index(std::iter::empty()));
+        assert_ne!(a.hash(), b.hash());
     }
 }

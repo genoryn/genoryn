@@ -435,3 +435,43 @@ main { overflow-x: clip; }
 .mc .mc-in.mc-in4 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 760px) { .mc .mc-in, .mc .mc-in.mc-in4 { grid-template-columns: 1fr; } }
 .mc-h5 { font-size: 14.5px; font-weight: 600; margin: 18px 0 6px; }
+/* Completed swap cards */
+.mk-sw { padding: 20px 22px 16px; border-radius: var(--radius-lg); min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.mk-sw-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mk-sw-amt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mk-sw-coin { display: inline-flex; align-items: baseline; gap: 6px; }
+.mk-sw-coin .coin { width: 22px; height: 22px; align-self: center; }
+.mk-sw-coin b { font: 700 22px var(--font-mono); letter-spacing: -0.02em; }
+.mk-sw-coin em { font-style: normal; font-size: 13px; color: var(--text-tertiary); }
+.mk-sw-arrow { font-size: 18px; color: var(--text-tertiary); }
+.mk-sw-badge { font-size: 12px; font-weight: 600; padding: 5px 10px 5px 24px; border-radius: 999px; border: 1px solid var(--line-strong); position: relative; }
+.mk-sw-badge::before { content: ""; position: absolute; left: 10px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+.mk-sw-badge.wait { color: var(--text-tertiary); }
+.mk-sw-price { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 13.5px; color: var(--text-secondary); }
+.mk-sw-price b { font: 600 15px var(--font-mono); color: var(--text-primary); }
+.mk-sw-when { margin-left: auto; color: var(--text-tertiary); font-size: 12.5px; }
+.mk-sw-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: relative; }
+.mk-sw-steps::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 9px; height: 2px; background: var(--line-strong); }
+.mk-sw-steps li { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; padding: 0 4px; }
+.mk-sw-steps i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--bg-base, #000); position: relative; z-index: 1; }
+.mk-sw-steps li.on i { background: var(--text-primary); border-color: var(--text-primary); }
+.mk-sw-steps li.on i::after { content: ""; position: absolute; left: 6px; top: 2.5px; width: 4px; height: 8px; border: solid var(--bg-base, #000); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.mk-sw-steps b { font-size: 12.5px; font-weight: 600; margin-top: 4px; }
+.mk-sw-steps span { font-size: 11.5px; color: var(--text-tertiary); }
+.mk-sw-links { display: flex; gap: 8px 18px; flex-wrap: wrap; font: 500 12.5px var(--font-mono); }
+.mk-sw-links a { color: var(--text-secondary); text-decoration: none; border-bottom: 1px dashed var(--line-strong); }
+.mk-sw-links a:hover { color: var(--text-primary); }
+.mk-sw-more { border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+.mk-sw-more summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5px; list-style: none; }
+.mk-sw-more summary::-webkit-details-marker { display: none; }
+.mk-sw-more summary::before { content: "▸ "; }
+.mk-sw-more[open] summary::before { content: "▾ "; }
+.mk-sw-more p { margin: 8px 0 0; color: var(--text-tertiary); line-height: 1.55; font-size: 12.5px; }
+.mk-sw-h { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.mk-sw-h span { color: var(--text-tertiary); font-size: 12px; min-width: 130px; }
+.mk-sw-h code { font: 500 12.5px var(--font-mono); background: var(--bg-inset); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; }
+.mk-copy { font-size: 11.5px; padding: 3px 9px; border-radius: 8px; border: 1px solid var(--line-strong); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.mk-copy:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+@media (max-width: 560px) { .mk-sw-steps b { font-size: 11px; } .mk-sw-steps span { display: none; } .mk-sw-coin b { font-size: 18px; } }
+.coin3d.is-gl { animation: none; transform: none; }
+.coin3d-gl { width: 100%; height: 100%; display: block; }

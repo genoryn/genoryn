@@ -81,18 +81,16 @@
     var mk = gk.mk || {}, btc = Number(gk.btcUsd) || 0, sat = GKValue.btc;
     var usd = GKValue.market(mk.price, btc);
     var dollars = function (p) { var v = GKValue.market(p, btc); return v != null ? " (" + GKValue.usd(v) + ")" : ""; };
-    var nOffers = (mk.asks || 0) + (mk.bids || 0);
     put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) : "no swaps yet");
     put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));
     put("[data-mk-ask]", mk.best_ask ? sat(mk.best_ask) : "—");
     put("[data-mk-bid]", mk.best_bid ? sat(mk.best_bid) : "—");
     put("[data-mk-last]", mk.last_price ? sat(mk.last_price) : "no swap yet");
     put("[data-mk-swaps]", (mk.trades || 0) + " done · " + (mk.pending || 0) + " in progress");
-    put("[data-mk-usd]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : "no offers yet");
+    put("[data-mk-usd]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : "no swaps yet");
     put("[data-mk-sat]", mk.price ? sat(mk.price) + " per GNR" : "be the first to make an offer");
-    put("[data-mk-src]", mk.source === "swaps" ? "median of swaps, swaps in progress and the order book"
-      : mk.source === "pending" ? "median of " + mk.pending + " swap" + (mk.pending === 1 ? "" : "s") + " in progress and the order book"
-      : mk.source === "offers" ? "from " + nOffers + " open offer" + (nOffers === 1 ? "" : "s") : "set by people on the offer board");
+    var np = Number(mk.priced) || 0;
+    put("[data-mk-src]", mk.price ? "average of " + np + " completed swap" + (np === 1 ? "" : "s") : "set by the first completed swap");
     var conf = Number(mk.confidence) || 0;
     put("[data-ix-conf]", mk.price ? (mk.depth || (conf >= 0.8 ? "deep" : conf >= 0.4 ? "moderate" : "thin")) + " · " + Math.round(conf * 100) + " %" : "—");
     document.querySelectorAll("[data-ix-bar]").forEach(function (el) { el.style.width = Math.max(2, Math.round(conf * 100)) + "%"; });
@@ -129,7 +127,13 @@
         gk.api("/v1/info").then(function (i) { liveInfo = i; }).catch(function () {}),
         gk.api("/v1/swap/market").then(function (m) { liveMk = m.market || {}; }).catch(function () {}),
         gk.api("/v1/btc-price").then(function (p) { liveBtc = Number(p.USD) || 0; }).catch(function () {})
-      ]).then(function () { calc.update(); });
+      ]).then(function () {
+        calc.update();
+        var px = GKValue.market(liveMk.price, liveBtc);
+        document.querySelectorAll("[data-usd-gnr]").forEach(function (el) {
+          el.textContent = px != null ? "≈ " + GKValue.usd(Number(el.getAttribute("data-usd-gnr")) * px) : "no market price yet";
+        });
+      });
     };
     loadCalc();
     setInterval(function () { if (!document.hidden) loadCalc(); }, 60000);
