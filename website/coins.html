@@ -41,6 +41,17 @@
     </div>
   </section>
 
+  <section class="block cn-statsb" aria-label="Quantum coins in numbers">
+    <div class="wrap">
+      <div class="stats stats-4">
+        <div class="glass stat reveal"><b id="cnsAct">—</b><span id="cnsActL">Activation</span></div>
+        <div class="glass stat reveal"><b id="cnsCount">—</b><span>Coins on chain</span></div>
+        <div class="glass stat reveal"><b>10 GNR</b><span>To deploy a coin, paid to miners</span></div>
+        <div class="glass stat reveal"><b>100 %</b><span>Of transfers shielded</span></div>
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="list" aria-labelledby="list-h">
     <div class="wrap">
       <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Live on chain</span><h2 id="list-h" class="h2 glow">Every Krypton coin.</h2></div>
@@ -62,6 +73,35 @@
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M4 8h14.5"/><path d="m15 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5.5"/><path d="M9 12.5 5.5 16 9 19.5"/></svg></div><h3>GNR is the fuel and the market</h3><p>Every fee is paid in GNR, deploying a coin costs 10 GNR (to the miners), and coins trade only against GNR, in one atomic transaction. Nobody can sell you a coin they do not hand over.</p></article>
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/><circle cx="12" cy="12" r="9"/></svg></div><h3>No impostors of the base layer</h3><p>Nobody can deploy a coin named after GNR, and the Bitcoin name belongs only to the project's Bitcoin Krypton: everyone else's BTCK is refused by consensus. Tickers and names are unique: the first deploy owns them.</p></article>
         <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div><h3>Supply anyone can audit</h3><p>Transfers are private, but issues and burns are public, so every coin's total supply is known to everyone, at every block, without trusting anyone.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="cmp-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Compared</span><h2 id="cmp-h" class="h2 glow">Not another token standard.</h2></div>
+      <div class="table-wrap glass"><table class="data cmp">
+        <thead><tr><th></th><th>Tokens on smart-contract chains</th><th>Krypton coins</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Compared">Who sees a transfer</td><td data-label="Elsewhere">Everyone: amounts, addresses, the token</td><td data-label="Krypton coins"><b>Nobody: a zero-knowledge proof</b></td></tr>
+          <tr><td data-label="Compared">What the issuer can do</td><td data-label="Elsewhere">Whatever the contract code allows, often upgradeable</td><td data-label="Krypton coins"><b>Only what the manifest declares, forever</b></td></tr>
+          <tr><td data-label="Compared">Freezing one holder</td><td data-label="Elsewhere">Common (blacklists)</td><td data-label="Krypton coins"><b>Impossible</b></td></tr>
+          <tr><td data-label="Compared">Quantum computers</td><td data-label="Elsewhere">Elliptic-curve keys, breakable by Shor's algorithm</td><td data-label="Krypton coins"><b>Hash-based proofs, post-quantum keys</b></td></tr>
+          <tr><td data-label="Compared">Fake copies of famous coins</td><td data-label="Elsewhere">Anyone can name a token anything</td><td data-label="Krypton coins"><b>Unique tickers, reserved names, signed verified list</b></td></tr>
+          <tr><td data-label="Compared">Trading</td><td data-label="Elsewhere">Exchanges or contracts that hold the coins</td><td data-label="Krypton coins"><b>One atomic transaction between two wallets</b></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="swap-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">How a swap works</span><h2 id="swap-h" class="h2 glow">Both sides move, or nothing does.</h2></div>
+      <div class="steps">
+        <div class="step reveal"><span class="n">1</span><h3>The buyer</h3><p>prepares its GNR payment to the seller, without the proof that makes it valid.</p></div>
+        <div class="step reveal"><span class="n">2</span><h3>The seller</h3><p>checks that it receives the agreed GNR, adds the coin for the buyer and proves its half.</p></div>
+        <div class="step reveal"><span class="n">3</span><h3>The buyer</h3><p>checks that it receives the agreed coin, proves its half and sends the one transaction.</p></div>
+        <div class="step reveal"><span class="n">4</span><h3>Done</h3><p>The chain sees one private transfer. Unfinished swaps simply expire: nothing is locked.</p></div>
       </div>
     </div>
   </section>

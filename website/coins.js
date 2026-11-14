@@ -57,6 +57,14 @@
     var m = gk.api("/v1/swap/coins").catch(function () { return { markets: {} }; });
     Promise.all([a, v, m]).then(function (r) {
       state.coins = r[0].assets || []; state.active = r[0].active === true; state.height = r[0].assets_height;
+      if (el("cnsCount")) el("cnsCount").textContent = state.coins.length.toLocaleString();
+      gk.api("/v1/info").then(function (i) {
+        if (!el("cnsAct")) return;
+        if (state.active) { el("cnsAct").textContent = "Active"; el("cnsActL").textContent = "Since block " + Number(state.height || 0).toLocaleString(); return; }
+        var left = Number(state.height || 0) - Number(i.height || 0);
+        el("cnsAct").textContent = left > 0 ? left.toLocaleString() + " blocks" : "Now";
+        el("cnsActL").textContent = "Until coins activate at block " + Number(state.height || 0).toLocaleString() + (left > 0 ? " (about " + Math.max(1, Math.round(left / 60)) + " h)" : "");
+      }).catch(function () {});
       state.verified = {};
       (r[1].coins || []).forEach(function (c) { if (c.network === "mainnet") state.verified[c.id] = c; });
       state.markets = r[2].markets || {};

@@ -258,7 +258,7 @@ main { overflow-x: clip; }
 .value-kv > div:nth-child(even) { text-align: right; font-family: var(--font-mono); }
 .value-fine { font-size: 12px; color: var(--text-tertiary); margin: 14px 0 0; line-height: 1.55; }
 .get-steps { display: flex; flex-direction: column; gap: 14px; }
-.step { display: grid; grid-template-columns: 44px 1fr; gap: 16px; }
+.get-steps .step { display: grid; grid-template-columns: 44px 1fr; gap: 16px; }
 .step-n { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line-strong); font: 700 17px var(--font-display); }
 .h3 { margin: 4px 0 8px; font: 700 20px/1.25 var(--font-display); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pill { font: 600 11px/1 var(--font-sans); letter-spacing: .4px; padding: 5px 9px; border-radius: 99px; border: 1px solid var(--line-strong); color: var(--text-secondary); }
@@ -565,3 +565,5 @@ main { overflow-x: clip; }
 .hero-new b { padding: 3px 9px; border-radius: 999px; background: var(--text-primary); color: var(--bg-solid, #000); font-size: 11.5px; letter-spacing: .02em; }
 .hero-new span { display: inline-flex; align-items: center; gap: 5px; } .hero-new img { vertical-align: middle; } .hero-new i { font-style: normal; color: var(--text-tertiary); }
 .cn-reserves { padding: 22px 24px; }
+.stats-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; } @media (max-width: 860px) { .stats-4 { grid-template-columns: 1fr 1fr; } }
+.cn-statsb { padding-top: 0; }

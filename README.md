@@ -557,6 +557,9 @@ redeemed by burning and never pausable:
 | **Euro Krypton (EURK)** | euros | the euro | 6 | mintable against deposits | block 17,100 |
 | **Bitcoin Krypton (BTCK)** | bitcoin | the price of bitcoin | 8 | at most 21,000,000 | block 18,600 |
 
+Plus a test coin, **Geno Krypton (GENOK)**: exactly 10,000, issued once to the project's issuer
+wallet, not backed by anything.
+
 Their manifests are in [docs/coins](docs/coins), their ids in the signed
 [verified list](docs/verified-assets.json), and their supply and reserves on
 [genoryn.io/coins](https://genoryn.io/coins#reserves). Holding them means trusting the issuer's
