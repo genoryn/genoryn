@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Documentation · Genoryn Krypton (GNR) — protocol, wallet, mining, API</title>
-<meta name="description" content="Complete Genoryn Krypton documentation: quantum-resistant cryptography, shielded zk-STARK transfers, emission, KryptoHash GPU/CPU mining, light clients, full node operation, REST and JSON-RPC API, SDKs and exchange integration.">
+<meta name="description" content="Complete Genoryn Krypton documentation: wallet, backup and security, quantum-resistant cryptography, shielded zk-STARK transfers, emission and scarcity, KryptoHash GPU/CPU mining, atomic BTC swaps and the market price, light clients, the P2P network, full nodes, REST and JSON-RPC API, SDKs and exchange integration.">
 <!--SEO:docs-->
 <link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
 <!--FX_HEAD-->
@@ -17,37 +17,56 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · v1.0 mainnet</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.34</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
-    <p class="lead">Everything you need to use, mine, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch and a 21,000,000 GNR cap.</p>
+    <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
   <div class="docs-layout">
     <button class="btn toc-toggle" type="button" aria-expanded="false" aria-controls="toc" data-act="toc">Contents</button>
     <aside class="toc glass" id="toc" aria-label="On this page">
       <p class="toc-title">On this page</p>
       <ol>
+        <li class="toc-group">Getting started</li>
         <li><a href="#overview">Overview</a></li>
         <li><a href="#quickstart">Quick start</a></li>
-        <li><a href="#wallet">The wallet</a></li>
+        <li><a href="#install">Install &amp; verify</a></li>
+        <li><a href="#wallet">The wallet, tab by tab</a></li>
+        <li><a href="#recovery">Backup &amp; recovery</a></li>
+        <li><a href="#wallet-security">Wallet security</a></li>
+        <li><a href="#updates">Updates</a></li>
+        <li class="toc-group">Privacy &amp; cryptography</li>
         <li><a href="#privacy">Privacy model</a></li>
         <li><a href="#crypto">Cryptography</a></li>
         <li><a href="#quantum">Quantum security</a></li>
+        <li class="toc-group">Coin &amp; mining</li>
         <li><a href="#emission">Emission &amp; supply</a></li>
+        <li><a href="#scarcity">Scarcity over time</a></li>
         <li><a href="#launch">Fair launch</a></li>
         <li><a href="#mining">Mining</a></li>
         <li><a href="#rewards">Mining rewards</a></li>
+        <li><a href="#calculator">Mining &amp; price calculator</a></li>
         <li><a href="#kryptohash">KryptoHash algorithm</a></li>
+        <li class="toc-group">Trading</li>
+        <li><a href="#swaps">Atomic swaps</a></li>
+        <li><a href="#board">The offer board</a></li>
+        <li><a href="#market">Market price</a></li>
+        <li class="toc-group">Protocol</li>
         <li><a href="#consensus">Consensus rules</a></li>
-        <li><a href="#proofs">Payment proofs</a></li>
         <li><a href="#transactions">Transactions</a></li>
+        <li><a href="#proofs">Payment proofs</a></li>
         <li><a href="#light">Light clients</a></li>
+        <li><a href="#p2p">Peer-to-peer network</a></li>
+        <li class="toc-group">Running &amp; integrating</li>
         <li><a href="#node">Running a node</a></li>
+        <li><a href="#cli">Command-line wallet</a></li>
         <li><a href="#api">API reference</a></li>
         <li><a href="#rpc">JSON-RPC</a></li>
         <li><a href="#ws">WebSocket</a></li>
         <li><a href="#sdk">SDKs</a></li>
         <li><a href="#integration">Exchange integration</a></li>
-        <li><a href="#security">Security model</a></li>
+        <li class="toc-group">Project</li>
+        <li><a href="#security">Security model &amp; audits</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
         <li><a href="#upgrades">Upgrades &amp; 100-year design</a></li>
         <li><a href="#governance">Governance</a></li>
         <li><a href="#faq">FAQ</a></li>
@@ -57,51 +76,126 @@
     <article class="prose docs-body">
       <section id="overview">
         <h2>Overview</h2>
-        <p>Genoryn Krypton (ticker <b>GNR</b>) is a proof-of-work cryptocurrency built so that <b>no elliptic curve protects your coins or your privacy</b>. Spends are authorized by zk-STARK proofs over hash functions, every transfer is shielded, and notes are encrypted with NIST's post-quantum ML-KEM. Light wallets verify the chain themselves without downloading it.</p>
+        <p>Genoryn Krypton (ticker <b>GNR</b>) is a proof-of-work cryptocurrency built so that <b>no elliptic curve protects your coins or your privacy</b>. Spends are authorized by zk-STARK proofs over hash functions, every transfer is shielded, notes are encrypted with NIST's post-quantum ML-KEM, and light wallets verify the chain themselves without downloading it. GNR and bitcoin are traded peer to peer with atomic swaps: no exchange, no custody, no account.</p>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Property</th><th>Value</th></tr></thead>
           <tbody>
             <tr><td data-label="Property">Ticker / unit</td><td data-label="Value">GNR · 1 GNR = 100,000,000 gori</td></tr>
-            <tr><td data-label="Property">Block time</td><td data-label="Value">60 seconds</td></tr>
-            <tr><td data-label="Property">Block reward</td><td data-label="Value">5 GNR, halving every 2,100,000 blocks (~4 years)</td></tr>
-            <tr><td data-label="Property">Maximum supply</td><td data-label="Value">21,000,000 GNR</td></tr>
-            <tr><td data-label="Property">Premine / dev fee</td><td data-label="Value">None</td></tr>
-            <tr><td data-label="Property">Privacy</td><td data-label="Value">All transfers shielded (zk-STARK)</td></tr>
-            <tr><td data-label="Property">Proof of work</td><td data-label="Value">KryptoHash v1 (GPU-first, CPU-capable)</td></tr>
+            <tr><td data-label="Property">Block time</td><td data-label="Value">60 seconds (difficulty retargets every block)</td></tr>
+            <tr><td data-label="Property">Block reward</td><td data-label="Value">5 GNR, halving every 2,100,000 blocks (about 4 years)</td></tr>
+            <tr><td data-label="Property">Maximum supply</td><td data-label="Value">21,000,000 GNR, enforced by every node</td></tr>
+            <tr><td data-label="Property">Premine / dev fee</td><td data-label="Value">None. The genesis issues nothing</td></tr>
+            <tr><td data-label="Property">Privacy</td><td data-label="Value">Every transfer shielded (zk-STARK); no transparent mode</td></tr>
+            <tr><td data-label="Property">Proof of work</td><td data-label="Value">KryptoHash v1, memory-bandwidth bound (GPU-first, CPU-capable)</td></tr>
+            <tr><td data-label="Property">Mining rewards</td><td data-label="Value">Shared by every miner in proportion to its work, no pool needed</td></tr>
             <tr><td data-label="Property">Difficulty</td><td data-label="Value">LWMA-1, every block, 90-block window</td></tr>
+            <tr><td data-label="Property">Trading</td><td data-label="Value">Atomic BTC ⇄ GNR swaps on an anonymous offer board; the seller's GNR is locked first</td></tr>
+            <tr><td data-label="Property">Light wallets</td><td data-label="Value">FlyClient-style tip proofs, follow the most work, release checkpoint (block 14,800)</td></tr>
             <tr><td data-label="Property">License</td><td data-label="Value">MIT or Apache-2.0</td></tr>
           </tbody>
         </table></div>
+        <p><b>What makes it different</b>, in one paragraph each:</p>
+        <ul>
+          <li><b>Quantum-resistant end to end.</b> Coin ownership is proven with hash-based STARKs, encryption is hybrid X25519 + ML-KEM, releases are signed with ML-DSA and SLH-DSA. A quantum computer that breaks elliptic curves breaks nothing here.</li>
+          <li><b>Private by default.</b> Amounts, senders, recipients and memos are hidden for everyone, always. There is no "transparent" address type that would shrink the anonymity set.</li>
+          <li><b>Fair mining.</b> Every block's reward is split among all miners by their share of the work, so a single GPU earns its exact share every block without joining a pool, and no operator stands between miners and their coins.</li>
+          <li><b>Trustless trading.</b> The wallet swaps GNR and bitcoin with another wallet directly. Nobody can sell GNR they do not have: the seller's coins are locked on chain before the buyer pays.</li>
+        </ul>
       </section>
 
       <section id="quickstart">
         <h2>Quick start</h2>
         <ol class="steps-list">
-          <li><b>Install.</b> Download the Windows installer or the Linux package from <a href="/download">Download</a>, or build from source with <code>cargo build --release</code>.</li>
-          <li><b>Create a wallet.</b> Open <code>krypton-wallet</code>, choose a password and write down the recovery phrase (24 words, each with a two-digit number) on paper.</li>
-          <li><b>Get coins.</b> Mine from the wallet's Mining tab, or share your short address (<code>gnrs1…</code>) to receive.</li>
-          <li><b>Send privately.</b> Enter an address and amount; a zero-knowledge proof is built on your device in about half a second.</li>
+          <li><b>Install.</b> Download the Windows installer or the Linux package from <a href="/download">Download</a> (see <a href="#install">Install &amp; verify</a>), or build from source.</li>
+          <li><b>Create a wallet.</b> Open the wallet, choose a password and write down the recovery phrase: 24 words, each with a two-digit number, on paper. Nobody, including the project, can restore a wallet without it.</li>
+          <li><b>Get coins.</b> Mine from the <b>Mining</b> tab, buy with bitcoin in the <b>Swap</b> tab, or share your short address (<code>gnrs1…</code>) to receive.</li>
+          <li><b>Send privately.</b> Enter an address and an amount; a zero-knowledge proof is built on your computer in about half a second and only then sent.</li>
         </ol>
-        <pre class="code">krypton-wallet-cli new                               # create a wallet
-krypton-wallet-cli --node https://genoryn.io balance  # verified light sync
+        <p>The same from the command line:</p>
+        <pre class="code">krypton-wallet-cli new                                 # create a wallet, shows the 24 words once
+krypton-wallet-cli --node https://genoryn.io balance    # verified light sync, then the balance
 krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 42"</pre>
       </section>
 
+      <section id="install">
+        <h2>Install &amp; verify</h2>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Platform</th><th>File</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Platform">Windows 10 / 11 (x64)</td><td data-label="File"><code>GenorynKrypton-&lt;version&gt;-Windows-x64-Setup.exe</code></td><td data-label="Notes">Installs for the current user (no administrator rights) into <code>%LOCALAPPDATA%\Programs\Genoryn Krypton</code>. Wallets and chain data live in <code>%APPDATA%\GenorynKrypton</code> and are kept when the program is removed.</td></tr>
+            <tr><td data-label="Platform">Windows, portable</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-windows-x64-portable.zip</code></td><td data-label="Notes">The same programs without an installer.</td></tr>
+            <tr><td data-label="Platform">Ubuntu / Debian (x64)</td><td data-label="File"><code>genoryn-krypton_&lt;version&gt;_amd64.deb</code></td><td data-label="Notes"><code>sudo apt install ./genoryn-krypton_&lt;version&gt;_amd64.deb</code>; includes a desktop entry and systemd units.</td></tr>
+            <tr><td data-label="Platform">Linux (any distribution)</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-linux-x64.tar.gz</code></td><td data-label="Notes">Unpack and run <code>krypton-wallet</code>.</td></tr>
+            <tr><td data-label="Platform">From source</td><td data-label="File"><a href="https://github.com/genoryn/genoryn">github.com/genoryn/genoryn</a></td><td data-label="Notes">Rust stable: <code>cargo build --release</code>. The binaries land in <code>target/release</code>.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Every package contains four programs: <code>krypton-wallet</code> (desktop wallet), <code>kryptond</code> (full node), <code>krypton-miner</code> (GPU/CPU miner) and <code>krypton-wallet-cli</code> (command-line wallet).</p>
+        <p><b>Verify what you downloaded.</b> Each release publishes <code>SHA256SUMS</code> and <code>SHA256SUMS.sig</code>, a hybrid post-quantum signature (ML-DSA-87 + SLH-DSA-SHAKE-256s) by the project's release key, fingerprint <code>e4567fb116258bdd</code>, published as <a href="https://github.com/genoryn/genoryn/blob/main/docs/release-key.pub">docs/release-key.pub</a>:</p>
+        <pre class="code">sha256sum -c SHA256SUMS --ignore-missing
+cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS SHA256SUMS.sig</pre>
+        <p>The wallet's built-in updater performs exactly this check before it installs anything (<a href="#updates">Updates</a>).</p>
+      </section>
+
       <section id="wallet">
-        <h2>The wallet</h2>
-        <p>The desktop wallet runs a local interface on <code>127.0.0.1</code> protected by a random session token. Keys, scanning and proving never leave your computer.</p>
+        <h2>The wallet, tab by tab</h2>
+        <p>The desktop wallet is a small local web server bound to <code>127.0.0.1</code> with a random session token, shown in its own window. Keys, scanning and proving never leave your computer.</p>
+        <h3>Wallet</h3>
         <ul>
-          <li><b>Light mode</b> (default): remote nodes provide data; headers, outputs and tree updates are verified locally.</li>
-          <li><b>Full node mode</b>: one click starts <code>kryptond</code>; the wallet then uses your own node.</li>
-          <li><b>Mining</b>: choose Automatic, NVIDIA (CUDA), AMD/Intel (OpenCL) or CPU, with a CPU-usage cap.</li>
-          <li><b>Short addresses</b>: full addresses are ~2,600 characters because they carry a post-quantum key. Press <b>Publish short form</b> once (it goes to genoryn.io, your configured nodes and your own node, and the wallet shows where it resolves), then share the short form; nodes resolve it and the wallet checks the hash.</li>
-          <li><b>Overview</b>: under the balance, live tiles and charts for network hashrate, estimated miners, block time, shares, difficulty, GNR issued, your mining share and rewards, plus the latest blocks with the ones you found marked.</li>
-          <li><b>Background mining</b>: while the miner runs, closing the window keeps the wallet, node and miner running; the desktop icon opens it again and <b>Quit</b> stops everything.</li>
-          <li><b>Recovery</b>: 24 words with their numbers (384-bit entropy, checksummed) restore everything, and older 24-word phrases restore too; the wallet file is encrypted with Argon2id (256 MiB) and XChaCha20-Poly1305.</li>
-          <li><b>History</b>: paged (15 to 100 entries per page), with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals.</li>
-          <li><b>Several wallets</b>: any number of wallets, each with its own 24 words and password. The selector at the top of the Wallet tab (or in the header) switches between them; <b>Show all wallets</b> expands them all in one list with search, filters, sorting and their total. An unlocked wallet stays open for 24 hours, then locks itself and asks for its password again; the miner keeps running. Removing a wallet moves its file to a <code>removed</code> folder, and its 24 words bring it back.</li>
+          <li><b>Balance</b>: spendable, incoming (in the mempool, not mined yet) and maturing mining rewards, optionally with their market value in dollars.</li>
+          <li><b>Receive</b>: your full address is about 2,600 characters, because it carries a post-quantum public key. Press <b>Publish short form</b> once: it goes to genoryn.io, your configured nodes and your own node, and the wallet shows where it resolves. Share the short form (<code>gnrs1…</code>); a sender's node resolves it and the sender's wallet checks that the answer hashes to it, so a node cannot substitute another recipient. A QR code is shown for both forms.</li>
+          <li><b>Send privately</b>: address (full or short), amount and an optional memo that only the recipient can read. The fee follows the market (<code>/v1/fee</code>). Sending asks for the wallet's password.</li>
+          <li><b>Several wallets</b>: any number, each with its own 24 words and password. The selector switches between them; <b>Show all wallets</b> lists them together with search, filters, sorting and their total. Removing a wallet moves its file to a <code>removed</code> folder; its 24 words bring it back.</li>
+          <li><b>Overview</b>: live tiles and charts for network hashrate, estimated miners, block time, shares per block, difficulty and GNR issued, plus the latest blocks with the ones you found marked.</li>
         </ul>
         <p>A transaction spends at most two notes. When a payment needs more, the wallet merges notes automatically in parallel rounds (one block per round) and then pays.</p>
+        <h3>History</h3>
+        <p>Paged (15 to 100 entries per page) with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals. Each send has a <b>Proof</b> button for a <a href="#proofs">payment proof</a>.</p>
+        <h3>Swap</h3>
+        <p>The GNR price, the <a href="#board">offer board</a> (sell offers, buy offers, swaps in progress, your own), the form to publish an offer, and your swaps with their progress. Taking an offer starts a swap at once; when it is time to pay, a window shows the amount, the address and a QR code. See <a href="#swaps">Atomic swaps</a>.</p>
+        <h3>Mining</h3>
+        <p>Choose <b>Automatic</b>, <b>NVIDIA</b> (CUDA), <b>AMD / Intel</b> (OpenCL) or <b>CPU</b> with a CPU-usage cap, then <b>Start mining</b>. The tab shows your hashrate, your share of the network, expected GNR per day, shares found, accruing rewards, payouts and the <a href="#calculator">mining and price calculator</a>. If the miner stops, the tab shows why (for example a GPU driver error); it is restarted automatically, and after three quick failures in a row the wallet stops retrying and says so. While the miner runs, closing the window keeps the wallet, node and miner running; <b>Quit</b> stops everything.</p>
+        <h3>Network</h3>
+        <p>Charts of hashrate, supply, active miners, difficulty, issuance, block time, shares and transactions per block over 1 hour to all time; block finders; peers; and the <b>connection mode</b>:</p>
+        <ul>
+          <li><b>Light</b> (recommended): remote nodes provide data; headers, outputs and tree updates are verified on your computer (<a href="#light">Light clients</a>). Several nodes can be configured; they are cross-checked.</li>
+          <li><b>Full node</b>: one click starts <code>kryptond</code>, which downloads and validates the whole chain; the wallet then uses only your own node. By default it connects only out to other nodes; <b>Let other nodes connect to my full node</b> accepts incoming peers too (<a href="#p2p">Peer-to-peer network</a>).</li>
+        </ul>
+        <h3>Security and About</h3>
+        <p>Change a wallet's password and lock wallets; see the version, check for updates and choose whether updates install automatically.</p>
+      </section>
+
+      <section id="recovery">
+        <h2>Backup &amp; recovery</h2>
+        <p>The <b>recovery phrase</b> is the wallet. It consists of 24 tokens of the form <code>word-NN</code>: an English BIP-39 word and a number from 00 to 63, 17 bits each. Together they carry 384 bits of entropy and a 24-bit SHA3 checksum, so a mistyped token is detected. Everything else (keys, addresses, notes, mining rewards) is derived from or found again with it.</p>
+        <ul>
+          <li><b>Write it on paper</b> (or metal), in order, with the numbers. Never type it into a website, a chat, an email or a photo. Anyone who has it owns the coins.</li>
+          <li><b>Restore</b>: Wallet → <b>Add a wallet</b> → restore, or <code>krypton-wallet-cli restore</code>, then let it sync. Older 24-word phrases restore too.</li>
+          <li><b>The wallet file</b> (<code>%APPDATA%\GenorynKrypton\mainnet\wallet.krypton</code> or <code>wallets\*.krypton</code>) is encrypted with Argon2id (256 MiB of memory) and XChaCha20-Poly1305 under your password. Copying it is a convenient backup of your history and swap records, but only the phrase guarantees access.</li>
+          <li><b>Swaps in progress live in the wallet file.</b> If you restore from the phrase while a swap is running, finish or refund it from the old file if you still can. From 1.0.33 a restored wallet never reuses an earlier swap's secret, keys or outputs.</li>
+          <li><b>Lost the password but have the phrase?</b> Restore from the phrase and choose a new password. <b>Lost the phrase but have the file and password?</b> Show the phrase (Security tab, or <code>krypton-wallet-cli show-phrase</code>) and write it down now.</li>
+        </ul>
+      </section>
+
+      <section id="wallet-security">
+        <h2>Wallet security</h2>
+        <ul>
+          <li><b>Password for anything that moves coins.</b> Sending, publishing or taking an offer and starting or accepting a swap ask for the wallet's password every time. The session token alone, which other programs of your user could read, cannot spend. After five wrong passwords the wallet refuses for five minutes.</li>
+          <li><b>Auto-lock.</b> An unlocked wallet stays open for 24 hours, then locks itself and asks for its password again. The miner keeps running; swaps wait for the wallet to be unlocked (their timelocks leave hours of room).</li>
+          <li><b>Local only.</b> The wallet's server listens on <code>127.0.0.1</code>, checks a random token on every request and refuses requests addressed to any other host name, so a web page you visit cannot talk to it (DNS rebinding).</li>
+          <li><b>Nothing reaches your computer from the internet.</b> The wallet's own full node only connects out unless you allow incoming peers, its API listens only on this computer, and it never runs commands or reads files for other nodes.</li>
+          <li><b>Signed updates only.</b> The updater installs a release only if its post-quantum signature verifies against the key compiled into the wallet (<a href="#updates">Updates</a>).</li>
+          <li><b>Your computer is your responsibility.</b> Malware running as your user can read your screen and keystrokes; keep the system updated, the phrase offline, and use a strong, unique password.</li>
+        </ul>
+      </section>
+
+      <section id="updates">
+        <h2>Updates</h2>
+        <p>The wallet checks GitHub for a newer release. It downloads <code>SHA256SUMS</code>, verifies its hybrid ML-DSA-87 + SLH-DSA-SHAKE-256s signature against the release key compiled into the program, downloads the installer and checks it against the signed hash. Only then does it install. A compromised download host, CDN or GitHub account cannot push code without the release key.</p>
+        <ul>
+          <li><b>About → Check for updates</b>, or the offer that appears when a release is out. <b>Install updates automatically</b> installs them as soon as they are found.</li>
+          <li>Your wallets, settings and chain data carry over; a running miner resumes by itself after the update.</li>
+          <li>Release notes list what changed and whether consensus changed. Security fixes are announced in general terms first and in detail once most wallets have updated.</li>
+        </ul>
       </section>
 
       <section id="privacy">
@@ -113,9 +207,12 @@ krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 4
             <tr><td data-label="Visible">Fees, transaction sizes, timing</td><td data-label="Hidden">Sender and recipient</td></tr>
             <tr><td data-label="Visible">Commitments and nullifiers</td><td data-label="Hidden">Amounts and memos</td></tr>
             <tr><td data-label="Visible">Mining shares and payouts per miner</td><td data-label="Hidden">How mined coins are spent later</td></tr>
+            <tr><td data-label="Visible">Swap locks and claims (hash lock, revealed secret, refund height)</td><td data-label="Hidden">Swap amounts and the parties' addresses</td></tr>
           </tbody>
         </table></div>
-        <p>Mining income is public per miner (as coinbase rewards are on every chain); mine to a separate wallet if you want it unlinked from your receiving address. Spending mined coins is as private as any other spend. There is no transparent mode, so every user shares the same anonymity set. Peer connections are encrypted end to end; your own transactions are first relayed to a single random peer and only announced to everyone after 20 seconds, which hides their origin.</p>
+        <p>Mining income is public per miner (as coinbase rewards are on every chain); mine to a separate wallet if you want it unlinked from your receiving address. Spending mined coins is as private as any other spend. There is no transparent mode, so every user shares the same anonymity set.</p>
+        <p><b>On the network:</b> peer connections are encrypted end to end; your own transactions are first relayed to a single random peer and announced to everyone only after 20 seconds, which hides their origin. The public node's API never lists peers' IP addresses.</p>
+        <p><b>On the offer board:</b> every offer has its own one-time post-quantum key, never your address, so offers cannot be linked to you or to each other. Messages between the two wallets of a swap are sealed so that the board cannot read them. A swap's bitcoin side is an ordinary Bitcoin transaction and is as public as any other.</p>
       </section>
 
       <section id="crypto">
@@ -126,76 +223,101 @@ krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 4
             <tr><td data-label="Purpose">Spend authorization &amp; privacy</td><td data-label="Primitive">zk-STARK (Winterfell), Rescue-Prime, SHA3-256 commitments</td><td data-label="Standard">hash-based</td></tr>
             <tr><td data-label="Purpose">Note encryption</td><td data-label="Primitive">X25519 + ML-KEM-1024, XChaCha20-Poly1305</td><td data-label="Standard">FIPS 203 (level 5)</td></tr>
             <tr><td data-label="Purpose">Peer links</td><td data-label="Primitive">X25519 + ML-KEM-768, ChaCha20-Poly1305</td><td data-label="Standard">FIPS 203</td></tr>
+            <tr><td data-label="Purpose">Offer board keys and messages</td><td data-label="Primitive">X25519 + ML-KEM-1024, XChaCha20-Poly1305</td><td data-label="Standard">FIPS 203</td></tr>
             <tr><td data-label="Purpose">Release signatures</td><td data-label="Primitive">ML-DSA-87 and SLH-DSA-SHAKE-256s</td><td data-label="Standard">FIPS 204, FIPS 205</td></tr>
             <tr><td data-label="Purpose">Identifiers</td><td data-label="Primitive">SHA3-256, domain separated</td><td data-label="Standard">FIPS 202</td></tr>
             <tr><td data-label="Purpose">Proof of work</td><td data-label="Primitive">KryptoHash v1 (BLAKE3)</td><td data-label="Standard">hash-based</td></tr>
             <tr><td data-label="Purpose">Wallet file</td><td data-label="Primitive">Argon2id 256 MiB, XChaCha20-Poly1305</td><td data-label="Standard">RFC 9106</td></tr>
+            <tr><td data-label="Purpose">Swap hash locks (both chains)</td><td data-label="Primitive">SHA-256</td><td data-label="Standard">FIPS 180-4</td></tr>
           </tbody>
         </table></div>
-        <p>Keys derive deterministically from the recovery phrase: 24 tokens <code>word-NN</code> (an English BIP-39 word and a number 00&ndash;63, 17 bits each) carry 384 bits of entropy and a 24-bit SHA3 checksum, a 192-bit margin even against Grover&#39;s quantum search. SHAKE256 turns them into a spend secret, a hybrid KEM key pair and an ML-DSA key. The spend secret yields an authorization key <code>ak</code>, a nullifier key <code>nk</code> and an owner tag <code>H(ak, nk)</code>; view-only wallets can hold <code>nk</code> without being able to spend.</p>
+        <p>Keys derive deterministically from the recovery phrase. SHAKE256 turns its 384 bits into a spend secret, a hybrid KEM key pair and an ML-DSA key. The spend secret yields an authorization key <code>ak</code>, a nullifier key <code>nk</code> and an owner tag <code>H(ak, nk)</code>; view-only wallets can hold <code>nk</code> without being able to spend. A separate swap seed derives the one-time board keys and the per-swap secrets and keys.</p>
       </section>
 
       <section id="quantum">
         <h2>Quantum security</h2>
         <p><b>Shor's algorithm</b> breaks RSA and elliptic curves (ECDSA, Ed25519, Pallas, BLS). None of them protect Genoryn Krypton coins: spends are proofs of knowledge of a hash preimage, verified with hash-based STARKs. Encryption is hybrid, so recorded traffic stays secret as long as <i>either</i> X25519 or ML-KEM holds ("harvest now, decrypt later" is defeated by ML-KEM).</p>
-        <p><b>Grover's algorithm</b> square-roots brute force: 256-bit hashes and keys keep a 128-bit margin; STARK soundness parameters target about 160 conjectured bits.</p>
-        <p>Every primitive has a versioned identifier, so a weakened algorithm can be replaced by a soft fork without stopping the network. No independent audit has been completed yet; see <a href="#security">Security model</a>.</p>
+        <p><b>Grover's algorithm</b> square-roots brute force: 256-bit hashes and keys keep a 128-bit margin; the 384-bit recovery phrase keeps 192 bits; STARK soundness parameters target about 160 conjectured bits.</p>
+        <p><b>The bitcoin side of a swap</b> uses Bitcoin's own secp256k1 keys, as every Bitcoin transaction does. They protect the bitcoin only for the few hours a swap runs.</p>
+        <p>Every primitive has a versioned identifier, so a weakened algorithm can be replaced by a soft fork without stopping the network.</p>
       </section>
 
       <section id="emission">
         <h2>Emission &amp; supply</h2>
-        <p>The schedule follows Bitcoin's shape on 60-second blocks. Block <code>h ≥ 1</code> issues <code>5 GNR &gt;&gt; floor((h − 1) / 2,100,000)</code> into the reward pool; the genesis issues nothing. Fees join the pool too, and the pool pays miners in proportion to their shares (<a href="#rewards">Mining rewards</a>).</p>
+        <p>The schedule follows Bitcoin's shape on 60-second blocks. Block <code>h ≥ 1</code> issues <code>5 GNR &gt;&gt; floor((h − 1) / 2,100,000)</code> into the reward pool; the genesis issues nothing. Fees join the pool too, and the pool pays miners in proportion to their shares (<a href="#rewards">Mining rewards</a>). That is 7,200 GNR a day in the first era.</p>
         <div class="table-wrap"><table class="data">
-          <thead><tr><th>Era</th><th>Blocks</th><th class="num">Reward</th><th class="num">Issued in era</th><th class="num">Cumulative</th></tr></thead>
+          <thead><tr><th>Era</th><th>Blocks</th><th class="num">Reward</th><th class="num">Per day</th><th class="num">Issued in era</th><th class="num">Cumulative</th></tr></thead>
           <tbody>
-            <tr><td data-label="Era">1 (~years 0–4)</td><td data-label="Blocks">1 – 2,100,000</td><td data-label="Reward" class="num">5 GNR</td><td data-label="Era issue" class="num">10,500,000</td><td data-label="Cumulative" class="num">50.0 %</td></tr>
-            <tr><td data-label="Era">2 (~4–8)</td><td data-label="Blocks">2,100,001 – 4,200,000</td><td data-label="Reward" class="num">2.5 GNR</td><td data-label="Era issue" class="num">5,250,000</td><td data-label="Cumulative" class="num">75.0 %</td></tr>
-            <tr><td data-label="Era">3 (~8–12)</td><td data-label="Blocks">4,200,001 – 6,300,000</td><td data-label="Reward" class="num">1.25 GNR</td><td data-label="Era issue" class="num">2,625,000</td><td data-label="Cumulative" class="num">87.5 %</td></tr>
-            <tr><td data-label="Era">4 (~12–16)</td><td data-label="Blocks">6,300,001 – 8,400,000</td><td data-label="Reward" class="num">0.625 GNR</td><td data-label="Era issue" class="num">1,312,500</td><td data-label="Cumulative" class="num">93.75 %</td></tr>
-            <tr><td data-label="Era">5 (~16–20)</td><td data-label="Blocks">8,400,001 – 10,500,000</td><td data-label="Reward" class="num">0.3125 GNR</td><td data-label="Era issue" class="num">656,250</td><td data-label="Cumulative" class="num">96.88 %</td></tr>
+            <tr><td data-label="Era">1 (~years 0–4)</td><td data-label="Blocks">1 – 2,100,000</td><td data-label="Reward" class="num">5 GNR</td><td data-label="Per day" class="num">7,200</td><td data-label="Era issue" class="num">10,500,000</td><td data-label="Cumulative" class="num">50.0 %</td></tr>
+            <tr><td data-label="Era">2 (~4–8)</td><td data-label="Blocks">2,100,001 – 4,200,000</td><td data-label="Reward" class="num">2.5 GNR</td><td data-label="Per day" class="num">3,600</td><td data-label="Era issue" class="num">5,250,000</td><td data-label="Cumulative" class="num">75.0 %</td></tr>
+            <tr><td data-label="Era">3 (~8–12)</td><td data-label="Blocks">4,200,001 – 6,300,000</td><td data-label="Reward" class="num">1.25 GNR</td><td data-label="Per day" class="num">1,800</td><td data-label="Era issue" class="num">2,625,000</td><td data-label="Cumulative" class="num">87.5 %</td></tr>
+            <tr><td data-label="Era">4 (~12–16)</td><td data-label="Blocks">6,300,001 – 8,400,000</td><td data-label="Reward" class="num">0.625 GNR</td><td data-label="Per day" class="num">900</td><td data-label="Era issue" class="num">1,312,500</td><td data-label="Cumulative" class="num">93.75 %</td></tr>
+            <tr><td data-label="Era">5 (~16–20)</td><td data-label="Blocks">8,400,001 – 10,500,000</td><td data-label="Reward" class="num">0.3125 GNR</td><td data-label="Per day" class="num">450</td><td data-label="Era issue" class="num">656,250</td><td data-label="Cumulative" class="num">96.88 %</td></tr>
           </tbody>
         </table></div>
-        <p>After 29 halvings the reward reaches zero; total issuance stays below 21,000,000 GNR by less than one coin of integer rounding. Every node rejects a block that would exceed the cap.</p>
+        <p>After 29 halvings the reward reaches zero; total issuance stays below 21,000,000 GNR by less than one coin of integer rounding. Every node rejects a block that would exceed the cap. Live figures: <code>GET /v1/supply</code> and the explorer.</p>
+      </section>
+
+      <section id="scarcity">
+        <h2>Scarcity over time</h2>
+        <p>A common way to express how rare a coin is, is <b>stock-to-flow</b>: the coins that exist divided by the coins mined in the following year, i.e. how many years of mining are already stored. Gold is about 60. Every halving doubles it. The figures below follow from the schedule alone.</p>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Year</th><th class="num">GNR in existence</th><th class="num">New GNR that year</th><th class="num">Stock-to-flow</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Year">2026 (launch)</td><td data-label="Supply" class="num">under 0.5 million</td><td data-label="Flow" class="num">2.63 million</td><td data-label="S2F" class="num">≈ 0</td></tr>
+            <tr><td data-label="Year">2030</td><td data-label="Supply" class="num">10.5 million</td><td data-label="Flow" class="num">1.31 million</td><td data-label="S2F" class="num">8</td></tr>
+            <tr><td data-label="Year">2034</td><td data-label="Supply" class="num">15.8 million</td><td data-label="Flow" class="num">657,000</td><td data-label="S2F" class="num">24</td></tr>
+            <tr><td data-label="Year">2038</td><td data-label="Supply" class="num">18.4 million</td><td data-label="Flow" class="num">329,000</td><td data-label="S2F" class="num">56</td></tr>
+            <tr><td data-label="Year">2042</td><td data-label="Supply" class="num">19.7 million</td><td data-label="Flow" class="num">164,000</td><td data-label="S2F" class="num">120</td></tr>
+            <tr><td data-label="Year">2046</td><td data-label="Supply" class="num">20.3 million</td><td data-label="Flow" class="num">82,000</td><td data-label="S2F" class="num">248</td></tr>
+          </tbody>
+        </table></div>
+        <p>GNR reaches gold's scarcity around 2041 and that of Bitcoin in 2026 (about 122) around 2045. Bitcoin, which started 17 years earlier, keeps getting scarcer too. Scarcity is a property of the schedule; it does not set a price by itself.</p>
       </section>
 
       <section id="launch">
         <h2>Fair launch</h2>
-        <p>The mainnet genesis commits to the hash of a <b>Bitcoin block mined after the launch is announced</b>. That hash is unpredictable, so no Genoryn Krypton block can exist before the announced moment, and everyone, the author included, starts together. Mainnet commits to Bitcoin block <b>974,438</b> (<code class="wrap-any">00000000000000000001075275c9ea6c90ce99dd94214d855d2b726fb173bed9</code>), the newest Bitcoin block when the network launched; genesis hash <code class="wrap-any">3c10136cd72a74d673257249752522e0102b6268f5b8c348ba34ae36740ca3b3</code>.</p>
+        <p>The mainnet genesis commits to the hash of a <b>Bitcoin block mined after the launch was announced</b>. That hash is unpredictable, so no Genoryn Krypton block can exist before the announced moment, and everyone, the author included, starts together. Mainnet commits to Bitcoin block <b>974,438</b> (<code class="wrap-any">00000000000000000001075275c9ea6c90ce99dd94214d855d2b726fb173bed9</code>), the newest Bitcoin block when the network launched; genesis hash <code class="wrap-any">3c10136cd72a74d673257249752522e0102b6268f5b8c348ba34ae36740ca3b3</code>.</p>
         <ol class="steps-list">
           <li>Announce a Bitcoin height H at least 72 hours ahead.</li>
           <li>Wait for block H; publish the release whose genesis contains its hash.</li>
           <li>Anyone rebuilds from source and compares the genesis hash.</li>
           <li>Mining opens for everyone at the same time under the same rules.</li>
         </ol>
+        <p>Genoryn Krypton is a new chain. Balances of the earlier Genoryn Mainnet 1.0, which used different cryptography, are not migrated; see the <a href="https://github.com/genoryn/genoryn/issues/1">published policy</a>.</p>
       </section>
 
       <section id="mining">
         <h2>Mining</h2>
-        <p>Every miner earns in proportion to its hashrate (<a href="#rewards">Mining rewards</a>). No pool, permission or account is needed: point the miner at any node and your address, and keep it online so its shares reach the network.</p>
+        <p>Every miner earns in proportion to its hashrate (<a href="#rewards">Mining rewards</a>). No pool, permission or account is needed: point the miner at any node and your address, and keep it online so its shares reach the network. The easiest way is the wallet's <b>Mining</b> tab; the command-line miner does the same.</p>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Hardware</th><th class="num">Measured hashrate</th><th>Notes</th></tr></thead>
           <tbody>
-            <tr><td data-label="Hardware">NVIDIA RTX 5090</td><td data-label="Hashrate" class="num">74–79 MH/s</td><td data-label="Notes">CUDA, dataset built in 0.11 s</td></tr>
+            <tr><td data-label="Hardware">NVIDIA RTX 5090</td><td data-label="Hashrate" class="num">74–83 MH/s</td><td data-label="Notes">CUDA, dataset built in 0.11 s</td></tr>
+            <tr><td data-label="Hardware">NVIDIA RTX 4070 SUPER</td><td data-label="Hashrate" class="num">~18.5 MH/s</td><td data-label="Notes">CUDA, reported by a community miner</td></tr>
             <tr><td data-label="Hardware">Intel Core Ultra 9 285K (24 threads)</td><td data-label="Hashrate" class="num">1.37 MH/s</td><td data-label="Notes">CPU, dataset built in 4.2 s</td></tr>
-            <tr><td data-label="Hardware">8-core cloud VM (4 threads)</td><td data-label="Hashrate" class="num">0.14 MH/s</td><td data-label="Notes">CPU capped at 50 %</td></tr>
+            <tr><td data-label="Hardware">16-thread desktop CPU</td><td data-label="Hashrate" class="num">~1.35 MH/s</td><td data-label="Notes">CPU, reported by a community miner</td></tr>
+            <tr><td data-label="Hardware">AMD integrated GPU (gfx1036)</td><td data-label="Hashrate" class="num">~0.84 MH/s</td><td data-label="Notes">OpenCL</td></tr>
           </tbody>
         </table></div>
-        <pre class="code">krypton-miner --list-devices
+        <pre class="code">krypton-miner --list-devices                         # tests every GPU: "usable" or "NOT usable: &lt;reason&gt;"
 krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --backend auto
 krypton-miner --node https://genoryn.io --address-file my-address.txt --backend cuda --devices 0,1
 krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --backend cpu --max-cpu 50</pre>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
           <tbody>
-            <tr><td data-label="Flag"><code>--backend</code></td><td data-label="Meaning"><code>auto</code>, <code>cuda</code>, <code>opencl</code> or <code>cpu</code></td></tr>
+            <tr><td data-label="Flag"><code>--backend</code></td><td data-label="Meaning"><code>auto</code> (best GPU, else CPU), <code>cuda</code>, <code>opencl</code> or <code>cpu</code></td></tr>
+            <tr><td data-label="Flag"><code>--node</code></td><td data-label="Meaning">Node API to get work from (default <code>http://127.0.0.1:30334</code>)</td></tr>
+            <tr><td data-label="Flag"><code>--address</code> / <code>--address-file</code></td><td data-label="Meaning">Where rewards go (the full address)</td></tr>
             <tr><td data-label="Flag"><code>--max-cpu</code></td><td data-label="Meaning">CPU threads as a percentage of the cores (CPU backend)</td></tr>
             <tr><td data-label="Flag"><code>--threads</code></td><td data-label="Meaning">Exact CPU thread count</td></tr>
-            <tr><td data-label="Flag"><code>--devices</code></td><td data-label="Meaning">GPU indices, e.g. <code>0,2</code></td></tr>
+            <tr><td data-label="Flag"><code>--devices</code></td><td data-label="Meaning">GPU indices as in <code>--list-devices</code>, e.g. <code>0,2</code></td></tr>
             <tr><td data-label="Flag"><code>--batch</code></td><td data-label="Meaning">Nonces per GPU launch (auto-tuned by default)</td></tr>
-            <tr><td data-label="Flag"><code>--json</code></td><td data-label="Meaning">Machine-readable status lines for dashboards</td></tr>
+            <tr><td data-label="Flag"><code>--json</code></td><td data-label="Meaning">Machine-readable status lines; with <code>--list-devices</code>, a JSON device list with <code>usable</code> and <code>error</code></td></tr>
           </tbody>
         </table></div>
-        <p>Reward notes mature after 100 blocks on mainnet (20 on testnet): they join the spendable note tree only once mature. GPU solutions are re-verified on the CPU before submission.</p>
+        <p>The status line shows the device and its index, hashrate, share of the network, expected GNR per day, shares, blocks and rejects. Reward notes mature after 100 blocks on mainnet (20 on testnet). GPU solutions are re-verified on the CPU before submission. Each hash reads 64 random 128-byte pairs from a 2 GiB dataset, so speed follows memory bandwidth: a desktop GPU has hundreds of GB/s, a CPU tens.</p>
       </section>
 
       <section id="rewards">
@@ -208,27 +330,107 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
           <li><b>Payouts.</b> Credits accrue per miner and are paid as one note every 360 blocks (~6 hours), at most 64 payouts per block, spendable after 100 blocks.</li>
         </ol>
         <div class="table-wrap"><table class="data">
-          <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
+          <thead><tr><th>Your share of the hashrate</th><th class="num">Shares per hour</th><th class="num">Expected GNR per day</th></tr></thead>
           <tbody>
-            <tr><td data-label="Endpoint"><code>GET /v1/miner/{address}</code></td><td data-label="Returns">Unpaid balance, next payout height, recent shares</td></tr>
-            <tr><td data-label="Endpoint"><code>GET /v1/shares</code></td><td data-label="Returns">Shares waiting to be credited</td></tr>
-            <tr><td data-label="Endpoint"><code>GET /v1/block/{id}</code></td><td data-label="Returns">Credited shares and payouts of a block</td></tr>
+            <tr><td data-label="Share">10 %</td><td data-label="Shares/hour" class="num">≈ 192</td><td data-label="GNR/day" class="num">≈ 720</td></tr>
+            <tr><td data-label="Share">1 %</td><td data-label="Shares/hour" class="num">≈ 19</td><td data-label="GNR/day" class="num">≈ 72</td></tr>
+            <tr><td data-label="Share">0.1 %</td><td data-label="Shares/hour" class="num">≈ 2</td><td data-label="GNR/day" class="num">≈ 7.2</td></tr>
           </tbody>
         </table></div>
         <p>Payout notes are built by consensus from public data (owner, value, height, index) and verified by light wallets against the block header. Specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/rewards.md">docs/spec/rewards.md</a>.</p>
       </section>
 
+      <section id="calculator">
+        <h2>Mining &amp; price calculator</h2>
+        <p>The wallet's Mining tab and <a href="/mining#calc">genoryn.io/mining</a> carry the same calculator, fed by live data from the chain:</p>
+        <ul>
+          <li><b>Join now</b>: from the network's live hashrate, what 1, 10, 100, 1,000 or more GPUs (each like one RTX 5090) would mine: share, GNR a day, month and year, time per GNR, and the value at the market price. The more GPUs join, the smaller each one's share.</li>
+          <li><b>The future</b>: choose a year (up to 40 ahead) and how many computers mine; the reward follows the halvings by block height.</li>
+          <li><b>Scarcity</b>: stock-to-flow by year, next to Bitcoin's and gold's.</li>
+          <li><b>Price models</b>, all "what if", none a forecast:
+            <ol>
+              <li><b>The work behind one GNR</b>: today's price × how many times more work one GNR takes then (more computers sharing the reward, halvings passed). If 1,000 GNR cost $3 today and 100,000 computers mine later, the same work yields thousands of times fewer GNR.</li>
+              <li><b>A share of Bitcoin's value</b>: that share of Bitcoin's total value divided by the GNR that exist in the chosen year.</li>
+              <li><b>People and dollars</b>: a number of people each holding some dollars of GNR, divided by the GNR that exist then.</li>
+            </ol>
+          </li>
+        </ul>
+        <p>Electricity and hardware costs are not counted. The real price is only what people pay each other (<a href="#market">Market price</a>).</p>
+      </section>
+
       <section id="kryptohash">
         <h2>KryptoHash algorithm</h2>
-        <p>Memory-hard and GPU-first: each hash reads 64 random 128-byte pairs from a dataset, so throughput follows memory bandwidth.</p>
+        <p>Memory-hard and GPU-first: each hash reads 64 random 128-byte pairs from a dataset, so throughput follows memory bandwidth, the resource that specialised chips gain least on.</p>
         <ul>
           <li><b>Epoch:</b> 16,384 blocks (~11.4 days); seed from the genesis hash and the epoch number.</li>
           <li><b>Cache:</b> 16 MiB, BLAKE3 chain plus three RandMemoHash passes.</li>
           <li><b>Dataset:</b> 2 GiB at launch, +4 MiB per epoch, capped at 12 GiB; each 64-byte item mixes 64 cache items.</li>
           <li><b>Hash:</b> 128-byte mix, 64 dataset accesses with FNV and rotations, final BLAKE3.</li>
-          <li><b>Target:</b> <code>hash · difficulty &lt; 2^256</code>, difficulty is a 128-bit integer.</li>
+          <li><b>Target:</b> <code>hash · difficulty &lt; 2^256</code>; difficulty is a 128-bit integer.</li>
           <li><b>Verification:</b> needs only the cache: about 1 ms per block, so light clients can check proofs of work.</li>
+          <li><b>GPU kernels:</b> CUDA and OpenCL, compiled by the GPU driver on first use; a driver whose compiler is broken is reported with a hint to reinstall it.</li>
         </ul>
+      </section>
+
+      <section id="swaps">
+        <h2>Atomic swaps</h2>
+        <p>An atomic swap exchanges GNR for bitcoin between two wallets so that either both payments happen or neither does. Both sides lock their coins under the same <b>hash lock</b> (the SHA-256 of a secret) with a <b>timelock</b>: whoever reveals the secret to take one side's coins also lets the other side take theirs, and if nobody does, both refund after their timelocks. No third party ever holds the coins.</p>
+        <h3>How a swap runs (GNR locked first)</h3>
+        <ol class="steps-list">
+          <li><b>Agree.</b> A buyer takes a sell offer, or a seller takes a buy offer, on the <a href="#board">offer board</a>. The wallets exchange the swap codes through sealed mailboxes, by themselves, within seconds.</li>
+          <li><b>The seller locks the GNR.</b> The seller's wallet holds the secret and locks exactly the agreed GNR on chain, payable only to the buyer with that secret, or back to the seller after the GNR timelock. Before locking, the seller checks the buyer's terms.</li>
+          <li><b>The buyer checks and pays.</b> The buyer's wallet watches the lock until it has confirmed (see the table) and checks that it is exactly the agreed amount and only the buyer can claim it. Only then does it show where to pay, in a window with the amount, the address and a QR code. The buyer pays within 2 hours into a bitcoin contract with the same hash lock, refundable to the buyer after its own timelock.</li>
+          <li><b>The seller takes the bitcoin.</b> Once the payment has confirmed, the seller's wallet claims the bitcoin with the secret, well before the bitcoin timelock. That claim reveals the secret on the Bitcoin chain.</li>
+          <li><b>The buyer takes the GNR.</b> The buyer's wallet reads the secret from the seller's bitcoin claim and claims the GNR with it.</li>
+        </ol>
+        <p>A seller who does not have the GNR cannot lock it, so a buyer never pays someone who cannot deliver. The seller cannot take the bitcoin without revealing the secret that releases the GNR to the buyer.</p>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Mainnet timing</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Timing">GNR confirmations the buyer waits for</td><td data-label="Value">6 blocks up to 50 GNR, 15 up to 500 GNR, 30 above</td></tr>
+            <tr><td data-label="Timing">Bitcoin confirmations the seller waits for</td><td data-label="Value">1 up to 0.01 BTC, 2 above</td></tr>
+            <tr><td data-label="Timing">Payment window</td><td data-label="Value">2 hours after the GNR lock has confirmed</td></tr>
+            <tr><td data-label="Timing">GNR timelock</td><td data-label="Value">1,900 blocks (about 32 hours) from the lock</td></tr>
+            <tr><td data-label="Timing">Bitcoin timelock</td><td data-label="Value">36 Bitcoin blocks (about 6 hours) from the payment</td></tr>
+            <tr><td data-label="Timing">Longest possible swap</td><td data-label="Value">One week; terms that would run longer are refused</td></tr>
+          </tbody>
+        </table></div>
+        <h3>When something stops</h3>
+        <ul>
+          <li><b>The buyer never pays:</b> the swap ends after the payment window; the seller's GNR returns automatically after its timelock (keep or reopen the wallet then).</li>
+          <li><b>The buyer pays, the seller never claims:</b> the bitcoin returns to the buyer after its timelock. A payment smaller than agreed, or too late to claim safely, is not taken.</li>
+          <li><b>Either side cancels before anything of theirs is locked:</b> the other side is told through the board and its swap ends too.</li>
+          <li><b>A wallet is closed or locked:</b> the swap waits. Only your wallet holds the keys that lock, claim and refund your coins, so keep it running (the window may be closed) and unlocked until your swaps are done; the timelocks give hours of room.</li>
+        </ul>
+        <p>Every swap gets a random number from which its secret, keys and outputs derive, so secrets never repeat, even in a wallet restored from its recovery phrase. Specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/atomic-swaps.md">docs/spec/atomic-swaps.md</a>.</p>
+      </section>
+
+      <section id="board">
+        <h2>The offer board</h2>
+        <p>The board, run by nodes (<code>/v1/swap/...</code>), lists offers and passes sealed messages between the two wallets of a swap. It never sees keys, codes or coins. The wallet's Swap tab and <a href="/market">genoryn.io/market</a> show it.</p>
+        <ul>
+          <li><b>Publish</b>: side (sell or buy GNR), amounts, your Bitcoin address (to receive the bitcoin, or for a refund) and how long the offer stays: 1 hour, 6 hours, 24 hours, 3 days, 1 week, 1 month or 1 year. <b>Any price may be offered.</b> The wallet only warns when a price is more than 3× from the market, in case of a typo.</li>
+          <li><b>Proof of work</b>: every offer, message and trade report carries a small proof of work (18 bits, about a second). Longer offers need one more bit for every doubling beyond a day: 21 bits for a week, 23 for a month, 27 for a year, a few seconds on a modern CPU. Keeping junk on the board for long costs as much more as it lasts.</li>
+          <li><b>Reserved GNR</b>: an open sell offer reserves its amount plus the fee in your wallet, so a buyer always finds the coins. Sends and other offers cannot use them; cancelling the offer frees them.</li>
+          <li><b>Online and offline</b>: your wallet tells the board every 45 seconds that it is online, for all its offers at once (each proven with its cancel secret). An offer whose maker was seen in the last 2 minutes shows a green dot and can be taken; taking it starts the swap within seconds with no approval. While the maker's wallet is offline the offer stays listed, greyed out, and cannot be taken; after a week offline it is removed and the wallet frees its GNR.</li>
+          <li><b>Taking</b>: the taker's wallet sends a sealed take message; the maker's wallet answers by itself. An offer is taken once.</li>
+          <li><b>In progress</b>: a taken offer moves to "in progress" (only its maker can do that, proven against the offer the board stores). The maker's wallet confirms every 10 minutes that the swap still runs and removes the entry as soon as the swap can no longer complete; entries not confirmed for 30 minutes, or older than 12 hours, are dropped.</li>
+          <li><b>Limits</b>: up to 5,000 offers, offers of 10,000 sat to 1,000 BTC, mailboxes of 100 messages kept for a day, per-client rate limits.</li>
+        </ul>
+        <p>Offers are anonymous: each has its own one-time X25519 + ML-KEM-1024 key derived from the wallet's swap seed and used for nothing else, never your address.</p>
+      </section>
+
+      <section id="market">
+        <h2>Market price</h2>
+        <p>The GNR price shown by the wallet and genoryn.io is the board's market price and nothing else: <b>the plain average of the swaps people completed</b>.</p>
+        <ul>
+          <li>After a swap completes, both wallets may report its amounts and hash lock (the <code>share_prices</code> setting turns this off). The board accepts a report only if a claim with that hash lock is on its own chain, and counts each hash once.</li>
+          <li>The price is the arithmetic mean of the swaps completed in the last 72 hours, each counting the same whatever its size; with none that recent, of all recorded swaps.</li>
+          <li>With three or more swaps, a swap more than 4× away from their median is left out: amounts are private on chain and reported by the wallets, so a typo or a fake report must not move the average.</li>
+          <li>Open offers and swaps in progress are listed with their totals in bitcoin and dollars, but <b>never move the price</b>: anyone can post an offer at any price.</li>
+          <li>Dollar values use the BTC price, which genoryn.io fetches from mempool.space so visitors' browsers and wallets contact no third party.</li>
+        </ul>
+        <p><code>GET /v1/swap/market</code> returns the price (sat per GNR), how many swaps it averages (<code>priced</code>), a confidence <code>v / (v + 25)</code> for the GNR <code>v</code> behind it, the best offers, volumes, and every completed swap with what the GNR chain shows of it: the claim transaction, its block and time, the hash lock, the revealed secret and the refund height.</p>
       </section>
 
       <section id="consensus">
@@ -239,23 +441,11 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
           <li>Its difficulty equals the LWMA value and its proof of work meets it.</li>
           <li>Its MMR, transaction and share roots, output and nullifier digests match.</li>
           <li>It is at most 4 MiB with at most 256 shares, each valid for its window and never credited before.</li>
-          <li>Every proof verifies, nullifiers are unique, anchors are recent (≤ 2,880 blocks).</li>
+          <li>Every proof verifies, nullifiers are unique, anchors are recent (≤ 2,880 blocks), and lock spends (swaps) follow the lock rules.</li>
           <li>Its payouts equal those computed by the reward rules.</li>
           <li>The note tree after appending matured payout notes and transfer outputs has the committed root.</li>
         </ol>
-        <p>Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier. Full specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/consensus.md">docs/spec/consensus.md</a>.</p>
-      </section>
-
-      <section id="proofs">
-        <h2>Payment proofs</h2>
-        <p>Transfers are private, yet the sender can prove a payment. When you send, the wallet keeps the one-time key of the payment output. <b>Proof</b> in the History tab (or <code>krypton-wallet-cli prove-payment &lt;txid&gt;</code>) turns it into a short <code>gnrpay1…</code> text.</p>
-        <ol class="steps-list">
-          <li>The verifier's wallet (<b>Verify a payment proof</b>, or <code>verify-payment</code>) finds the transaction's block and checks it against the chain.</li>
-          <li>It decrypts exactly that output with the disclosed key and checks that it commits to the recipient's owner tag.</li>
-          <li>It shows amount, memo, recipient, block and confirmations, and whether the payment went to the verifying wallet itself.</li>
-          <li>Before the next block the proof already works and verifies as <b>pending</b> (found in the mempool, not final yet). The recipient's wallet likewise lists the payment as <b>incoming, pending</b> until it is mined.</li>
-        </ol>
-        <p>The proof reveals nothing else: not the sender's balance, other notes, change or keys. Only the sender (who made the key) and the recipient can produce one. A 128-bit checksum rejects incomplete or altered proofs.</p>
+        <p>Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Full specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/consensus.md">docs/spec/consensus.md</a>.</p>
       </section>
 
       <section id="transactions">
@@ -265,80 +455,184 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
           <thead><tr><th>Item</th><th class="num">Size / time</th></tr></thead>
           <tbody>
             <tr><td data-label="Item">Proof</td><td data-label="Size" class="num">~92 KB</td></tr>
-            <tr><td data-label="Item">Transaction</td><td data-label="Size" class="num">~97 KB</td></tr>
+            <tr><td data-label="Item">Transaction</td><td data-label="Size" class="num">~97 KB (at most 160 KB)</td></tr>
             <tr><td data-label="Item">Proving (desktop CPU)</td><td data-label="Time" class="num">~0.5 s</td></tr>
             <tr><td data-label="Item">Verification</td><td data-label="Time" class="num">~2 ms</td></tr>
             <tr><td data-label="Item">Fee</td><td data-label="Size" class="num">Market rate (<code>/v1/fee</code>); relay floor 10 gori/KB ≈ 0.00001 GNR</td></tr>
           </tbody>
         </table></div>
-        <p>The proof is bound to the exact transaction through its sighash, which replaces a signature. Transactions expire after 120 blocks if not mined.</p>
+        <p>The proof is bound to the exact transaction through its sighash, which replaces a signature. Transactions expire after 120 blocks if not mined; the wallet then frees the notes they would have spent. Lock transactions (swaps) create a note spendable either by a claim with the secret or by a refund after the timelock.</p>
+      </section>
+
+      <section id="proofs">
+        <h2>Payment proofs</h2>
+        <p>Transfers are private, yet the sender can prove a payment. When you send, the wallet keeps the one-time key of the payment output. <b>Proof</b> in the History tab (or <code>krypton-wallet-cli prove-payment &lt;txid&gt;</code>) turns it into a short <code>gnrpay1…</code> text.</p>
+        <ol class="steps-list">
+          <li>The verifier's wallet (or <code>krypton-wallet-cli verify-payment</code>, or <code>POST /v1/verify-payment</code>) finds the transaction's block and checks it against the chain.</li>
+          <li>It decrypts exactly that output with the disclosed key and checks that it commits to the recipient's owner tag.</li>
+          <li>It shows amount, memo, recipient, block and confirmations, and whether the payment went to the verifying wallet itself.</li>
+          <li>Before the next block the proof already works and verifies as <b>pending</b>. The recipient's wallet likewise lists the payment as <b>incoming, pending</b> until it is mined.</li>
+        </ol>
+        <p>The proof reveals nothing else: not the sender's balance, other notes, change or keys. Only the sender (who made the key) and the recipient can produce one. A 128-bit checksum rejects incomplete or altered proofs.</p>
       </section>
 
       <section id="light">
         <h2>Light clients</h2>
-        <p>Servers are trusted for availability only:</p>
+        <p>A light wallet trusts nodes for availability only, never for validity:</p>
         <ol class="steps-list">
-          <li><b>Tip:</b> sampled headers (dense near the tip, sparse across history) are checked for proof of work and MMR inclusion; the recent 100 headers are checked fully. Cost grows with log(chain length).</li>
-          <li><b>Blocks:</b> compact blocks since the wallet birthday are checked against their headers: outputs, nullifiers and the note-tree root.</li>
-          <li><b>Witnesses:</b> the wallet downloads a whole 4,096-leaf chunk and computes its own Merkle path.</li>
-          <li><b>Cross-checks:</b> several configured nodes must agree; transactions are sent through all of them.</li>
+          <li><b>Tip.</b> The wallet samples headers (dense near the tip, sparse across history) and checks each one's proof of work and its inclusion in the tip's Merkle Mountain Range; the most recent 91 headers are checked fully, including the difficulty rule. Cost grows with log(chain length).</li>
+          <li><b>Checkpoint.</b> Every release carries a checkpoint (mainnet: block 14,800). The chain must contain it; every header above it needs at least 1/16 of its difficulty, and the blocks since it must carry that much work on average.</li>
+          <li><b>No future blocks.</b> A header dated more than two hours (plus the 5-minute consensus drift) ahead of your computer's clock is refused, so a fork cannot lower its own difficulty quickly.</li>
+          <li><b>The most work wins.</b> Every MMR node hashes the work beneath it, so the tip proves the total work of the chain. The wallet remembers the most work it has verified and refuses a chain with less. A cheap fork cannot replace the chain it follows, and faking confirmations costs as much work as the honest network spends on them. If a node proves a different block at the wallet's height inside an at least as heavy chain, the wallet goes back to the fork point by itself; a node that only sends bad proofs proves nothing and changes nothing.</li>
+          <li><b>Blocks.</b> Compact blocks since the wallet birthday are checked against their headers: outputs, nullifiers, payouts and the note-tree root.</li>
+          <li><b>Witnesses.</b> The wallet downloads a whole 4,096-leaf chunk and computes its own Merkle path, so a node does not learn which note you spend.</li>
+          <li><b>Cross-checks.</b> Several configured nodes must agree; transactions are sent through all of them.</li>
         </ol>
+        <p>A wallet that has never synced trusts the first chain shown to it above the checkpoint; for large amounts run your own node or configure several independent ones. Specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/light-client.md">docs/spec/light-client.md</a>.</p>
+      </section>
+
+      <section id="p2p">
+        <h2>Peer-to-peer network</h2>
+        <p>Nodes talk to each other over encrypted links. A node is built so that other nodes can never use it against the computer it runs on:</p>
+        <ul>
+          <li><b>Encryption:</b> every link starts with an X25519 + ML-KEM-768 handshake and runs ChaCha20-Poly1305 frames.</li>
+          <li><b>Nothing to break into:</b> the networking code is memory-safe Rust with no <code>unsafe</code> code. Peers can only send protocol messages; a node never runs commands, opens files or reaches its own API for them.</li>
+          <li><b>Strict limits:</b> frames of at most 8 MiB (the length is checked before memory is allocated), a cap on every list in a message, 10 seconds for a handshake, at most 64 handshakes at once, 30 seconds for a new peer to introduce itself, at most 4 connections per IP (IPv6: per /64), 64 inbound and 8 outbound peers, a cap on data queued for slow peers.</li>
+          <li><b>Bans:</b> a peer that sends a malformed message, an invalid block or transaction, or shares without work is disconnected and its IP refused for 24 hours; a flood of useless shares disconnects it.</li>
+          <li><b>Address book:</b> peers can only point a node at public internet addresses on unprivileged ports, never at this computer, its local network or special ranges; one network group (IPv4 /16, IPv6 /32) fills at most 16 places, one peer's list is accepted at most once every 10 minutes, and the seeds are always tried first when a node has few peers.</li>
+          <li><b>Outbound-only by default in the wallet:</b> the full node the wallet starts does not accept incoming connections unless you enable it (Network → <b>Let other nodes connect to my full node</b>), so nothing on the internet can open a connection to your computer.</li>
+        </ul>
+        <p>Messages: <code>Hello</code> (network, genesis, height, listening port), <code>Inv</code>, <code>GetHashes</code>/<code>Hashes</code>, <code>GetBlocks</code>/<code>Block</code>, <code>GetTxs</code>/<code>Tx</code>, <code>Shares</code>, <code>GetAddr</code>/<code>Addr</code>, <code>Ping</code>/<code>Pong</code>.</p>
       </section>
 
       <section id="node">
         <h2>Running a node</h2>
-        <pre class="code">kryptond                                      # mainnet: P2P 30333, API 127.0.0.1:30334
+        <pre class="code">kryptond                                      # mainnet: P2P 0.0.0.0:30333, API 127.0.0.1:30334
+kryptond --no-listen                          # connect out only: no incoming peers
 kryptond --listen 0.0.0.0:30333 --rpc 127.0.0.1:30334 --peer 2.24.162.163:29710
-sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux, systemd, CPU miner capped at 50 %</pre>
+sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %</pre>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Flag</th><th>Default</th><th>Meaning</th></tr></thead>
           <tbody>
             <tr><td data-label="Flag"><code>--network</code></td><td data-label="Default">mainnet</td><td data-label="Meaning">mainnet, testnet or devnet</td></tr>
-            <tr><td data-label="Flag"><code>--data-dir</code></td><td data-label="Default">%APPDATA%/GenorynKrypton or ~/.genoryn-krypton</td><td data-label="Meaning">Chain database location</td></tr>
+            <tr><td data-label="Flag"><code>--data-dir</code></td><td data-label="Default">%APPDATA%\GenorynKrypton or ~/.genoryn-krypton</td><td data-label="Meaning">Chain database location</td></tr>
             <tr><td data-label="Flag"><code>--listen</code></td><td data-label="Default">0.0.0.0:30333</td><td data-label="Meaning">P2P listen address</td></tr>
+            <tr><td data-label="Flag"><code>--no-listen</code></td><td data-label="Default">off (on for the wallet's node)</td><td data-label="Meaning">Accept no incoming peers</td></tr>
             <tr><td data-label="Flag"><code>--rpc</code></td><td data-label="Default">127.0.0.1:30334</td><td data-label="Meaning">API listen address</td></tr>
-            <tr><td data-label="Flag"><code>--peer</code></td><td data-label="Default">–</td><td data-label="Meaning">Extra peer, repeatable</td></tr>
-            <tr><td data-label="Flag"><code>--no-seeds</code></td><td data-label="Default">off</td><td data-label="Meaning">Do not use built-in seeds</td></tr>
+            <tr><td data-label="Flag"><code>--peer</code></td><td data-label="Default">–</td><td data-label="Meaning">Extra peer (host:port), repeatable</td></tr>
+            <tr><td data-label="Flag"><code>--no-seeds</code></td><td data-label="Default">off</td><td data-label="Meaning">Do not use the built-in seeds</td></tr>
+            <tr><td data-label="Flag"><code>--max-inbound</code> / <code>--max-outbound</code></td><td data-label="Default">64 / 8</td><td data-label="Meaning">Peer limits</td></tr>
           </tbody>
         </table></div>
-        <p>Storage grows by at most ~4 MiB per block when blocks are full; empty blocks are a few kilobytes. Expose the API to the internet only behind a reverse proxy (see <code>deploy/caddy</code>).</p>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Network</th><th>P2P port</th><th>API port</th><th>Reward maturity</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Network">Mainnet</td><td data-label="P2P">30333</td><td data-label="API">30334</td><td data-label="Maturity">100 blocks</td></tr>
+            <tr><td data-label="Network">Testnet</td><td data-label="P2P">31333</td><td data-label="API">31334</td><td data-label="Maturity">20 blocks</td></tr>
+            <tr><td data-label="Network">Devnet (local)</td><td data-label="P2P">32333</td><td data-label="API">32334</td><td data-label="Maturity">2 blocks</td></tr>
+          </tbody>
+        </table></div>
+        <p>Storage grows by at most ~4 MiB per block when blocks are full; empty blocks are a few kilobytes. The API has no administrative or wallet functions, but expose it to the internet only behind a reverse proxy with limits (see <code>deploy/caddy</code>); the node budgets requests per client. Opening port 30333 helps the network but is not needed to use it.</p>
+      </section>
+
+      <section id="cli">
+        <h2>Command-line wallet</h2>
+        <p><code>krypton-wallet-cli [--node URL[,URL…]] [--wallet FILE] [--network mainnet|testnet|devnet] &lt;command&gt;</code>. The same settings can come from <code>KRYPTON_NODE</code>, <code>KRYPTON_WALLET</code> and <code>KRYPTON_NETWORK</code>. With several nodes it syncs from the first, cross-checks the others and sends through all of them.</p>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Command"><code>new</code></td><td data-label="What">Create a wallet and show its 24-word recovery phrase once</td></tr>
+            <tr><td data-label="Command"><code>restore</code></td><td data-label="What">Restore a wallet from a recovery phrase (asks for the words); <code>--birthday</code> skips history before that block</td></tr>
+            <tr><td data-label="Command"><code>address</code></td><td data-label="What">Show the receiving address; <code>--publish</code> makes its short form resolve on the node</td></tr>
+            <tr><td data-label="Command"><code>sync</code></td><td data-label="What">Verified light sync</td></tr>
+            <tr><td data-label="Command"><code>balance</code></td><td data-label="What">Show the balance</td></tr>
+            <tr><td data-label="Command"><code>send &lt;address&gt; &lt;amount&gt; [--memo …] [--fee …]</code></td><td data-label="What">Send GNR to a full or short address; the fee defaults to the node's estimate for the current backlog</td></tr>
+            <tr><td data-label="Command"><code>consolidate</code></td><td data-label="What">Merge the two largest notes</td></tr>
+            <tr><td data-label="Command"><code>history</code> / <code>notes</code></td><td data-label="What">Transactions / owned notes</td></tr>
+            <tr><td data-label="Command"><code>show-phrase</code></td><td data-label="What">Show the recovery phrase (asks for the password)</td></tr>
+            <tr><td data-label="Command"><code>reset-pending</code></td><td data-label="What">Forget unconfirmed spends after they expired</td></tr>
+            <tr><td data-label="Command"><code>status</code></td><td data-label="What">Status of every configured node</td></tr>
+            <tr><td data-label="Command"><code>prove-payment &lt;txid&gt;</code></td><td data-label="What">Create a payment proof for one of your sends</td></tr>
+            <tr><td data-label="Command"><code>verify-payment &lt;proof&gt;</code></td><td data-label="What">Check a payment proof against the chain</td></tr>
+          </tbody>
+        </table></div>
       </section>
 
       <section id="api">
         <h2>API reference (REST)</h2>
-        <p>Base URL: your node (<code>http://127.0.0.1:30334</code>) or the public node <code>https://genoryn.io</code>. JSON unless marked binary.</p>
+        <p>Base URL: your node (<code>http://127.0.0.1:30334</code>) or the public node <code>https://genoryn.io</code>. JSON unless marked binary. Amounts are in gori (1 GNR = 10^8), prices in sat per GNR.</p>
+        <h3>Chain</h3>
         <div class="table-wrap"><table class="data api">
           <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/info</code></td><td data-label="Description">Network, height, tip, difficulty, supply, hashrate, peers</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/info</code></td><td data-label="Description">Network, height, tip, difficulty, supply, hashrate, estimated miners, peers, next subsidy</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/supply</code></td><td data-label="Description">Issued supply, subsidy, next halving</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/stats?range=1h|24h|7d|30d|all</code></td><td data-label="Description">Time series for charts: hashrate, difficulty, block time, issuance</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/blocks?count&amp;from</code></td><td data-label="Description">Recent block summaries</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/block/{height|hash}</code></td><td data-label="Description">Block with transaction summaries</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/block/{height|hash}</code></td><td data-label="Description">Block with transactions, credited shares and payouts</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/header/{height}</code></td><td data-label="Description">Header fields</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/rawblock/{height}</code></td><td data-label="Description">Canonical block bytes (binary)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/peers</code></td><td data-label="Description">Connected peers: agent, height, direction, since (no IP addresses)</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Transactions and wallets</h3>
+        <div class="table-wrap"><table class="data api">
+          <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+          <tbody>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/tx/{txid}</code></td><td data-label="Description">Pending or confirmed, confirmations</td></tr>
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/tx</code></td><td data-label="Description">Submit a transaction (binary body)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/mempool</code></td><td data-label="Description">Pool size and entries</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/fee</code></td><td data-label="Description">Fee estimates per KB (economy, normal, fast) from the backlog</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/rawtx/{txid}</code></td><td data-label="Description">A pending (mempool) transaction, binary</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/rawtx/{txid}</code></td><td data-label="Description">A pending transaction (binary)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/nullifier/{hex}</code></td><td data-label="Description">Spent height or null</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/compact?from&amp;count</code></td><td data-label="Description">Compact blocks for wallets (binary)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/frontier/{height}</code></td><td data-label="Description">Note-tree frontier (every 64 blocks, binary)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/subtree/{chunk}</code></td><td data-label="Description">4,096 leaves + upper path (private witness)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/witness/{pos}</code></td><td data-label="Description">Merkle path for one position</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/mmrproof?leaf&amp;at</code></td><td data-label="Description">MMR inclusion proof</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/flyclient?heights=a,b</code></td><td data-label="Description">Sampled headers + proofs + recent headers</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/mmrproof?leaf&amp;at</code></td><td data-label="Description">MMR inclusion proof (also proves the chain's total work)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/flyclient?heights=a,b</code></td><td data-label="Description">Sampled headers with proofs, plus recent headers</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/verify-payment</code></td><td data-label="Description">Check a <code>gnrpay1…</code> payment proof</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Addresses</h3>
+        <div class="table-wrap"><table class="data api">
+          <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+          <tbody>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/validate/{address}</code></td><td data-label="Description">Address check and short form</td></tr>
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/address</code></td><td data-label="Description">Publish a full address for short resolution</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/address/{short}</code></td><td data-label="Description">Resolve a short address (hash-checked)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/address/{short}</code></td><td data-label="Description">Resolve a short address (the client checks the hash)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/address-info/{address}</code></td><td data-label="Description">Explorer view: published, owner tag, mining activity and payouts</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Mining</h3>
+        <div class="table-wrap"><table class="data api">
+          <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+          <tbody>
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/mining/template</code></td><td data-label="Description">Mining job for <code>{"address": ...}</code></td></tr>
-            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/mining/submit</code></td><td data-label="Description">Submit <code>{"job_id", "nonce"}</code></td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/peers</code></td><td data-label="Description">Connected peer summaries</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/mining/submit</code></td><td data-label="Description">Submit <code>{"job_id", "nonce"}</code> (shares and blocks)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/miner/{address}</code></td><td data-label="Description">Unpaid balance, next payout height, recent shares</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/shares</code></td><td data-label="Description">Shares waiting to be credited</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Swap board</h3>
+        <div class="table-wrap"><table class="data api">
+          <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/offers</code></td><td data-label="Description">Open offers (with <code>online</code>) and swaps in progress</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/offers</code></td><td data-label="Description">Publish an offer (with proof of work)</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/offers/cancel</code></td><td data-label="Description">Remove an offer with its cancel secret</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/offers/ping</code></td><td data-label="Description">The maker is online, for all its offers at once</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/progress</code></td><td data-label="Description">Mark a taken offer "in progress", or confirm it still runs (maker only)</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/inbox</code></td><td data-label="Description">Deliver a sealed message</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/inbox/{id}</code></td><td data-label="Description">Read a mailbox</td></tr>
+            <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/trade</code></td><td data-label="Description">Report a completed swap (accepted once its claim is on chain)</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/market</code></td><td data-label="Description">Market price and completed swaps with their on-chain claims</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/btc-price</code></td><td data-label="Description">BTC price in USD, EUR and more (genoryn.io only, from mempool.space)</td></tr>
           </tbody>
         </table></div>
         <pre class="code">curl -s https://genoryn.io/v1/info
 curl -s "https://genoryn.io/v1/blocks?count=5"
-curl -s https://genoryn.io/v1/block/1</pre>
+curl -s https://genoryn.io/v1/swap/market</pre>
       </section>
 
       <section id="rpc">
@@ -347,7 +641,7 @@ curl -s https://genoryn.io/v1/block/1</pre>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Method</th><th>Params</th><th>Returns</th></tr></thead>
           <tbody>
-            <tr><td data-label="Method"><code>getinfo</code></td><td data-label="Params">–</td><td data-label="Returns">same as /v1/info</td></tr>
+            <tr><td data-label="Method"><code>getinfo</code> / <code>getblockchaininfo</code></td><td data-label="Params">–</td><td data-label="Returns">same as /v1/info</td></tr>
             <tr><td data-label="Method"><code>getblockcount</code></td><td data-label="Params">–</td><td data-label="Returns">height</td></tr>
             <tr><td data-label="Method"><code>getbestblockhash</code></td><td data-label="Params">–</td><td data-label="Returns">hex hash</td></tr>
             <tr><td data-label="Method"><code>getblockhash</code></td><td data-label="Params">height</td><td data-label="Returns">hex hash</td></tr>
@@ -370,7 +664,7 @@ curl -s https://genoryn.io/v1/block/1</pre>
 
       <section id="ws">
         <h2>WebSocket</h2>
-        <p><code>wss://genoryn.io/v1/ws</code> sends the node info once, then events:</p>
+        <p><code>wss://genoryn.io/v1/ws</code> sends the node info once, then an event for every new block and transaction:</p>
         <pre class="code">{"type":"block","height":1234,"hash":"…","txs":3,"reorg_depth":0,"timestamp":1793670000}
 {"type":"tx","txid":"…"}</pre>
       </section>
@@ -382,7 +676,7 @@ curl -s https://genoryn.io/v1/block/1</pre>
 const k = new KryptonClient("https://genoryn.io");
 const info = await k.info();
 console.log(info.height, formatAmount(BigInt(info.supply)));
-k.subscribe(e => e.type === "block" &amp;&amp; console.log("new block", e.height));</pre>
+k.subscribe(e =&gt; e.type === "block" &amp;&amp; console.log("new block", e.height));</pre>
         <h3>Rust</h3>
         <pre class="code">use krypton::{NodeClient, Wallet, Address};
 let node = NodeClient::new("https://genoryn.io")?;
@@ -404,21 +698,35 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
           <li>Use a dedicated wallet; distinguish customers by memo or by account.</li>
           <li>Credit after 10 confirmations (more for large amounts).</li>
           <li>Withdraw with <code>krypton-wallet-cli send</code>; consolidation is automatic.</li>
-          <li>Validate user-entered addresses with <code>/v1/validate</code> or <code>krypton_address_network</code>.</li>
+          <li>Validate user-entered addresses with <code>/v1/validate</code> or <code>krypton_address_network</code>; accept short addresses only through resolution, which the wallet hash-checks.</li>
+          <li>Give customers payment proofs (<code>prove-payment</code>) when a withdrawal is disputed; they verify without revealing anything else.</li>
         </ol>
       </section>
 
       <section id="security">
-        <h2>Security model</h2>
+        <h2>Security model &amp; audits</h2>
         <ul>
-          <li><b>Status:</b> extensive automated tests (consensus, proofs, reorganizations, forged light-client data, parser property tests). <b>Latest internal audit: 5 November 2026</b>, covering node, consensus, wallets, light client, website and server, with every fixable finding fixed in 1.0.7 (<a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-05-security-audit.md">report</a>). No external audit yet.</li>
-          <li><b>Light clients:</b> every release carries a checkpoint block; light wallets require it and refuse headers above it with less than 1/16 of its difficulty, so a server can't show a cheap fake chain.</li>
-          <li><b>Chain observer:</b> sees fees, sizes, timing; not amounts, senders or recipients.</li>
-          <li><b>Malicious server:</b> may withhold data, cannot forge it undetected; use several sources.</li>
-          <li><b>Quantum adversary:</b> no elliptic-curve dependency for funds or privacy.</li>
+          <li><b>Testing:</b> over a hundred automated tests (consensus, proofs, reorganizations, forged light-client data, fake chains, swap flows, board abuse, parser property tests) and end-to-end swaps against Bitcoin Core on regtest before releases.</li>
+          <li><b>Audits:</b> internal audit of 5 November 2026 covering node, consensus, wallets, light client, website and server (<a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-05-security-audit.md">report</a>). In November 2026 an independent researcher reported issues privately through GitHub security advisories; all were confirmed and fixed in 1.0.33. No external audit of the whole system yet.</li>
+          <li><b>Chain observer:</b> sees fees, sizes and timing; not amounts, senders or recipients.</li>
+          <li><b>Malicious node:</b> may withhold data; cannot forge it undetected, cannot replace the chain a light wallet follows with a lighter one, cannot steal swaps or remove other people's offers.</li>
+          <li><b>Malicious peer:</b> can only send protocol messages, within strict limits, and is banned for invalid data (<a href="#p2p">Peer-to-peer network</a>).</li>
+          <li><b>Swap counterparty:</b> cannot take your coins: a buyer pays only after the seller's GNR is locked, and the seller's claim releases the GNR to the buyer.</li>
+          <li><b>Quantum adversary:</b> no elliptic-curve dependency for GNR funds or privacy.</li>
           <li><b>Your computer:</b> a compromised machine is out of scope; keep the recovery phrase offline.</li>
         </ul>
-        <p>Report vulnerabilities privately via GitHub security advisories; see <a href="https://github.com/genoryn/genoryn/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+        <p><b>Reporting a vulnerability:</b> privately through <a href="https://github.com/genoryn/genoryn/security/advisories/new">GitHub security advisories</a>, never in a public issue. Coordinated disclosure: 90 days from acknowledgement, extended while fixes are in progress. See <a href="https://github.com/genoryn/genoryn/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <details class="glass"><summary>My GPU is not used, or the miner says "no usable … GPU found"</summary><p>Run <code>krypton-miner --list-devices</code>: it tests every GPU and prints <code>usable</code> or <code>NOT usable: &lt;reason&gt;</code>. If the reason says the driver could not compile the mining kernel, reinstall the GPU driver cleanly (on NVIDIA, a clean install, for example after DDU) and try again. The Mining tab shows the same reason when the miner stops.</p></details>
+        <details class="glass"><summary>The wallet does not sync, or says a node "shows a chain with less proof of work"</summary><p>In light mode the wallet refuses a node that is behind or shows a lighter chain than one it has already verified. Wait a few minutes (a node may still be catching up), add another node in Network → Connection mode, or start your own full node. "The node's chain ends before this release's checkpoint" means the node is far behind or on another network.</p></details>
+        <details class="glass"><summary>A payment I received shows as "incoming, pending"</summary><p>It is in the mempool and becomes spendable once mined (about a minute). Mining rewards become spendable 100 blocks after their payout.</p></details>
+        <details class="glass"><summary>My swap seems stuck</summary><p>Keep the wallet running and unlocked: only it can lock, claim and refund your coins. The swap card says what it waits for (confirmations, the payment, the other side). If the buyer never pays, the seller's GNR returns after its timelock (about 32 hours); if the seller never claims, the buyer's bitcoin returns after about 6 hours.</p></details>
+        <details class="glass"><summary>"Too many wrong passwords"</summary><p>After five wrong passwords the wallet refuses for five minutes. If you forgot the password, restore the wallet from its recovery phrase with a new one.</p></details>
+        <details class="glass"><summary>My offer shows as offline</summary><p>Offers can be taken only while the maker's wallet runs. It stays listed while your wallet is offline and is removed after a week offline, freeing its GNR. Open the wallet again to bring it back online.</p></details>
+        <details class="glass"><summary>The update does not install</summary><p>The updater installs only releases whose signature verifies; a failed download or signature is retried at the next check. You can always download the release yourself and verify it (<a href="#install">Install &amp; verify</a>).</p></details>
       </section>
 
       <section id="upgrades">
@@ -427,35 +735,54 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
           <li><b>Crypto-agility:</b> every primitive has a versioned ID; replacements activate by soft fork.</li>
           <li><b>Room to grow:</b> a depth-40 note tree holds about one trillion outputs.</li>
           <li><b>Log-time verification:</b> the header MMR keeps light clients fast at any chain length.</li>
-          <li><b>Bounded resources:</b> fixed headers, 4 MiB blocks, bounded decoders and mempool.</li>
-          <li><b>Roadmap:</b> recursive proof aggregation per block, hash-time-locked notes for atomic swaps, external audits.</li>
+          <li><b>Bounded resources:</b> fixed headers, 4 MiB blocks, bounded decoders, mempool and board.</li>
+          <li><b>Done:</b> proportional mining rewards, atomic swaps with bitcoin, the anonymous offer board, payment proofs, signed in-app updates.</li>
+          <li><b>Roadmap:</b> recursive proof aggregation per block, prebuilt GPU kernels per architecture, more independent public nodes, external audits.</li>
         </ul>
       </section>
 
       <section id="governance">
         <h2>Governance</h2>
-        <p>Genoryn Krypton was created by the pseudonymous <b>Zarazi Sokani</b>, whose identity is unknown and will never be revealed. Anyone may develop, market or extend the project in any direction. No person, company or foundation controls the protocol or holds keys over it; rules change only when node operators choose to run new software.</p>
+        <p>Genoryn Krypton was created by the pseudonymous <b>Zarazi Sokani</b>, whose identity is unknown and will never be revealed. Anyone may develop, market or extend the project in any direction. No person, company or foundation controls the protocol or holds keys over it; rules change only when node operators choose to run new software. The release key signs the project's binaries; it cannot move anyone's coins or change consensus.</p>
       </section>
 
       <section id="faq">
         <h2>FAQ</h2>
         <details class="glass"><summary>Do I need a GPU?</summary><p>No. A GPU is about 50 times faster, but CPUs mine too, and the wallet works without mining at all.</p></details>
-        <details class="glass"><summary>Why are addresses so long?</summary><p>They carry a post-quantum public key (ML-KEM-1024). Use the short form for sharing; the wallet verifies it.</p></details>
+        <details class="glass"><summary>Do I need to join a pool?</summary><p>No. Every block pays all miners in proportion to their shares, so a single computer earns its share every block, as in a pool, but without an operator.</p></details>
+        <details class="glass"><summary>Why are addresses so long?</summary><p>They carry a post-quantum public key (ML-KEM-1024). Publish the short form once and share it; the sender's wallet verifies it.</p></details>
         <details class="glass"><summary>Can anyone see my balance?</summary><p>No. Balances are computed only by wallets that hold the keys.</p></details>
-        <details class="glass"><summary>What happens if a node lies to my light wallet?</summary><p>Its data fails verification against headers and proof of work, and the wallet refuses it.</p></details>
-        <details class="glass"><summary>Is there a premine?</summary><p>No. The genesis issues nothing and the launch is bound to a future Bitcoin block hash.</p></details>
+        <details class="glass"><summary>How do I buy GNR?</summary><p>In the wallet's Swap tab: take a sell offer, or publish a buy offer. You pay bitcoin only after the seller's GNR is locked for you.</p></details>
+        <details class="glass"><summary>Where does the GNR price come from?</summary><p>Only from completed swaps: their plain average over the last 72 hours. Offers never move it.</p></details>
+        <details class="glass"><summary>Can a swap cheat me?</summary><p>No. The buyer pays only after the seller's GNR is locked on chain for exactly the agreed amount, and the seller's bitcoin claim reveals the secret that releases the GNR to the buyer. If anyone stops, timeouts refund both.</p></details>
+        <details class="glass"><summary>Why must the wallet stay open during a swap?</summary><p>Only your wallet holds the keys that lock, claim and refund your coins; no server can do it for you, which is also why nobody can take them. Closing the window is fine: the wallet keeps working in the background.</p></details>
+        <details class="glass"><summary>Can someone break into my computer through the node?</summary><p>No. The wallet's node only connects out unless you allow incoming peers, its API listens only on your computer, the networking code has no unsafe code, and peers can only send protocol messages that are checked and limited.</p></details>
+        <details class="glass"><summary>What happens if a node lies to my light wallet?</summary><p>Its data fails verification against headers, proof of work and total work, and the wallet refuses it.</p></details>
+        <details class="glass"><summary>Is there a premine?</summary><p>No. The genesis issues nothing and the launch was bound to a then-future Bitcoin block hash.</p></details>
+        <details class="glass"><summary>What about coins from Genoryn Mainnet 1.0?</summary><p>Krypton is a new chain with different cryptography; old balances are not migrated (<a href="https://github.com/genoryn/genoryn/issues/1">policy</a>).</p></details>
+        <details class="glass"><summary>I lost my recovery phrase</summary><p>If you still have the wallet file and its password, show the phrase (Security tab or <code>show-phrase</code>) and write it down. Without the phrase, file or password, nobody can recover the coins.</p></details>
       </section>
 
       <section id="glossary">
         <h2>Glossary</h2>
         <dl class="glossary">
           <dt>Note</dt><dd>A private coin: owner, value and randomness hidden in a commitment.</dd>
-          <dt>Nullifier</dt><dd>A unique tag published when a note is spent; prevents double spends.</dd>
+          <dt>Commitment</dt><dd>A hash that binds a note's contents without revealing them.</dd>
+          <dt>Nullifier</dt><dd>A unique tag published when a note is spent; prevents double spends without revealing which note.</dd>
           <dt>Anchor</dt><dd>A recent note-tree root that a spend proves membership against.</dd>
           <dt>zk-STARK</dt><dd>A hash-based zero-knowledge proof; no trusted setup, quantum-resistant.</dd>
           <dt>ML-KEM</dt><dd>NIST's post-quantum key encapsulation (FIPS 203).</dd>
-          <dt>MMR</dt><dd>Merkle Mountain Range: an append-only commitment to all block hashes.</dd>
+          <dt>ML-DSA / SLH-DSA</dt><dd>NIST's post-quantum signatures (FIPS 204 / 205), used for release signatures.</dd>
+          <dt>MMR</dt><dd>Merkle Mountain Range: an append-only commitment to all block hashes and their total work.</dd>
+          <dt>FlyClient</dt><dd>Light-client verification by sampling headers with proofs against the tip.</dd>
+          <dt>Checkpoint</dt><dd>A recent block shipped with each release that light wallets require.</dd>
           <dt>LWMA</dt><dd>Linearly weighted moving average difficulty algorithm.</dd>
+          <dt>Share</dt><dd>A proof of work at 1/32 of the block difficulty; earns a slice of the reward pool.</dd>
+          <dt>Payout</dt><dd>The note paying a miner's accrued rewards, every 360 blocks.</dd>
+          <dt>Hash lock</dt><dd>The SHA-256 of a swap's secret; locks both sides of a swap.</dd>
+          <dt>Timelock</dt><dd>The height after which locked coins can be refunded to their owner.</dd>
+          <dt>Offer board</dt><dd>The node service listing swap offers and passing sealed messages.</dd>
+          <dt>Stock-to-flow</dt><dd>Coins in existence divided by coins mined in the next year.</dd>
           <dt>gori</dt><dd>The smallest unit: 1 GNR = 100,000,000 gori.</dd>
         </dl>
       </section>

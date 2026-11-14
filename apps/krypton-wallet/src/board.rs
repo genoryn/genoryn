@@ -966,7 +966,7 @@ pub struct PublishReq {
     gnr: String,
     btc: String,
     address: String,
-    /// How long the offer stays on the board, 1 to 24 hours (24 if not given).
+    /// How long the offer stays on the board, 1 hour to a year (24 hours if not given).
     #[serde(default)]
     hours: Option<u64>,
     /// Confirms with the wallet's password (a sell offer commits GNR).
@@ -997,7 +997,7 @@ pub async fn publish(
                 gnr,
                 sats,
                 &r.address,
-                r.hours.unwrap_or(24).clamp(1, 24) * 3600,
+                r.hours.unwrap_or(24).clamp(1, board::MAX_OFFER_SECS / 3600) * 3600,
             )
         })
     })

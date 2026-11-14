@@ -239,7 +239,7 @@ Bitcoin Core regtest node.
 Every node serves an offer board under `/v1/swap/` (genoryn.io for mainnet wallets). Its
 code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.rs`.
 
-* **Offers:** side (sell or buy GNR), amounts, expiry (at most 24 h) and a one-time hybrid
+* **Offers:** side (sell or buy GNR), amounts, expiry (1 hour to a year) and a one-time hybrid
   X25519 + ML-KEM-1024 key. The key is derived from the wallet's swap seed and is used for
   nothing else, so offers cannot be linked to an address or to each other. A hash of a secret
   lets only the maker cancel the offer.
@@ -249,7 +249,9 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
   request, accept and deposit codes through the mailboxes by themselves. A wallet accepts
   only a request with exactly the offer's amounts, and an offer is taken once. The only
   manual step left is the buyer paying the bitcoin into the contract address.
-* **Spam:** offers, messages and trade reports carry an 18-bit proof of work, and there are
+* **Spam:** offers, messages and trade reports carry an 18-bit proof of work; an offer that
+  runs longer than a day needs one more bit per doubling (oard::offer_bits: a week 21,
+  a month 23, a year 27), so keeping junk listed costs as much more as it lasts. There are
   per-client limits, caps on offers, messages and inbox size, and expiry. The board keeps
   offers, swaps in progress and mailboxes in `swap-board.json` across restarts.
 * **Instant takes:** a maker's wallet pings the board for all its open offers at once
@@ -257,7 +259,9 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
   offer whose maker was seen in the last 2 minutes is listed as `online`. The wallet checks
   the board mailboxes every 5 s while it has open offers or takes, and answers a take by
   itself, so a swap starts within seconds with no approval. Wallets refuse to take an
-  offline offer.
+  offline offer. An offline maker's offers stay listed (not takeable) for up to a week, so a
+  long offer survives a computer that sleeps; then they are removed and the wallet frees the
+  reserved GNR.
 * **Reserved GNR:** an open sell offer reserves its amount plus the fee in the maker's wallet.
   Sends and other offers cannot use it, so a buyer always finds the coins there. GNR cannot be
   locked on chain before a buyer exists (the lock commits to the buyer's hash and keys), so the

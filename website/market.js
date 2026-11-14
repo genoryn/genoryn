@@ -9,19 +9,44 @@
   var ago = function (s) { return s >= 3600 ? Math.floor(s / 3600) + " h" : Math.max(1, Math.floor(s / 60)) + " min"; };
   var price = function (o) { return o.sats / (o.gnr / 1e8); };
 
+  var dollars = function (sats) { return data.btc > 0 ? GKValue.usd(sats * data.btc / 1e8) : ""; };
+  var left = function (s) {
+    var d = s / 86400;
+    return s < 3600 ? Math.max(1, Math.floor(s / 60)) + " min" : s < 172800 ? Math.floor(s / 3600) + " h" : d < 60 ? Math.floor(d) + " days" : d < 365 ? Math.floor(d / 30.44) + " months" : "1 year";
+  };
+  var cell = function (main, sub) { return "<b>" + main + "</b>" + (sub ? "<em>" + sub + "</em>" : ""); };
+
+  function rows(list, kind, when) {
+    var big = Math.max.apply(null, list.map(function (o) { return o.gnr; }).concat([1]));
+    return list.map(function (o) {
+      var p = price(o), off = o.online === false, w = Math.max(2, Math.round(o.gnr / big * 100));
+      return "<tr class=\"" + (off ? "mk-off" : "") + "\" style=\"--depth:" + w + "%\">" +
+        "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline: it cannot be taken until the maker's wallet is back" : "Maker online: the swap starts within seconds") + "\"></span><div>" + cell(sat(p), usd(p)) + "</div></div></td>" +
+        "<td class=\"num\">" + cell(gnr(o.gnr)) + "</td>" +
+        "<td class=\"num\">" + cell(btc(o.sats) + " BTC", dollars(o.sats)) + "</td>" +
+        "<td class=\"num\">" + when(o) + "</td></tr>";
+    }).join("");
+  }
+
   function table(kind) {
     var side = kind === "sell" ? "sell_gnr" : "buy_gnr";
-    // Only offers whose maker is online: the others cannot be taken now.
-    var list = data.offers.filter(function (o) { return o.side === side && o.online !== false; });
-    list.sort(function (a, b) { return kind === "sell" ? price(a) - price(b) : price(b) - price(a); });
+    // Online makers first (they can be taken now), best price first within each group.
+    var list = data.offers.filter(function (o) { return o.side === side; });
+    list.sort(function (a, b) {
+      var oa = a.online === false ? 1 : 0, ob = b.online === false ? 1 : 0;
+      return oa - ob || (kind === "sell" ? price(a) - price(b) : price(b) - price(a));
+    });
     var pages = Math.max(1, Math.ceil(list.length / PER));
     page[kind] = Math.min(page[kind], pages - 1);
-    var rows = list.slice(page[kind] * PER, (page[kind] + 1) * PER);
-    $(kind === "sell" ? "mkSellN" : "mkBuyN").textContent = list.length + " open";
-    $(kind === "sell" ? "mkSell" : "mkBuy").innerHTML = rows.length ? rows.map(function (o) {
-      var p = price(o), off = o.online === false;
-      return "<tr" + (off ? " class=\"mk-off\"" : "") + "><td class=\"mono\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline" : "Maker online: the swap starts within seconds") + "\"></span>" + sat(p) + " <span class=\"muted\">" + usd(p) + "</span></td><td class=\"mono\">" + gnr(o.gnr) + "</td><td class=\"mono\">" + btc(o.sats) + "</td><td>" + ago(Math.max(0, o.expires - data.now)) + "</td></tr>";
-    }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No " + kind + " offers yet. Publish one in the wallet's Swap tab.</td></tr>";
+    var shown = list.slice(page[kind] * PER, (page[kind] + 1) * PER);
+    var g = list.reduce(function (s, o) { return s + o.gnr; }, 0), b = list.reduce(function (s, o) { return s + o.sats; }, 0);
+    var on = list.filter(function (o) { return o.online !== false; }).length;
+    $(kind === "sell" ? "mkSellN" : "mkBuyN").innerHTML = list.length
+      ? "<b>" + on + "</b> online" + (list.length > on ? " · " + (list.length - on) + " offline" : "") + "<br>" + gnr(g) + " GNR · " + btc(b) + " BTC" + (dollars(b) ? " · <b>≈ " + dollars(b) + "</b>" : "")
+      : "none yet";
+    $(kind === "sell" ? "mkSell" : "mkBuy").innerHTML = shown.length
+      ? rows(shown, kind, function (o) { return left(Math.max(0, o.expires - data.now)); })
+      : "<tr><td colspan=\"4\" class=\"muted mk-empty\">No " + kind + " offers yet. Publish one in the wallet's Swap tab.</td></tr>";
     var pg = $(kind === "sell" ? "mkSellP" : "mkBuyP");
     pg.innerHTML = pages > 1
       ? "<button class=\"btn\" data-mk=\"" + kind + "\" data-d=\"-1\"" + (page[kind] ? "" : " disabled") + ">‹</button><span>" + (page[kind] + 1) + " / " + pages + "</span><button class=\"btn\" data-mk=\"" + kind + "\" data-d=\"1\"" + (page[kind] < pages - 1 ? "" : " disabled") + ">›</button>"
@@ -29,26 +54,27 @@
   }
 
   function render() {
-    var m = data.market || {};
+    var m = data.market || {}, np = Number(m.priced) || 0;
     $("mkPrice").textContent = m.price != null ? sat(m.price) : "no swaps yet";
-    var np = Number(m.priced) || 0;
-    $("mkPriceL").textContent = (m.price != null ? "Market price · average of " + np + " completed swap" + (np === 1 ? "" : "s") : "Market price · after the first completed swap") + (m.price != null && data.btc ? " · " + usd(m.price) : "");
-    $("mkAsk").textContent = sat(m.best_ask); $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
-    $("mkBid").textContent = sat(m.best_bid); $("mkBidN").textContent = m.bids ? "(" + m.bids + ")" : "";
-    $("mkVol").textContent = (m.trades || 0) + " done · " + (m.pending || 0) + " in progress";
+    $("mkPriceL").textContent = m.price != null ? (usd(m.price) ? "≈ " + usd(m.price) + " · " : "") + "average of " + np + " swap" + (np === 1 ? "" : "s") : "after the first completed swap";
+    $("mkAsk").textContent = m.best_ask != null ? sat(m.best_ask) : "—"; $("mkAskU").textContent = m.best_ask != null ? usd(m.best_ask) : "";
+    $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
+    $("mkBid").textContent = m.best_bid != null ? sat(m.best_bid) : "—"; $("mkBidU").textContent = m.best_bid != null ? usd(m.best_bid) : "";
+    $("mkBidN").textContent = m.bids ? "(" + m.bids + ")" : "";
+    $("mkVol").textContent = (m.trades || 0) + " swap" + (m.trades === 1 ? "" : "s");
+    $("mkVolU").textContent = gnr(m.volume_gnr || 0) + " GNR · " + (m.pending || 0) + " running";
     table("sell"); table("buy");
-    $("mkPendN").textContent = data.pending.length ? data.pending.length + " running" : "";
-    $("mkPend").innerHTML = data.pending.length ? data.pending.map(function (o) {
-      var p = price(o);
-      return "<tr><td class=\"mono\">" + sat(p) + " <span class=\"muted\">" + usd(p) + "</span></td><td class=\"mono\">" + gnr(o.gnr) + "</td><td class=\"mono\">" + btc(o.sats) + "</td><td>" + ago(Math.max(0, data.now - (o.since || data.now))) + " ago</td></tr>";
-    }).join("") : "<tr><td colspan=\"4\" class=\"muted\">No swap running right now.</td></tr>";
-    var all = data.recent, vol = all.reduce(function (a, t) { return a + Number(t.gnr || 0); }, 0);
+    var pb = data.pending.reduce(function (s, o) { return s + o.sats; }, 0);
+    $("mkPendN").innerHTML = data.pending.length ? "<b>" + data.pending.length + "</b> running · " + btc(pb) + " BTC" + (dollars(pb) ? " · <b>≈ " + dollars(pb) + "</b>" : "") : "none right now";
+    $("mkPend").innerHTML = data.pending.length
+      ? rows(data.pending, "pend", function (o) { return left(Math.max(0, data.now - (o.since || data.now))) + " ago"; })
+      : "<tr><td colspan=\"4\" class=\"muted mk-empty\">No swap running right now.</td></tr>";
+    var all = data.recent, vol = all.reduce(function (a, t) { return a + Number(t.gnr || 0); }, 0), vb = all.reduce(function (a, t) { return a + Number(t.sats || 0); }, 0);
     $("mkAll").textContent = all.length;
-    $("mkAllV").textContent = all.length ? "· " + gnr(vol) + " GNR" : "";
-    $("mkRecentN").textContent = all.length ? all.length + " shown" : "";
+    $("mkAllV").textContent = all.length ? gnr(vol) + " GNR" + (dollars(vb) ? " · ≈ " + dollars(vb) : "") : "";
+    $("mkRecentN").textContent = all.length ? "· " + all.length : "";
     $("mkRecent").innerHTML = all.length ? all.map(card).join("") : "<p class=\"muted\">No completed swaps yet.</p>";
   }
-
   var esc = function (s) { return gk.esc(s); };
   var short = function (h) { return h ? h.slice(0, 10) + "…" + h.slice(-8) : "—"; };
   var when = function (t) { return t ? new Date(t * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }) : "—"; };
@@ -65,7 +91,7 @@
       "<header class=\"mk-sw-top\">" +
         "<div class=\"mk-sw-amt\"><span class=\"mk-sw-coin\">" + GKValue.coin("gnr") + "<b>" + gnr(t.gnr) + "</b><em>GNR</em></span>" +
         "<span class=\"mk-sw-arrow\" aria-hidden=\"true\">⇄</span>" +
-        "<span class=\"mk-sw-coin\">" + GKValue.coin("btc") + "<b>" + btc(t.sats) + "</b><em>BTC</em></span></div>" +
+        "<span class=\"mk-sw-coin\">" + GKValue.coin("btc") + "<b>" + btc(t.sats) + "</b><em>BTC" + (dollars(t.sats) ? " · ≈ " + dollars(t.sats) : "") + "</em></span></div>" +
         "<span class=\"mk-sw-badge" + (c ? "" : " wait") + "\">" + (c ? "Completed" : "Reported") + "</span>" +
       "</header>" +
       "<div class=\"mk-sw-price\"><b>" + sat(t.price) + "</b> per GNR" + (usd(t.price) ? " <span>≈ " + usd(t.price) + "</span>" : "") +

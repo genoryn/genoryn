@@ -11,6 +11,7 @@ authors.workspace = true
 bitcoin = "0.32"
 krypton-core.workspace = true
 krypton-crypto.workspace = true
+sha3.workspace = true
 krypton-wallet-core.workspace = true
 anyhow.workspace = true
 hex.workspace = true

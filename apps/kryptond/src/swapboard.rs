@@ -17,7 +17,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-const MAX_OFFERS: usize = 2_000;
+const MAX_OFFERS: usize = 5_000;
 const MAX_PER_INBOX: usize = 100;
 const MAX_MESSAGES: usize = 5_000;
 const MESSAGE_SECS: u64 = 24 * 3600;
@@ -33,8 +33,10 @@ const PENDING_IDLE_SECS: u64 = 30 * 60;
 const ONLINE_SECS: u64 = 120;
 /// Offers of makers not seen for this long stop counting for the price.
 const PRICED_SECS: u64 = 600;
-/// Offers of makers not seen for this long are removed: nobody could take them.
-const STALE_SECS: u64 = 30 * 60;
+/// Offers of makers not seen for this long are removed. Until then an offline maker's
+/// offer stays listed (greyed out, not takeable), so an offer for a week or a year
+/// survives a computer that sleeps at night.
+const STALE_SECS: u64 = 7 * 24 * 3600;
 
 #[derive(Default)]
 struct Inner {
@@ -82,7 +84,7 @@ impl Board {
     fn expire(i: &mut Inner, t: u64) {
         i.offers
             .retain(|_, o| o.expires > t && o.sats <= board::MAX_OFFER_SATS);
-        // Offers whose maker has been offline for half an hour are dropped; their makers'
+        // Offers whose maker has been offline for a week are dropped; their makers'
         // wallets see that in their next ping and free the GNR. Any price may stay.
         let seen = &i.seen;
         i.offers

@@ -29,34 +29,34 @@
     </span>
     <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
   </a>
-  <section class="mk-kpis">
-    <div class="glass kpi"><b id="mkPrice">—</b><span id="mkPriceL">Market price per GNR</span></div>
-    <div class="glass kpi"><b id="mkAsk">—</b><span>Best sell offer <em id="mkAskN"></em></span></div>
-    <div class="glass kpi"><b id="mkBid">—</b><span>Best buy offer <em id="mkBidN"></em></span></div>
-    <div class="glass kpi"><b id="mkVol">—</b><span>Swaps (24 h)</span></div>
-    <div class="glass kpi"><b id="mkAll">—</b><span>Swaps on record <em id="mkAllV"></em></span></div>
+  <section class="mk-strip glass" aria-label="Market summary">
+    <div><span>Market price</span><b id="mkPrice">—</b><em id="mkPriceL">after the first completed swap</em></div>
+    <div><span>Best sell offer <i id="mkAskN"></i></span><b id="mkAsk">—</b><em id="mkAskU"></em></div>
+    <div><span>Best buy offer <i id="mkBidN"></i></span><b id="mkBid">—</b><em id="mkBidU"></em></div>
+    <div><span>Last 24 hours</span><b id="mkVol">—</b><em id="mkVolU"></em></div>
+    <div><span>Swaps on record</span><b id="mkAll">—</b><em id="mkAllV"></em></div>
   </section>
 
+  <div class="mk-sec"><span class="eyebrow">Order book</span><h2 class="h3">Open offers</h2><p class="muted">Anyone may offer any price, for an hour up to a year. A green dot means the maker's wallet is online: taking the offer starts the swap within seconds.</p></div>
   <section class="mk-book">
-    <div class="glass card">
-      <div class="mk-head"><h2 class="h3">Sell offers</h2><span class="muted" id="mkSellN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Expires</th></tr></thead><tbody id="mkSell"></tbody></table>
+    <div class="glass card mk-side mk-sell">
+      <div class="mk-head"><h3>Sell offers <small>people selling GNR</small></h3><span class="mk-tot" id="mkSellN"></span></div>
+      <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Expires</th></tr></thead><tbody id="mkSell"></tbody></table></div>
       <div class="mk-pager" id="mkSellP"></div>
     </div>
-    <div class="glass card">
-      <div class="mk-head"><h2 class="h3">Buy offers</h2><span class="muted" id="mkBuyN"></span></div>
-      <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Expires</th></tr></thead><tbody id="mkBuy"></tbody></table>
+    <div class="glass card mk-side mk-buy">
+      <div class="mk-head"><h3>Buy offers <small>people buying GNR</small></h3><span class="mk-tot" id="mkBuyN"></span></div>
+      <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Expires</th></tr></thead><tbody id="mkBuy"></tbody></table></div>
       <div class="mk-pager" id="mkBuyP"></div>
     </div>
   </section>
 
   <section class="glass card mk-pend">
-    <div class="mk-head"><h2 class="h3">Swaps in progress</h2><span class="muted" id="mkPendN"></span></div>
-    <table class="mk-table"><thead><tr><th>Price per GNR</th><th><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th><svg class="coin coin-th"><use href="#c-btc"/></svg>BTC</th><th>Started</th></tr></thead><tbody id="mkPend"></tbody></table>
+    <div class="mk-head"><h3>Swaps in progress <small>taken offers whose swap is running</small></h3><span class="mk-tot" id="mkPendN"></span></div>
+    <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Started</th></tr></thead><tbody id="mkPend"></tbody></table></div>
   </section>
-
   <section class="mk-swaps">
-    <div class="mk-head"><h2 class="h3">Completed swaps</h2><span class="muted" id="mkRecentN"></span></div>
+    <div class="mk-sec"><span class="eyebrow">On chain</span><h2 class="h3">Completed swaps <small class="muted" id="mkRecentN"></small></h2></div>
     <p class="muted mk-fine">Each swap as the GNR blockchain proves it: the claim, its block and the secret that unlocked both sides. Amounts are private on chain; the ones shown were reported by the two wallets and count only once their claim is on chain.</p>
     <div id="mkRecent" class="mk-cards"></div>
   </section>

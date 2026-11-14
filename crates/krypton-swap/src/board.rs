@@ -15,8 +15,19 @@ use serde::{Deserialize, Serialize};
 
 /// Proof-of-work bits for anything posted to the board (about a second on one core).
 pub const POW_BITS: u32 = 18;
-/// Longest an offer stays up.
-pub const MAX_OFFER_SECS: u64 = 24 * 3600;
+/// Longest an offer stays up: a year (and a day for leap years).
+pub const MAX_OFFER_SECS: u64 = 366 * 24 * 3600;
+
+/// Proof-of-work bits for an offer that stays up `secs`: one more bit for every doubling
+/// beyond a day, so keeping junk on the board for long costs as much more as it lasts
+/// (a year: 9 more bits, about half a minute on one core).
+pub fn offer_bits(secs: u64) -> u32 {
+    if secs <= 24 * 3600 {
+        return POW_BITS;
+    }
+    let days = secs.div_ceil(24 * 3600);
+    POW_BITS + (64 - (days - 1).leading_zeros())
+}
 pub const MAX_MESSAGE_BYTES: usize = 8 * 1024;
 /// How long trades count for the market price.
 pub const PRICE_WINDOW_SECS: u64 = 24 * 3600;
@@ -64,11 +75,41 @@ fn pow_hash(tag: &str, body: &[u8], nonce: u64) -> [u8; 32] {
     tagged_parts(tag, &[body, &nonce.to_le_bytes()])
 }
 
-/// Finds a nonce with `bits` leading zero bits.
+/// Finds a nonce with `bits` leading zero bits, on every core. The hash state after the
+/// tag and the body is computed once; each try only adds the nonce, giving exactly
+/// [`pow_hash`].
 pub fn mine(tag: &str, body: &[u8], bits: u32) -> u64 {
-    (0u64..)
-        .find(|n| leading_zero_bits(&pow_hash(tag, body, *n)) >= bits)
-        .expect("found")
+    use sha3::{Digest, Sha3_256};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    let mut base = Sha3_256::new();
+    base.update((tag.len() as u16).to_le_bytes());
+    base.update(tag.as_bytes());
+    base.update((body.len() as u64).to_le_bytes());
+    base.update(body);
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()) as u64;
+    let done = AtomicBool::new(false);
+    let found = AtomicU64::new(0);
+    std::thread::scope(|s| {
+        for t in 0..threads {
+            let (base, done, found) = (&base, &done, &found);
+            s.spawn(move || {
+                let mut n = t;
+                while !done.load(Ordering::Relaxed) {
+                    let mut h = base.clone();
+                    h.update(8u64.to_le_bytes());
+                    h.update(n.to_le_bytes());
+                    let d: [u8; 32] = h.finalize().into();
+                    if leading_zero_bits(&d) >= bits {
+                        found.store(n, Ordering::Relaxed);
+                        done.store(true, Ordering::Relaxed);
+                        break;
+                    }
+                    n += threads;
+                }
+            });
+        }
+    });
+    found.load(Ordering::Relaxed)
 }
 
 pub fn pow_ok(tag: &str, body: &[u8], nonce: u64, bits: u32) -> bool {
@@ -82,10 +123,13 @@ impl Offer {
         serde_json::to_vec(&o).expect("serializable")
     }
     pub fn seal_pow(&mut self) {
-        self.nonce = mine("Krypton/board/offer", &self.body(), POW_BITS);
+        let bits = offer_bits(self.expires.saturating_sub(krypton_core::now()));
+        self.nonce = mine("Krypton/board/offer", &self.body(), bits);
     }
-    pub fn pow_ok(&self) -> bool {
-        pow_ok("Krypton/board/offer", &self.body(), self.nonce, POW_BITS)
+    /// Whether the offer carries enough work for the time it still has to run at `now`.
+    pub fn pow_ok_at(&self, now: u64) -> bool {
+        let bits = offer_bits(self.expires.saturating_sub(now));
+        pow_ok("Krypton/board/offer", &self.body(), self.nonce, bits)
     }
     pub fn public_key(&self) -> Result<kem::PublicKey> {
         Ok(kem::PublicKey::from_bytes(&hex::decode(&self.key)?)?)
@@ -122,7 +166,7 @@ impl Offer {
             "bad cancel hash"
         );
         self.public_key().context("bad offer key")?;
-        ensure!(self.pow_ok(), "missing proof of work");
+        ensure!(self.pow_ok_at(now), "missing proof of work");
         Ok(())
     }
 }
@@ -494,6 +538,24 @@ mod tests {
         };
         o.seal_pow();
         o
+    }
+
+    #[test]
+    fn mining_matches_the_plain_hash() {
+        for bits in [4, 10, 16] {
+            let n = mine("Krypton/test", b"some body", bits);
+            assert!(pow_ok("Krypton/test", b"some body", n, bits));
+        }
+    }
+
+    #[test]
+    fn longer_offers_need_more_work() {
+        assert_eq!(offer_bits(3600), POW_BITS);
+        assert_eq!(offer_bits(24 * 3600), POW_BITS);
+        assert_eq!(offer_bits(2 * 24 * 3600), POW_BITS + 1);
+        assert_eq!(offer_bits(7 * 24 * 3600), POW_BITS + 3);
+        assert_eq!(offer_bits(30 * 24 * 3600), POW_BITS + 5);
+        assert_eq!(offer_bits(MAX_OFFER_SECS), POW_BITS + 9);
     }
 
     #[test]

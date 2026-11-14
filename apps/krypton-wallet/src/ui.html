@@ -576,7 +576,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
             <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
             <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
-            <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24" selected>24 hours</option></select>
+            <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="6">6 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option><option value="168">1 week</option><option value="720">1 month</option><option value="8760">1 year</option></select>
             <button class="btn btn-primary bdpub" id="bdPubBtn" onclick="boardPublish()">Publish for 24 hours</button>
             <div id="bdMine" class="bd-minelist"></div>
           </section>
@@ -1405,7 +1405,7 @@ const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?v.toLocale
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
 const btcUsd=()=>Number((BD.market&&BD.market.btc_usd)||(S.market&&S.market.btc_usd))||0;
 const satUsd=p=>{ const u=btcUsd(); return p!=null&&u>0?' · '+GKValue.usd(p*u/1e8):''; };
-const bdAgo=s=>s>=3600?Math.floor(s/3600)+' h':Math.max(1,Math.floor(s/60))+' min';
+const bdAgo=s=>s>=365*86400?'1 year':s>=60*86400?Math.floor(s/(30.44*86400))+' months':s>=172800?Math.floor(s/86400)+' days':s>=3600?Math.floor(s/3600)+' h':Math.max(1,Math.floor(s/60))+' min';
 const bdMkt=()=>((BD.market&&BD.market.market)||{});
 async function loadBoard(){
   try{ BD=await api('/api/board'); }catch(e){ return; }
@@ -1465,7 +1465,8 @@ function renderMine(){
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
 $('bdPerPage').onchange=e=>{ BDV.per=Number(e.target.value); BDV.page=0; renderBook(); };
-$('bdDur').onchange=e=>{ const h=Number(e.target.value); $('bdPubBtn').textContent='Publish for '+h+(h===1?' hour':' hours'); };
+const durText=h=>h>=8760?'1 year':h>=720?'1 month':h>=168?'1 week':h>=48?(h/24)+' days':h+(h===1?' hour':' hours');
+$('bdDur').onchange=e=>{ $('bdPubBtn').textContent='Publish for '+durText(Number(e.target.value)); };
 $('bdMin').oninput=e=>{ BDV.min=e.target.value; BDV.page=0; renderBook(); };
 $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
 document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?'Your Bitcoin address to receive the bitcoin':'Your Bitcoin address for a refund'; bdPer(); });
@@ -1491,7 +1492,7 @@ async function boardPublish(){
   const soon=lockSoonMsg();
   const farMsg=far?`<p class="mtext warn"><b>Check the price:</b> ${fmtPx(per)} per GNR is ${far>=1?Math.round(far).toLocaleString()+'× the':Math.round(1/far).toLocaleString()+'× below the'} market price (${fmtPx(bdMkt().price)}). ${sell?'Buyers are unlikely to take it.':'You would pay far more than the market.'}</p>`:'';
   const okP=await ask({pass:true, title:(sell?'Sell ':'Buy ')+g+' GNR for '+b+' BTC?', icon:'globe', ok:far?'Publish anyway':'Publish', danger:!!far,
-    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}${soon}<p class="mtext">The offer stays on the board for ${hours} hour${hours===1?'':'s'} or until someone takes it. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere. When a buyer takes the offer, your wallet locks it for them on chain at once, and they pay only after that lock has confirmed. If they never pay, it comes back to you after about 32 hours. Cancel the offer to free it.':'When a seller takes it, they lock the GNR for you first; you pay only once that lock has confirmed, into the contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`}); const pw=takePass(); if(!okP) return;
+    body:`<p class="mtext">${fmtPx(per)} per GNR${u?' ('+GKValue.usd(per*u/1e8)+')':''}, ${btcFmt(Number(b))} BTC${u?' ≈ '+GKValue.usd(Number(b)*u):''} in total.</p>${farMsg}${soon}<p class="mtext">The offer stays on the board for ${durText(hours)} or until someone takes it${hours>24?' (publishing a longer offer takes a few seconds more proof of work; while your wallet is offline the offer stays listed but cannot be taken, and after a week offline it is removed)':''}. ${sell?'From now on <b>'+esc(g)+' GNR (plus the fee) is reserved</b>: you cannot send it elsewhere. When a buyer takes the offer, your wallet locks it for them on chain at once, and they pay only after that lock has confirmed. If they never pay, it comes back to you after about 32 hours. Cancel the offer to free it.':'When a seller takes it, they lock the GNR for you first; you pay only once that lock has confirmed, into the contract shown under Your swaps.'} Keep the wallet running: while it is online, the offer shows a green dot and starts within seconds when taken.</p>${when}`}); const pw=takePass(); if(!okP) return;
   try{ toast('Publishing (a moment of proof of work)…'); await api('/api/board/publish',{side:bdSide, gnr:g, btc:b, address:a, hours, password:pw}); toast('Offer published'); $('bdGnr').value=''; $('bdBtc').value=''; loadBoard(); }catch(e){ toast(e.message,true) }
 }
 /* The wallet must stay unlocked through a swap: say so when it locks itself soon. */
