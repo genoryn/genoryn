@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability (private)
+    url: https://github.com/genoryn/genoryn/security/advisories/new
+    about: Never post a vulnerability in a public issue.
+  - name: FAQ
+    url: https://genoryn.io/faq
+    about: What Genoryn Krypton is, quantum security, mining, swaps, wallets.
+  - name: Documentation
+    url: https://genoryn.io/docs
+    about: Wallet, mining, atomic swaps, node, API and troubleshooting.

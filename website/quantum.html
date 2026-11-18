@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum-Resistant Cryptocurrency: What Quantum Computers Break</title>
+<meta name="description" content="What a quantum computer breaks (elliptic curves) and what it does not (hashes, ML-KEM), what that means for Bitcoin and privacy coins, and how GNR is built against it.">
+<!--SEO:quantum-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="quantum">
+<!--NAV-->
+<main id="top" class="wrap">
+  <div class="page-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Quantum security</span></nav>
+    <span class="eyebrow">Quantum security</span>
+    <h1 class="h2 glow">Quantum-resistant cryptocurrency, explained.</h1>
+    <p class="lead">A <b>quantum-resistant cryptocurrency</b> (also called post-quantum or quantum-safe) is one whose coins cannot be stolen, and whose private data cannot be decrypted, by a quantum computer. This page explains which cryptography a quantum computer breaks, which it does not, what that means for Bitcoin and for privacy coins, and how <b>Genoryn Krypton (GNR)</b> is built against it.</p>
+  </div>
+
+  <article class="prose docs-body about-body">
+    <section id="short">
+      <h2>The short answer</h2>
+      <ul>
+        <li><b>Elliptic curves break.</b> Shor's algorithm, run on a large enough quantum computer, computes a private key from a public key. That covers the signatures that guard coins on Bitcoin, Ethereum, Monero and Zcash.</li>
+        <li><b>Hash functions hold.</b> Grover's algorithm gives only a quadratic speed-up against hashes, so a 256-bit hash keeps a 128-bit security margin.</li>
+        <li><b>Privacy is the urgent part.</b> Encrypted data recorded today can be decrypted later ("harvest now, decrypt later"), and no upgrade can undo that.</li>
+        <li><b>Genoryn Krypton uses no elliptic curve to protect coins or privacy:</b> spending is a zk-STARK proof over hash functions, and payment data is encrypted with ML-KEM, NIST's post-quantum standard.</li>
+      </ul>
+    </section>
+
+    <section id="breaks">
+      <h2>What a quantum computer breaks, and what it does not</h2>
+      <p>Two quantum algorithms matter. <b>Shor's algorithm</b> solves the mathematical problems behind RSA and elliptic curves outright. <b>Grover's algorithm</b> speeds up brute-force search, which only halves the effective strength of a hash function or a symmetric key.</p>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Cryptography</th><th>Where it is used</th><th>Quantum attack</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Cryptography">ECDSA and Schnorr signatures (secp256k1)</td><td data-label="Used in">Bitcoin, Ethereum accounts and most other chains</td><td data-label="Attack">Shor</td><td data-label="Result">Broken: a public key reveals its private key</td></tr>
+          <tr><td data-label="Cryptography">Ed25519 and Curve25519</td><td data-label="Used in">Monero and many other chains</td><td data-label="Attack">Shor</td><td data-label="Result">Broken</td></tr>
+          <tr><td data-label="Cryptography">Elliptic-curve zero-knowledge proofs (Groth16, Halo 2, Bulletproofs)</td><td data-label="Used in">Zcash, Monero and many rollups</td><td data-label="Attack">Shor</td><td data-label="Result">Broken: false proofs could be forged</td></tr>
+          <tr><td data-label="Cryptography">Elliptic-curve key agreement (ECDH)</td><td data-label="Used in">Encrypted transaction data and network links</td><td data-label="Attack">Shor</td><td data-label="Result">Broken, including data recorded in the past</td></tr>
+          <tr><td data-label="Cryptography">Hash functions (SHA-256, SHA-3 and others)</td><td data-label="Used in">Mining, addresses, Merkle trees</td><td data-label="Attack">Grover</td><td data-label="Result">Hold: 256 bits keep a 128-bit margin</td></tr>
+          <tr><td data-label="Cryptography">Hash-based proofs (zk-STARK)</td><td data-label="Used in">Genoryn Krypton spends</td><td data-label="Attack">Grover</td><td data-label="Result">Hold: they rely on hash functions only</td></tr>
+          <tr><td data-label="Cryptography">ML-KEM, ML-DSA, SLH-DSA (NIST FIPS 203, 204, 205)</td><td data-label="Used in">Genoryn Krypton encryption and release signatures</td><td data-label="Attack">No known efficient attack</td><td data-label="Result">Designed and standardized to resist quantum computers</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="when">
+      <h2>When does it matter?</h2>
+      <p>No quantum computer today can break a 256-bit elliptic curve, and nobody knows when one will. Two facts make waiting risky all the same:</p>
+      <ul>
+        <li><b>Standards bodies are already moving.</b> NIST published its first post-quantum standards (FIPS 203, 204 and 205) in August 2024, and its transition plan proposes to stop using quantum-vulnerable public-key algorithms by 2035.</li>
+        <li><b>A blockchain never forgets.</b> Everything written to a public chain stays there. Whoever records it today can attack it whenever the hardware exists.</li>
+      </ul>
+      <p>Money meant to hold value for decades has to be safe for decades, not only today.</p>
+    </section>
+
+    <section id="risks">
+      <h2>Two different risks: theft and loss of privacy</h2>
+      <p><b>Theft.</b> If coins are guarded by an elliptic-curve signature, anyone who can run Shor's algorithm on the public key can sign for them. A chain can change its signature scheme later, but only for coins whose owners move them in time. Coins that are lost, forgotten or never moved stay exposed.</p>
+      <p><b>Loss of privacy.</b> Privacy coins encrypt what they hide. If that encryption depends on elliptic curves, transactions recorded today can be decrypted in the future, exposing amounts and recipients after the fact. This cannot be repaired by an upgrade, because the old data is already public. A private currency has to be post-quantum from its first block.</p>
+    </section>
+
+    <section id="bitcoin">
+      <h2>Is Bitcoin quantum-safe?</h2>
+      <p>Not today. Bitcoin's coins are protected by ECDSA and Schnorr signatures on the secp256k1 curve. How exposed a coin is depends on whether its public key is visible:</p>
+      <ul>
+        <li><b>Already visible:</b> early pay-to-public-key outputs, addresses that have been spent from and reused, and Taproot outputs. Several million bitcoin sit in such outputs.</li>
+        <li><b>Visible when spent:</b> every other coin reveals its public key in the transaction that spends it, while that transaction waits to be confirmed.</li>
+      </ul>
+      <p>Bitcoin's mining is not the weak point: it relies on SHA-256, which a quantum computer does not break. Bitcoin's developers are discussing post-quantum signature upgrades; moving to them would require holders to move their coins.</p>
+      <p>Genoryn Krypton keeps Bitcoin's monetary design, 21,000,000 coins and halvings, and connects to bitcoin directly: the wallet exchanges BTC and GNR with <a href="/market">atomic swaps</a>, so value can move into a quantum-resistant system with no exchange and no custody.</p>
+    </section>
+
+    <section id="gnr">
+      <h2>How Genoryn Krypton is built against it</h2>
+      <p>Genoryn Krypton was designed so that no elliptic curve protects anyone's coins or privacy.</p>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Layer</th><th>What it uses</th><th>Why it holds</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Layer">Spending coins</td><td data-label="Uses">zk-STARK proofs over hash functions, no trusted setup</td><td data-label="Why">Security rests on collision-resistant hashes only</td></tr>
+          <tr><td data-label="Layer">Encrypting payment data</td><td data-label="Uses">Hybrid X25519 + ML-KEM-1024 (FIPS 203)</td><td data-label="Why">Secure as long as either part holds; ML-KEM is post-quantum</td></tr>
+          <tr><td data-label="Layer">Connections between nodes</td><td data-label="Uses">Hybrid X25519 + ML-KEM-768</td><td data-label="Why">Recorded traffic cannot be decrypted later</td></tr>
+          <tr><td data-label="Layer">Signing releases and updates</td><td data-label="Uses">ML-DSA-87 and SLH-DSA-SHAKE-256s (FIPS 204 and 205)</td><td data-label="Why">Two independent post-quantum signatures, both must verify</td></tr>
+          <tr><td data-label="Layer">Mining</td><td data-label="Uses">KryptoHash, a memory-bound hash function</td><td data-label="Why">Hashes are weakened only quadratically, and difficulty adjusts</td></tr>
+          <tr><td data-label="Layer">Recovery phrase</td><td data-label="Uses">24 words with numbers, 384 bits of entropy</td><td data-label="Why">A wide margin even against Grover's algorithm</td></tr>
+        </tbody>
+      </table></div>
+      <p>Every algorithm carries a version number, so one that is weakened in the future can be replaced by a soft fork. Details: <a href="/docs#crypto">cryptography in the documentation</a> and the <a href="https://github.com/genoryn/genoryn/tree/main/docs/spec">specifications</a>.</p>
+    </section>
+
+    <section id="limits">
+      <h2>What "quantum-resistant" does not mean</h2>
+      <ul>
+        <li>It means resistant to the known quantum algorithms. Nobody can prove that no better attack will ever be found, which is why the encryption is hybrid and the algorithms are replaceable.</li>
+        <li>It is not a statement about code quality. Genoryn Krypton has had an internal audit and a privately reported external review, whose findings are fixed, but no full independent audit yet.</li>
+        <li>It is not investment advice. Mining or holding GNR is not a promise of value.</li>
+      </ul>
+    </section>
+
+    <section id="faq">
+      <h2>Frequently asked questions</h2>
+      <div class="faq">
+<!--FAQ:quantum-->
+      </div>
+      <p>More answers: <a href="/faq">all questions</a> · <a href="/about">what Genoryn Krypton is</a> · <a href="/mining">how to mine it</a> · <a href="/get">how to get it</a>.</p>
+    </section>
+  </article>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

@@ -19,8 +19,11 @@
   <a href="https://genoryn.io">genoryn.io</a> ·
   <a href="https://genoryn.io/explorer">Explorer</a> ·
   <a href="https://genoryn.io/docs">Docs</a> ·
+  <a href="https://genoryn.io/faq">FAQ</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
+
+<h1 align="center">Genoryn Krypton (GNR)</h1>
 
 <h3 align="center">Money that outlives quantum computers.</h3>
 
@@ -43,7 +46,7 @@
 </table>
 
 <p align="center">
-  <sub>1 GNR = 100,000,000 <b>krypton</b>, its smallest unit · Open source (MIT or Apache-2.0) · <a href="https://genoryn.io/about">What is Genoryn Krypton?</a></sub>
+  <sub>1 GNR = 100,000,000 <b>krypton</b>, its smallest unit · Open source (MIT or Apache-2.0) · <a href="https://genoryn.io/about">What is Genoryn Krypton?</a> · <a href="https://genoryn.io/quantum">Quantum-resistant cryptocurrency, explained</a></sub>
 </p>
 
 <table>
@@ -909,6 +912,12 @@ remains **fully decentralized**: no person, company or foundation controls it, h
 it, or can change its rules. Rules change only when the people who run nodes choose to run new
 software. The release key signs the project's binaries; it cannot move anyone's coins or change
 consensus. Contributions are judged on their merits, in public.
+
+## Contributing and help
+
+Contributions and reviews are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), the
+[code of conduct](CODE_OF_CONDUCT.md) and [SUPPORT.md](SUPPORT.md). Report vulnerabilities
+privately ([SECURITY.md](SECURITY.md)). More answers: [genoryn.io/faq](https://genoryn.io/faq).
 
 ## License
 

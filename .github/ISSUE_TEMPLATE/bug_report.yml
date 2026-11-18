@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in the wallet, miner, node or website does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. **Never post your recovery phrase, password or wallet file.**
+        A vulnerability does not belong here: [report it privately](https://github.com/genoryn/genoryn/security/advisories/new).
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options: [Desktop wallet, Miner, Swap and offer board, Full node (kryptond), Command-line wallet, API or SDK, Website or explorer, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The wallet's About tab, or `kryptond --version`.
+      placeholder: "1.0.38"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and hardware
+      placeholder: "Windows 11, RTX 4070 / Ubuntu 24.04, 16 cores"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw. Include the exact error text.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or transaction ids
+      description: Remove anything private first. Transaction and block ids are public.
+      render: text

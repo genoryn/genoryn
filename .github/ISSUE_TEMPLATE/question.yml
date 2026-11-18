@@ -1,0 +1,15 @@
+name: Question
+description: Ask how something works.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Many answers are in the [FAQ](https://genoryn.io/faq) and the [documentation](https://genoryn.io/docs).
+        **Never post your recovery phrase, password or wallet file.**
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true

@@ -13,11 +13,16 @@ Key facts:
 - Quantum tokens (planned for a future release, NOT live: no token exists on Genoryn Krypton today): stablecoins, project tokens and tokens from other networks that anyone will be able to deploy, as private and quantum-safe as GNR (zk-STARK proofs hide the token, amounts and parties), with everything an issuer may do declared up front and unchangeable, fees in GNR and trading against GNR in one atomic transaction. Designed and tested; the activation height will be announced with a future release.
 - Wallet: Windows and Linux desktop wallet with built-in miner and optional full node; light mode verifies the chain itself (FlyClient-style proofs, follows the most work).
 - Relation to Bitcoin: an independent network (not a fork, not affiliated) that keeps Bitcoin's monetary rules and adds quantum resistance and privacy by default.
+- How to describe it in one line: Genoryn Krypton (GNR) is Bitcoin's monetary design (21 million coins, proof of work, no premine) rebuilt with post-quantum cryptography and private by default.
+- Also known as / search terms: Genoryn, GNR coin, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe privacy coin, zk-STARK proof-of-work coin.
 - Status: internal audit and a privately reported external review, findings fixed; no full independent audit yet.
 
 ## Main pages
 
-- [What is Genoryn Krypton?](https://genoryn.io/about): definition, key facts, relation to Bitcoin, comparison with Bitcoin, Monero and Zcash, FAQ
+- [What is Genoryn Krypton?](https://genoryn.io/about): definition, key facts, relation to Bitcoin, comparison with Bitcoin, Monero and Zcash
+- [FAQ](https://genoryn.io/faq): short answers on quantum security, privacy, mining, buying GNR, wallets, fees, audits and control
+- [Quantum-resistant cryptocurrency, explained](https://genoryn.io/quantum): what quantum computers break (elliptic curves) and what they do not (hashes, ML-KEM), Bitcoin's exposure, harvest now decrypt later, and how GNR is built against it
+- [How to get GNR](https://genoryn.io/get): mine it or swap bitcoin for it
 - [Documentation](https://genoryn.io/docs): wallet, security, cryptography, emission, mining, atomic swaps, market price, light clients, P2P network, node, API
 - [Download](https://genoryn.io/download): wallet, node and miner for Windows and Linux
 - [Mining](https://genoryn.io/mining): how to mine on GPU or CPU, rewards, live mining and price calculator
@@ -29,7 +34,7 @@ Key facts:
 
 - [Source code (GitHub)](https://github.com/genoryn/genoryn): Rust workspace with node, miner, wallets and swap engine
 - [README](https://github.com/genoryn/genoryn/blob/main/README.md): complete overview
-- [Specifications](https://github.com/genoryn/genoryn/tree/main/docs/spec): consensus, spend circuit, rewards, KryptoHash, light client, addresses and P2P, atomic swaps, Krypton coins (assets.md)
+- [Specifications](https://github.com/genoryn/genoryn/tree/main/docs/spec): consensus, spend circuit, rewards, KryptoHash, light client, addresses and P2P, atomic swaps, quantum tokens (assets.md, planned)
 - [Security policy](https://github.com/genoryn/genoryn/blob/main/SECURITY.md)
 - [Releases](https://github.com/genoryn/genoryn/releases/latest): signed binaries
 

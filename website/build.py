@@ -51,6 +51,9 @@ def main():
         html = html.replace("<!--FX_HEAD-->", head).replace("<!--NAV-->", nav).replace("<!--FOOTER-->", foot)
         for key in seo.PAGES:
             html = html.replace(f"<!--SEO:{key}-->", seo.head(key))
+        # Questions and answers come from seo.py, so the page and its JSON-LD never differ.
+        html = html.replace("<!--FAQ:all-->", seo.faq_page_html())
+        html = html.replace("<!--FAQ:quantum-->", seo.faq_html(seo.QUANTUM_FAQ))
         html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
         html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
         (DIST / page.name).write_text(html, encoding="utf-8")
