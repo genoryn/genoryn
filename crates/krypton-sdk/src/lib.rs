@@ -78,7 +78,7 @@ pub mod ffi {
         }
     }
 
-    /// Parses "12.5" into base units (1 GNR = 100,000,000 gori). Returns 1 on success.
+    /// Parses "12.5" into base units (1 GNR = 100,000,000 krypton). Returns 1 on success.
     ///
     /// # Safety
     /// `s` must be null or NUL-terminated; `out` must be null or point to a writable u64.
@@ -100,11 +100,11 @@ pub mod ffi {
     /// `out` must point to `cap` writable bytes.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn krypton_format_amount(
-        gori: u64,
+        krypton: u64,
         out: *mut c_char,
         cap: usize,
     ) -> c_int {
-        write_out(&format_amount(gori), out, cap)
+        write_out(&format_amount(krypton), out, cap)
     }
 
     /// Block subsidy at `height`, in base units.

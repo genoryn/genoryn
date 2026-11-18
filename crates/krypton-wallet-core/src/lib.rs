@@ -1261,7 +1261,7 @@ impl Wallet {
     }
 }
 
-/// Fee for one transfer at `per_kb` gori per KB of transaction (never below the relay
+/// Fee for one transfer at `per_kb` krypton per KB of transaction (never below the relay
 /// floor). Fees are a market: wallets take `per_kb` from the node's estimate.
 pub fn transfer_fee(per_kb: u64) -> u64 {
     use krypton_core::params::{FEE_ESTIMATE_KB, MIN_FEE_PER_KB};

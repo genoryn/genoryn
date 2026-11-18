@@ -89,10 +89,44 @@ struct NetView {
     unpaid: u64,
 }
 
-fn h32(v: &Value) -> Result<[u8; 32]> {
-    hex::decode(v.as_str().context("hex")?)?
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("length"))
+/// Turns a node's template into work, trusting nothing but the job number: the header
+/// must pay `address`, and the hash to grind, the share target, the epoch and the chain
+/// are all derived from that header and from the address's own network. A node can
+/// therefore not make this miner work for someone else, on another chain, or on a
+/// made-up epoch.
+fn verify_work(v: &Value, address: &str) -> Result<Work> {
+    use krypton_core::address::Address;
+    use krypton_core::types::BlockHeader;
+    let addr = Address::decode(address).map_err(|e| anyhow::anyhow!("payout address: {e}"))?;
+    let chain = addr.network.params();
+    let owner = addr.owner_bytes();
+    let raw = hex::decode(v["header"].as_str().context(
+        "the node does not show whom its work pays: update the node to 1.0.38 or later",
+    )?)?;
+    let header = BlockHeader::from_bytes(&raw).map_err(|e| anyhow::anyhow!("header: {e}"))?;
+    if header.miner != owner {
+        bail!("the node's work pays another address: refusing to mine it");
+    }
+    if header.height == 0 || header.nonce != 0 {
+        bail!("the node sent a malformed header");
+    }
+    if let Some(n) = v["network"].as_str()
+        && n != addr.network.as_str()
+    {
+        bail!(
+            "the node is on {n}, but your address is for {}",
+            addr.network.as_str()
+        );
+    }
+    Ok(Work {
+        job_id: v["job_id"].as_u64().context("job_id")?,
+        height: header.height,
+        pow_hash: header.pow_hash(),
+        share_difficulty: krypton_core::reward::share_difficulty(header.difficulty),
+        epoch: krypton_pow::epoch_of(header.height),
+        chain_seed: krypton_core::consensus::genesis_block(&chain).hash(),
+        params: chain.pow,
+    })
 }
 
 struct Client {
@@ -113,23 +147,7 @@ impl Client {
         if !status.is_success() {
             bail!("node: {}", v["error"].as_str().unwrap_or("error"));
         }
-        let network = v["network"].as_str().unwrap_or("mainnet");
-        let params = match network {
-            "devnet" => PowParams::DEVNET,
-            _ => PowParams::STANDARD,
-        };
-        Ok(Work {
-            job_id: v["job_id"].as_u64().context("job_id")?,
-            height: v["height"].as_u64().context("height")?,
-            pow_hash: h32(&v["pow_hash"])?,
-            share_difficulty: v["share_difficulty"]
-                .as_str()
-                .context("share_difficulty (node too old?)")?
-                .parse()?,
-            epoch: v["epoch"].as_u64().context("epoch")?,
-            chain_seed: h32(&v["chain_seed"])?,
-            params,
-        })
+        verify_work(&v, &self.address)
     }
     fn submit(&self, job_id: u64, nonce: u64) -> Result<Value> {
         let r = self
@@ -469,6 +487,17 @@ fn main() -> Result<()> {
                 continue;
             }
         };
+        // Epochs only move forward, one at a time: anything else is not the chain we mine.
+        if let Some(c) = &cache
+            && (work.epoch < c.epoch || work.epoch > c.epoch + 1)
+        {
+            eprintln!(
+                "the node's work is for epoch {} while mining epoch {}: ignoring it",
+                work.epoch, c.epoch
+            );
+            std::thread::sleep(Duration::from_secs(5));
+            continue;
+        }
         shared.height.store(work.height, Ordering::Relaxed);
         if cache.as_ref().map(|c| c.epoch) != Some(work.epoch) {
             eprintln!("preparing epoch {} ...", work.epoch);
@@ -536,8 +565,8 @@ fn main() -> Result<()> {
     }
 }
 
-fn fmt_gnr(gori: u64) -> String {
-    format!("{}.{:08}", gori / 100_000_000, gori % 100_000_000)
+fn fmt_gnr(krypton: u64) -> String {
+    format!("{}.{:08}", krypton / 100_000_000, krypton % 100_000_000)
 }
 
 fn fmt_rate(r: f64) -> (f64, &'static str) {
@@ -666,5 +695,68 @@ fn mine_round(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use krypton_core::Network;
+    use krypton_core::address::Address;
+    use krypton_core::consensus::genesis_block;
+
+    fn address(seed: u8) -> Address {
+        let sk = krypton_crypto::kem::SecretKey::from_seed(&[seed; 96]);
+        Address {
+            network: Network::Devnet,
+            owner: krypton_crypto::rescue::SpendKeys::from_sk(krypton_crypto::rescue::scalar(
+                seed as u64,
+            ))
+            .owner,
+            kem: sk.public().clone(),
+        }
+    }
+
+    /// A node's template is accepted only if its header pays this miner, and everything
+    /// mined is derived from that header, not from what the node says next to it.
+    #[test]
+    fn work_must_pay_the_miner() {
+        let me = address(1);
+        let thief = address(2);
+        let p = Network::Devnet.params();
+        let mut h = genesis_block(&p).header;
+        h.height = 40_000;
+        h.miner = me.owner_bytes();
+        let job = |h: &krypton_core::types::BlockHeader| {
+            json!({"job_id": 7, "header": hex::encode(h.to_bytes()), "network": "devnet",
+            "pow_hash": "00".repeat(32), "epoch": 999, "chain_seed": "11".repeat(32), "height": 1, "share_difficulty": "1"})
+        };
+        let w = verify_work(&job(&h), &me.encode()).expect("pays us");
+        assert_eq!((w.job_id, w.height), (7, 40_000));
+        assert_eq!(w.pow_hash, h.pow_hash(), "the hash comes from the header");
+        assert_eq!(
+            w.epoch,
+            krypton_pow::epoch_of(40_000),
+            "the epoch comes from the height"
+        );
+        assert_eq!(
+            w.chain_seed,
+            genesis_block(&p).hash(),
+            "the chain comes from the address"
+        );
+        assert_eq!(
+            w.share_difficulty,
+            krypton_core::reward::share_difficulty(h.difficulty)
+        );
+        // Work that pays someone else, or no proof of whom it pays, is refused.
+        let mut stolen = h.clone();
+        stolen.miner = thief.owner_bytes();
+        assert!(verify_work(&job(&stolen), &me.encode()).is_err());
+        let mut old = job(&h);
+        old.as_object_mut().unwrap().remove("header");
+        assert!(verify_work(&old, &me.encode()).is_err());
+        let mut other = job(&h);
+        other["network"] = json!("mainnet");
+        assert!(verify_work(&other, &me.encode()).is_err());
     }
 }

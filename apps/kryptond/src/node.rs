@@ -666,6 +666,13 @@ impl Node {
         if self.mempool.lock().contains(&id) {
             return Err(TxReject::Rejected("already in pool".into()));
         }
+        // Token transactions before their activation are not merely early: no honest
+        // wallet sends them, so whoever relays one is treated like any sender of junk.
+        if tx.asset.is_some() && self.chain.tip().height() + 1 < self.chain.params.assets_height {
+            return Err(TxReject::Invalid(
+                "tokens are not active on this network".into(),
+            ));
+        }
         let st = krypton_core::consensus::check_tx_structure(&tx)
             .map_err(|e| TxReject::Invalid(e.to_string()))?;
         self.mempool

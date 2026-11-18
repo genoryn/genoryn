@@ -448,8 +448,8 @@ impl Timing {
     /// GNR confirmations the buyer waits for on the seller's lock, by size: undoing a
     /// lock means rewriting that many blocks, which must cost more than the trade is worth.
     /// Up to 50 GNR: 6 blocks; up to 500: 15; more: `gnr_confirmations`.
-    pub fn gnr_confs_for(&self, gori: u64) -> u64 {
-        let tier = match gori / 100_000_000 {
+    pub fn gnr_confs_for(&self, krypton: u64) -> u64 {
+        let tier = match krypton / 100_000_000 {
             0..=50 => 6,
             51..=500 => 15,
             _ => self.gnr_confirmations,

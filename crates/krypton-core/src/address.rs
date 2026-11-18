@@ -126,6 +126,10 @@ impl Address {
     }
     /// 32-byte content hash; a short address `<prefix>s1...` resolves to the full
     /// address through any node, and the hash makes substitution impossible.
+    /// The owner tag as bytes, as block headers and payouts carry it.
+    pub fn owner_bytes(&self) -> Hash32 {
+        digest_to_bytes(&self.owner)
+    }
     pub fn short_id(&self) -> Hash32 {
         tagged("Krypton/short-address", &self.payload())
     }

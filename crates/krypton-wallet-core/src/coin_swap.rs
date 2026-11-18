@@ -22,7 +22,7 @@ use krypton_core::asset::{AssetOp, AssetPart, FeeAction};
 /// Blocks a swap transaction stays valid: short, so neither side holds a free option.
 pub const SWAP_EXPIRY_BLOCKS: u64 = 20;
 
-/// What is exchanged: `units` base units of `coin` for `gnr` gori.
+/// What is exchanged: `units` base units of `coin` for `gnr` krypton.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SwapTerms {
     pub coin: AssetId,

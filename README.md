@@ -22,7 +22,29 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-**Genoryn Krypton (GNR)** is a quantum-resistant, private-by-default proof-of-work cryptocurrency with **Bitcoin's monetary design**: at most 21,000,000 coins, a 5 GNR block reward that halves every 2,100,000 blocks (about four years), 60-second blocks and a fair launch with no premine. Its funds are protected by hash-based **zk-STARK** proofs instead of elliptic curves, every transfer is **shielded**, payment data is encrypted with hybrid **X25519 + ML-KEM-1024** (NIST FIPS 203), every miner is paid in proportion to its work without a pool, light wallets verify the chain themselves, and GNR is exchanged with bitcoin through **atomic swaps** in the wallet. In short: Bitcoin's monetary design, rebuilt for the quantum era and private by default. Open source (MIT or Apache-2.0); website [genoryn.io](https://genoryn.io), overview [genoryn.io/about](https://genoryn.io/about).
+<h3 align="center">Money that outlives quantum computers.</h3>
+
+<p align="center">
+  <b>Genoryn Krypton (GNR)</b> is a quantum-resistant, private-by-default proof-of-work cryptocurrency<br>
+  with <b>Bitcoin's monetary design</b>: 21,000,000 coins, halvings, mining, no premine.
+</p>
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><h4>Quantum-resistant</h4>Funds are guarded by hash-based <b>zk-STARK</b> proofs, not elliptic curves. Payment data is encrypted with hybrid <b>X25519 + ML-KEM-1024</b> (FIPS 203).</td>
+    <td width="33%" valign="top"><h4>Private by default</h4>Every transfer is <b>shielded</b>: amounts, senders, recipients and memos are hidden for everyone. There is no transparent mode.</td>
+    <td width="33%" valign="top"><h4>Bitcoin's money</h4>At most <b>21,000,000 GNR</b>, 5 GNR per block halving every 2,100,000 blocks, 60-second blocks, a fair launch bound to a Bitcoin block.</td>
+  </tr>
+  <tr>
+    <td valign="top"><h4>Fair mining, no pool</h4><b>KryptoHash</b> runs on GPUs and CPUs. Every block's reward is shared by all miners in proportion to their work.</td>
+    <td valign="top"><h4>Swap with bitcoin</h4><b>Atomic BTC ⇄ GNR swaps</b> in the wallet move value into a quantum-resistant system: no exchange, no custody, no account.</td>
+    <td valign="top"><h4>Verify, don't trust</h4>Light wallets check the chain themselves with proofs of work and Merkle Mountain Range proofs. A full node is optional.</td>
+  </tr>
+</table>
+
+<p align="center">
+  <sub>1 GNR = 100,000,000 <b>krypton</b>, its smallest unit · Open source (MIT or Apache-2.0) · <a href="https://genoryn.io/about">What is Genoryn Krypton?</a></sub>
+</p>
 
 <table>
   <tr>
@@ -31,7 +53,7 @@
   </tr>
   <tr>
     <td align="center"><sub>Live network and mining overview</sub></td>
-    <td align="center"><sub>Atomic BTC ⇄ GNR swaps on the offer board</sub></td>
+    <td align="center"><sub>Atomic BTC ⇄ GNR swaps: sell and buy offers side by side</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/mining.webp" alt="Mining: share of the network, expected earnings and accruing rewards"></td>
@@ -66,7 +88,7 @@ themselves, and trading with bitcoin without an exchange.
 
 | | |
 |---|---|
-| Ticker | **GNR** (1 GNR = 100,000,000 gori) |
+| Ticker and unit | **GNR**; its smallest unit is the **krypton**: 1 GNR = 100,000,000 krypton (as a satoshi is to a bitcoin) |
 | Block time | 60 seconds, LWMA difficulty retarget every block (90-block window) |
 | Block reward | **5 GNR**, halving every **2,100,000 blocks** (~4 years) |
 | Maximum supply | **21,000,000 GNR**, enforced by every node |
@@ -79,7 +101,7 @@ themselves, and trading with bitcoin without an exchange.
 | Payouts | One note per miner every 360 blocks (~6 h), spendable after 100 blocks |
 | Trading | **Atomic BTC ⇄ GNR swaps** on an anonymous offer board; the seller's GNR is locked first |
 | Market price | The plain average of completed swaps; offers never move it |
-| Quantum coins | **Coming in a future release:** coins anyone can issue or bring from another network, as private and quantum-safe as GNR |
+| Quantum tokens | **Planned, not live yet:** stablecoins and other tokens anyone will be able to deploy, as private and quantum-safe as GNR |
 | Payment proofs | Prove a payment to anyone without revealing anything else |
 | Recovery phrase | 24 words with numbers (`orbit-42 …`), 384-bit entropy, checksummed |
 | Addresses | Full post-quantum address with a 128-bit checksum, plus a verified short form |
@@ -103,7 +125,7 @@ themselves, and trading with bitcoin without an exchange.
 13. [Atomic swaps with bitcoin](#atomic-swaps-with-bitcoin)
 14. [The offer board](#the-offer-board)
 15. [Market price](#market-price)
-16. [Quantum coins (coming soon)](#quantum-coins-coming-soon)
+16. [Quantum tokens (planned)](#quantum-tokens-planned)
 17. [Payment proofs](#payment-proofs)
 18. [Light clients: no full node required](#light-clients-no-full-node-required)
 19. [Peer-to-peer network and node security](#peer-to-peer-network-and-node-security)
@@ -192,7 +214,7 @@ in its own window. Keys, scanning and proving never leave your computer.
 | **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value), **Receive** (full address, short form, QR, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, and a **Proof** button for every send |
 | **Swap** | The GNR price, the offer board (sell, buy, in progress, yours), publishing an offer (1 hour to 1 year), taking offers, your swaps with their progress, and a payment window with amount, address and QR code when it is time to pay |
-| **Coins** | Quantum coins: coming in a future release (the tab explains them and turns on by itself once the network activates them) |
+| **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, miners, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
 | **Security** | Change a wallet's password, lock wallets |
@@ -452,6 +474,12 @@ Electricity and hardware are not counted. The real price is only what people pay
 GNR is not traded on any exchange, and there was no presale. It is earned by mining, or bought
 from another person with bitcoin in the wallet's **Swap** tab, with no exchange and no custody.
 
+**Why swaps with bitcoin.** Bitcoin's coins are guarded by elliptic-curve signatures, which a
+large enough quantum computer could break. An atomic swap lets a bitcoin holder move value into
+GNR, which is guarded by hash-based proofs instead, straight from their own wallet, and swap
+back the same way at any time. (A swap exchanges bitcoin for GNR at the market price; the
+bitcoin itself stays on Bitcoin's chain with its new owner.)
+
 Both sides lock their coins under the same **hash lock** (SHA-256 of a secret) with a
 **timelock**: whoever reveals the secret to take one side also lets the other side take theirs,
 and if nobody does, both refund. Since 1.0.23 **the GNR is locked first**:
@@ -525,28 +553,34 @@ The GNR price shown by the wallet and genoryn.io is the board's market price and
 what the GNR chain proves: the claim transaction, its block, the hash lock, the revealed secret
 and the refund height.
 
-## Quantum coins (coming soon)
+## Quantum tokens (planned)
 
-**Coming in a future release.** Soon anyone will be able to issue a coin on Genoryn Krypton,
-or bring one from another network. Quantum coins will live in the same shielded note tree as
-GNR and move the same way:
+> **Planned for a future release. Not live:** no token exists on Genoryn Krypton today.
 
-* **Private.** Every transfer a zk-STARK proof: the coin, the amount, the sender and the
-  recipient hidden. Only the creation and destruction of coins public, so every supply can
+In a future release, anyone will be able to deploy a token on Genoryn Krypton: stablecoins
+backed by an issuer's reserves, project and community tokens, tokens brought from other
+networks. Quantum tokens will live in the same shielded note tree as GNR and move the same way:
+
+* **Private.** Every transfer a zk-STARK proof: the token, the amount, the sender and the
+  recipient hidden. Only the creation and destruction of tokens public, so every supply can
   be audited.
 * **Quantum-safe.** Hash-based STARK spends, post-quantum encryption and post-quantum
   issuer signatures.
-* **Declared up front.** No smart contracts: a coin is a short public declaration of
+* **Declared up front.** No smart contracts: a token is a short public declaration of
   everything its issuer may ever do (supply, burning, pausing). It is fixed for good and shown
-  to every holder in plain words. No issuer can take coins, see balances or freeze a holder.
-* **GNR at the core.** Fees in GNR, and coins trade against GNR in one atomic transaction
+  to every holder in plain words. No issuer can take tokens, see balances or freeze a holder.
+* **GNR at the core.** Fees in GNR, and tokens trade against GNR in one atomic transaction
   between two wallets.
 
-The design is implemented and tested (circuit, consensus, wallet, trading); it is **not
-active on mainnet**. Its activation height will be announced with a future release, since
-older nodes reject coin transactions. The wallet's **Coins** tab turns on by itself then.
-Design: [docs/spec/assets.md](docs/spec/assets.md) · Overview:
-[genoryn.io/coins](https://genoryn.io/coins).
+| Step | Status |
+|---|---|
+| Design and code (circuit, consensus, wallet, trading), with tests and a public specification | Done |
+| Review, then a release that names the activation block | Next |
+| Deploy, send and trade tokens from the wallet's **Tokens** tab | After activation |
+
+Older nodes reject token transactions, so activation is a consensus upgrade announced ahead
+of time. Design: [docs/spec/assets.md](docs/spec/assets.md) · Overview:
+[genoryn.io/tokens](https://genoryn.io/tokens).
 
 ## Payment proofs
 
@@ -650,7 +684,7 @@ cross-checks the others and sends through all of them.
 
 ## API, SDKs and integration
 
-Every node serves the same API; the public node is `https://genoryn.io`. Amounts are in gori,
+Every node serves the same API; the public node is `https://genoryn.io`. Amounts are in krypton,
 prices in sat per GNR.
 
 | Group | Endpoints |
@@ -858,10 +892,10 @@ If you still have the wallet file and its password, show the phrase and write it
 Without the phrase, the file or the password, nobody can recover the coins.
 </details>
 
-<details><summary><b>Will I be able to issue my own coin on Genoryn Krypton?</b></summary>
+<details><summary><b>Will I be able to deploy my own token on Genoryn Krypton?</b></summary>
 
-Yes, in a future release: quantum coins are designed and tested but not active yet. See
-[Quantum coins](#quantum-coins-coming-soon).
+Yes, in a future release: quantum tokens are designed and tested but not active yet. See
+[Quantum tokens](#quantum-tokens-planned).
 </details>
 
 ## Author and governance

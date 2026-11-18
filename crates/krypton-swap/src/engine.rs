@@ -137,7 +137,7 @@ pub struct Swap {
     pub gnr_network: Network,
     /// Bitcoin network name (`bitcoin`, `signet`, `regtest`, ...).
     pub btc_network: String,
-    /// GNR in the lock (gori), including the claim fee.
+    /// GNR in the lock (krypton), including the claim fee.
     pub gnr: u64,
     pub sats: u64,
     #[serde(with = "hex::serde")]
@@ -378,7 +378,7 @@ impl<G: ChainSource> Engine<'_, G> {
             .cloned()
     }
 
-    /// BTC seller: starts a swap of `sats` bitcoin for `gnr` GNR (gori). Refunds go to
+    /// BTC seller: starts a swap of `sats` bitcoin for `gnr` GNR (krypton). Refunds go to
     /// `refund_address`. Returns the request code for the GNR seller.
     pub fn request(&mut self, gnr: u64, sats: u64, refund_address: &str) -> Result<Swap> {
         self.check_active()?;

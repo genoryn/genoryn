@@ -575,3 +575,45 @@ main { overflow-x: clip; }
 @keyframes cn-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .cn-orbit-soon, .cn-orbit-soon .cn-big { animation: none; } }
 .cn-band-soon { text-align: left; }
+
+/* ---- 2026 refresh: floating navigation, a larger scale, calmer and roomier cards ---- */
+.nav { top: 12px; width: min(1456px, calc(100% - 28px)); margin: 12px auto 0; border: 1px solid var(--line); border-radius: 20px; }
+@media (min-width: 1900px) { .nav { width: min(1616px, calc(100% - 28px)); } }
+.nav .wrap { max-width: none; padding: 0 12px 0 18px; min-height: 66px; }
+.nav-links a { font-size: 15px; padding: 10px 13px; border-radius: 12px; }
+.nav-soon { font-style: normal; font-size: 9.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border: 1px dashed var(--line-strong); border-radius: 99px; padding: 2px 6px; margin-left: 7px; color: var(--text-tertiary); }
+@media (max-width: 1320px) { .nav-links a { padding: 10px 9px; font-size: 14px; } .nav-links .ni { display: none; } }
+.display { font-size: clamp(44px, 6.4vw, 96px); line-height: .98; letter-spacing: -.035em; }
+.h2 { font-size: clamp(32px, 4.2vw, 58px); letter-spacing: -.025em; line-height: 1.04; }
+.lead { font-size: clamp(17px, 1.45vw, 21px); line-height: 1.55; max-width: 700px; }
+section.block { padding: 124px 0; }
+.hero { padding: 96px 0 88px; }
+.hero .wrap { gap: 64px; }
+.section-head { max-width: 900px; margin-bottom: 56px; }
+.eyebrow { font-size: 12.5px; letter-spacing: 1.8px; }
+.features { gap: 20px; } .feature { padding: 32px; border-radius: 24px; } .feature h3 { font-size: 21px; margin: 18px 0 8px; } .feature p { font-size: 15.5px; line-height: 1.6; }
+.tile { width: 50px; height: 50px; border-radius: 14px; }
+.stats { gap: 18px; } .stat { padding: 28px; border-radius: 22px; }
+.steps { gap: 26px; } .step h3 { font-size: 20px; } .step p { font-size: 15.5px; }
+.chip { padding: 7px 13px; font-size: 13px; }
+.hero-ctas .btn, .row-btns .btn { min-height: 50px; padding: 12px 24px; border-radius: 14px; font-size: 15.5px; }
+.page-head { padding: 84px 0 34px; }
+.h3 { font-size: 24px; }
+table.data th, table.data td { padding: 15px 20px; font-size: 15px; }
+footer { padding: 80px 0 72px; font-size: 15px; }
+.cn-band { padding: 48px; border-radius: 28px; }
+/* market: why swap */
+.mk-why { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 40px; padding: 38px; margin: 6px 0 24px; align-items: center; border-radius: 26px; }
+.mk-why .h3 { display: block; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.1; letter-spacing: -.02em; margin: 12px 0 16px; }
+.mk-why p { color: var(--text-secondary); margin: 0 0 12px; max-width: 760px; }
+.mk-why ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mk-why li { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-inset); } .mk-why li b { display: block; margin-bottom: 2px; } .mk-why li span { color: var(--text-secondary); font-size: 14px; }
+@media (max-width: 980px) { .mk-why { grid-template-columns: 1fr; padding: 24px; } }
+/* tokens: planned */
+.cn-notice { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-top: 26px; padding: 13px 18px; border-radius: 14px; border: 1px dashed var(--line-strong); background: var(--bg-inset); font-size: 14.5px; } .cn-notice span { color: var(--text-secondary); }
+.cn-road { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.cn-road-step { padding: 30px; border-radius: 24px; } .cn-road-step > span { display: inline-block; padding: 3px 11px; border-radius: 99px; border: 1px solid var(--line-strong); font: 600 11.5px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.cn-road-step.done > span { background: var(--text-primary); color: var(--bg-solid, #000); border-color: transparent; }
+.cn-road-step h3 { font-size: 22px; margin: 16px 0 8px; } .cn-road-step p { margin: 0; color: var(--text-secondary); }
+.cn-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px; } .cn-kinds > div { padding: 22px 24px; border-radius: 20px; } .cn-kinds b { display: block; margin-bottom: 4px; font-size: 16.5px; } .cn-kinds span { color: var(--text-secondary); font-size: 14.5px; }
+@media (max-width: 900px) { .cn-road, .cn-kinds { grid-template-columns: 1fr; } }

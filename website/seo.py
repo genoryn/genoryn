@@ -5,14 +5,14 @@ import json
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.37"
+VERSION = "1.0.38"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
             "private cryptocurrency, anonymous cryptocurrency, privacy coin, zk-STARK, ML-KEM, post-quantum privacy coin, "
             "GPU mining, CPU mining, new cryptocurrency to mine, fair launch, no premine, 21 million supply, "
-            "atomic swap bitcoin, light wallet, KryptoHash, quantum coins, Krypton coins, private tokens, "
-            "private tokens, issue a token")
+            "atomic swap bitcoin, light wallet, KryptoHash, "
+            "quantum tokens, private tokens, private stablecoins, deploy a token")
 INDEXNOW_KEY = "4cd0c3283a0fa22bc5f39f8d68fb4209"
 
 PAGES = {
@@ -37,9 +37,9 @@ PAGES = {
     "docs": {"path": "/docs", "file": "docs.html", "priority": "0.8", "freq": "weekly",
              "og_title": "Genoryn Krypton documentation",
              "og_desc": "Wallet, security, cryptography, emission and scarcity, mining, atomic swaps with bitcoin, the market price, light clients, the P2P network, node operation, API, SDKs and integration."},
-    "coins": {"path": "/coins", "file": "coins.html", "priority": "0.9", "freq": "daily",
-              "og_title": "Quantum Coins: coming to Genoryn Krypton",
-              "og_desc": "Coming in a future release: coins anyone can issue or bring from another network, as private and quantum-safe as GNR, with every issuer power declared up front."},
+    "tokens": {"path": "/tokens", "file": "tokens.html", "priority": "0.9", "freq": "daily",
+              "og_title": "Quantum Tokens: planned for Genoryn Krypton",
+              "og_desc": "Planned for a future release, not live yet: stablecoins and other tokens anyone will be able to deploy, as private and quantum-safe as GNR, with every issuer power declared up front."},
     "about": {"path": "/about", "file": "about.html", "priority": "0.9", "freq": "monthly",
               "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
               "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
@@ -98,10 +98,10 @@ ABOUT_FAQ = [
 ]
 
 COINS_FAQ = [
-    ("When will quantum coins arrive?", "In a future release. The network turns them on at a block height announced with that update, so every node and wallet can update first."),
-    ("Will coin transfers be private?", "Yes, exactly like GNR: the coin, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of coins will be public."),
-    ("Could an issuer freeze or take my coins?", "No. No issuer will be able to take coins, see balances or freeze a single holder; anything an issuer may do will be declared before the coin exists."),
-    ("Do I need to do anything now?", "No. Keep your wallet up to date; its Coins tab turns on by itself when coins are activated."),
+    ("When will quantum tokens arrive?", "In a future release. The network turns them on at a block height announced with that update, so every node and wallet can update first."),
+    ("Will token transfers be private?", "Yes, exactly like GNR: the token, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of tokens will be public."),
+    ("Could an issuer freeze or take my tokens?", "No. No issuer will be able to take tokens, see balances or freeze a single holder; anything an issuer may do will be declared before the token exists."),
+    ("Do I need to do anything now?", "No. Keep your wallet up to date; its Tokens tab turns on by itself when tokens are activated."),
 ]
 
 HOWTO = {"@type": "HowTo", "name": "How to mine Genoryn Krypton (GNR)", "totalTime": "PT5M",
@@ -137,12 +137,12 @@ def graph(page):
                    "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
                    "about": ["Genoryn Krypton", "quantum-resistant cryptocurrency", "privacy coin", "post-quantum cryptography", "Bitcoin"]},
                   CODE, faq(ABOUT_FAQ), crumbs("About", p["path"])]
-    elif page == "coins":
-        items += [{"@type": "Article", "headline": "Quantum Coins: coming to Genoryn Krypton", "url": url, "inLanguage": "en",
+    elif page == "tokens":
+        items += [{"@type": "Article", "headline": "Quantum Tokens: planned for Genoryn Krypton", "url": url, "inLanguage": "en",
                    "dateModified": TODAY, "author": {"@type": "Person", "name": "Zarazi Sokani"},
                    "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url,
-                   "about": ["quantum coins", "private tokens", "zk-STARK", "Genoryn Krypton"]},
-                  faq(COINS_FAQ), crumbs("Quantum coins", p["path"])]
+                   "about": ["quantum tokens", "private tokens", "stablecoins", "zk-STARK", "Genoryn Krypton"]},
+                  faq(COINS_FAQ), crumbs("Quantum tokens", p["path"])]
     elif page == "explorer":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Explorer", p["path"])]

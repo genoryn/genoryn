@@ -51,6 +51,7 @@
 	}
 	handle {
 		# Clean addresses: /market, not /market.html (old links move permanently).
+		redir /coins /tokens 301
 		@index path /index.html
 		redir @index / 301
 		@html {

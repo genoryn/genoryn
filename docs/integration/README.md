@@ -14,8 +14,8 @@
 5. Withdrawals: `krypton-wallet-cli send <address> <amount> --memo <ref>`. A transaction
    spends at most two notes; the wallet automatically consolidates in parallel rounds if needed.
 6. Fees are a market, not a constant: `GET /v1/fee` returns `economy_per_kb`, `normal_per_kb`
-   and `fast_per_kb` (gori per KB) from the mempool backlog. A transfer is about 100 KB; wallets
-   charge `rate × 128` (`krypton_wallet_core::transfer_fee`). The relay floor is 10 gori per KB
+   and `fast_per_kb` (krypton per KB) from the mempool backlog. A transfer is about 100 KB; wallets
+   charge `rate × 128` (`krypton_wallet_core::transfer_fee`). The relay floor is 10 krypton per KB
    (about 0.00001 GNR per transfer), and consensus itself accepts any fee.
 
 ## Node API

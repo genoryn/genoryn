@@ -34,9 +34,9 @@
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 
-  --radius-sm: 9px;
-  --radius: 14px;
-  --radius-lg: 20px;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 26px;
   --ease: cubic-bezier(.16, 1, .3, 1);
   --blur: 18px;
 }

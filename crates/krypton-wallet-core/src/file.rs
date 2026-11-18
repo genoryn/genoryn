@@ -84,8 +84,9 @@ impl FileKey {
         if env.magic != MAGIC || env.version != VERSION {
             bail!("not a Genoryn Krypton wallet file");
         }
-        if env.kdf.m_cost_kib < 1024 || env.kdf.m_cost_kib > 4 * 1024 * 1024 || env.kdf.t_cost > 64
-        {
+        // Wallets are written with 256 MiB and 3 passes; a file asking for far more is not
+        // ours, and opening it would only freeze the computer.
+        if env.kdf.m_cost_kib < 1024 || env.kdf.m_cost_kib > 1024 * 1024 || env.kdf.t_cost > 16 {
             bail!("unreasonable key derivation parameters");
         }
         let key = argon2id(password.as_bytes(), &env.salt, env.kdf)?;

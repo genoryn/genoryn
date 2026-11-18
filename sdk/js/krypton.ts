@@ -85,8 +85,8 @@ export function parseAmount(s: string): bigint {
   return BigInt(m[1] || "0") * COIN + BigInt((m[2] || "").padEnd(8, "0") || "0");
 }
 
-export function formatAmount(gori: bigint | number): string {
-  const v = BigInt(gori);
+export function formatAmount(krypton: bigint | number): string {
+  const v = BigInt(krypton);
   return `${v / COIN}.${(v % COIN).toString().padStart(8, "0")}`;
 }
 

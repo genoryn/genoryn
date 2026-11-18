@@ -46,8 +46,8 @@ pub fn last_subsidy_height() -> u64 {
     epoch * HALVING_INTERVAL
 }
 
-pub fn format_amount(gori: u64) -> String {
-    format!("{}.{:08}", gori / COIN, gori % COIN)
+pub fn format_amount(krypton: u64) -> String {
+    format!("{}.{:08}", krypton / COIN, krypton % COIN)
 }
 
 pub fn parse_amount(s: &str) -> Option<u64> {

@@ -64,7 +64,7 @@ not in any spendable tree.
 
 ## Emission
 
-`subsidy(0) = 0`; `subsidy(h) = 500,000,000 >> ((h − 1) / 2,100,000)` gori for `h ≥ 1`
+`subsidy(0) = 0`; `subsidy(h) = 500,000,000 >> ((h − 1) / 2,100,000)` krypton for `h ≥ 1`
 (zero after 64 halvings). Total issuance converges below 21,000,000 GNR. Subsidies and
 fees enter the reward pool; nothing is minted outside it.
 

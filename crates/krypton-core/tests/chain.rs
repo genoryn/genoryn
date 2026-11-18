@@ -268,7 +268,7 @@ fn proportional_rewards_on_devnet_blocks() {
     assert_eq!(
         total_paid + unpaid,
         minted,
-        "every minted gori is pooled, owed or paid"
+        "every minted krypton is pooled, owed or paid"
     );
     assert!(
         paid.get(&finder).copied().unwrap_or(0) > 0,

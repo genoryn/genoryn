@@ -27,6 +27,8 @@ pub enum Class {
     Tx,
     Proof,
     Address,
+    /// Swap mailboxes and coin offers.
+    Board,
     Rpc,
 }
 
@@ -40,7 +42,19 @@ impl Class {
             Class::Tx => (30.0, 10.0),
             Class::Proof => (30.0, 10.0),
             Class::Address => (10.0, 5.0),
+            Class::Board => (60.0, 20.0),
             Class::Rpc => (300.0, 60.0),
+        }
+    }
+
+    /// The budget a JSON-RPC method draws on besides the general one: the same as the
+    /// REST endpoint it stands for, so `/rpc` is no way around a limit.
+    pub fn rpc_method(method: &str) -> Option<Class> {
+        match method {
+            "sendrawtransaction" => Some(Class::Tx),
+            "getblocktemplate" => Some(Class::Template),
+            "submitwork" => Some(Class::Submit),
+            _ => None,
         }
     }
 
@@ -53,6 +67,11 @@ impl Class {
             | (true, "/v1/swap/offers")
             | (true, "/v1/swap/trade")
             | (true, "/v1/swap/progress") => Class::Address,
+            // Sealed swap messages (up to 256 KB each) and coin offers: a swap needs a
+            // handful, never hundreds a minute.
+            (true, "/v1/swap/inbox") | (true, "/v1/swap/coins") | (true, "/v1/swap/coin-trade") => {
+                Class::Board
+            }
             (true, "/v1/mining/template") => Class::Template,
             (true, "/v1/mining/submit") => Class::Submit,
             (true, _) => Class::Rpc,
@@ -214,6 +233,28 @@ mod tests {
             &Default::default(),
         );
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn writes_have_their_own_budgets() {
+        let post = Method::POST;
+        assert!(matches!(Class::of(&post, "/v1/tx"), Class::Tx));
+        for p in ["/v1/swap/inbox", "/v1/swap/coins", "/v1/swap/coin-trade"] {
+            assert!(matches!(Class::of(&post, p), Class::Board), "{p}");
+        }
+        assert!(matches!(
+            Class::rpc_method("sendrawtransaction"),
+            Some(Class::Tx)
+        ));
+        assert!(matches!(
+            Class::rpc_method("getblocktemplate"),
+            Some(Class::Template)
+        ));
+        assert!(matches!(
+            Class::rpc_method("submitwork"),
+            Some(Class::Submit)
+        ));
+        assert!(Class::rpc_method("getinfo").is_none());
     }
 
     #[test]

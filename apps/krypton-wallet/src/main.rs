@@ -829,7 +829,7 @@ async fn resolve(
     }
 }
 
-/// Fee suggestions for one transfer, in gori: economy, normal, fast (from the first
+/// Fee suggestions for one transfer, in krypton: economy, normal, fast (from the first
 /// node that offers estimates; the built-in default otherwise).
 fn fee_options(src: &Multi) -> (u64, u64, u64, bool) {
     match src.0.iter().find_map(|c| c.fee_rates().ok().flatten()) {

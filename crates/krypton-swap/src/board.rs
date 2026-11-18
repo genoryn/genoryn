@@ -59,7 +59,7 @@ pub struct Offer {
     pub network: String,
     pub btc_network: String,
     pub side: Side,
-    /// GNR (gori) and bitcoin (sat) of the whole offer.
+    /// GNR (krypton) and bitcoin (sat) of the whole offer.
     pub gnr: u64,
     pub sats: u64,
     /// The maker's key for this offer (hex).
@@ -321,7 +321,7 @@ pub struct CoinOffer {
     /// The coin's id (hex).
     pub coin: String,
     pub side: Side,
-    /// GNR (gori) and coin base units of the whole offer.
+    /// GNR (krypton) and coin base units of the whole offer.
     pub gnr: u64,
     pub units: u64,
     pub key: String,
@@ -353,7 +353,7 @@ impl CoinOffer {
     pub fn coin_id(&self) -> Result<krypton_core::asset::AssetId> {
         krypton_core::asset::AssetId::from_hex(&self.coin).context("bad coin id")
     }
-    /// GNR (gori) per base unit of the coin.
+    /// GNR (krypton) per base unit of the coin.
     pub fn price(&self) -> f64 {
         self.gnr as f64 / self.units as f64
     }
@@ -488,7 +488,7 @@ impl CoinTrade {
     }
 }
 
-/// A coin's market price in gori per base unit: the average of its completed swaps in
+/// A coin's market price in krypton per base unit: the average of its completed swaps in
 /// the last [`MARKET_WINDOW_SECS`] (or of all if there are none), without outliers more
 /// than [`OUTLIER_FACTOR`] from the median once there are three. `None` with no swaps.
 pub fn coin_market(trades: &[(CoinTrade, u64)], now: u64) -> Option<(f64, usize)> {

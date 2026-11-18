@@ -1,10 +1,10 @@
-# Quantum coins (Krypton coins)
+# Quantum tokens
 
 > **Status: coming in a future release.** This design is implemented and tested but not
 > active on mainnet. Its activation height will be announced with a future release.
 
-Quantum coins are coins anyone will be able to issue on Genoryn Krypton, or bring from
-another network. They are as private and as quantum-safe as GNR, and they follow three rules
+Quantum tokens (called coins in the code and in the rest of this document) are tokens anyone
+will be able to deploy on Genoryn Krypton, or bring from another network. They are as private and as quantum-safe as GNR, and they follow three rules
 that ordinary token platforms do not:
 
 1. **Transfers are always shielded.** Amounts, senders, recipients and even *which coin*

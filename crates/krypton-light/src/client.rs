@@ -65,7 +65,7 @@ fn digest_hex(s: &str) -> Result<Digest> {
     Ok(digest_from_bytes(&b)?)
 }
 
-/// A node's fee suggestions, in gori per KB of transaction.
+/// A node's fee suggestions, in krypton per KB of transaction.
 #[derive(Debug, Clone, Copy, Deserialize, serde::Serialize)]
 pub struct FeeRates {
     pub min_per_kb: u64,

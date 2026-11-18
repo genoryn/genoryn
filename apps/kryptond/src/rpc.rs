@@ -818,6 +818,8 @@ fn job_json(n: &Node, id: u64) -> Option<Value> {
         "job_id": id,
         "height": h.height,
         "pow_hash": hex::encode(h.pow_hash()),
+        // The whole header (nonce 0): miners check that it pays them before working on it.
+        "header": hex::encode(h.to_bytes()),
         "difficulty": h.difficulty.to_string(),
         "target": hex_target(&target),
         "share_difficulty": share_difficulty.to_string(),
@@ -1190,9 +1192,23 @@ async fn ws_loop(n: Arc<Node>, mut s: WebSocket) {
 }
 
 /// JSON-RPC 2.0 facade over the same handlers (familiar names for integrators).
-async fn json_rpc(State(n): S, _h: HeaderMap, Json(req): Json<Value>) -> Json<Value> {
+async fn json_rpc(
+    State(n): S,
+    axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    h: HeaderMap,
+    Json(req): Json<Value>,
+) -> Json<Value> {
     let id = req.get("id").cloned().unwrap_or(Value::Null);
     let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if let (Some(class), Some(ip)) = (
+        crate::guard::Class::rpc_method(method),
+        crate::guard::client(peer, &h),
+    ) && !n.guard.allow(ip, class)
+    {
+        return Json(
+            json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32005, "message": "too many requests from your address; slow down"}}),
+        );
+    }
     let params = req.get("params").cloned().unwrap_or(json!([]));
     let p0 = params.get(0).cloned().unwrap_or(Value::Null);
     let result: R<Value> = async {

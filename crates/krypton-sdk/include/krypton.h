@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define KRYPTON_COIN 100000000ULL          /* 1 GNR in base units (gori) */
+#define KRYPTON_COIN 100000000ULL          /* 1 GNR in base units (krypton) */
 #define KRYPTON_NET_MAINNET 1
 #define KRYPTON_NET_TESTNET 2
 #define KRYPTON_NET_DEVNET 3
@@ -22,7 +22,7 @@ int krypton_address_network(const char *address);
 int krypton_short_address(const char *address, char *out, size_t cap);
 /* "12.5" -> 1250000000. Returns 1 on success, 0 on error. */
 int krypton_parse_amount(const char *text, uint64_t *out);
-int krypton_format_amount(uint64_t gori, char *out, size_t cap);
+int krypton_format_amount(uint64_t krypton, char *out, size_t cap);
 uint64_t krypton_block_subsidy(uint64_t height);
 
 #ifdef __cplusplus

@@ -5,7 +5,7 @@
   var REF = { name: "RTX 5090", hashrate: 74e6 };
   var BLOCKS_PER_DAY = 1440;
 
-  /* GNR one REF GPU mines a day at the network hashrate (H/s); subsidy in gori per block. */
+  /* GNR one REF GPU mines a day at the network hashrate (H/s); subsidy in krypton per block. */
   function perGpu(hashrate, subsidy) {
     hashrate = Number(hashrate) || 0;
     if (hashrate <= 0) return null;
@@ -74,7 +74,7 @@
   }
 
   /* The miner and price calculator, the same on genoryn.io and in the wallet. live() returns
-     { height, miners, hashrate (H/s), supply (gori), sat (market sat per GNR), btcUsd } from the node. */
+     { height, miners, hashrate (H/s), supply (krypton), sat (market sat per GNR), btcUsd } from the node. */
   function mountCalc(root, live) {
     var now = new Date(), y0 = now.getFullYear();
     var years = "";

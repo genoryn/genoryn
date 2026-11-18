@@ -41,7 +41,7 @@ impl Mempool {
         let size = tx.size();
         if tx.total_fee() < min_fee(size) {
             return Err(format!(
-                "fee below minimum relay fee of {} gori",
+                "fee below minimum relay fee of {} krypton",
                 min_fee(size)
             ));
         }
@@ -136,7 +136,7 @@ impl Mempool {
         for e in v {
             used += e.size + 16;
             if used > room {
-                // rate is fee per byte × 10^6; one more gori per KB outbids it.
+                // rate is fee per byte × 10^6; one more krypton per KB outbids it.
                 let per_kb = (e.rate() * 1024 / 1_000_000) as u64 + 1;
                 return per_kb.max(MIN_FEE_PER_KB);
             }

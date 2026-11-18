@@ -353,6 +353,51 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .cx-note{margin:10px 0;padding:9px 12px;border-radius:10px;border:1px dashed var(--line-strong);font-size:13px;color:var(--text-primary)}
 .cn-check{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13.5px;color:var(--text-secondary)}.cn-check input{margin-top:3px;width:auto}
 .cx-steps-mini{display:flex;gap:4px;margin-top:6px}.cx-steps-mini i{height:3px;flex:1;border-radius:3px;background:var(--line)}.cx-steps-mini i.on{background:var(--text-primary)}
+
+/* ---- 2026 shell: sidebar navigation, page headers, a larger and calmer scale ---- */
+main{max-width:1600px;padding:28px 30px 80px}
+header{padding:14px 30px}
+.pg-head{margin:2px 0 20px}.pg-head h2{font:700 30px/1.1 var(--font-display);letter-spacing:-.02em;margin:0;text-transform:none;color:var(--text-primary)}.pg-head p{margin:6px 0 0;color:var(--text-secondary);font-size:15px}
+.tab-soon{font-style:normal;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px dashed var(--line-strong);color:var(--text-tertiary);margin-left:auto}
+.rail-foot{display:none}
+@media (min-width:1080px){
+  #app:not(.hidden){display:grid;grid-template-columns:244px minmax(0,1fr);column-gap:30px;align-items:start}
+  #app>nav.tabs{grid-column:1;grid-row:1/span 2;flex-direction:column;gap:3px;position:sticky;top:86px;padding:10px;margin:0;border-radius:20px;overflow:visible}
+  #app>nav.tabs button{justify-content:flex-start;width:100%;min-height:48px;padding:10px 14px;font-size:15px;border-radius:13px;position:relative}
+  #app>nav.tabs button.on{box-shadow:inset 0 0 0 1px var(--line-strong)}
+  #app>nav.tabs button.on::before{content:"";position:absolute;left:-10px;top:13px;bottom:13px;width:3px;border-radius:3px;background:var(--text-primary)}
+  #app>nav.tabs .ic{width:19px;height:19px}
+  .rail-foot{display:flex;gap:9px;align-items:flex-start;margin:10px 4px 4px;padding:12px 10px 4px;border-top:1px solid var(--line);color:var(--text-tertiary);font-size:12px;line-height:1.4}.rail-foot .ic{width:15px;height:15px;margin-top:1px}
+  #app>.pg-head{grid-column:2;grid-row:1}
+  #app>div[id^="tab-"]{grid-column:2;grid-row:2;min-width:0}
+}
+@media (max-width:1079px){.tab-soon{margin-left:6px}}
+.card{padding:26px;border-radius:20px}.card h2{font-size:12.5px;margin-bottom:16px}
+.grid{gap:20px}.big{font-size:54px}.row{padding:10px 0;font-size:14.5px}
+.kpi{padding:18px 20px;border-radius:18px}
+@media (min-width:1900px){body{font-size:17px}main{max-width:1760px}#app:not(.hidden){grid-template-columns:268px minmax(0,1fr)}}
+/* swap: why, two-sided book, receipts */
+.sw-why{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:18px}
+.sw-why h3{font:700 24px/1.15 var(--font-display);letter-spacing:-.01em;margin:8px 0 10px}.sw-why p{margin:0;max-width:720px}
+.sw-why ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}.sw-why li{padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset)}.sw-why li b{display:block;font-size:14px}.sw-why li span{color:var(--text-secondary);font-size:13px}
+@media (max-width:1100px){.sw-why{grid-template-columns:1fr}}
+.bd-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
+.bd-col{min-width:0;border:1px solid var(--line);border-radius:16px;padding:12px 10px 6px;background:var(--bg-inset)}
+.bd-colh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 8px 6px}.bd-colh b{font:600 15px var(--font-sans)}.bd-colh em{font-style:normal;color:var(--text-tertiary);font-weight:400;margin-left:4px}.bd-colh span{color:var(--text-tertiary);font-size:12px}
+.bd-half td{padding:9px 8px}.bd-half th{padding:6px 8px}
+@media (max-width:1280px){.bd-two{grid-template-columns:1fr}}
+.swr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;margin-top:12px}.swr-grid .swc{margin-top:0}
+.swc-done{background:var(--glass-sheen),var(--bg-inset)}
+.swr-top{display:flex;align-items:center;gap:12px}.swr-top b{display:block;font:600 16px var(--font-sans)}.swr-top span{color:var(--text-tertiary);font-size:12.5px}.swr-top .pill{margin-left:auto}
+.swr-check{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:18px;font-weight:700;background:var(--text-primary);color:var(--bg-solid)!important}
+.swr-flow{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:16px 0 12px}
+.swr-flow>div{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-field)}.swr-flow em{display:block;font-style:normal;color:var(--text-tertiary);font-size:12px;margin-bottom:4px}.swr-flow b{font:600 17px var(--font-mono);display:inline-flex;align-items:center;gap:6px;word-break:break-all}
+.swr-arrow{font-size:20px;color:var(--text-tertiary)}
+.swr-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--text-secondary);font-size:13px}.swr-meta b{color:var(--text-primary);font-family:var(--font-mono);font-weight:500}
+/* tokens: planned */
+.cx-plan{display:inline-block;margin-bottom:6px;padding:4px 12px;border-radius:99px;border:1px dashed var(--line-strong);font:600 11.5px var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary)}
+.cx-road{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 4px}.cx-road span{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:99px;border:1px solid var(--line);font-size:12.5px;color:var(--text-tertiary)}
+.cx-road b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line-strong);font-size:11px}.cx-road span.on{color:var(--text-primary);border-color:var(--line-strong)}.cx-road span.on b{background:var(--text-primary);color:var(--bg-solid)}
 </style>
 </head>
 <body>
@@ -436,12 +481,14 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
       <button class="rail" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swap</span><em class="tab-badge hidden" id="swBadge"></em></button>
-      <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Coins</span></button>
+      <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Tokens</span><em class="tab-soon">soon</em></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
       <button class="rail" data-tab="security"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><span>Security</span></button>
       <button class="rail" data-tab="about"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg><span>About</span></button>
+      <div class="rail-foot"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span>Keys never leave this computer.</span></div>
     </nav>
+    <div class="pg-head"><h2 id="pgTitle">Wallet</h2><p id="pgSub">Your balance, sending and receiving, and the network at a glance.</p></div>
     <div id="tab-wallet">
     <div class="glass wbar">
       <button class="wsel" id="wSel" type="button" onclick="openSwitcher(this)" aria-haspopup="dialog" title="Switch wallet">
@@ -518,6 +565,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="seg fee-seg" id="feeSeg" role="group" aria-label="Network fee"><button type="button" data-s="economy">Economy <em id="feE"></em></button><button type="button" data-s="normal" class="on">Normal <em id="feN"></em></button><button type="button" data-s="fast">Fast <em id="feF"></em></button><button type="button" data-s="custom">Custom</button></div>
         <input id="feeCustom" class="hidden" placeholder="Fee in GNR, e.g. 0.00002" inputmode="decimal" aria-label="Custom fee in GNR" style="margin-top:8px">
         <button id="sendBtn" class="btn btn-primary" onclick="send()" style="margin-top:10px">Send</button>
+        <p class="hero-note">The smallest unit of GNR is the <b>krypton</b>: 1 GNR = 100,000,000 krypton.</p>
         <p class="hero-note" id="feeNote">Fees follow the network: when blocks have room the lowest fee confirms just as fast. They go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
     </div>
@@ -594,6 +642,11 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
         <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
       </section>
+      <section class="glass card sw-why">
+        <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
+          <p class="muted">Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could one day break. A swap moves that value into GNR, which is guarded by hash-based proofs instead, directly between two wallets: no exchange, no custody, no account. You can swap back to bitcoin the same way at any time.</p></div>
+        <ul><li><b>Atomic</b><span>Both sides are paid, or both keep their coins.</span></li><li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer pays.</span></li><li><b>Anonymous</b><span>Offers carry one-time keys, never your address.</span></li></ul>
+      </section>
       <div class="bd-layout">
         <section class="glass card bd-book">
           <div class="bd-head">
@@ -601,7 +654,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
             <span class="muted mono bd-host" id="bdBoard"></span>
           </div>
           <div class="bd-tools">
-            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="sell" class="on">Sell offers <em id="bdTabS">0</em></button><button type="button" data-t="buy">Buy offers <em id="bdTabB">0</em></button><button type="button" data-t="pending">In progress <em id="bdTabP">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
+            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="book" class="on">Order book</button><button type="button" data-t="pending">In progress <em id="bdTabP">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
             <div class="bd-filters">
               <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
               <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
@@ -609,7 +662,13 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
               <select id="bdPerPage" aria-label="Offers per page"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
             </div>
           </div>
-          <div class="bd-tablewrap">
+          <div class="bd-two" id="bdTwo">
+            <div class="bd-col"><div class="bd-colh"><b>Sell offers <em id="bdTabS">0</em></b><span>buy GNR from these</span></div>
+              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdAskRows"></tbody></table></div>
+            <div class="bd-col"><div class="bd-colh"><b>Buy offers <em id="bdTabB">0</em></b><span>sell GNR to these</span></div>
+              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdBidRows"></tbody></table></div>
+          </div>
+          <div class="bd-tablewrap hidden" id="bdOne">
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
@@ -636,7 +695,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
         <div class="sw-keep"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Keep this wallet open (running and unlocked) until your swaps are done.</b> Only your wallet holds the keys that lock, take and refund your coins, so only it can do these steps; genoryn.io never has your keys, which is also why nobody can take your coins. You do not need to watch: closing the window keeps the wallet working in the background. If the wallet locks itself (after 24 hours), unlock it again: the swap waits, and the timelocks give hours of room.</div></div>
         <div id="swapList"><p class="muted">No swaps yet.</p></div>
-        <details class="sw-past hidden" id="swPastBox"><summary>Past swaps <em id="swPastN"></em></summary><div id="swapPast"></div></details>
+        <details class="sw-past hidden" id="swPastBox" open><summary>Completed and past swaps <em id="swPastN"></em></summary><div id="swapPast" class="swr-grid"></div></details>
       </section>
       <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes</summary>
         <div class="grid" style="margin-top:14px">
@@ -676,16 +735,17 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
     <div id="tab-coins" class="hidden">
       <section class="glass card cx-soon hidden" id="cxSoon">
         <span class="cx-soon-ic"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg></span>
-        <span class="eyebrow-s">Coming in a future release</span>
-        <h2>Quantum coins</h2>
-        <p class="muted">Soon anyone will be able to issue a coin on Genoryn Krypton, or bring one from another network. Coins will move like GNR: every transfer a zero-knowledge proof, private and quantum-safe.</p>
+        <span class="cx-plan">Planned · not available yet</span>
+        <h2>Quantum tokens</h2>
+        <p class="muted">In a future release, anyone will be able to deploy a token on Genoryn Krypton: stablecoins, project tokens, tokens brought from other networks. They will move like GNR: every transfer a zero-knowledge proof, private and quantum-safe.</p>
+        <div class="cx-road"><span class="on"><b>1</b>Designed and tested</span><span><b>2</b>Activation announced with an update</span><span><b>3</b>Deploy, send and trade tokens here</span></div>
         <div class="cx-soon-grid">
-          <div><b>Private</b><span>The coin, the amount, the sender and the recipient stay hidden.</span></div>
-          <div><b>Declared up front</b><span>What an issuer may do is public from the start and can never change.</span></div>
+          <div><b>Deploy a token</b><span>A short public declaration instead of a smart contract: supply, burning, pausing. Fixed for good.</span></div>
+          <div><b>Send it privately</b><span>The token, the amount, the sender and the recipient stay hidden.</span></div>
+          <div><b>Trade it for GNR</b><span>One atomic transaction between two wallets. Fees in GNR.</span></div>
           <div><b>Quantum-safe</b><span>Hash-based proofs and post-quantum keys, no elliptic curves.</span></div>
-          <div><b>GNR at the core</b><span>Fees in GNR, and coins trade against GNR in one atomic transaction.</span></div>
         </div>
-        <p class="hero-note">Nothing to do yet. This tab turns on by itself once the network activates coins in a later update.</p>
+        <p class="hero-note">There is nothing to do today, and no token exists on the network yet. This page turns into the token wallet by itself once tokens are activated.</p>
       </section>
       <div class="glass cx-bar" id="cxBar">
         <div class="cx-title"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><div><b>Coins</b><span id="cxSub">Private coins on Genoryn Krypton</span></div></div>
@@ -1055,7 +1115,7 @@ const VAL={ show:(()=>{ try{ return localStorage.getItem('gk-showval')!=='0'; }c
 function marketPerGnr(){ const m=S.market&&S.market.market, usd=Number(S.market&&S.market.btc_usd); return m&&m.price&&usd>0 ? m.price*usd/1e8 : null; }
 /* The GNR price is the offer board's market price, nothing else. */
 function perGnr(){ return marketPerGnr(); }
-function valueOf(gori){ const p=perGnr(); return p==null?null:Number(gori||0)/1e8*p; }
+function valueOf(krypton){ const p=perGnr(); return p==null?null:Number(krypton||0)/1e8*p; }
 const coin=(k,c)=>`<svg class="coin coin-${k}${c?' '+c:''}" aria-hidden="true"><use href="#c-${k}"/></svg>`;
 function marketLabel(){ const m=(S.market&&S.market.market)||{}; const n=(m.asks||0)+(m.bids||0);
   const np=Number(m.priced)||0, from=`average of ${np} completed swap${np===1?'':'s'}`;
@@ -1079,8 +1139,8 @@ if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>fitBig($(
    first, and every frame keeps the same number of decimals, so nothing jumps or wraps. */
 const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 let refreshN=0;
-function animNum(el, gori){
-  if(!el) return; const to=Number(gori||0), from=el._v; el._v=to;
+function animNum(el, krypton){
+  if(!el) return; const to=Number(krypton||0), from=el._v; el._v=to;
   const fin=gnr(to), dec=(fin.split(/[.,]/)[1]||'').length;
   const fmt=v=>(v/1e8).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec});
   cancelAnimationFrame(el._raf); el.textContent=fin; if(el.id==='bal') fitBig(el);
@@ -1463,7 +1523,8 @@ function weakWarn(r, name){ if(!r||!r.weak_password) return;
 async function quitApp(){ if(!await ask({title:'Quit Genoryn Krypton?', icon:'power', ok:'Quit', danger:true, body:'<p class="mtext">The miner and your own node stop too. To keep mining, just close the window instead.</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>Closed</h2><p class="muted">Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast('Copied'); }
 const TABS=['wallet','history','swap','coins','mining','network','security','about'];
-function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t);
+const PG={wallet:['Wallet','Your balance, sending and receiving, and the network at a glance.'],history:['History','Every payment, with proofs you can share.'],swap:['Swap','Trade GNR and bitcoin directly between two wallets. No exchange, no custody.'],coins:['Quantum tokens','Planned for a future release. Not available yet.'],mining:['Mining','Earn GNR with your GPU or CPU, in proportion to your work.'],network:['Network','Live charts, peers and how this wallet connects.'],security:['Security','Passwords and locks of your wallets.'],about:['About','Version, updates and links.']};
+function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
   if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='coins') loadCoins(); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
@@ -1483,7 +1544,11 @@ async function loadSwaps(first){
   live.filter(s=>s.gnr_first&&s.role==='btc_seller'&&s.stage==='await_deposit'&&s.htlc_address&&!PAY_SHOWN.has(s.id)).slice(0,1).forEach(s=>showPay(s));
   $('swapList').innerHTML=live.length?live.map(swapCard).join(''):'<p class="muted">No swap in progress. Take an offer from the board, or publish your own.</p>';
   $('swPastBox').classList.toggle('hidden', !past.length); $('swPastN').textContent='('+past.length+')';
-  $('swapPast').innerHTML=past.slice(0,50).map(swapCard).join('');
+  $('swapPast').innerHTML=past.slice(0,50).map(s=>s.stage==='done'?swapDone(s):swapCard(s)).join('');
+  const done=list.filter(s=>s.stage==='done'); let seen=null; try{ seen=JSON.parse(localStorage.getItem('gk-done-seen')||'null'); }catch(e){}
+  if(!Array.isArray(seen)) seen=done.map(s=>s.id);
+  else { const fresh=done.filter(s=>!seen.includes(s.id)); if(fresh.length){ seen=seen.concat(fresh.map(s=>s.id)).slice(-400); swapCelebrate(fresh[0]); } }
+  try{ localStorage.setItem('gk-done-seen', JSON.stringify(seen)); }catch(e){}
 }
 const swLeft=s=>{ const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?h+' h '+m+' min':m+' min'; };
 /* GNR first: once the seller's GNR is locked for us, the payment pops up by itself. */
@@ -1519,6 +1584,17 @@ function swLabel2(s){ const buy=s.role==='btc_seller';
   return ({requested:'Waiting for the seller', accepted:buy?'Waiting for the GNR lock':'Locking the GNR', locked:'GNR locked · waiting for payment',
     await_deposit:'Pay now', deposited:buy?'Paid · waiting for the seller':'Payment received', claiming:buy?'Claiming your GNR':'Taking the bitcoin',
     done:'Done', refunding:'Refunding', refunded:'Refunded', failed:'Stopped'})[s.stage]||s.stage; }
+/* A completed swap as a receipt: what was paid, what was received, at what price. */
+function swReceipt(s){
+  const buy=s.role==='btc_seller', paid=buy?esc(s.btc_text)+' BTC':esc(s.gnr_text)+' GNR', got=esc(s.receive_text||(buy?s.gnr_text+' GNR':s.btc_text+' BTC'));
+  const g=Number(String(s.gnr_text||'').replace(/,/g,'')), u=btcUsd(), px=g>0&&s.sats?Number(s.sats)/g:null;
+  const at=((s.log||[]).slice(-1)[0]||[])[0];
+  return `<div class="swr"><div class="swr-top"><span class="swr-check" aria-hidden="true">✓</span><div><b>Swap complete</b><span>${at?new Date(at*1000).toLocaleString():''}</span></div><span class="pill">${buy?'Bought GNR':'Sold GNR'}</span></div>
+    <div class="swr-flow"><div><em>You paid</em><b>${coin(buy?'btc':'gnr','coin-sm')}${paid}</b></div><span class="swr-arrow" aria-hidden="true">→</span><div><em>You received</em><b>${coin(buy?'gnr':'btc','coin-sm')}${got}</b></div></div>
+    <div class="swr-meta"><span>Price <b>${px!=null?fmtPx(px):'-'}</b> per GNR${px!=null&&u?' · '+GKValue.usd(px*u/1e8):''}</span>${u&&s.sats?`<span>Worth <b>${GKValue.usd(Number(s.sats)/1e8*u)}</b></span>`:''}</div></div>`; }
+function swapDone(s){ const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
+  return `<div class="swc swc-done">${swReceipt(s)}<details><summary>Details</summary>${row('Your Bitcoin address',s.btc_address)}${row('Contract address',s.htlc_address)}${row('Our bitcoin transaction',s.btc_spend)}${row('Swap id',s.id)}</details></div>`; }
+function swapCelebrate(s){ ask({title:'Your swap is complete', icon:'swap', ok:'Done', hideCancel:true, body:swReceipt(s)+'<p class="mtext" style="margin-top:12px">Both sides were paid in full. Your balance updates with the next block.</p>'}); }
 function swapCard(s){
   if(s.gnr_first) return swapCard2(s);
   const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
@@ -1577,7 +1653,7 @@ async function swapCode(){
 }
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
-const BDV={tab:'sell', sort:'price', min:'', max:'', per:25, page:0};
+const BDV={tab:'book', sort:'price', min:'', max:'', per:25, page:0};
 /* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
 const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?v.toLocaleString(undefined,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
@@ -1613,12 +1689,17 @@ function bdList(){
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
   return v.slice().sort(cmp);
 }
+function bdOffers(side){ const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
+  const v=(BD.offers||[]).filter(o=>o.side===side&&(o.online!==false||o.mine)).filter(o=>{ const g=o.gnr/1e8; return g>=min&&g<=max; });
+  const best=side==='buy_gnr'?(a,b)=>b.price-a.price:(a,b)=>a.price-b.price;
+  return v.slice().sort({price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best); }
 function renderBook(){
   const all=BD.offers||[];
   const shown=o=>o.online!==false||o.mine;
   $('bdTabS').textContent=all.filter(o=>o.side==='sell_gnr'&&shown(o)).length; $('bdTabB').textContent=all.filter(o=>o.side==='buy_gnr'&&shown(o)).length;
   $('bdTabM').textContent=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired).length; $('bdTabP').textContent=(BD.in_progress||[]).length;
-  const list=bdList(), pages=Math.max(1,Math.ceil(list.length/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
+  const two=BDV.tab==='book'; $('bdTwo').classList.toggle('hidden',!two); $('bdOne').classList.toggle('hidden',two);
+  const list=bdList(), pages=Math.max(1,Math.ceil((two?Math.max(bdOffers('sell_gnr').length,bdOffers('buy_gnr').length):list.length)/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
   const rows=list.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), mp=bdMkt().price;
   const vs=p=>{ if(!mp) return '-'; const d=(p/mp-1)*100; return `<span class="${d>=0?'bd-up':'bd-dn'}">${d>=0?'+':''}${d.toFixed(1)}%</span>`; };
   const act=o=>{
@@ -1632,6 +1713,13 @@ function renderBook(){
   };
   const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
   const live=o=>o.pending?'':`<span class="bd-live${o.online===false?' off':''}" title="${o.online===false?'Maker offline':'Maker online: the swap starts within seconds'}"></span>`;
+  if(two){
+    const side=(s,id,empty)=>{ const l=bdOffers(s), r=l.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), bg=Math.max(1,...r.map(o=>o.gnr));
+      $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="Expires in ${bdAgo(o.expires_in)}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
+    const n=side('sell_gnr','bdAskRows','No sell offers yet. Publish one: it sets the first price.')+side('buy_gnr','bdBidRows','No buy offers yet.');
+    $('bdPager').innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${n} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(n?`<span>${n} offer${n===1?'':'s'}</span>`:'');
+    return;
+  }
   $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtPx(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?'started '+bdAgo(o.age||0)+' ago':o.expired?'-':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?'You have no offers. Publish one on the right.':(BD.offers||[]).length?'No offers match the filter.':'No offers yet. Publish the first one: it sets the first market price.'}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">‹ Previous</button><span>Page ${BDV.page+1} of ${pages} · ${list.length} offers</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">Next ›</button>`:(list.length?`<span>${list.length} offer${list.length===1?'':'s'}</span>`:'');
@@ -1721,14 +1809,14 @@ function renderCxCards(){
   const h=CN.holdings||[];
   if(!h.length){ $('cxCards').innerHTML=`<div class="glass cx-empty"><b>No coins yet</b><p class="muted">Coins sent to your address appear here, with what their issuer can do. Buy one on the market or issue your own.</p><div class="row-flex" style="justify-content:center;margin-top:10px"><button class="btn" onclick="cxGo('send')">Receive</button><button class="btn" onclick="cxGo('market')">Market</button><button class="btn btn-primary" onclick="cxGo('issue')">Issue a coin</button></div></div>`; return; }
   $('cxCards').innerHTML=h.map(c=>{ const p=cxPrice(c.ticker), v=p!=null?num(c.spendable)*p:null;
-    return `<div class="glass cx-card" onclick="cxDetail('${c.id}')"><div class="cx-ct">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span></div><span style="margin-left:auto">${cxTag(c)}</span></div>
+    return `<div class="glass cx-card" onclick="cxDetail('${esc(c.id)}')"><div class="cx-ct">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span></div><span style="margin-left:auto">${cxTag(c)}</span></div>
       <div class="cx-bal">${esc(c.spendable)}<small>${esc(c.ticker)}</small></div><div class="cx-val">${v!=null?'≈ '+cxN(v,4)+' GNR':'&nbsp;'}${c.pending&&c.pending!=='0'?' · '+esc(c.pending)+' pending':''}</div>
-      <div class="cx-acts" onclick="event.stopPropagation()"><button class="btn" onclick="cxSendCoin('${c.id}')">Send</button><button class="btn" onclick="cxGo('send')">Receive</button><button class="btn" onclick="cxTrade('${c.id}')">Trade</button></div></div>`; }).join('');
+      <div class="cx-acts" onclick="event.stopPropagation()"><button class="btn" onclick="cxSendCoin('${esc(c.id)}')">Send</button><button class="btn" onclick="cxGo('send')">Receive</button><button class="btn" onclick="cxTrade('${esc(c.id)}')">Trade</button></div></div>`; }).join('');
 }
 function renderCxAll(){
   const q=($('cxQ').value||'').trim().toLowerCase();
   const list=(CN.all||[]).filter(c=>cxAllF!=='verified'||c.verified).filter(c=>!q||String(c.ticker).toLowerCase().includes(q)||String(c.name).toLowerCase().includes(q));
-  $('cxAll').innerHTML=list.length?list.map(c=>{ const p=cxPrice(c.ticker); return `<div class="cx-row">${cxAv(c)}<div><b>${esc(c.ticker)}</b> ${cxTag(c)}<span class="sub">${esc(c.name)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">in circulation</span></div><div class="r">${p!=null?cxN(p,6)+' GNR':'-'}<span class="sub"><button class="linkbtn" onclick="cxDetail('${c.id}')">Details</button></span></div></div>`; }).join(''):`<p class="muted">${(CN.all||[]).length?'No coin matches.':'No coins on chain yet.'}</p>`;
+  $('cxAll').innerHTML=list.length?list.map(c=>{ const p=cxPrice(c.ticker); return `<div class="cx-row">${cxAv(c)}<div><b>${esc(c.ticker)}</b> ${cxTag(c)}<span class="sub">${esc(c.name)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">in circulation</span></div><div class="r">${p!=null?cxN(p,6)+' GNR':'-'}<span class="sub"><button class="linkbtn" onclick="cxDetail('${esc(c.id)}')">Details</button></span></div></div>`; }).join(''):`<p class="muted">${(CN.all||[]).length?'No coin matches.':'No coins on chain yet.'}</p>`;
 }
 document.querySelectorAll('#cxAllF button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cxAllF button').forEach(x=>x.classList.toggle('on',x===b)); cxAllF=b.dataset.f; renderCxAll(); });
 $('cxQ').oninput=renderCxAll;
@@ -1747,7 +1835,7 @@ function cxSendCoin(id){ cxCoin=id; cxGo('send'); renderCxPick(); $('cxTo').focu
 function cxTrade(id){ cxMk=id; cxGo('market'); }
 function renderCxPick(){
   const h=CN.holdings||[]; if(!cxCoin&&h.length) cxCoin=h[0].id;
-  $('cxPick').innerHTML=h.length?h.map(c=>`<button type="button" class="${c.id===cxCoin?'on':''}" onclick="cxCoin='${c.id}';renderCxPick()">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span> ${esc(c.spendable)}</span></div></button>`).join(''):'<span class="muted">You hold no coins yet.</span>';
+  $('cxPick').innerHTML=h.length?h.map(c=>`<button type="button" class="${c.id===cxCoin?'on':''}" onclick="cxCoin='${esc(c.id)}';renderCxPick()">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span> ${esc(c.spendable)}</span></div></button>`).join(''):'<span class="muted">You hold no coins yet.</span>';
   const c=h.find(x=>x.id===cxCoin); $('cxUnit').textContent=c?c.ticker:'-'; cxSum();
 }
 function cxMax(){ const c=(CN.holdings||[]).find(x=>x.id===cxCoin); if(c){ $('cxAmt').value=String(c.spendable).replace(/,/g,''); cxSum(); } }
@@ -1766,18 +1854,18 @@ async function coinSend(){
 async function loadCoinMarket(){ try{ CM=await api('/api/coin/market'); }catch(e){ return; } renderCxMarket(); }
 function renderCxMarket(){
   const all=CN.all||[]; if(!cxMk&&all.length) cxMk=(all.find(c=>c.verified)||all[0]).id;
-  $('cxMkCoins').innerHTML=all.length?all.map(c=>`<button type="button" class="${c.id===cxMk?'on':''}" onclick="cxMk='${c.id}';renderCxMarket()">${cxAv(c)}${esc(c.ticker)}</button>`).join(''):'<span class="muted">No coins on chain yet.</span>';
+  $('cxMkCoins').innerHTML=all.length?all.map(c=>`<button type="button" class="${c.id===cxMk?'on':''}" onclick="cxMk='${esc(c.id)}';renderCxMarket()">${cxAv(c)}${esc(c.ticker)}</button>`).join(''):'<span class="muted">No coins on chain yet.</span>';
   const c=all.find(x=>x.id===cxMk); $('cxOUnit').textContent=c?c.ticker:'-';
   const p=c?cxPrice(c.ticker):null, m=c?(CM.markets||{})[c.ticker]:null;
   $('cxMkPrice').innerHTML=c?`<b>${p!=null?cxN(p,6)+' GNR':'No price yet'}</b><span>${m?'average of '+m.swaps+' completed swap'+(m.swaps===1?'':'s'):'the first completed swap sets it'}</span>`:'';
   const offers=(CM.offers||[]).filter(o=>c&&o.coin===c.id);
-  const row=(o,act)=>`<div class="cx-row t4"><div><b>${esc(o.units)}</b> ${esc(o.ticker)}<span class="sub">${o.mine?'your order':o.online?'online':'offline'}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">GNR each</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR total</span></div><div class="r">${o.mine?`<button class="btn" onclick="cnCancel('${o.id}')">Cancel</button>`:o.online?`<button class="btn btn-primary" onclick="cnTake('${o.id}')">${act}</button>`:'<span class="muted">-</span>'}</div></div>`;
+  const row=(o,act)=>`<div class="cx-row t4"><div><b>${esc(o.units)}</b> ${esc(o.ticker)}<span class="sub">${o.mine?'your order':o.online?'online':'offline'}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">GNR each</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR total</span></div><div class="r">${o.mine?`<button class="btn" onclick="cnCancel('${esc(o.id)}')">Cancel</button>`:o.online?`<button class="btn btn-primary" onclick="cnTake('${esc(o.id)}')">${act}</button>`:'<span class="muted">-</span>'}</div></div>`;
   const asks=offers.filter(o=>o.side==='buy_gnr').sort((a,b)=>a.price-b.price), bids=offers.filter(o=>o.side==='sell_gnr').sort((a,b)=>b.price-a.price);
   $('cxAsks').innerHTML=asks.length?asks.map(o=>row(o,'Buy')).join(''):'<p class="muted">No sell orders.</p>';
   $('cxBids').innerHTML=bids.length?bids.map(o=>row(o,'Sell')).join(''):'<p class="muted">No buy orders.</p>';
   const d=CM.deals||[], mine=(CM.offers||[]).filter(o=>o.mine);
   const stage=s=>s.startsWith('failed')?'stopped':({asked:'starting',half_sent:'waiting for the seller',tx_sent:'waiting for the buyer',submitted:'confirming',done:'done'}[s]||s);
-  $('cxMine').innerHTML=(mine.length||d.length)?mine.map(o=>`<div class="cx-row t4"><div><b>${o.side==='buy_gnr'?'Sell':'Buy'} ${esc(o.units)} ${esc(o.ticker)}</b><span class="sub">open order</span></div><div class="r">${cxN(o.price,6)}<span class="sub">GNR each</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR</span></div><div class="r"><button class="btn" onclick="cnCancel('${o.id}')">Cancel</button></div></div>`).join('')+d.slice(0,10).map(x=>`<div class="cx-row t4"><div><b>${x.role==='buyer'?'Bought':'Sold'} ${esc(x.units)} ${esc(x.ticker)}</b><span class="sub">${esc(stage(x.stage))}${x.stage.startsWith('failed')?': '+esc(x.stage.slice(8)):''}</span></div><div class="r">${esc(x.gnr)}<span class="sub">GNR</span></div><div class="r sub">${x.txid?esc(x.txid.slice(0,10))+'…':''}</div><div></div></div>`).join(''):'<p class="muted">No orders or swaps yet.</p>';
+  $('cxMine').innerHTML=(mine.length||d.length)?mine.map(o=>`<div class="cx-row t4"><div><b>${o.side==='buy_gnr'?'Sell':'Buy'} ${esc(o.units)} ${esc(o.ticker)}</b><span class="sub">open order</span></div><div class="r">${cxN(o.price,6)}<span class="sub">GNR each</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR</span></div><div class="r"><button class="btn" onclick="cnCancel('${esc(o.id)}')">Cancel</button></div></div>`).join('')+d.slice(0,10).map(x=>`<div class="cx-row t4"><div><b>${x.role==='buyer'?'Bought':'Sold'} ${esc(x.units)} ${esc(x.ticker)}</b><span class="sub">${esc(stage(x.stage))}${x.stage.startsWith('failed')?': '+esc(x.stage.slice(8)):''}</span></div><div class="r">${esc(x.gnr)}<span class="sub">GNR</span></div><div class="r sub">${x.txid?esc(x.txid.slice(0,10))+'…':''}</div><div></div></div>`).join(''):'<p class="muted">No orders or swaps yet.</p>';
   cxTotal();
 }
 document.querySelectorAll('#cxSide button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cxSide button').forEach(x=>x.classList.toggle('on',x===b)); cxSideV=b.dataset.s; cxTotal(); });
@@ -1825,7 +1913,7 @@ async function cwDeploy(){
 function renderCxIssued(){
   const m=CN.mine||[];
   $('cxIssuer').textContent='Your issuer key: '+String(CN.issuer||'').slice(0,16)+'… It comes from this wallet\'s 24 words.';
-  $('cxMineIssued').innerHTML=m.length?m.map(c=>`<div class="cx-row t4"><div><b>${esc(c.ticker)}</b><span class="sub">issued ${esc(c.issued)} · burned ${esc(c.burned)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">in circulation</span></div><div class="r">${c.supply==='mintable'||(c.supply==='fixed'&&c.issued==='0')?`<button class="btn btn-primary" onclick="cnIssue('${c.id}')">Issue</button>`:''}</div><div class="r">${c.pause?`<button class="btn" onclick="cnPause('${c.id}',${c.paused===true?'false':'true'})">${c.paused===true?'Resume':'Pause'}</button>`:''}</div></div>`).join(''):'<p class="muted">You have not issued a coin from this wallet.</p>';
+  $('cxMineIssued').innerHTML=m.length?m.map(c=>`<div class="cx-row t4"><div><b>${esc(c.ticker)}</b><span class="sub">issued ${esc(c.issued)} · burned ${esc(c.burned)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">in circulation</span></div><div class="r">${c.supply==='mintable'||(c.supply==='fixed'&&c.issued==='0')?`<button class="btn btn-primary" onclick="cnIssue('${esc(c.id)}')">Issue</button>`:''}</div><div class="r">${c.pause?`<button class="btn" onclick="cnPause('${esc(c.id)}',${c.paused===true?'false':'true'})">${c.paused===true?'Resume':'Pause'}</button>`:''}</div></div>`).join(''):'<p class="muted">You have not issued a coin from this wallet.</p>';
 }
 async function cnIssuerAct(id, action, amount, to){
   const pw=takePass(); window.fxBusy=true;

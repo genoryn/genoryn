@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.37</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.38</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -50,8 +50,8 @@
         <li><a href="#swaps">Atomic swaps</a></li>
         <li><a href="#board">The offer board</a></li>
         <li><a href="#market">Market price</a></li>
-        <li class="toc-group">Coming soon</li>
-        <li><a href="#coins">Quantum coins</a></li>
+        <li class="toc-group">Planned</li>
+        <li><a href="#coins">Quantum tokens</a></li>
         <li class="toc-group">Protocol</li>
         <li><a href="#consensus">Consensus rules</a></li>
         <li><a href="#transactions">Transactions</a></li>
@@ -82,7 +82,7 @@
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Property</th><th>Value</th></tr></thead>
           <tbody>
-            <tr><td data-label="Property">Ticker / unit</td><td data-label="Value">GNR · 1 GNR = 100,000,000 gori</td></tr>
+            <tr><td data-label="Property">Ticker / unit</td><td data-label="Value">GNR · smallest unit: 1 krypton = 0.00000001 GNR</td></tr>
             <tr><td data-label="Property">Block time</td><td data-label="Value">60 seconds (difficulty retargets every block)</td></tr>
             <tr><td data-label="Property">Block reward</td><td data-label="Value">5 GNR, halving every 2,100,000 blocks (about 4 years)</td></tr>
             <tr><td data-label="Property">Maximum supply</td><td data-label="Value">21,000,000 GNR, enforced by every node</td></tr>
@@ -153,7 +153,7 @@ cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS
         <h3>History</h3>
         <p>Paged (15 to 100 entries per page) with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals. Each send has a <b>Proof</b> button for a <a href="#proofs">payment proof</a>.</p>
         <h3>Swap</h3>
-        <p>The GNR price, the <a href="#board">offer board</a> (sell offers, buy offers, swaps in progress, your own), the form to publish an offer, and your swaps with their progress. Taking an offer starts a swap at once; when it is time to pay, a window shows the amount, the address and a QR code. See <a href="#swaps">Atomic swaps</a>.</p>
+        <p>The GNR price, the <a href="#board">offer board</a> (sell offers and buy offers side by side, swaps in progress, your own), the form to publish an offer, and your swaps with their progress. Taking an offer starts a swap at once; when it is time to pay, a window shows the amount, the address and a QR code. See <a href="#swaps">Atomic swaps</a>.</p>
         <h3>Mining</h3>
         <p>Choose <b>Automatic</b>, <b>NVIDIA</b> (CUDA), <b>AMD / Intel</b> (OpenCL) or <b>CPU</b> with a CPU-usage cap, then <b>Start mining</b>. The tab shows your hashrate, your share of the network, expected GNR per day, shares found, accruing rewards, payouts and the <a href="#calculator">mining and price calculator</a>. If the miner stops, the tab shows why (for example a GPU driver error); it is restarted automatically, and after three quick failures in a row the wallet stops retrying and says so. While the miner runs, closing the window keeps the wallet, node and miner running; <b>Quit</b> stops everything.</p>
         <h3>Network</h3>
@@ -377,6 +377,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
       <section id="swaps">
         <h2>Atomic swaps</h2>
         <p>An atomic swap exchanges GNR for bitcoin between two wallets so that either both payments happen or neither does. Both sides lock their coins under the same <b>hash lock</b> (the SHA-256 of a secret) with a <b>timelock</b>: whoever reveals the secret to take one side's coins also lets the other side take theirs, and if nobody does, both refund after their timelocks. No third party ever holds the coins.</p>
+        <p><b>Why swaps with bitcoin.</b> Bitcoin's coins are guarded by elliptic-curve signatures, which a large enough quantum computer could break. An atomic swap lets a bitcoin holder move value into GNR, which is guarded by hash-based proofs instead, straight from their own wallet, and swap back the same way at any time. A swap exchanges bitcoin for GNR at the market price; the bitcoin itself stays on Bitcoin's chain with its new owner.</p>
         <h3>How a swap runs (GNR locked first)</h3>
         <ol class="steps-list">
           <li><b>Agree.</b> A buyer takes a sell offer, or a seller takes a buy offer, on the <a href="#board">offer board</a>. The wallets exchange the swap codes through sealed mailboxes, by themselves, within seconds.</li>
@@ -436,15 +437,15 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
       </section>
 
       <section id="coins">
-        <h2>Quantum coins (coming soon)</h2>
-        <p><b>Coming in a future release.</b> Quantum coins will be coins anyone can issue on Genoryn Krypton, or bring from another network. They will live in the same shielded note tree as GNR and move the same way: every transfer a zk-STARK proof, so the coin, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
+        <h2>Quantum tokens (planned)</h2>
+        <p><b>Planned for a future release. Not live:</b> no token exists on Genoryn Krypton today. Quantum tokens will be tokens anyone can deploy on Genoryn Krypton (stablecoins backed by an issuer's reserves, project and community tokens, tokens brought from other networks). They will live in the same shielded note tree as GNR and move the same way: every transfer a zk-STARK proof, so the token, the amount, the sender and the recipient stay hidden, and nothing that guards them depends on elliptic curves.</p>
         <ul>
-          <li><b>No smart contracts.</b> A coin is a short public declaration of everything its issuer may ever do (supply, burning, pausing). It is hashed into the coin's id, can never change, and every wallet shows it to holders in plain words.</li>
-          <li><b>GNR at the core.</b> Fees are paid in GNR, creating a coin carries a fee paid to the miners, and coins trade against GNR in one atomic transaction between two wallets.</li>
-          <li><b>Supply anyone can audit.</b> Transfers stay private; creating and destroying coins is public.</li>
-          <li><b>Status.</b> The design is implemented and tested, but not active on mainnet: coin transactions are a consensus upgrade whose activation height will be announced with a future release. <code>/v1/info</code> will report it as <code>assets_height</code>.</li>
+          <li><b>No smart contracts.</b> A token is a short public declaration of everything its issuer may ever do (supply, burning, pausing). It is hashed into the token's id, can never change, and every wallet shows it to holders in plain words.</li>
+          <li><b>GNR at the core.</b> Fees are paid in GNR, deploying a token carries a fee paid to the miners, and tokens trade against GNR in one atomic transaction between two wallets.</li>
+          <li><b>Supply anyone can audit.</b> Transfers stay private; creating and destroying tokens is public.</li>
+          <li><b>Status.</b> The design is implemented and tested, but not active on mainnet: token transactions are a consensus upgrade whose activation height will be announced with a future release. <code>/v1/info</code> will report it as <code>assets_height</code>.</li>
         </ul>
-        <p>The wallet's <b>Coins</b> tab explains them and turns on by itself once they are active. Overview: <a href="/coins">genoryn.io/coins</a>. Design: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/assets.md">docs/spec/assets.md</a>.</p>
+        <p>The wallet's <b>Tokens</b> tab explains them and turns on by itself once they are active. Overview: <a href="/tokens">genoryn.io/tokens</a>. Design: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/assets.md">docs/spec/assets.md</a>.</p>
       </section>
 
       <section id="consensus">
@@ -472,7 +473,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
             <tr><td data-label="Item">Transaction</td><td data-label="Size" class="num">~97 KB (at most 160 KB)</td></tr>
             <tr><td data-label="Item">Proving (desktop CPU)</td><td data-label="Time" class="num">~0.5 s</td></tr>
             <tr><td data-label="Item">Verification</td><td data-label="Time" class="num">~2 ms</td></tr>
-            <tr><td data-label="Item">Fee</td><td data-label="Size" class="num">Market rate (<code>/v1/fee</code>); relay floor 10 gori/KB ≈ 0.00001 GNR</td></tr>
+            <tr><td data-label="Item">Fee</td><td data-label="Size" class="num">Market rate (<code>/v1/fee</code>); relay floor 10 krypton/KB ≈ 0.00001 GNR</td></tr>
           </tbody>
         </table></div>
         <p>The proof is bound to the exact transaction through its sighash, which replaces a signature. Transactions expire after 120 blocks if not mined; the wallet then frees the notes they would have spent. Lock transactions (swaps) create a note spendable either by a claim with the secret or by a refund after the timelock.</p>
@@ -574,7 +575,7 @@ sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: system
 
       <section id="api">
         <h2>API reference (REST)</h2>
-        <p>Base URL: your node (<code>http://127.0.0.1:30334</code>) or the public node <code>https://genoryn.io</code>. JSON unless marked binary. Amounts are in gori (1 GNR = 10^8), prices in sat per GNR.</p>
+        <p>Base URL: your node (<code>http://127.0.0.1:30334</code>) or the public node <code>https://genoryn.io</code>. JSON unless marked binary. Amounts are in krypton (1 GNR = 10^8), prices in sat per GNR.</p>
         <h3>Chain</h3>
         <div class="table-wrap"><table class="data api">
           <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
@@ -797,7 +798,7 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
           <dt>Timelock</dt><dd>The height after which locked coins can be refunded to their owner.</dd>
           <dt>Offer board</dt><dd>The node service listing swap offers and passing sealed messages.</dd>
           <dt>Stock-to-flow</dt><dd>Coins in existence divided by coins mined in the next year.</dd>
-          <dt>gori</dt><dd>The smallest unit: 1 GNR = 100,000,000 gori.</dd>
+          <dt>krypton</dt><dd>The smallest unit of GNR, as the satoshi is of bitcoin: 1 GNR = 100,000,000 krypton. Amounts in the API are whole numbers of krypton.</dd>
         </dl>
       </section>
     </article>

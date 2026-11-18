@@ -2,7 +2,7 @@
    Uses only semantic tokens from tokens.css. */
 *, *::before, *::after { box-sizing: border-box; }
 html { background: var(--bg-app); -webkit-text-size-adjust: 100%; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
-body { margin: 0; color: var(--text-primary); font: 15px/1.55 var(--font-sans); min-height: 100vh; overflow-x: hidden; background: transparent; }
+body { margin: 0; color: var(--text-primary); font: 16px/1.6 var(--font-sans); min-height: 100vh; overflow-x: hidden; background: transparent; }
 img, svg { max-width: 100%; }
 a { color: inherit; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -92,7 +92,8 @@ html[data-fx="low"] .drift { animation: none !important; }
 }
 
 /* Layout helpers. */
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 22px; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 0 28px; }
+@media (min-width: 1900px) { .wrap { max-width: 1560px; } }
 .row-flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .row-flex > *, .grid > * { min-width: 0; }
 .hidden { display: none !important; }
