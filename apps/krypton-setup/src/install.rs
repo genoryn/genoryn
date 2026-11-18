@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/payload.zip"));
 pub const APP_NAME: &str = "Genoryn Krypton";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(windows)]
 const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\GenorynKrypton";
 pub const UNINSTALLER: &str = "Uninstall Genoryn Krypton.exe";
 

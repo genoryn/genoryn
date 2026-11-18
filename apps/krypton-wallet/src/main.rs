@@ -1770,6 +1770,7 @@ fn running_instance(dir: &std::path::Path) -> Option<String> {
 }
 
 /// Links the embedded window may hand to the system browser.
+#[cfg(windows)]
 fn project_link(url: &str) -> bool {
     let path = url.strip_prefix("https://").unwrap_or("");
     (url.starts_with("https://genoryn.io/") || url.starts_with("https://github.com/genoryn/"))
