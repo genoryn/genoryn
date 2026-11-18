@@ -4,6 +4,14 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.42](https://github.com/genoryn/genoryn/releases/tag/v1.0.42) · 2026-11-18: A sell offer commits its GNR for a week; nothing waits without saying why
+
+- Publishing a sell offer commits its GNR for 7 days. Within that time it can be sold or put into another sell offer at once, but not sent, also after you cancel or the offer runs its time. The wallet shows this before you publish.
+- A seller whose buyer did not pay sees the block at which the GNR returns and about how many hours that is. The GNR is safe; nobody can open such a lock sooner, and the wallet takes it back by itself.
+- Taking a buy offer that the other wallet does not answer is shown while it waits and ends by itself after ten minutes. Before, it stayed open without being shown.
+- A swap that ran out ends even while the Bitcoin server cannot be reached, and a swap that waits for that server says so.
+- A seller whose bitcoin claim lost to the buyer's refund takes the GNR back at its refund block.
+
 ## [1.0.41](https://github.com/genoryn/genoryn/releases/tag/v1.0.41) · 2026-11-18: Buy offers with the bitcoin deposited: the swap completes by itself
 
 - A buy offer is now paid in advance, to an address of the buyer's own wallet. The wallet shows the address and the amount, and publishes the offer by itself once the bitcoin has one confirmation.

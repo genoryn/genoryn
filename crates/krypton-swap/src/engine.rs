@@ -868,8 +868,16 @@ impl<G: ChainSource> Engine<'_, G> {
         if swaps.iter().all(|s| s.stage.finished() && !s.watching()) {
             return Ok(swaps);
         }
-        let btc_tip = self.btc.tip()?;
-        let gnr_tip = self.gnr_tip()?;
+        // The chains may be out of reach (a Bitcoin server that does not answer, a wallet
+        // that is not synced). What depends only on the clock still happens: a swap that
+        // ran out ends, instead of staying open for as long as the server is away.
+        let tips = self
+            .btc
+            .tip()
+            .map_err(|e| {
+                format!("the Bitcoin server did not answer ({e}); see Swap, Bitcoin connection")
+            })
+            .and_then(|b| Ok((b, self.gnr_tip().map_err(|e| e.to_string())?)));
         let t = now();
         let mut changed = false;
         for s in swaps.iter_mut() {
@@ -911,7 +919,8 @@ impl<G: ChainSource> Engine<'_, G> {
                 });
             }
             // Paid after all, into a given-up swap: refund it at the timelock.
-            if s.watching()
+            if let Ok((btc_tip, _)) = tips
+                && s.watching()
                 && btc_tip < s.btc_refund_height.unwrap_or(0) + 1_000
                 && let Ok(addr) = s.htlc_address()
                 && let Some(u) = self
@@ -938,6 +947,16 @@ impl<G: ChainSource> Engine<'_, G> {
                 changed |= before != (s.stage, s.status.clone());
                 continue;
             }
+            let (btc_tip, gnr_tip) = match &tips {
+                Ok(x) => *x,
+                Err(e) => {
+                    s.say(format!(
+                        "Waiting: {e}. The swap carries on by itself as soon as that works again."
+                    ));
+                    changed |= before != (s.stage, s.status.clone());
+                    continue;
+                }
+            };
             let r = match (s.role, s.gnr_first()) {
                 (Role::BtcSeller, true) => self.step2_buyer(s, btc_tip, gnr_tip),
                 (Role::GnrSeller, true) => self.step2_seller(s, btc_tip, gnr_tip),
@@ -1451,6 +1470,29 @@ impl<G: ChainSource> Engine<'_, G> {
                     self.wallet.refund_lock(self.gnr, &cm)?;
                     s.stage = Stage::Refunding;
                     s.say("Nobody paid in time: refunding the GNR.");
+                } else if s.stage == Stage::Locked
+                    && let Some(l) = &lock
+                {
+                    let left = gnr_refund.saturating_sub(gnr_tip + 1);
+                    match l.height {
+                        None => s.say("The GNR lock is sent; waiting for it to be in a block."),
+                        Some(h) => {
+                            let (confs, need) =
+                                ((gnr_tip + 1).saturating_sub(h), t.gnr_confs_for(s.gnr));
+                            if confs < need {
+                                s.say(format!(
+                                    "GNR locked for the buyer at block {h}: {confs} of {need} confirmations, then they pay."
+                                ));
+                            } else if s.created + DEPOSIT_TIMEOUT_SECS + 3600 >= now() {
+                                s.say("GNR locked and confirmed. Waiting for the buyer's bitcoin; if it does not come, the GNR returns to you.");
+                            } else {
+                                s.say(format!(
+                                    "No bitcoin was paid in time. Your GNR is safe: it comes back to you by itself at block {gnr_refund}, in about {left} blocks (roughly {} hours). Nothing needs doing; keep the wallet running then.",
+                                    left / 60 + 1
+                                ));
+                            }
+                        }
+                    }
                 }
             }
             Stage::Deposited => {
@@ -1514,14 +1556,32 @@ impl<G: ChainSource> Engine<'_, G> {
                             "Done: received {} BTC.",
                             Amount::from_sat(s.sats).to_btc()
                         ));
+                    } else if let Some(l) = &lock
+                        && refund_due(l)
+                    {
+                        // The buyer took the bitcoin back before our claim confirmed. If
+                        // they have not claimed the GNR by its refund height, it is ours.
+                        let cm = l.cm;
+                        self.wallet.refund_lock(self.gnr, &cm)?;
+                        s.stage = Stage::Refunding;
+                        s.say("The bitcoin went back to the buyer before it could be taken: refunding the GNR.");
                     } else {
-                        s.say("The payment was spent by another transaction (refunded?).");
+                        s.say(format!(
+                            "The bitcoin went back to the buyer before it could be taken. If the buyer does not claim the GNR, it returns to you from block {gnr_refund}."
+                        ));
                     }
                     return Ok(());
                 }
                 // Still unconfirmed: send it again at today's fee (it replaces the old one).
                 if t.may_claim_btc(&tl, btc_tip) {
                     let _ = self.btc_claim(s);
+                } else if let Some(l) = &lock
+                    && refund_due(l)
+                {
+                    let cm = l.cm;
+                    self.wallet.refund_lock(self.gnr, &cm)?;
+                    s.stage = Stage::Refunding;
+                    s.say("The bitcoin could not be taken in time: refunding the GNR.");
                 }
             }
             Stage::Done => {

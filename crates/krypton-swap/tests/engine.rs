@@ -1097,3 +1097,74 @@ fn gnr_locked_by_another_copy_of_the_wallet_is_seen_and_taken_back() {
     assert_eq!(copy.wallet.locked_balance(), 0);
     assert!(copy.wallet.balance().total >= before + GNR - a.swap().refund_fee.unwrap());
 }
+
+/// A Bitcoin server that does not answer.
+struct Down;
+
+impl BtcChain for Down {
+    fn tip(&self) -> Result<u32> {
+        bail!("connection refused")
+    }
+    fn outputs(&self, _: &Address) -> Result<Vec<Utxo>> {
+        bail!("connection refused")
+    }
+    fn is_spent(&self, _: &OutPoint) -> Result<bool> {
+        bail!("connection refused")
+    }
+    fn spender(&self, _: &OutPoint, _: u32) -> Result<Option<Transaction>> {
+        bail!("connection refused")
+    }
+    fn broadcast(&self, _: &Transaction) -> Result<Txid> {
+        bail!("connection refused")
+    }
+    fn fee_rate(&self) -> Result<bitcoin::FeeRate> {
+        bail!("connection refused")
+    }
+}
+
+/// While the Bitcoin server cannot be reached a swap says so, and a swap that ran out
+/// still ends: nothing stays open for as long as the server is away.
+#[test]
+fn a_swap_ends_in_time_without_a_bitcoin_server() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    agreed(&mut a, &mut b, &src, &btc, &chain);
+    let blocks = |h: u64| -> Result<Vec<GnrTx>> { Ok(chain.block_at(h)?.context("block")?.txs) };
+    let down = |w: &mut Wallet| {
+        Engine {
+            wallet: w,
+            gnr: &src,
+            btc: &Down,
+            btc_network: BtcNet::Regtest,
+            timing: Timing::TEST,
+            block_txs: &blocks,
+        }
+        .step(&[])
+        .expect("a server that is away is not an error of the round")
+    };
+    for side in [&mut a, &mut b] {
+        let s = down(&mut side.wallet).pop().unwrap();
+        assert_eq!(s.stage, Stage::Accepted);
+        assert!(
+            s.status.contains("Bitcoin server did not answer"),
+            "{}",
+            s.status
+        );
+    }
+    assert_eq!(src.pool.borrow().len(), 0, "nothing is locked meanwhile");
+    // Hours later the server is still away. Both swaps end; nothing was locked or paid.
+    for side in [&mut a, &mut b] {
+        let mut v = load(&side.wallet);
+        v[0].created -= 5 * 3600;
+        krypton_swap::engine::save(&mut side.wallet, &v).unwrap();
+        let s = down(&mut side.wallet).pop().unwrap();
+        assert_eq!(s.stage, Stage::Failed, "{}", s.status);
+        assert!(s.ended_unlocked());
+    }
+}

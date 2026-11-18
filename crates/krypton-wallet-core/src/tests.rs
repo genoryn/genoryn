@@ -733,7 +733,8 @@ fn notes_set_aside_are_not_spent() {
     assert_eq!(a.balance().held, amount);
     // Released for later: still held until then, but a new offer takes it at once and
     // without another transfer.
-    a.release(&cm, Some(krypton_core::now() + 3600)).unwrap();
+    let until = krypton_core::now() + 3600;
+    a.release(&cm, Some(until)).unwrap();
     assert_eq!(a.balance().held, amount);
     assert!(a.holds()[0].until.is_some());
     assert_eq!(
@@ -748,19 +749,39 @@ fn notes_set_aside_are_not_spent() {
     let mut a = Wallet::open(&path, "password-a").unwrap();
     assert_eq!(a.holds().len(), 1);
     assert_eq!(a.balance().held, amount);
-    // A hold that has run out holds nothing.
-    a.release(&cm, Some(krypton_core::now().saturating_sub(1)))
-        .unwrap();
-    assert!(a.holds().is_empty());
-    assert_eq!(a.balance().held, 0);
-    // Released at once: a free note of exactly the amount is taken as it is.
+    // The note was still committed when it went into the new offer. It stays committed
+    // until then when that offer ends, however it ends: at once, or for a shorter time.
+    a.release(&cm, None).unwrap();
+    assert_eq!(a.holds()[0].until, Some(until));
+    assert_eq!(a.balance().held, amount);
+    a.release(&cm, Some(until - 600)).unwrap();
+    assert_eq!(a.holds()[0].until, Some(until));
+    // A third offer and a longer commitment: the longer one stands.
     assert_eq!(
         a.set_aside(&src, amount, DEFAULT_FEE, "offer-c").unwrap(),
         Aside::Ready(cm)
     );
+    a.release(&cm, Some(until + 600)).unwrap();
+    assert_eq!(a.holds()[0].until, Some(until + 600));
     a.release(&cm, None).unwrap();
-    assert_eq!(a.balance().held, 0);
-    assert_eq!(a.balance().spendable, a.balance().total);
+    assert_eq!(a.holds()[0].until, Some(until + 600));
+    assert!(
+        a.send(&src, &to, a.balance().spendable, DEFAULT_FEE, "")
+            .is_err()
+    );
+    // A note that was never committed is free the moment its offer is withdrawn.
+    let free = a.balance().spendable;
+    let other = 30_000_000;
+    let Aside::Pending { cm: cm2, .. } = a.set_aside(&src, other, DEFAULT_FEE, "offer-d").unwrap()
+    else {
+        panic!("a new note was needed");
+    };
+    mine(&src, &to);
+    a.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.balance().held, amount + other);
+    a.release(&cm2, None).unwrap();
+    assert_eq!(a.balance().held, amount);
+    assert_eq!(a.balance().spendable, free - DEFAULT_FEE);
 }
 
 #[test]

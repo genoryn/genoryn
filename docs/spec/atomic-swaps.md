@@ -385,18 +385,32 @@ spends them for good. An offer counts as taken only once its swap exists in the 
 a request the wallet accepted just before it was closed is picked up again when it starts:
 the swap carries on and its codes reach the buyer.
 
-**Cancelling and running out** (wallet rules, shown before publishing). Cancelling takes the
-offer off the board at once; the wallet keeps the note out of sends for 24 hours, or until
-the offer would have ended if that is sooner (`CANCEL_HOLD_SECS`), and a new offer of the same
-amount takes it at once, with no new transfer. An offer that runs its time, or that the board
-removed, frees its note at once; so does a taken offer whose swap ended before anything was
-locked. The wallet does this in every background round, whether or not the board or a
-Bitcoin server can be reached (`reconcile_holds`), and it also frees a note whose offer it
-has no record of: no GNR stays set aside for nothing.
+**A week's commitment** (wallet rule from 1.0.42, shown before publishing; `COMMIT_SECS`).
+GNR that the board listed in a sell offer is committed for 7 days from that moment
+(`Reserve::listed`). Sold within the week, it goes to the buyer. If the offer is cancelled,
+runs its time, is taken down by the board, or its swap ends before anything was locked, the
+wallet keeps the note out of sends until the week is over (`commit_until`); a new sell offer
+of the same amount takes it at once, with no new transfer, and starts a new week. A note that
+was still committed when it went into a new offer stays committed at least as long as before,
+however the new offer ends (`Hold::keep`). GNR that never reached the board is free at once,
+and so is a note whose offer the wallet has no record of (`reconcile_holds`, run in every
+background round, with or without the board). Offers published before 1.0.42 keep the rule
+they were published under: 24 hours after a cancellation, or the offer's end if sooner.
 
-The 24 hours are a rule of the wallet and not of the chain, so they cannot be forced on
-modified software, or on a wallet restored from its recovery phrase. What the chain and the
-board do guarantee is that an offer whose GNR moved is no longer listed.
+This is a rule of the wallet and not of the chain. It cannot be forced on modified software
+or on a wallet restored from its recovery phrase, and no consensus rule could close that gap
+for good: the chain does not see whether a sale was paid in bitcoin, so a seller who wanted
+out could always sell to themselves. Locking the note on chain for a week would hold, but
+nobody could buy it then: a swap's lock names the buyer's outputs, which do not exist before
+there is a buyer. What the chain and the board do guarantee is that an offer whose GNR moved
+is no longer listed.
+
+**Nothing waits without saying why** (1.0.42). A seller's swap whose buyer did not pay
+shows the refund block and the hours until then; the lock cannot be opened sooner by anyone.
+A take of a buy offer that its maker's wallet does not answer ends after ten minutes
+(`TAKE_ANSWER_SECS`) and is shown meanwhile. `Engine::step` ends swaps that ran out even
+while the Bitcoin server cannot be reached, and says so on the swaps that wait for it. A
+seller whose bitcoin claim lost to the buyer's refund takes the GNR back at its refund height.
 
 **What this does not solve.** A taker can still take an offer and never pay: the seller's GNR
 then waits in its lock for the refund height. That is the free option every atomic swap gives

@@ -562,7 +562,7 @@ header{padding:14px 30px}
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
         <div class="row hidden" id="bLockRow">Locked in swaps<b id="bLock">0</b></div>
         <div class="row hidden" id="bResRow" title="Set aside in notes of their own and proven to the board, so whoever takes your sell offers finds the GNR at once. It cannot be sent while the offers are open.">Set aside for your sell offers<b id="bRes">0</b></div>
-        <div class="row hidden" id="bCoolRow" title="GNR of a cancelled sell offer is free again 24 hours after the cancellation. You can put it into a new offer at once.">Released after a cancelled offer<b id="bCool">0</b></div>
+        <div class="row hidden" id="bCoolRow" title="GNR that was listed in a sell offer is committed for 7 days from the day the offer was published. You can put it into a new offer at once.">Committed by an ended sell offer<b id="bCool">0</b></div>
         <div class="row hidden" id="bIncRow">Incoming, not confirmed yet<b id="bInc">0</b></div>
         <p id="busy" class="warn"></p>
       </div>
@@ -1621,7 +1621,7 @@ const SW_AT2={requested:1,accepted:2,locked:3,await_deposit:3,deposited:4,claimi
 /* The wallet pays the contract itself (the bitcoin was deposited with the buy offer), unless that deposit fell short. */
 const swAuto=s=>!!s.auto_pay&&!/yourself/.test(s.status||'');
 function swLabel2(s){ const buy=s.role==='btc_seller';
-  if(s.peer_gone) return 'Not paid · GNR returns';
+  if(s.peer_gone) return 'Not paid · GNR returns by itself';
   if(s.stage==='await_deposit'&&swAuto(s)) return 'Paying by itself';
   return ({requested:'Waiting for the seller', accepted:buy?'Waiting for the GNR lock':'Locking the GNR', locked:'GNR locked · waiting for payment',
     await_deposit:'Pay now', deposited:buy?'Paid · waiting for the seller':'Payment received', claiming:buy?'Claiming your GNR':'Taking the bitcoin',
@@ -1722,9 +1722,9 @@ async function loadBoard(){
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
   $('bdVol').textContent=(m.trades||0)+' done · '+(m.pending||0)+' in progress';
   renderBook(); renderMine(); bdPer(); swTotals();
-  $('swTakes').innerHTML=(BD.my_takes||[]).map(o=>`<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin('btc','coin-pair')}${coin('gnr','coin-pair')}</span><b>Buy ${esc(o.gnr_text)} GNR</b><span>for ${coin('btc','coin-sm')}${esc(o.btc_text)} BTC</span><span class="pill">${o.waiting?'Waiting for your bitcoin':'Called off'}</span></div>
+  $('swTakes').innerHTML=(BD.my_takes||[]).map(o=>`<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin('btc','coin-pair')}${coin('gnr','coin-pair')}</span><b>${o.sell?'Sell':'Buy'} ${esc(o.gnr_text)} GNR</b><span>for ${coin('btc','coin-sm')}${esc(o.btc_text)} BTC</span><span class="pill">${o.waiting?(o.fund?'Waiting for your bitcoin':'Waiting for an answer'):'Ended'}</span></div>
     <p class="swc-status">${esc(o.status||'')}</p>
-    ${o.waiting?`<div class="swc-acts"><button class="btn btn-primary" onclick="showTakeId('${esc(o.id)}')">Deposit address</button><button class="btn" onclick="boardUntake('${esc(o.id)}')">Call off</button><span class="muted">The swap starts by itself once the bitcoin has one confirmation.</span></div>`:''}</div>`).join('');
+    ${o.waiting?`<div class="swc-acts">${o.fund?`<button class="btn btn-primary" onclick="showTakeId('${esc(o.id)}')">Deposit address</button>`:''}<button class="btn" onclick="boardUntake('${esc(o.id)}',${o.fund?1:0})">Call off</button><span class="muted">${o.fund?'The swap starts by itself once the bitcoin has one confirmation.':'Nothing is locked or paid yet.'}</span></div>`:''}</div>`).join('');
 }
 /* What the board holds, in bitcoin and in dollars: offers on each side, swaps running, swaps done. */
 function swTotals(){
@@ -1791,7 +1791,7 @@ function renderMine(){
   const open=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired);
   const cool=S.cooling||[];
   $('bdMine').innerHTML=(open.length?`<label>Your open offers</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?'Selling':'Buying'} ${esc(o.gnr_text)} GNR · ${fmtPx(o.price)}${o.preparing?'<em>'+esc(o.status||'Preparing.')+'</em>':''}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">Cancel</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">and ${open.length-3} more under Mine</button>`:''):'')
-    +(cool.length?`<div class="bd-cool"><b>${gnrShort(cool.reduce((a,c)=>a+Number(c.value||0),0))} GNR from cancelled offers</b>${cool.slice(0,3).map(c=>`<span>${gnrShort(c.value)} GNR · free ${fmtTime(c.until)}</span>`).join('')}<em>You can put it into a new offer now.</em></div>`:'');
+    +(cool.length?`<div class="bd-cool"><b>${gnrShort(cool.reduce((a,c)=>a+Number(c.value||0),0))} GNR committed by ended offers</b>${cool.slice(0,3).map(c=>`<span>${gnrShort(c.value)} GNR · free ${fmtTime(c.until)}</span>`).join('')}<em>You can put it into a new offer now.</em></div>`:'');
 }
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
 $('bdSort').onchange=e=>{ BDV.sort=e.target.value; BDV.page=0; renderBook(); };
@@ -1865,11 +1865,11 @@ async function recoverBtc(){
   }catch(e){ toast(e.message,true) }
 }
 /* The rules of an offer, shown before it is published. */
-function bdRulesSell(g){ const h=Math.round((BD.hold_secs||86400)/3600); return `<div class="rules"><b>How a sell offer works</b><ol>
+function bdRulesSell(g){ const h=Math.round((BD.hold_secs||604800)/86400); return `<div class="rules"><b>How a sell offer works</b><ol>
   <li><b>Your GNR is set aside first.</b> ${esc(g)} GNR and the fee move into a note of their own (if your GNR is in many small notes, they are merged first, which takes a few blocks). The board lists the offer only after it has checked a zero-knowledge proof that this GNR is there: nobody can offer GNR they do not have.</li>
   <li><b>It stays set aside while the offer is open.</b> It cannot be sent or put into another offer. If it moves anyway, the board takes the offer down at once.</li>
-  <li><b>If you cancel,</b> the GNR is free again ${h} hours later, or when the offer would have ended if that is sooner. You can put it into a new offer at once.</li>
-  <li><b>If the offer runs its time</b> without a buyer, the GNR is free at once.</li>
+  <li><b>Publishing commits this GNR for ${h} days.</b> Within that time it can be sold, or put into another sell offer, but not sent. If you cancel, or the offer runs its time without a buyer, the GNR can be sent again ${h} days after the day you published. Offer only what you mean to sell.</li>
+  <li><b>You can change your mind about the price:</b> cancel and publish again. The same GNR goes into the new offer at once, and its ${h} days start again.</li>
   <li><b>When a buyer takes it,</b> your wallet locks exactly this GNR for them on chain within seconds. They pay only after that lock has confirmed. If they never pay, it comes back to you when the lock ends, about 32 hours later.</li>
   <li><b>Keep the wallet running.</b> Offers can be taken only while it is online (a green dot); offline, the offer stays listed and the GNR stays set aside.</li></ol></div>`; }
 function bdRulesBuy(){ return `<div class="rules"><b>How a buy offer works</b><ol>
@@ -1897,10 +1897,10 @@ async function boardTake(id, side, g, b){
     else toast('Swap started: follow it under Your swaps');
     loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
-async function boardUntake(id){
-  if(!await ask({title:'Call off this purchase?', icon:'swap', ok:'Call it off', cancel:'Keep it',
-    body:'<p class="mtext">Nothing has started yet. If you have already sent bitcoin to the address, the wallet sends it back to you, less the network fee; keep the wallet running until then.</p>'})) return;
-  try{ await api('/api/board/untake',{id}); toast('Purchase called off'); loadBoard(); }catch(e){ toast(e.message,true) } }
+async function boardUntake(id, funded){
+  if(!await ask({title:'Call this off?', icon:'swap', ok:'Call it off', cancel:'Keep it',
+    body:'<p class="mtext">Nothing has started yet, and nothing is locked.'+(funded?' If you have already sent bitcoin to the address, the wallet sends it back to you, less the network fee; keep the wallet running until then.':'')+'</p>'})) return;
+  try{ await api('/api/board/untake',{id}); toast('Called off'); loadBoard(); }catch(e){ toast(e.message,true) } }
 function showTakeId(id){ const o=(BD.my_takes||[]).find(x=>x.id===id); if(o&&o.fund) showDeposit(Object.assign({fee_text:btcFmt(Math.max(0,o.fund.need-o.sats)/1e8)}, o.fund)); }
 /* Before activation: explain instead of a dead button. */
 function bdNotYet(){
@@ -1910,9 +1910,9 @@ function bdNotYet(){
     body:`<p class="mtext">${left!=null?`That is <b>${left.toLocaleString()} blocks</b> from now, about <b>${Math.ceil(left/60)} hours</b>. `:''}Until then you can publish your own offers (they already count for the market price), and they can be taken as soon as swaps are live. Keep the wallet updated and running.</p>`});
 }
 async function boardCancel(id){
-  const o=(BD.my_offers||[]).find(x=>x.id===id)||{}, h=Math.round((BD.hold_secs||86400)/3600);
+  const o=(BD.my_offers||[]).find(x=>x.id===id)||{}, h=Math.round((BD.hold_secs||604800)/86400);
   if(o.side==='sell_gnr' && o.preparing===false && !await ask({title:'Cancel this offer?', icon:'swap', ok:'Cancel the offer', cancel:'Keep it',
-    body:`<p class="mtext">The offer is taken off the board. Its <b>${esc(o.gnr_text||'')} GNR is free again in ${h} hours</b>, or when the offer would have ended if that is sooner. You can put it into a new offer at once.</p>`})) return;
+    body:`<p class="mtext">The offer is taken off the board. Its <b>${esc(o.gnr_text||'')} GNR stays committed until ${h} days after you published the offer</b>: until then it cannot be sent, but you can put it into a new offer at once.</p>`})) return;
   if(o.fund && !o.fund.closed && !await ask({title:'Cancel this offer?', icon:'swap', ok:'Cancel the offer', cancel:'Keep it',
     body:`<p class="mtext">The offer is taken off the board. ${o.fund.seen>0?'Its <b>'+esc(o.fund.seen_text)+' BTC is sent back to '+esc(o.fund.back_to)+'</b> within a minute, less the network fee of that transaction.':'No bitcoin has arrived at its address yet; if a payment still arrives there in the next three days, the wallet sends it back to '+esc(o.fund.back_to)+'.'} Keep the wallet running until then.</p>`})) return;
   try{ await api('/api/board/cancel',{id}); toast(o.fund?'Offer cancelled; its bitcoin goes back to you':'Offer cancelled'); loadBoard(); refresh(); }catch(e){ toast(e.message,true) } }

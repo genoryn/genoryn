@@ -178,7 +178,8 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         .map(|s| {
             let mut v = view(s, linked.contains(&s.id));
             // The buyer gave up after our GNR was locked: say so, and when it returns.
-            if gone.contains(&s.id)
+            let late = s.created + engine::DEPOSIT_TIMEOUT_SECS + 3600 < krypton_core::now();
+            if (gone.contains(&s.id) || late)
                 && s.role == engine::Role::GnrSeller
                 && s.stage == Stage::Locked
                 && s.deposit.is_none()
@@ -186,8 +187,9 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
             {
                 v["peer_gone"] = json!(true);
                 v["status"] = json!(format!(
-                    "The buyer cancelled or did not pay in time. Nothing was paid, and your GNR comes back to you by itself at block {h} (in about {} blocks, one a minute). Keep the wallet running then.",
-                    h.saturating_sub(tip + 1)
+                    "The buyer cancelled or did not pay in time. Nothing was paid. Your GNR is safe: it comes back to you by itself at block {h}, in about {} blocks (roughly {} hours). Nothing needs doing; keep the wallet running then.",
+                    h.saturating_sub(tip + 1),
+                    h.saturating_sub(tip + 1) / 60 + 1
                 ));
             }
             v

@@ -208,12 +208,47 @@ struct Reserve {
     released: bool,
     #[serde(default)]
     free_at: Option<u64>,
+    /// When the board first listed the offer (unix seconds; 0: never, or before 1.0.42).
+    #[serde(default)]
+    listed: u64,
 }
 
 /// GNR of a cancelled sell offer can be sent again this long after the cancellation (or
 /// when the offer would have ended, if that is sooner). It can go into a new offer at
 /// once. This is a rule of the wallet, kept in its own file: the chain does not know it.
 pub const CANCEL_HOLD_SECS: u64 = 24 * 3600;
+/// From 1.0.42: GNR that was listed in a sell offer is committed for a week from the
+/// moment the offer was published. Sold within the week, it goes to the buyer. If the
+/// offer is cancelled, runs its time or is taken down before that, the GNR cannot be sent
+/// until the week is over; it can go into a new offer at once (which starts a new week).
+/// Like every hold, this is a rule of the wallet, kept in its own file.
+pub const COMMIT_SECS: u64 = 7 * 24 * 3600;
+
+/// When the GNR of a sell offer that is over may be sent again (`None`: now).
+fn commit_until(r: &Reserve, expires: u64, t: u64) -> Option<u64> {
+    let until = if r.listed > 0 {
+        r.listed + COMMIT_SECS
+    } else if r.posted {
+        // Published before 1.0.42, under the rule of that time.
+        (t + CANCEL_HOLD_SECS).min(expires)
+    } else {
+        return None;
+    };
+    (until > t).then_some(until)
+}
+
+/// What an ended offer's status says about its GNR.
+fn commit_text(until: Option<u64>) -> &'static str {
+    if until.is_some() {
+        "Its GNR can go into a new offer now; it can be sent again 7 days after the offer was published."
+    } else {
+        "Its GNR is free again."
+    }
+}
+
+/// A buy offer we took is answered by its maker's wallet within seconds. Without an
+/// answer for this long, the take is let go of: nothing was locked or paid.
+const TAKE_ANSWER_SECS: u64 = 10 * 60;
 /// The fee of the transfers that set GNR aside (and merge notes for it).
 const ASIDE_FEE: u64 = krypton_wallet_core::DEFAULT_FEE;
 
@@ -256,14 +291,26 @@ pub fn reconcile_holds(w: &mut Wallet) {
         let over = match held_for(m.as_deref(), runs, t) {
             Held::Keep => continue,
             Held::Free => false,
-            Held::RanOut => true,
+            Held::Over => true,
         };
-        if over && let Some(r) = m.as_mut().and_then(|m| m.reserve.as_mut()) {
-            r.released = true;
-            r.status = "The offer ran its time. Its GNR is free again.".into();
-            changed = true;
+        // What the board listed stays committed for its week, also when the record says
+        // the offer is over but the note was never released (a release that failed).
+        let mut until = None;
+        if let Some(m) = m.as_mut() {
+            let (expires, taken) = (m.offer.expires, m.taken);
+            if let Some(r) = m.reserve.as_mut() {
+                until = commit_until(r, expires, t);
+                if over {
+                    r.released = true;
+                    r.free_at = until;
+                    if !taken {
+                        r.status = format!("The offer ran its time. {}", commit_text(until));
+                    }
+                    changed = true;
+                }
+            }
         }
-        let _ = w.release(&h.cm, None);
+        let _ = w.release(&h.cm, until);
     }
     if changed {
         let _ = save(w, &st);
@@ -275,10 +322,11 @@ pub fn reconcile_holds(w: &mut Wallet) {
 enum Held {
     /// The offer is open, or its swap can still lock the coins.
     Keep,
-    /// Nothing needs the coins any more.
+    /// The wallet has no open offer for them (none on record, or one already ended).
     Free,
-    /// The offer ran its time without being taken.
-    RanOut,
+    /// The offer ended without a sale: it ran its time, or its swap ended before
+    /// anything was locked. What was listed stays committed for its week.
+    Over,
 }
 
 /// Whether the GNR set aside for the offer `m` (`None`: the wallet has no record of it)
@@ -291,10 +339,10 @@ fn held_for(m: Option<&MyOffer>, swap_runs: bool, t: u64) -> Held {
             if swap_runs {
                 Held::Keep
             } else {
-                Held::Free
+                Held::Over
             }
         }
-        Some(m) if m.offer.expires <= t => Held::RanOut,
+        Some(m) if m.offer.expires <= t => Held::Over,
         Some(_) => Held::Keep,
     }
 }
@@ -332,6 +380,13 @@ struct MyTake {
     /// the contract from it by itself.
     #[serde(default)]
     fund: Option<Fund>,
+    /// When it was made, when it ended without a swap, and why (unix seconds; 0: unknown).
+    #[serde(default)]
+    at: u64,
+    #[serde(default)]
+    ended: u64,
+    #[serde(default)]
+    why: String,
 }
 
 /// A purchase waits this long for its bitcoin before it is called off.
@@ -688,15 +743,19 @@ fn aside(e: &mut Engine<'_, Multi>, offer: &Offer, r: &mut Reserve) -> Result<()
     Ok(())
 }
 
-/// Ends an offer that could not be listed: its GNR is free at once.
+/// Ends an offer that could not be listed, or that the board took down. GNR that was
+/// never listed is free at once; GNR that was stays committed for its week.
 fn give_up(w: &mut Wallet, m: &mut MyOffer, why: String) {
     m.cancelled = true;
+    let expires = m.offer.expires;
     if let Some(r) = m.reserve.as_mut() {
+        let until = commit_until(r, expires, now());
         if let Some(cm) = r.note() {
-            let _ = w.release(&cm, None);
+            let _ = w.release(&cm, until);
         }
         r.released = true;
-        r.status = why;
+        r.free_at = until;
+        r.status = why.replace("Its GNR is free again.", commit_text(until));
     }
 }
 
@@ -777,6 +836,9 @@ fn advance(e: &mut Engine<'_, Multi>, base: &str, m: &mut MyOffer) {
     match step(e, m, &mut r) {
         Ok(true) => {
             r.posted = true;
+            if r.listed == 0 {
+                r.listed = now();
+            }
             r.tries = 0;
             r.status.clear();
         }
@@ -786,6 +848,9 @@ fn advance(e: &mut Engine<'_, Multi>, base: &str, m: &mut MyOffer) {
             if msg.contains("an offer with this id exists") {
                 // It is on the board already.
                 r.posted = true;
+                if r.listed == 0 {
+                    r.listed = now();
+                }
                 r.tries = 0;
                 r.status.clear();
             } else if msg.starts_with("board: ")
@@ -1149,6 +1214,9 @@ fn take_offer(
         swap_id: None,
         gone: false,
         fund: None,
+        at: now(),
+        ended: 0,
+        why: String::new(),
     };
     match offer.side {
         // The maker sells GNR and we pay in advance: the bitcoin goes to an address of
@@ -1429,19 +1497,41 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             m.cancelled = true;
         }
     }
-    // Sell offers that ran their time: their GNR is free at once.
+    // Sell offers that ran their time: what was listed stays committed for its week.
     for m in st.offers.iter_mut().filter(|m| {
         !m.taken
             && !m.cancelled
             && m.offer.expires <= t
             && m.reserve.as_ref().is_some_and(|r| !r.released)
     }) {
+        let expires = m.offer.expires;
         if let Some(r) = m.reserve.as_mut() {
+            let until = commit_until(r, expires, t);
             if let Some(cm) = r.note() {
-                let _ = e.wallet.release(&cm, None);
+                let _ = e.wallet.release(&cm, until);
             }
             r.released = true;
-            r.status = "The offer ran its time. Its GNR is free again.".into();
+            r.free_at = until;
+            r.status = format!("The offer ran its time. {}", commit_text(until));
+        }
+    }
+    // A buy offer we took whose maker never answered: let go of it.
+    for tk in st
+        .takes
+        .iter_mut()
+        .filter(|x| x.fund.is_none() && x.swap_id.is_none() && !x.gone)
+    {
+        if tk.at + TAKE_ANSWER_SECS < t {
+            tk.gone = true;
+            tk.ended = t;
+            tk.why = "The other wallet did not answer within ten minutes, so nothing was started. Nothing was locked or paid.".into();
+            if tk.at > 0 {
+                let key = key_of(e.wallet, tk.n);
+                let note = Note::Gone {
+                    offer: tk.offer.id.clone(),
+                };
+                let _ = send_note(&base, &tk.offer.key, &key, &note);
+            }
         }
     }
     // Buy offers that ran their time: their bitcoin goes back.
@@ -1626,15 +1716,18 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             .find(|m| m.offer.id == l.offer && m.taken && !m.republished)
         {
             m.republished = true;
-            // Its GNR was never locked: the note is still there. Free it, so that the
-            // new offer (below) takes exactly it.
+            // Its GNR was never locked: the note is still there, committed for its week.
+            // The new offer (below) takes exactly it.
+            let expires = m.offer.expires;
             if let Some(r) = m.reserve.as_mut()
                 && !r.released
             {
+                let until = commit_until(r, expires, t);
                 if let Some(cm) = r.note() {
-                    let _ = e.wallet.release(&cm, None);
+                    let _ = e.wallet.release(&cm, until);
                 }
                 r.released = true;
+                r.free_at = until;
             }
             if m.offer.expires > t + 900 {
                 // The new offer takes the deposit over: this record lets go of it.
@@ -1828,6 +1921,7 @@ fn handle(
                 x.n == n
                     && x.offer.id == offer
                     && x.swap_id.is_none()
+                    && !x.gone
                     && x.offer.side == Side::BuyGnr
             }) {
                 ensure!(
@@ -2123,7 +2217,24 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
             }).collect::<Vec<_>>(),
             // Purchases whose bitcoin is paid in advance: waiting for it, or ended lately.
             "my_takes": st.takes.iter().rev().filter_map(|x| {
-                let f = x.fund.as_ref()?;
+                let Some(f) = x.fund.as_ref() else {
+                    // A buy offer we took (we sell): waiting for its maker's wallet to
+                    // answer, or let go of lately.
+                    let waiting = !x.gone && x.swap_id.is_none();
+                    let recent = x.gone && x.swap_id.is_none() && x.ended + 24 * 3600 > t;
+                    return (waiting || recent).then(|| json!({
+                        "id": x.offer.id, "sats": x.offer.sats,
+                        "gnr_text": format_amount(x.offer.gnr),
+                        "btc_text": btc_text(x.offer.sats),
+                        "sell": x.offer.side == Side::BuyGnr,
+                        "waiting": waiting,
+                        "status": if waiting {
+                            "Waiting for the other wallet to answer. It answers within seconds when it is online; if it does not within ten minutes, this ends by itself. Nothing is locked or paid yet."
+                        } else {
+                            x.why.as_str()
+                        },
+                    }));
+                };
                 let waiting = !x.gone && x.swap_id.is_none() && f.closed.is_none();
                 let recent = f.closed.is_some_and(|at| at + 24 * 3600 > t) && x.swap_id.is_none();
                 (waiting || recent).then(|| json!({
@@ -2139,7 +2250,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                     },
                 }))
             }).take(20).collect::<Vec<_>>(),
-            "hold_secs": CANCEL_HOLD_SECS,
+            "hold_secs": COMMIT_SECS,
             "market": market,
         }))
     })
@@ -2326,9 +2437,11 @@ pub async fn untake(
         let tk = st
             .takes
             .iter_mut()
-            .find(|x| x.offer.id == r.id && !x.gone && x.swap_id.is_none() && x.fund.is_some())
-            .context("this purchase has started or is over; see Your swaps")?;
+            .find(|x| x.offer.id == r.id && !x.gone && x.swap_id.is_none())
+            .context("this has started or is over; see Your swaps")?;
         tk.gone = true;
+        tk.ended = now();
+        tk.why = "Called off by you. Nothing was locked or paid.".into();
         let back = tk.btc_address.clone();
         if let Some(f) = tk.fund.as_mut() {
             f.closed = Some(now());
@@ -2407,14 +2520,14 @@ pub async fn cancel(
         if let Some(r) = m.reserve.as_mut()
             && !r.released
         {
-            // The GNR of an offer that was on the board is free again a day later, or
-            // when the offer would have ended; one that never got there, at once.
-            let until = listed.then(|| (now() + CANCEL_HOLD_SECS).min(m.offer.expires));
+            // The GNR of an offer that was on the board stays committed for a week from
+            // when it was published; one that never got there is free at once.
+            let until = commit_until(r, m.offer.expires, now());
             if let Some(cm) = r.note() {
                 w.release(&cm, until)?;
             }
             r.released = true;
-            r.free_at = until.filter(|u| *u > now());
+            r.free_at = until;
             r.status.clear();
         }
         // A buy offer with a deposit: the bitcoin goes back (the background round sends
@@ -2475,18 +2588,41 @@ mod tests {
         let t = 1_800_000_000;
         // An open offer keeps its GNR; one that ran its time gives it back.
         assert_eq!(held_for(Some(&my(t + 60)), false, t), Held::Keep);
-        assert_eq!(held_for(Some(&my(t)), false, t), Held::RanOut);
+        assert_eq!(held_for(Some(&my(t)), false, t), Held::Over);
         // The same while the offer is still on its way to the board.
         let mut m = my(t + 60);
         m.reserve = Some(Reserve::default());
         assert_eq!(held_for(Some(&m), false, t), Held::Keep);
         m.offer.expires = t - 1;
-        assert_eq!(held_for(Some(&m), false, t), Held::RanOut);
+        assert_eq!(held_for(Some(&m), false, t), Held::Over);
         // Taken: its swap decides, however old the offer is.
         let mut m = my(t - 60);
         m.taken = true;
         assert_eq!(held_for(Some(&m), true, t), Held::Keep);
-        assert_eq!(held_for(Some(&m), false, t), Held::Free);
+        assert_eq!(held_for(Some(&m), false, t), Held::Over);
+        // What was listed is committed for a week from its publication, however the
+        // offer ended; what never reached the board is not; older offers keep their rule.
+        let r = |listed, posted| Reserve {
+            listed,
+            posted,
+            ..Default::default()
+        };
+        assert_eq!(
+            commit_until(&r(t - 3600, true), t + 60, t),
+            Some(t - 3600 + COMMIT_SECS)
+        );
+        assert_eq!(
+            commit_until(&r(t - 3600, false), t - 1, t),
+            Some(t - 3600 + COMMIT_SECS)
+        );
+        assert_eq!(commit_until(&r(t - COMMIT_SECS, true), t + 60, t), None);
+        assert_eq!(commit_until(&r(0, false), t + 60, t), None);
+        assert_eq!(commit_until(&r(0, true), t + 3600, t), Some(t + 3600));
+        assert_eq!(
+            commit_until(&r(0, true), t + 30 * 24 * 3600, t),
+            Some(t + CANCEL_HOLD_SECS)
+        );
+        assert_eq!(commit_until(&r(0, true), t - 1, t), None);
         // Cancelled or given up, already released, from before offers set GNR aside,
         // or unknown to this wallet: nothing is kept.
         let mut m = my(t + 60);

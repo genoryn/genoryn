@@ -127,6 +127,10 @@ pub struct Hold {
     pub tag: String,
     #[serde(default)]
     pub until: Option<u64>,
+    /// The hold lasts at least until then, whatever releases it: a note that was still
+    /// committed by an earlier offer when it went into a new one stays committed.
+    #[serde(default)]
+    pub keep: Option<u64>,
 }
 
 /// What a transfer of this wallet created.
@@ -588,26 +592,42 @@ impl Wallet {
 
     /// Sets a note aside for `tag` until it is released.
     pub fn hold(&mut self, cm: Hash32, tag: &str) -> Result<()> {
+        let keep = self
+            .state
+            .holds
+            .iter()
+            .filter(|h| h.cm == cm)
+            .map(|h| h.until.max(h.keep))
+            .max()
+            .flatten();
         self.state.holds.retain(|h| h.cm != cm);
         self.state.holds.push(Hold {
             cm,
             tag: tag.to_string(),
             until: None,
+            keep,
         });
         self.tidy_holds();
         self.save()
     }
 
-    /// Ends the hold on a note: at once (`None`), or from `until` on.
+    /// Ends the hold on a note: at once (`None`), or from `until` on. Never sooner than
+    /// an earlier release of the same note said ([`Hold::keep`]).
     pub fn release(&mut self, cm: &Hash32, until: Option<u64>) -> Result<()> {
-        match until {
-            None => self.state.holds.retain(|h| h.cm != *cm),
-            Some(t) => {
-                for h in self.state.holds.iter_mut().filter(|h| h.cm == *cm) {
-                    h.until = Some(t);
-                }
+        let now = krypton_core::now();
+        self.state.holds.retain_mut(|h| {
+            if h.cm != *cm {
+                return true;
             }
-        }
+            // Never sooner than it was already set to end, either.
+            match until.max(h.keep).max(h.until) {
+                Some(t) if t > now => {
+                    h.until = Some(t);
+                    true
+                }
+                _ => false,
+            }
+        });
         self.tidy_holds();
         self.save()
     }
@@ -1181,12 +1201,15 @@ impl Wallet {
             cm: sent.pay,
             tag: tag.to_string(),
             until: None,
+            // Made from coins that were still committed: so is the new note.
+            keep: carried.as_ref().and_then(|h| h.until.max(h.keep)),
         });
         if let Some(h) = carried {
             self.state.holds.push(Hold {
                 cm: sent.change,
                 tag: h.tag,
                 until: h.until,
+                keep: h.keep,
             });
         }
         self.save()?;
