@@ -70,7 +70,10 @@
       if (!m || !st) return;
       m.textContent = Number(st.estimated_miners || 0).toLocaleString("en-US");
       var eq = Number(st.gpu_equivalents || 0);
-      if (g) g.textContent = "≈ " + (eq < 10 ? eq.toFixed(1) : Math.round(eq).toLocaleString("en-US")) + " GPU" + (eq >= 1.05 || eq < 0.95 ? "s" : "");
+      // An address is counted when it earned a share in the last six hours. Over a day
+      // more addresses mine, and one address can stand for many computers.
+      var day = Number(st.miners_24h || 0);
+      if (g) g.textContent = (day > Number(st.estimated_miners || 0) ? day.toLocaleString("en-US") + " in 24 h · " : "") + "≈ " + (eq < 10 ? eq.toFixed(1) : Math.round(eq).toLocaleString("en-US")) + " GPU" + (eq >= 1.05 || eq < 0.95 ? "s" : "");
     }
   };
 

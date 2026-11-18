@@ -29,7 +29,7 @@ use bitcoin::{Address, Amount, OutPoint, PublicKey, Txid};
 use krypton_core::Network;
 use krypton_core::lock::{HexCm, LockTerms};
 use krypton_core::types::Transaction;
-use krypton_wallet_core::swap::LockRecord;
+use krypton_wallet_core::swap::{LockRecord, LockRole};
 use krypton_wallet_core::{ChainSource, DEFAULT_FEE, Wallet};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -172,6 +172,10 @@ pub struct Swap {
     /// GNR-first buyer: the secret, read from the seller's bitcoin claim.
     #[serde(default)]
     pub learned: Option<String>,
+    /// GNR seller: the note set aside for the offer this swap came from (hex of its
+    /// commitment). The lock spends exactly it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_note: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -431,6 +435,7 @@ impl<G: ChainSource> Engine<'_, G> {
             flow: FLOW_GNR_FIRST,
             pay_by: None,
             learned: None,
+            from_note: None,
         };
         s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
@@ -441,6 +446,17 @@ impl<G: ChainSource> Engine<'_, G> {
     /// GNR seller: accepts a request; the bitcoin will be paid to `payout_address`.
     /// Returns the swap with the accept code for the BTC seller.
     pub fn accept(&mut self, code: &str, payout_address: &str) -> Result<Swap> {
+        self.accept_from(code, payout_address, None)
+    }
+
+    /// [`Engine::accept`] for an offer whose GNR was set aside: the lock spends the note
+    /// `from` and nothing else.
+    pub fn accept_from(
+        &mut self,
+        code: &str,
+        payout_address: &str,
+        from: Option<krypton_core::Hash32>,
+    ) -> Result<Swap> {
         self.check_active()?;
         let (id, gnr_network, btc_network, gnr, sats, claim_fee, claim_outputs, refund_pub) =
             match Msg::decode(code)? {
@@ -489,13 +505,27 @@ impl<G: ChainSource> Engine<'_, G> {
             !swaps.iter().any(|s| s.id == id),
             "this swap is already in the wallet"
         );
-        let spendable = self.wallet.balance().spendable;
-        ensure!(
-            spendable >= gnr + DEFAULT_FEE,
-            "this wallet has {} GNR spendable; the swap needs {}",
-            krypton_core::emission::format_amount(spendable),
-            krypton_core::emission::format_amount(gnr + DEFAULT_FEE)
-        );
+        match &from {
+            Some(cm) => {
+                let n = self
+                    .wallet
+                    .note(cm)
+                    .context("the GNR set aside for this offer is no longer in the wallet")?;
+                ensure!(
+                    n.pending_spend.is_none() && n.value >= gnr + DEFAULT_FEE,
+                    "the GNR set aside for this offer cannot pay for this swap"
+                );
+            }
+            None => {
+                let spendable = self.wallet.balance().spendable;
+                ensure!(
+                    spendable >= gnr + DEFAULT_FEE,
+                    "this wallet has {} GNR spendable; the swap needs {}",
+                    krypton_core::emission::format_amount(spendable),
+                    krypton_core::emission::format_amount(gnr + DEFAULT_FEE)
+                );
+            }
+        }
         let index = Self::next_index(&swaps);
         let seed = *self.wallet.swap_seed();
         let claim_pub = public_key(&derive_key(&seed, index));
@@ -547,6 +577,7 @@ impl<G: ChainSource> Engine<'_, G> {
             flow: FLOW_GNR_FIRST,
             pay_by: None,
             learned: None,
+            from_note: from.map(hex::encode),
         };
         s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
@@ -1140,12 +1171,31 @@ impl<G: ChainSource> Engine<'_, G> {
         let t = self.timing;
         let gnr_refund = s.gnr_refund_height.context("no GNR refund height")?;
         if s.stage == Stage::Accepted && s.lock_cm.is_none() {
+            let terms = s.terms().context("terms")?;
+            // The lock may have been sent already: the wallet stopped after sending it
+            // and before this swap was written down. The swap carries on with that lock;
+            // a second one is never sent, and the first is never left without its swap
+            // (which is what refunds it).
+            if let Some(l) = self
+                .wallet
+                .locks()
+                .iter()
+                .find(|l| l.swap == s.index && l.role == LockRole::Refunder)
+            {
+                ensure!(
+                    l.terms == terms && l.value == s.gnr,
+                    "this swap's number already has a lock with other terms"
+                );
+                s.lock_cm = Some(hex::encode(l.cm));
+                s.stage = Stage::Locked;
+                s.say("GNR locked for the buyer. They pay once the lock has confirmed; if they do not, the GNR comes back to you.");
+                return Ok(());
+            }
             if gnr_tip + t.gnr_lock2_blocks * 9 / 10 > gnr_refund {
                 s.stage = Stage::Failed;
                 s.say("Too late to lock the GNR for this swap; nothing was locked.");
                 return Ok(());
             }
-            let terms = s.terms().context("terms")?;
             // The terms are checked before anything is sent: a mismatch must not lock coins.
             ensure!(
                 Some(self.wallet.refund_outputs(
@@ -1155,6 +1205,15 @@ impl<G: ChainSource> Engine<'_, G> {
                 )?) == s.refund_outputs,
                 "the lock would not match the agreed terms"
             );
+            let from = match &s.from_note {
+                Some(h) => Some(
+                    hex::decode(h)
+                        .ok()
+                        .and_then(|b| <[u8; 32]>::try_from(b).ok())
+                        .context("bad offer note")?,
+                ),
+                None => None,
+            };
             let (_, got) = self.wallet.lock_funds(
                 self.gnr,
                 s.index,
@@ -1164,6 +1223,7 @@ impl<G: ChainSource> Engine<'_, G> {
                 s.gnr,
                 s.refund_fee.unwrap_or(DEFAULT_FEE),
                 DEFAULT_FEE,
+                from,
             )?;
             ensure!(got == terms, "lock terms differ from the accepted ones");
             s.lock_cm = Some(hex::encode(got.commitment(s.gnr)));
@@ -1368,6 +1428,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     s.gnr,
                     s.refund_fee.unwrap_or(DEFAULT_FEE),
                     DEFAULT_FEE,
+                    None,
                 )?;
                 ensure!(got == terms, "lock terms differ from the accepted ones");
                 s.lock_cm = Some(hex::encode(got.commitment(s.gnr)));

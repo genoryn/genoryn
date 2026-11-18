@@ -186,6 +186,95 @@ impl Offer {
 /// The most bitcoin one offer (or reported swap) may be for.
 pub const MAX_OFFER_SATS: u64 = 1_000 * 100_000_000;
 
+// Proof of funds for sell offers.
+//
+// A wallet can only list GNR it holds: with a sell offer it sends the board a proof that
+// it can spend a note worth the offer and the fee of the lock that a take needs. The
+// proof is an ordinary shielded transfer of the offer's amount to a note that is fixed
+// by the offer itself, so it cannot back any other offer, and it can never be mined: it
+// is expired from the start. Nothing moves. The board learns the nullifiers of the notes
+// behind the offer, watches them, and takes the offer down the moment one is spent.
+
+/// The height a proof of funds "expires" at: before every block that will ever be mined.
+pub const RESERVE_EXPIRY: u64 = 1;
+/// What the proof must leave for the lock transaction of a take.
+pub const RESERVE_FEE: u64 = krypton_wallet_core::DEFAULT_FEE;
+/// The board's reply to a sell offer without a proof (wallets before 1.0.40).
+pub const RESERVE_MISSING: &str = "sell offers must prove their GNR since 1.0.40: update your wallet (About, Check for updates) and publish the offer again";
+
+/// What a board keeps of a proof of funds: the notes behind an offer, by their
+/// nullifiers, and the note tree root they were proven against.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Backing {
+    pub nullifiers: [String; 2],
+    pub anchor: String,
+}
+
+/// The note a proof of funds for `o` must pay: its owner and randomness follow from the
+/// offer (id, key, cancel hash, amount, network), so the proof fits this offer only.
+pub fn reserve_output(o: &Offer) -> (krypton_crypto::field::Digest, krypton_crypto::field::Digest) {
+    use krypton_crypto::field::digest_from_uniform;
+    let gnr = o.gnr.to_le_bytes();
+    let parts: [&[u8]; 5] = [
+        o.id.as_bytes(),
+        o.key.as_bytes(),
+        o.cancel.as_bytes(),
+        &gnr,
+        o.network.as_bytes(),
+    ];
+    (
+        digest_from_uniform(&tagged_parts("Krypton/board/reserve/owner", &parts)),
+        digest_from_uniform(&tagged_parts("Krypton/board/reserve/rcm", &parts)),
+    )
+}
+
+/// Commitment of that note.
+pub fn reserve_cm(o: &Offer) -> krypton_core::Hash32 {
+    let (owner, rcm) = reserve_output(o);
+    krypton_crypto::field::digest_to_bytes(&krypton_crypto::rescue::note_commitment_asset(
+        &owner, o.gnr, &[0; 3], &rcm,
+    ))
+}
+
+/// Checks a sell offer's proof of funds as far as it can be checked without the chain:
+/// its shape, that it pays this offer's note the offer's amount and leaves the lock fee,
+/// and the zero-knowledge proof itself. The caller must still check, against its own
+/// chain, that the anchor is a root of the main chain and that neither nullifier is
+/// spent, and must not let the same nullifier back two offers.
+pub fn check_reserve(o: &Offer, tx: &krypton_core::types::Transaction) -> Result<Backing> {
+    use krypton_core::types::TX_VERSION;
+    ensure!(o.side == Side::SellGnr, "only sell offers prove funds");
+    // Plain GNR notes only: a lock note or a coin is not free to sell.
+    ensure!(
+        tx.version == TX_VERSION && tx.lock.is_none() && tx.asset.is_none(),
+        "the proof of funds must be a plain GNR transfer"
+    );
+    ensure!(
+        tx.expiry_height == RESERVE_EXPIRY,
+        "the proof of funds must not be a transaction that can be mined"
+    );
+    ensure!(tx.mint == 0, "the proof of funds mints");
+    ensure!(
+        (RESERVE_FEE..=krypton_wallet_core::MAX_FEE).contains(&tx.fee),
+        "the proof of funds leaves no room for the fee of the lock"
+    );
+    ensure!(
+        tx.outputs[0].cm == reserve_cm(o),
+        "the proof of funds is for another offer or another amount"
+    );
+    let st = krypton_core::consensus::check_tx_structure(tx)
+        .map_err(|e| anyhow!("bad proof of funds: {e}"))?;
+    krypton_core::consensus::verify_proof(tx, &st)
+        .map_err(|e| anyhow!("bad proof of funds: {e}"))?;
+    Ok(Backing {
+        nullifiers: [
+            hex::encode(tx.nullifiers[0].0),
+            hex::encode(tx.nullifiers[1].0),
+        ],
+        anchor: hex::encode(tx.anchor),
+    })
+}
+
 pub fn cancel_hash(secret: &[u8; 32]) -> String {
     hex::encode(tagged("Krypton/board/cancel", secret))
 }

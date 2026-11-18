@@ -25,6 +25,7 @@
       <p>That is what this market is for. An atomic swap lets you move value from bitcoin into GNR, whose coins are guarded by hash-based zk-STARK proofs instead of elliptic curves, directly from your own wallet: no exchange holds your coins, no account, no identity. You can swap back to bitcoin the same way whenever you like.</p></div>
     <ul>
       <li><b>For protection</b><span>Value you move into GNR no longer depends on elliptic-curve cryptography.</span></li>
+      <li><b>Proven</b><span>A sell offer is listed only after the board has checked that its GNR is there.</span></li>
       <li><b>Atomic</b><span>Either both sides are paid, or both keep their coins. Nobody can run off with half a trade.</span></li>
       <li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer sends any bitcoin.</span></li>
       <li><b>Honest about limits</b><span>A swap exchanges bitcoin for GNR at the market price; the bitcoin itself stays on Bitcoin's chain with its new owner.</span></li>
@@ -84,13 +85,29 @@
   </section>
 
   <section class="glass card mk-pend">
-    <div class="mk-head"><h3>Swaps in progress <small>taken offers whose swap is running</small></h3><span class="mk-tot" id="mkPendN"></span></div>
+    <div class="mk-head"><h3>Swaps in progress <small>taken offers: paid and running, or still waiting for the bitcoin</small></h3><span class="mk-tot" id="mkPendN"></span></div>
     <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Started</th></tr></thead><tbody id="mkPend"></tbody></table></div>
   </section>
   <section class="mk-swaps">
     <div class="mk-sec"><span class="eyebrow">On chain</span><h2 class="h3">Completed swaps <small class="muted" id="mkRecentN"></small></h2></div>
     <p class="muted mk-fine">Each swap as the GNR blockchain proves it: the claim, its block and the secret that unlocked both sides. Amounts are private on chain; the ones shown were reported by the two wallets and count only once their claim is on chain.</p>
     <div id="mkRecent" class="mk-cards"></div>
+  </section>
+
+  <div class="mk-sec" id="rules"><span class="eyebrow">Rules</span><h2 class="h3">What an offer commits you to</h2><p class="muted">The same for everyone. The wallet shows them before you publish.</p></div>
+  <section class="mk-rules">
+    <div class="glass card"><h3>Selling GNR</h3><ol>
+      <li><b>You can only offer GNR you have.</b> Publishing sets the GNR aside in a note of its own, and the board lists the offer only after it has checked a zero-knowledge proof that it is there.</li>
+      <li><b>It stays set aside while the offer is open.</b> If it moves, the board takes the offer down at once, and the same GNR cannot back two offers.</li>
+      <li><b>If you cancel,</b> the wallet frees the GNR 24 hours later, or when the offer would have ended if that is sooner. It can go into a new offer at once. An offer that simply runs its time frees it at once.</li>
+      <li><b>When a buyer takes the offer,</b> the wallet locks exactly that GNR for them on chain. If they never pay, it returns to you when the lock ends, about 32 hours later.</li>
+    </ol></div>
+    <div class="glass card"><h3>Buying GNR</h3><ol>
+      <li><b>You never pay first.</b> The seller's GNR is locked for you on chain, and only after that lock has confirmed are you shown where to pay.</li>
+      <li><b>Your bitcoin goes into a contract,</b> never to a person: the seller can take it only by revealing the secret that releases the GNR to you.</li>
+      <li><b>Pay within two hours.</b> If you do not, nothing is paid. If the seller never takes the bitcoin, it comes back to you when the contract's time lock ends.</li>
+      <li><b>A buy offer locks nothing</b> when it is published. Bitcoin cannot be placed in a contract before a seller exists, because the contract names the seller's key; it is paid only into a swap that has started.</li>
+    </ol></div>
   </section>
 
   <section class="mk-book mk-one">

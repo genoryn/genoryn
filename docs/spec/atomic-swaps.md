@@ -262,11 +262,8 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
   offline offer. An offline maker's offers stay listed (not takeable) for up to a week, so a
   long offer survives a computer that sleeps; then they are removed and the wallet frees the
   reserved GNR.
-* **Reserved GNR:** an open sell offer reserves its amount plus the fee in the maker's wallet.
-  Sends and other offers cannot use it, so a buyer always finds the coins there. GNR cannot be
-  locked on chain before a buyer exists (the lock commits to the buyer's hash and keys), so the
-  reservation is enforced by the maker's wallet; on chain the coins are locked once the
-  buyer's bitcoin deposit has confirmed, as before. Cancelling the offer frees them.
+* **Proof of funds (from 1.0.40):** a sell offer is listed only after the board has checked
+  that its GNR is there. See [Proven sell offers](#proven-sell-offers-from-1040).
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
@@ -312,6 +309,120 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
   outputs again. A repeated secret already revealed by an earlier swap would let anyone
   claim the new lock.
 
+## Proven sell offers (from 1.0.40)
+
+Before 1.0.40 a sell offer only reserved its GNR inside the maker's own wallet, so a wallet
+that ignored the reservation could list GNR it did not have. Such an offer could never take
+anyone's bitcoin (the buyer pays only after a lock of exactly the agreed amount has confirmed),
+but it made the board lie. Now the board checks.
+
+**What cannot be done.** GNR cannot be locked on chain *for a buyer* before the buyer exists:
+a lock note commits to the buyer's claim outputs. The offer is therefore backed by an
+ordinary note of the maker, proven to the board, and locked for the buyer when the offer is
+taken, in one transaction.
+
+**Setting the GNR aside** (`Wallet::set_aside`). Publishing puts the offer's amount plus the
+fee of the lock (`RESERVE_FEE`, the wallet's default fee) into a note of its own: a transfer
+of the wallet to itself, after merging notes if the amount is spread over more than two. The
+wallet marks that note as held (`Wallet::holds`): sends, merges and other offers never select
+it. A hold is a record in the wallet's own encrypted file, not a rule of the chain: it can only
+keep coins in the wallet, never lose them, and a wallet restored from its recovery phrase has
+none.
+
+**The proof** (`Wallet::prove_reserve`, `board::check_reserve`). The wallet builds an ordinary
+version-1 shielded transfer that spends the note and
+
+* pays the offer's amount to a note whose owner tag and randomness are hashes of the offer
+  (id, key, cancel hash, amount, network), so its first output commitment is a public
+  function of the offer, `reserve_cm(offer)`;
+* declares a fee of at least `RESERVE_FEE`;
+* has `expiry_height = 1`.
+
+Consensus refuses a transaction whose expiry height is below the height of the block that
+would include it (`check_tx_state`, applied to every transaction of every block and of the
+mempool). With an expiry height of 1 that is every block after the first, and the first block
+of a chain is long mined: a wallet makes the proof only when its chain is past that height
+(and never with an expiry of 0, which means "no expiry"), and a board accepts one only then.
+So this transfer can never be mined: nothing moves, and nothing is sent to the network. Its
+STARK proof is nevertheless a full proof of the spend statement. From it the board learns that
+
+* the prover can spend notes in the note tree (membership under the anchor, knowledge of the
+  spending key), and they are plain GNR notes (version 1, no lock, no coin);
+* their value is at least the offer's amount plus the lock fee (the balance equation, with
+  the first output's value fixed by its public commitment and the fee public);
+* their nullifiers.
+
+The proof fits one offer: another offer has another `reserve_cm`. It reveals no address, no
+balance and no other note of the wallet. The output it "pays" has no spending key anyone
+knows; this never matters, because the transfer cannot be mined.
+
+**What the board does** (`apps/kryptond/src/swapboard.rs`). For a sell offer it
+
+1. checks the offer's proof of work first, then the proof of funds off the async runtime;
+2. requires the anchor to be a note root of its own main chain and both nullifiers unspent,
+   in the chain and in its mempool;
+3. refuses a nullifier that already backs another listed offer or a swap in progress. The
+   check and the listing are one step under the board's lock, so of two offers posted at the
+   same moment with the same coins only the first is listed;
+4. keeps the nullifiers and the anchor, not the proof, and never publishes them: the list
+   shows `backed: true`;
+5. looks the nullifiers of open offers up again every few seconds and takes an offer down
+   when one is spent, or when a reorganisation removed the anchor. The maker's wallet then
+   proves the same note again if it still has it, and otherwise ends the offer;
+6. keeps the nullifiers reserved when the offer is taken and moves to "in progress", until
+   that entry leaves the board (the swap ended, or its maker stopped confirming it). A maker
+   cannot move an offer to "in progress" by itself and list the same coins once more.
+
+Posting to `/v1/swap/offers` is limited to 10 requests a minute per client. A board that
+switches to these rules drops the offers it stored before (it cannot tell which were real);
+swaps in progress and mailboxes are kept.
+
+**Taking a proven offer.** The maker's wallet accepts with `Engine::accept_from`, which names
+the note, and `Wallet::lock_funds` spends exactly that note into the lock. The lock no longer
+depends on which notes the wallet happens to have, or on merging them first. By then the
+offer is "in progress" on the board, with the note's nullifiers still reserved; the lock
+spends them for good. An offer counts as taken only once its swap exists in the wallet, and
+a request the wallet accepted just before it was closed is picked up again when it starts:
+the swap carries on and its codes reach the buyer.
+
+**Cancelling and running out** (wallet rules, shown before publishing). Cancelling takes the
+offer off the board at once; the wallet keeps the note out of sends for 24 hours, or until
+the offer would have ended if that is sooner (`CANCEL_HOLD_SECS`), and a new offer of the same
+amount takes it at once, with no new transfer. An offer that runs its time, or that the board
+removed, frees its note at once; so does a taken offer whose swap ended before anything was
+locked. The wallet does this in every background round, whether or not the board or a
+Bitcoin server can be reached (`reconcile_holds`), and it also frees a note whose offer it
+has no record of: no GNR stays set aside for nothing.
+
+The 24 hours are a rule of the wallet and not of the chain, so they cannot be forced on
+modified software, or on a wallet restored from its recovery phrase. What the chain and the
+board do guarantee is that an offer whose GNR moved is no longer listed.
+
+**What this does not solve.** A taker can still take an offer and never pay: the seller's GNR
+then waits in its lock for the refund height. That is the free option every atomic swap gives
+the side that acts second; it costs the seller time, never coins. The board counts such a
+swap as "taken, not paid yet", and as running only once the maker reports that the bitcoin is
+in the contract.
+
+**Buy offers** lock nothing when they are published. The bitcoin contract names the seller's
+claim key and the hash of the seller's secret, and neither exists before a seller takes the
+offer; bitcoin "locked" earlier would be in an output its owner can still spend, which proves
+nothing. A buyer pays only into the contract of a swap that has started, after the seller's
+GNR is locked for it and that lock has confirmed.
+
+**Tests.** `crates/krypton-swap/tests/engine.rs` (`a_sell_offer_proves_its_gnr`): the proof is
+sound, fits one offer, cannot be mined, is refused when it could be mined, leaves no fee or
+was altered, cannot be made without the coins, and a take spends exactly the note.
+`crates/krypton-wallet-core/src/tests.rs` (`notes_set_aside_are_not_spent`): held notes are
+never selected, survive a restart and go into a new offer without a transfer.
+`apps/kryptond/src/swapboard.rs`: no listing without a proof, the same coins behind one thing
+at a time (an open offer or a swap in progress), and coins free again when their entry ends.
+`apps/krypton-wallet/src/board.rs`: when GNR stays set aside and when it is freed.
+Before each release the whole flow is also run end to end with two desktop wallets, a node
+and Bitcoin Core on regtest: listing only after the proof, refusals without one, a wallet
+restored from the same phrase that tries to list the same coins again (refused) and then
+moves them (the board takes the offers down within seconds), and a complete swap.
+
 ## Plan
 
 | Phase | Work | Status |
@@ -320,4 +431,5 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
 | 1 | GNR lock notes: circuit, transaction v2, consensus and mempool rules, wallet lock, claim, refund and recovery | **done**, active on devnet |
 | 2 | Swap engine (codes, state machine, Esplora and Bitcoin Core clients, encrypted swap state) and the Swap tab | **done**, tested on devnet + Bitcoin regtest |
 | 3 | Offer board, sealed mailboxes and the market price from completed swaps | **done** |
+| 3a | Sell offers prove their GNR to the board (1.0.40) | **done** |
 | 4 | Mainnet activation at block 3,300 (release 1.0.13); first swaps with small amounts; an independent review of the circuit change | **scheduled** |

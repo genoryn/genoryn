@@ -10,6 +10,7 @@ import re
 import shutil
 
 import seo
+import updates
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DESIGN = ROOT.parent / "design"
@@ -54,6 +55,10 @@ def main():
         # Questions and answers come from seo.py, so the page and its JSON-LD never differ.
         html = html.replace("<!--FAQ:all-->", seo.faq_page_html())
         html = html.replace("<!--FAQ:quantum-->", seo.faq_html(seo.QUANTUM_FAQ))
+        # Every update since the launch comes from updates.py: the page, the home page's
+        # line about the latest one, the feed and the repository's CHANGELOG.md.
+        html = html.replace("<!--UPDATES-->", updates.page_html())
+        html = html.replace("<!--LATEST_UPDATE-->", updates.latest_html())
         html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
         html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
         (DIST / page.name).write_text(html, encoding="utf-8")
@@ -68,6 +73,13 @@ def main():
     # For language models: the summary, and the full README with absolute links.
     shutil.copy(ROOT / "llms.txt", DIST / "llms.txt")
     (DIST / "llms-full.txt").write_text(llms_full(), encoding="utf-8")
+    (DIST / "updates.xml").write_text(updates.atom(), encoding="utf-8")
+    changelog = ROOT.parent / "CHANGELOG.md"
+    text = updates.markdown().encode("utf-8")
+    if not changelog.exists() or changelog.read_bytes() != text:
+        changelog.write_bytes(text)
+    if not updates.has(seo.VERSION):
+        print(f"WARNING: website/updates.py has no entry for {seo.VERSION}")
     (DIST / ".well-known").mkdir()
     (DIST / ".well-known" / "security.txt").write_text(seo.SECURITY_TXT, encoding="utf-8")
     (DIST / f"{seo.INDEXNOW_KEY}.txt").write_text(seo.INDEXNOW_KEY, encoding="utf-8")

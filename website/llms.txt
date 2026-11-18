@@ -9,7 +9,7 @@ Key facts:
 - Quantum resistance: spends are zk-STARK proofs over hash functions (no elliptic curve, no trusted setup); note encryption X25519 + ML-KEM-1024 (FIPS 203); peer links X25519 + ML-KEM-768; release signatures ML-DSA-87 and SLH-DSA-SHAKE-256s (FIPS 204/205); 384-bit recovery phrases.
 - Privacy: amounts, senders, recipients and memos are hidden for everyone; there is no transparent mode. Mining payouts are public per miner.
 - Mining: KryptoHash v1, memory-bandwidth bound, GPU-first (CUDA, OpenCL) and CPU-capable; an RTX 5090 does about 75-83 MH/s. About 32 shares per block each earn an equal slice of the reward pool; payouts every 360 blocks.
-- Trading: atomic BTC-GNR swaps on an anonymous offer board; the seller's GNR is locked on chain before the buyer pays. The market price is the plain average of completed swaps; offers never move it. Not listed on exchanges; no presale.
+- Trading: atomic BTC-GNR swaps on an anonymous offer board; a sell offer is listed only after the board has checked a zero-knowledge proof that the seller holds the GNR (since 1.0.40), and the seller's GNR is locked on chain before the buyer pays. The market price is the plain average of completed swaps; offers never move it. Not listed on exchanges; no presale.
 - Quantum tokens (planned for a future release, NOT live: no token exists on Genoryn Krypton today): stablecoins, project tokens and tokens from other networks that anyone will be able to deploy, as private and quantum-safe as GNR (zk-STARK proofs hide the token, amounts and parties), with everything an issuer may do declared up front and unchangeable, fees in GNR and trading against GNR in one atomic transaction. Designed and tested; the activation height will be announced with a future release.
 - Wallet: Windows and Linux desktop wallet with built-in miner and optional full node; light mode verifies the chain itself (FlyClient-style proofs, follows the most work).
 - Relation to Bitcoin: an independent network (not a fork, not affiliated) that keeps Bitcoin's monetary rules and adds quantum resistance and privacy by default.
@@ -29,6 +29,7 @@ Key facts:
 - [Market](https://genoryn.io/market): live offer board, market price and completed swaps
 - [Quantum tokens](https://genoryn.io/tokens): what quantum tokens will be (planned, not live yet)
 - [Explorer](https://genoryn.io/explorer): live blocks, supply, hashrate and network stats
+- [Updates](https://genoryn.io/updates): every release and change since the launch, newest first (feed: https://genoryn.io/updates.xml)
 
 ## Source and specifications
 

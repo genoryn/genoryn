@@ -22,7 +22,7 @@
       var p = price(o), off = o.online === false, w = Math.max(2, Math.round(o.gnr / big * 100));
       return "<tr class=\"" + (off ? "mk-off" : "") + "\" style=\"--depth:" + w + "%\">" +
         "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline: it cannot be taken until the maker's wallet is back" : "Maker online: the swap starts within seconds") + "\"></span><div>" + cell(sat(p), usd(p)) + "</div></div></td>" +
-        "<td class=\"num\">" + cell(gnr(o.gnr)) + "</td>" +
+        "<td class=\"num\">" + cell(gnr(o.gnr) + (o.backed ? "<i class=\"mk-ok\" title=\"The seller's GNR is set aside and proven to the board\">✓</i>" : ""), kind === "pend" ? (o.funded ? "bitcoin paid" : "taken, not paid yet") : "") + "</td>" +
         "<td class=\"num\">" + cell(btc(o.sats) + " BTC", dollars(o.sats)) + "</td>" +
         "<td class=\"num\">" + when(o) + "</td></tr>";
     }).join("");
@@ -64,8 +64,11 @@
     $("mkVol").textContent = (m.trades || 0) + " swap" + (m.trades === 1 ? "" : "s");
     $("mkVolU").textContent = gnr(m.volume_gnr || 0) + " GNR · " + (m.pending || 0) + " running";
     table("sell"); table("buy");
-    var pb = data.pending.reduce(function (s, o) { return s + o.sats; }, 0);
-    $("mkPendN").innerHTML = data.pending.length ? "<b>" + data.pending.length + "</b> running · " + btc(pb) + " BTC" + (dollars(pb) ? " · <b>≈ " + dollars(pb) + "</b>" : "") : "none right now";
+    // A swap runs once its bitcoin is paid; an offer that was only taken may never be.
+    var paid = data.pending.filter(function (o) { return o.funded; }), wait = data.pending.length - paid.length;
+    var pb = paid.reduce(function (s, o) { return s + o.sats; }, 0);
+    $("mkPendN").innerHTML = (paid.length ? "<b>" + paid.length + "</b> paid and running · " + btc(pb) + " BTC" + (dollars(pb) ? " · <b>≈ " + dollars(pb) + "</b>" : "") : "none paid right now") +
+      (wait ? "<br>" + wait + " taken, not paid yet" : "");
     $("mkPend").innerHTML = data.pending.length
       ? rows(data.pending, "pend", function (o) { return left(Math.max(0, data.now - (o.since || data.now))) + " ago"; })
       : "<tr><td colspan=\"4\" class=\"muted mk-empty\">No swap running right now.</td></tr>";
@@ -90,7 +93,9 @@
     $("mktBtcN").textContent = data.btc > 0 ? "per bitcoin" : "the price could not be read";
     put("mktSell", data.offers.filter(function (o) { return o.side === "sell_gnr"; }), "sell offer", "no sell offers");
     put("mktBuy", data.offers.filter(function (o) { return o.side === "buy_gnr"; }), "buy offer", "no buy offers");
-    put("mktProg", data.pending, "swap", "none right now");
+    var paidNow = data.pending.filter(function (o) { return o.funded; }), waiting = data.pending.length - paidNow.length;
+    put("mktProg", paidNow, "swap", waiting ? "" : "none right now");
+    if (waiting) $("mktProgN").textContent += (paidNow.length ? " · " : "") + waiting + " taken, not paid yet";
     put("mktDone", data.recent, "swap", "no swaps yet");
   }
   // Price history: one point per completed swap, oldest first.

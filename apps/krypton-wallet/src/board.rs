@@ -41,6 +41,143 @@ struct MyOffer {
     /// When the board was last told that the swap still runs.
     #[serde(default)]
     pending_at: u64,
+    /// Sell offers from 1.0.40: the GNR set aside for the offer and proven to the board.
+    #[serde(default)]
+    reserve: Option<Reserve>,
+    /// The board was told that the bitcoin of this offer's swap has been paid.
+    #[serde(default)]
+    funded_sent: bool,
+}
+
+/// The GNR behind a sell offer. Publishing sets it aside in a note of its own (merging
+/// notes first if it is spread over many), proves that note to the board and only then
+/// lists the offer; a take locks exactly that note.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct Reserve {
+    /// Commitment (hex) of the note, once there is one.
+    #[serde(default)]
+    cm: Option<String>,
+    /// Our transfer that makes the note (hex txid), while it waits for a block.
+    #[serde(default)]
+    txid: Option<String>,
+    /// The board has the offer with its proof of funds.
+    #[serde(default)]
+    posted: bool,
+    /// What is happening now, for the Swap tab.
+    #[serde(default)]
+    status: String,
+    /// Rounds of merging notes so far.
+    #[serde(default)]
+    merges: u32,
+    /// Times in a row the board refused the offer, and times it had to be posted again.
+    #[serde(default)]
+    tries: u32,
+    #[serde(default)]
+    reposts: u32,
+    #[serde(default)]
+    last_try: u64,
+    /// The offer is over and its GNR was released: free at once, or from `free_at`
+    /// (unix seconds) after a cancellation.
+    #[serde(default)]
+    released: bool,
+    #[serde(default)]
+    free_at: Option<u64>,
+}
+
+/// GNR of a cancelled sell offer can be sent again this long after the cancellation (or
+/// when the offer would have ended, if that is sooner). It can go into a new offer at
+/// once. This is a rule of the wallet, kept in its own file: the chain does not know it.
+pub const CANCEL_HOLD_SECS: u64 = 24 * 3600;
+/// The fee of the transfers that set GNR aside (and merge notes for it).
+const ASIDE_FEE: u64 = krypton_wallet_core::DEFAULT_FEE;
+
+fn h32(s: &str) -> Option<krypton_core::Hash32> {
+    hex::decode(s).ok()?.try_into().ok()
+}
+
+impl Reserve {
+    fn note(&self) -> Option<krypton_core::Hash32> {
+        self.cm.as_deref().and_then(h32)
+    }
+}
+
+/// Frees GNR that is set aside for an offer that is over: one that ran its time, one
+/// whose swap ended, or one this wallet has no record of (a record that was lost, or
+/// never written, must not keep coins out of reach). Run on every background round,
+/// whether or not there is anything else to do, and whether or not the board or a
+/// Bitcoin server can be reached: no GNR stays set aside for nothing.
+pub fn reconcile_holds(w: &mut Wallet) {
+    let holds: Vec<_> = w
+        .holds()
+        .into_iter()
+        .filter(|h| h.until.is_none())
+        .collect();
+    if holds.is_empty() {
+        return;
+    }
+    let mut st = load(w);
+    let swaps = engine::load(w);
+    let t = now();
+    let mut changed = false;
+    for h in holds {
+        let runs = st
+            .links
+            .iter()
+            .filter(|l| l.offer == h.tag)
+            .filter_map(|l| swaps.iter().find(|s| s.id == l.swap_id))
+            .any(|s| !s.stage.finished());
+        let mut m = st.offers.iter_mut().find(|m| m.offer.id == h.tag);
+        let over = match held_for(m.as_deref(), runs, t) {
+            Held::Keep => continue,
+            Held::Free => false,
+            Held::RanOut => true,
+        };
+        if over && let Some(r) = m.as_mut().and_then(|m| m.reserve.as_mut()) {
+            r.released = true;
+            r.status = "The offer ran its time. Its GNR is free again.".into();
+            changed = true;
+        }
+        let _ = w.release(&h.cm, None);
+    }
+    if changed {
+        let _ = save(w, &st);
+    }
+}
+
+/// What becomes of GNR that is set aside for an offer.
+#[derive(Debug, PartialEq, Eq)]
+enum Held {
+    /// The offer is open, or its swap can still lock the coins.
+    Keep,
+    /// Nothing needs the coins any more.
+    Free,
+    /// The offer ran its time without being taken.
+    RanOut,
+}
+
+/// Whether the GNR set aside for the offer `m` (`None`: the wallet has no record of it)
+/// must stay set aside at `t`. `swap_runs`: a swap of that offer is not finished.
+fn held_for(m: Option<&MyOffer>, swap_runs: bool, t: u64) -> Held {
+    match m {
+        None => Held::Free,
+        Some(m) if m.cancelled || m.reserve.as_ref().is_none_or(|r| r.released) => Held::Free,
+        Some(m) if m.taken => {
+            if swap_runs {
+                Held::Keep
+            } else {
+                Held::Free
+            }
+        }
+        Some(m) if m.offer.expires <= t => Held::RanOut,
+        Some(_) => Held::Keep,
+    }
+}
+
+/// Whether the note behind an offer is in the wallet, in a block and unspent.
+fn reserve_ready(w: &Wallet, r: &Reserve) -> bool {
+    r.note()
+        .and_then(|cm| w.note(&cm).cloned())
+        .is_some_and(|n| n.position.is_some() && n.pending_spend.is_none())
 }
 
 /// The board drops a swap in progress that its maker has not confirmed for half an hour.
@@ -48,11 +185,11 @@ const PENDING_REFRESH_SECS: u64 = 10 * 60;
 
 /// Moves a taken offer to "in progress" on the board, or says that its swap still runs.
 /// `Err` with "no such offer" means the board no longer has it.
-fn announce_pending(base: &str, m: &MyOffer) -> Result<()> {
+fn announce_pending(base: &str, m: &MyOffer, funded: bool) -> Result<()> {
     post(
         base,
         "/v1/swap/progress",
-        &json!({"id": m.offer.id, "offer": m.offer, "secret": m.cancel_secret}),
+        &json!({"id": m.offer.id, "offer": m.offer, "secret": m.cancel_secret, "funded": funded}),
     )
     .map(|_| ())
 }
@@ -274,14 +411,6 @@ fn publish_offer(
         gnr > 2 * krypton_wallet_core::DEFAULT_FEE,
         "the GNR amount is too small"
     );
-    if side == Side::SellGnr {
-        let have = available(e.wallet);
-        ensure!(
-            have >= gnr + krypton_wallet_core::DEFAULT_FEE,
-            "this wallet has {} GNR free (the rest is spoken for by your open sell offers)",
-            format_amount(have)
-        );
-    }
     let mut st = load(e.wallet);
     st.next += 1;
     let n = st.next;
@@ -299,9 +428,7 @@ fn publish_offer(
         cancel: board::cancel_hash(&secret),
         nonce: 0,
     };
-    offer.seal_pow();
-    post(base, "/v1/swap/offers", &offer)?;
-    st.offers.push(MyOffer {
+    let mut mine = MyOffer {
         n,
         offer: offer.clone(),
         cancel_secret: hex::encode(secret),
@@ -312,9 +439,213 @@ fn publish_offer(
         pending_sent: false,
         pending_cleared: false,
         pending_at: 0,
-    });
+        reserve: None,
+        funded_sent: false,
+    };
+    if side == Side::SellGnr {
+        // The GNR is set aside before anything is listed: an offer the wallet cannot
+        // back never reaches the board, and the board checks the proof for itself.
+        let _ = e.wallet.sync(e.gnr, |_, _| {});
+        let mut r = Reserve::default();
+        aside(e, &mine.offer, &mut r)?;
+        mine.reserve = Some(r);
+        // Listed right away when a note of the right amount was already there.
+        advance(e, base, &mut mine);
+        offer = mine.offer.clone();
+    } else {
+        offer.seal_pow();
+        post(base, "/v1/swap/offers", &offer)?;
+        mine.offer = offer.clone();
+    }
+    st.offers.push(mine);
     save(e.wallet, &st)?;
     Ok(offer)
+}
+
+/// One step of setting the GNR of a sell offer aside: finds or makes the note, or, when
+/// the amount is spread over more than two notes, merges notes first (the next round
+/// carries on). An error means the wallet cannot back the offer.
+fn aside(e: &mut Engine<'_, Multi>, offer: &Offer, r: &mut Reserve) -> Result<()> {
+    use krypton_wallet_core::Aside;
+    let need = offer
+        .gnr
+        .checked_add(board::RESERVE_FEE)
+        .context("amount overflow")?;
+    match e.wallet.set_aside(e.gnr, need, ASIDE_FEE, &offer.id) {
+        Ok(Aside::Ready(cm)) => {
+            r.cm = Some(hex::encode(cm));
+            r.txid = None;
+            r.status = "Proving your GNR to the board.".into();
+        }
+        Ok(Aside::Pending { cm, txid }) => {
+            r.cm = Some(hex::encode(cm));
+            r.txid = Some(hex::encode(txid));
+            r.status = "Setting your GNR aside (one transfer to yourself). The offer is published by itself after the next block.".into();
+        }
+        Err(x) if x.to_string().contains("NEEDS_CONSOLIDATION") => {
+            ensure!(
+                r.merges < 16,
+                "your GNR is spread over too many small notes to gather for this offer"
+            );
+            let ids = e.wallet.consolidate(e.gnr, ASIDE_FEE, 64)?;
+            r.merges += 1;
+            r.status = format!(
+                "Your GNR is in many small notes: merging them first (step {}, {} transactions). The offer is published by itself when that is done.",
+                r.merges,
+                ids.len()
+            );
+        }
+        Err(x) => {
+            let have = e.wallet.balance().spendable;
+            if x.to_string().contains("insufficient") {
+                bail!(
+                    "this wallet has {} GNR free; the offer needs {} (its amount and the fees). GNR in your other open offers, in swaps or still maturing does not count",
+                    format_amount(have),
+                    format_amount(need + ASIDE_FEE)
+                );
+            }
+            return Err(x);
+        }
+    }
+    Ok(())
+}
+
+/// Ends an offer that could not be listed: its GNR is free at once.
+fn give_up(w: &mut Wallet, m: &mut MyOffer, why: String) {
+    m.cancelled = true;
+    if let Some(r) = m.reserve.as_mut() {
+        if let Some(cm) = r.note() {
+            let _ = w.release(&cm, None);
+        }
+        r.released = true;
+        r.status = why;
+    }
+}
+
+/// Carries a sell offer one step further towards the board: gathers its GNR, waits for
+/// the note to be in a block, then proves it and posts the offer.
+fn advance(e: &mut Engine<'_, Multi>, base: &str, m: &mut MyOffer) {
+    let Some(mut r) = m.reserve.clone() else {
+        return;
+    };
+    if r.posted || m.cancelled || m.taken {
+        return;
+    }
+    let t = now();
+    if m.offer.expires <= t + 60 {
+        give_up(
+            e.wallet,
+            m,
+            "The offer ran out before it could be published. Its GNR is free again.".into(),
+        );
+        return;
+    }
+    let step = |e: &mut Engine<'_, Multi>, m: &mut MyOffer, r: &mut Reserve| -> Result<bool> {
+        // No note yet: notes are being merged. Wait for those transfers, then try again.
+        let Some(cm) = r.note() else {
+            if e.wallet.balance().pending == 0 {
+                aside(e, &m.offer, r)?;
+            }
+            return Ok(false);
+        };
+        if !reserve_ready(e.wallet, r) {
+            // Still on its way into a block, unless its transfer expired unmined (the
+            // wallet then forgets it): start again.
+            let known = e.wallet.note(&cm).is_some()
+                || r.txid
+                    .as_deref()
+                    .is_some_and(|id| e.wallet.history().iter().any(|h| h.txid == id));
+            if !known {
+                let _ = e.wallet.release(&cm, None);
+                r.cm = None;
+                r.txid = None;
+                r.status =
+                    "The transfer that set your GNR aside did not confirm; trying again.".into();
+            }
+            return Ok(false);
+        }
+        if r.last_try + 20 > t {
+            return Ok(false);
+        }
+        r.last_try = t;
+        // An offer on the board always has its note held, whatever became of the hold
+        // meanwhile (an offer posted again after its cancellation was interrupted).
+        if !e
+            .wallet
+            .holds()
+            .iter()
+            .any(|h| h.cm == cm && h.until.is_none() && h.tag == m.offer.id)
+        {
+            e.wallet.hold(cm, &m.offer.id)?;
+        }
+        let (owner, rcm) = board::reserve_output(&m.offer);
+        let tx = e.wallet.prove_reserve(
+            e.gnr,
+            &cm,
+            owner,
+            m.offer.gnr,
+            rcm,
+            board::RESERVE_FEE,
+            board::RESERVE_EXPIRY,
+        )?;
+        if !m.offer.pow_ok_at(now()) {
+            m.offer.seal_pow();
+        }
+        let mut body = serde_json::to_value(&m.offer)?;
+        body["reserve"] = json!(hex::encode(tx.to_bytes()));
+        post(base, "/v1/swap/offers", &body)?;
+        Ok(true)
+    };
+    match step(e, m, &mut r) {
+        Ok(true) => {
+            r.posted = true;
+            r.tries = 0;
+            r.status.clear();
+        }
+        Ok(false) => {}
+        Err(x) => {
+            let msg = x.to_string();
+            if msg.contains("an offer with this id exists") {
+                // It is on the board already.
+                r.posted = true;
+                r.tries = 0;
+                r.status.clear();
+            } else if msg.starts_with("board: ")
+                && !msg.contains("429")
+                && !msg.contains("try again")
+                // The board's server is restarting or unreachable behind its proxy.
+                && !matches!(
+                    msg.trim_start_matches("board: "),
+                    "500" | "502" | "503" | "504"
+                )
+            {
+                // The board's own answer. A few tries (a block may have just arrived),
+                // then the offer is given up and its GNR freed.
+                r.tries += 1;
+                r.status = format!("Not published yet: {}", msg.trim_start_matches("board: "));
+                if r.tries >= 8 {
+                    m.reserve = Some(r);
+                    give_up(
+                        e.wallet,
+                        m,
+                        format!(
+                            "The board did not accept this offer: {}. Its GNR is free again.",
+                            msg.trim_start_matches("board: ")
+                        ),
+                    );
+                    return;
+                }
+            } else if r.cm.is_none() && !msg.contains("sync") {
+                // The wallet cannot gather the GNR after all.
+                m.reserve = Some(r);
+                give_up(e.wallet, m, format!("Not published: {msg}."));
+                return;
+            } else {
+                r.status = format!("Not published yet: {msg}");
+            }
+        }
+    }
+    m.reserve = Some(r);
 }
 
 /// GNR held back for this wallet's open sell offers (amount + fee each), so a buyer who
@@ -324,11 +655,29 @@ pub fn reserved(w: &Wallet) -> u64 {
     load(w)
         .offers
         .iter()
+        // Offers with a note of their own hold it themselves (`Wallet::holds`): their
+        // GNR is not part of the spendable balance at all.
+        .filter(|m| m.reserve.is_none())
         .filter(|m| {
             m.offer.side == Side::SellGnr && !m.taken && !m.cancelled && m.offer.expires > t
         })
         .map(|m| m.offer.gnr.saturating_add(krypton_wallet_core::DEFAULT_FEE))
         .fold(0u64, u64::saturating_add)
+}
+
+/// GNR set aside in notes of their own: for open sell offers (`open`), and what is
+/// being released after cancelled ones, with when (`cooling`: value, unix seconds).
+pub fn held(w: &Wallet) -> (u64, Vec<(u64, u64)>) {
+    let (mut open, mut cooling) = (0u64, Vec::new());
+    for h in w.holds() {
+        let Some(n) = w.note(&h.cm) else { continue };
+        match h.until {
+            None => open = open.saturating_add(n.value),
+            Some(t) => cooling.push((n.value, t)),
+        }
+    }
+    cooling.sort_by_key(|c| c.1);
+    (open, cooling)
 }
 
 /// Spendable GNR not reserved for open sell offers.
@@ -346,6 +695,8 @@ fn ping(base: &str, st: &State) -> Vec<String> {
         .offers
         .iter()
         .filter(|m| !m.taken && !m.cancelled && m.offer.expires > t)
+        // An offer still on its way to the board is not there to be missed.
+        .filter(|m| m.reserve.as_ref().is_none_or(|r| r.posted))
         .collect();
     let Some(first) = open.first() else {
         return vec![];
@@ -399,8 +750,13 @@ fn take_offer(
         raw["online"].as_bool().unwrap_or(true),
         "the maker of this offer is offline right now, so the swap could not start at once; pick an online offer"
     );
+    let proven = raw["backed"].as_bool().unwrap_or(false);
     let offer: Offer = serde_json::from_value(raw)?;
     offer.validate(e.wallet.network().as_str(), now())?;
+    ensure!(
+        offer.side != Side::SellGnr || proven,
+        "this offer does not prove that its GNR is there (the board it is on runs older software), so it cannot be taken"
+    );
     ensure!(
         offer.btc_network == e.btc_network.to_core_arg(),
         "the offer is for Bitcoin {}",
@@ -485,14 +841,56 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
     let base = board_url(a);
     let mut st = load(e.wallet);
     let t = now();
-    // Offers the board removed are over: free their GNR.
+    // Sell offers on their way to the board: gather, prove, post.
+    for m in st.offers.iter_mut() {
+        advance(e, &base, m);
+    }
+    // Offers the board no longer lists.
     let gone = ping(&base, &st);
     for m in st
         .offers
         .iter_mut()
-        .filter(|m| !m.taken && gone.contains(&m.offer.id))
+        .filter(|m| !m.taken && !m.cancelled && gone.contains(&m.offer.id))
     {
-        m.cancelled = true;
+        let again = m
+            .reserve
+            .as_ref()
+            .is_some_and(|r| r.posted && r.reposts < 20 && reserve_ready(e.wallet, r));
+        if again {
+            // Its GNR is still there, untouched: the board lost the offer (it restarted,
+            // the maker was away for long, or the chain reorganised under the proof).
+            // Prove it again and post it again.
+            if let Some(r) = m.reserve.as_mut() {
+                r.posted = false;
+                r.reposts += 1;
+                r.last_try = 0;
+                r.status = "The board no longer lists this offer; publishing it again.".into();
+            }
+        } else if m.reserve.is_some() {
+            // Over: free its GNR.
+            give_up(
+                e.wallet,
+                m,
+                "The board removed this offer. Its GNR is free again.".into(),
+            );
+        } else {
+            m.cancelled = true;
+        }
+    }
+    // Sell offers that ran their time: their GNR is free at once.
+    for m in st.offers.iter_mut().filter(|m| {
+        !m.taken
+            && !m.cancelled
+            && m.offer.expires <= t
+            && m.reserve.as_ref().is_some_and(|r| !r.released)
+    }) {
+        if let Some(r) = m.reserve.as_mut() {
+            if let Some(cm) = r.note() {
+                let _ = e.wallet.release(&cm, None);
+            }
+            r.released = true;
+            r.status = "The offer ran its time. Its GNR is free again.".into();
+        }
     }
     let mut keys: Vec<u32> = st
         .offers
@@ -600,11 +998,14 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
         // Over for the board once it can no longer complete: finished, or the other side
         // gave up (or never paid) before any bitcoin arrived. Locked GNR still waits for
         // its refund, but nobody should see the swap as running.
-        let over = swaps.iter().find(|s| s.id == l.swap_id).is_none_or(|s| {
+        let swap = swaps.iter().find(|s| s.id == l.swap_id);
+        let over = swap.is_none_or(|s| {
             s.stage.finished()
                 || (s.deposit.is_none()
                     && (l.gone_sent || s.created + engine::DEPOSIT_TIMEOUT_SECS + 3600 < t))
         });
+        // The bitcoin is in its contract: only then does the swap count as running.
+        let funded = swap.is_some_and(|s| s.deposit.is_some());
         if over {
             let gone = post(
                 &base,
@@ -612,11 +1013,15 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
                 &json!({"id": m.offer.id, "secret": m.cancel_secret}),
             );
             m.pending_cleared = gone.is_ok();
-        } else if !m.pending_sent || m.pending_at + PENDING_REFRESH_SECS <= t {
-            match announce_pending(&base, m) {
+        } else if !m.pending_sent
+            || m.pending_at + PENDING_REFRESH_SECS <= t
+            || (funded && !m.funded_sent)
+        {
+            match announce_pending(&base, m, funded) {
                 Ok(()) => {
                     m.pending_sent = true;
                     m.pending_at = t;
+                    m.funded_sent = funded;
                 }
                 Err(x) if x.to_string().contains("no such offer") => m.pending_cleared = true,
                 Err(_) => {}
@@ -654,6 +1059,16 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             .find(|m| m.offer.id == l.offer && m.taken && !m.republished)
         {
             m.republished = true;
+            // Its GNR was never locked: the note is still there. Free it, so that the
+            // new offer (below) takes exactly it.
+            if let Some(r) = m.reserve.as_mut()
+                && !r.released
+            {
+                if let Some(cm) = r.note() {
+                    let _ = e.wallet.release(&cm, None);
+                }
+                r.released = true;
+            }
             if m.offer.expires > t + 900 {
                 again.push(m.clone());
             }
@@ -695,8 +1110,8 @@ fn handle(
                 return Ok(());
             }
             let msg = Msg::decode(&code)?;
-            let (gnr, sats) = match msg {
-                Msg::Request2 { gnr, sats, .. } => (gnr, sats),
+            let (rid, gnr, sats) = match msg {
+                Msg::Request2 { id, gnr, sats, .. } => (id, gnr, sats),
                 // A wallet before 1.0.23 (bitcoin first): it must update before trading.
                 Msg::Request { .. } => {
                     let _ = send_note(base, from, key, &Note::Gone { offer });
@@ -710,20 +1125,51 @@ fn handle(
                 .iter_mut()
                 .find(|o| o.n == n && o.offer.id == offer && o.offer.side == Side::SellGnr)
             {
-                if mo.taken || mo.cancelled {
-                    return send_note(base, from, key, &Note::Gone { offer });
-                }
-                ensure!(
-                    gnr == mo.offer.gnr && sats == mo.offer.sats,
-                    "a request with other amounts than the offer"
-                );
-                let addr = mo.btc_address.clone();
+                let note = mo.reserve.as_ref().and_then(Reserve::note);
+                // The swap of this very request may be in the wallet already: the wallet
+                // was closed after it accepted the request and before this round was
+                // written down. That swap carries on (its GNR may be locked by now) and
+                // its codes must reach the buyer; it is not refused.
+                let links = &st.links;
+                let known = engine::load(e.wallet).into_iter().find(|s| {
+                    s.id == rid
+                        && s.role == Role::GnrSeller
+                        && !s.stage.finished()
+                        && (s.gnr, s.sats) == (mo.offer.gnr, mo.offer.sats)
+                        && s.from_note == note.map(hex::encode)
+                        && !links.iter().any(|l| l.swap_id == s.id)
+                });
+                let s = match known {
+                    Some(s) => s,
+                    None => {
+                        if mo.taken || mo.cancelled {
+                            return send_note(base, from, key, &Note::Gone { offer });
+                        }
+                        ensure!(
+                            gnr == mo.offer.gnr && sats == mo.offer.sats,
+                            "a request with other amounts than the offer"
+                        );
+                        // An offer still on its way to the board cannot have been taken.
+                        ensure!(
+                            mo.reserve.as_ref().is_none_or(|r| r.posted),
+                            "a request for an offer that is not published yet"
+                        );
+                        // The lock spends the note set aside for this offer, nothing
+                        // else. The offer counts as taken only once the swap exists.
+                        match e.accept_from(&code, &mo.btc_address, note) {
+                            Ok(s) => s,
+                            Err(x) => {
+                                let _ = send_note(base, from, key, &Note::Gone { offer });
+                                return Err(x);
+                            }
+                        }
+                    }
+                };
                 mo.taken = true;
-                if announce_pending(base, mo).is_ok() {
+                if announce_pending(base, mo, false).is_ok() {
                     mo.pending_sent = true;
                     mo.pending_at = now();
                 }
-                let s = e.accept(&code, &addr)?;
                 st.links.push(Link {
                     swap_id: s.id,
                     offer,
@@ -775,13 +1221,19 @@ fn handle(
             if mo.taken || mo.cancelled {
                 return send_note(base, from, key, &Note::Gone { offer });
             }
+            // The offer counts as taken only once its swap exists.
+            let s = match e.request(mo.offer.gnr, mo.offer.sats, &mo.btc_address) {
+                Ok(s) => s,
+                Err(x) => {
+                    let _ = send_note(base, from, key, &Note::Gone { offer });
+                    return Err(x);
+                }
+            };
             mo.taken = true;
-            if announce_pending(base, mo).is_ok() {
+            if announce_pending(base, mo, false).is_ok() {
                 mo.pending_sent = true;
                 mo.pending_at = now();
             }
-            let (gnr, sats, addr) = (mo.offer.gnr, mo.offer.sats, mo.btc_address.clone());
-            let s = e.request(gnr, sats, &addr)?;
             st.links.push(Link {
                 swap_id: s.id,
                 offer,
@@ -911,6 +1363,14 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 ))
             })
             .collect();
+        // Sell offers whose GNR the board has checked (boards from 1.0.40).
+        let proven: std::collections::HashSet<String> = raw["offers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|o| o["backed"].as_bool().unwrap_or(false))
+            .filter_map(|o| o["id"].as_str().map(String::from))
+            .collect();
         let t0 = now();
         let in_progress: Vec<Value> = raw["in_progress"]
             .as_array()
@@ -944,6 +1404,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "price": o.price(), "expires_in": o.expires.saturating_sub(t),
                 "mine": mine.contains(&&o.id),
                 "online": mine.contains(&&o.id) || online.get(&o.id).copied().unwrap_or(false),
+                "backed": proven.contains(&o.id),
             })
         };
         // Fresh from the board (an offer just published shows at once), with the cached
@@ -958,8 +1419,15 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 let mut v = view(&m.offer);
                 v["taken"] = json!(m.taken); v["cancelled"] = json!(m.cancelled);
                 v["expired"] = json!(m.offer.expires <= t);
+                if let Some(r) = &m.reserve {
+                    // On its way to the board: gathering the GNR, or proving it.
+                    v["preparing"] = json!(!r.posted && !m.cancelled && !m.taken && m.offer.expires > t);
+                    v["status"] = json!(r.status);
+                    v["free_at"] = json!(r.free_at.filter(|u| *u > t));
+                }
                 v
             }).collect::<Vec<_>>(),
+            "hold_secs": CANCEL_HOLD_SECS,
             "market": market,
         }))
     })
@@ -1000,7 +1468,7 @@ pub async fn publish(
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
             .to_sat();
         with_engine(&a, false, |e, base| {
-            publish_offer(
+            let o = publish_offer(
                 e,
                 base,
                 r.side,
@@ -1008,12 +1476,20 @@ pub async fn publish(
                 sats,
                 &r.address,
                 r.hours.unwrap_or(24).clamp(1, board::MAX_OFFER_SECS / 3600) * 3600,
-            )
+            )?;
+            // A sell offer is listed once its GNR is set aside and proven: at once if a
+            // note of the right amount was there, else after the next block.
+            let listed = load(e.wallet)
+                .offers
+                .iter()
+                .find(|m| m.offer.id == o.id)
+                .is_none_or(|m| m.reserve.as_ref().is_none_or(|r| r.posted));
+            Ok((o, listed))
         })
     })
     .await
     {
-        Ok(o) => Json(json!({"id": o.id})).into_response(),
+        Ok((o, listed)) => Json(json!({"id": o.id, "listed": listed})).into_response(),
         Err(e) => err(e),
     }
 }
@@ -1070,17 +1546,104 @@ pub async fn cancel(
             !m.taken,
             "this offer was already taken; the swap continues in Your swaps"
         );
-        post(
-            &base,
-            "/v1/swap/offers/cancel",
-            &json!({"id": m.offer.id, "secret": m.cancel_secret}),
-        )?;
+        // An offer still on its way to the board is not there to be taken down.
+        let listed = m.reserve.as_ref().is_none_or(|r| r.posted);
+        if listed {
+            post(
+                &base,
+                "/v1/swap/offers/cancel",
+                &json!({"id": m.offer.id, "secret": m.cancel_secret}),
+            )?;
+        }
         m.cancelled = true;
+        if let Some(r) = m.reserve.as_mut()
+            && !r.released
+        {
+            // The GNR of an offer that was on the board is free again a day later, or
+            // when the offer would have ended; one that never got there, at once.
+            let until = listed.then(|| (now() + CANCEL_HOLD_SECS).min(m.offer.expires));
+            if let Some(cm) = r.note() {
+                w.release(&cm, until)?;
+            }
+            r.released = true;
+            r.free_at = until.filter(|u| *u > now());
+            r.status.clear();
+        }
         save(w, &st)
     })
     .await
     {
         Ok(()) => Json(json!({"ok": true})).into_response(),
         Err(e) => err(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn my(expires: u64) -> MyOffer {
+        MyOffer {
+            n: 1,
+            offer: Offer {
+                id: "00".repeat(16),
+                network: "devnet".into(),
+                btc_network: "regtest".into(),
+                side: Side::SellGnr,
+                gnr: 100_000_000,
+                sats: 50_000,
+                key: String::new(),
+                expires,
+                cancel: String::new(),
+                nonce: 0,
+            },
+            cancel_secret: String::new(),
+            btc_address: String::new(),
+            taken: false,
+            cancelled: false,
+            republished: false,
+            pending_sent: false,
+            pending_cleared: false,
+            pending_at: 0,
+            reserve: Some(Reserve {
+                posted: true,
+                ..Default::default()
+            }),
+            funded_sent: false,
+        }
+    }
+
+    #[test]
+    fn gnr_stays_set_aside_only_while_something_needs_it() {
+        let t = 1_800_000_000;
+        // An open offer keeps its GNR; one that ran its time gives it back.
+        assert_eq!(held_for(Some(&my(t + 60)), false, t), Held::Keep);
+        assert_eq!(held_for(Some(&my(t)), false, t), Held::RanOut);
+        // The same while the offer is still on its way to the board.
+        let mut m = my(t + 60);
+        m.reserve = Some(Reserve::default());
+        assert_eq!(held_for(Some(&m), false, t), Held::Keep);
+        m.offer.expires = t - 1;
+        assert_eq!(held_for(Some(&m), false, t), Held::RanOut);
+        // Taken: its swap decides, however old the offer is.
+        let mut m = my(t - 60);
+        m.taken = true;
+        assert_eq!(held_for(Some(&m), true, t), Held::Keep);
+        assert_eq!(held_for(Some(&m), false, t), Held::Free);
+        // Cancelled or given up, already released, from before offers set GNR aside,
+        // or unknown to this wallet: nothing is kept.
+        let mut m = my(t + 60);
+        m.cancelled = true;
+        assert_eq!(held_for(Some(&m), true, t), Held::Free);
+        let mut m = my(t + 60);
+        m.reserve = Some(Reserve {
+            released: true,
+            ..Default::default()
+        });
+        assert_eq!(held_for(Some(&m), false, t), Held::Free);
+        let mut m = my(t + 60);
+        m.reserve = None;
+        assert_eq!(held_for(Some(&m), false, t), Held::Free);
+        assert_eq!(held_for(None, false, t), Held::Free);
     }
 }

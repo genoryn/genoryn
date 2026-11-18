@@ -14,6 +14,8 @@ const MAX_POINTS: usize = 240;
 pub const REFERENCE_GPU_HS: f64 = 74e6;
 /// Payout owners seen in shares over this many blocks count as active miners.
 pub const ACTIVE_WINDOW: u64 = 360;
+/// A day of blocks.
+pub const DAY_WINDOW: u64 = 1_440;
 
 #[derive(Clone)]
 struct BlockStat {
@@ -151,6 +153,8 @@ impl Stats {
         json!({
             "estimated_miners": self.active_miners(ACTIVE_WINDOW),
             "miners_last_hour": self.active_miners(60),
+            // Addresses come and go: over a day there are more than in any six hours.
+            "miners_24h": self.active_miners(DAY_WINDOW),
             "gpu_equivalents": (hr / REFERENCE_GPU_HS).max(0.0),
             "reference_gpu": "RTX 5090 ≈ 74 MH/s",
             "hashrate": hr,

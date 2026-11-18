@@ -394,6 +394,71 @@ fn swap_completes_gnr_first() {
     assert_eq!(btc.received(&btc_addr(2)), 0, "no refund to the buyer");
 }
 
+/// The seller's wallet stops right after it sent the lock, before the swap was written
+/// down. When it runs again the swap carries on with that lock: no second lock is sent,
+/// and the first is not left without the swap that would refund it.
+#[test]
+fn a_lock_sent_before_the_wallet_stopped_is_carried_on_with() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    agreed(&mut a, &mut b, &src, &btc, &chain);
+    // The round that locks, cut off after the lock went out: the record still says
+    // "accepted".
+    let s = a.swap();
+    assert_eq!((s.stage, s.lock_cm.clone()), (Stage::Accepted, None));
+    let (_, terms) = a
+        .wallet
+        .lock_funds(
+            &src,
+            s.index,
+            s.hash,
+            s.gnr_refund_height.unwrap(),
+            s.claim_outputs,
+            s.gnr,
+            s.refund_fee.unwrap(),
+            krypton_wallet_core::DEFAULT_FEE,
+            None,
+        )
+        .unwrap();
+    assert_eq!(Some(terms.clone()), s.terms());
+    assert_eq!(src.pool.borrow().len(), 1);
+    assert_eq!(a.wallet.locked_balance(), GNR);
+
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    let s = a.swap();
+    assert_eq!(s.stage, Stage::Locked, "{}", s.status);
+    assert_eq!(s.lock_cm, Some(hex::encode(terms.commitment(GNR))));
+    assert_eq!(src.pool.borrow().len(), 1, "no second lock");
+    assert_eq!(a.wallet.locked_balance(), GNR);
+    // From here it is a swap like any other: the lock confirms, the buyer may pay, and
+    // if nobody pays the seller gets the GNR back.
+    mine_both(&src, &miner, &mut a, &mut b);
+    mine_both(&src, &miner, &mut a, &mut b);
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::AwaitDeposit, "{}", b.swap().status);
+    let before = a.wallet.balance().total;
+    let other = b.wallet.address();
+    while chain.tip().height() + 1 < s.gnr_refund_height.unwrap() {
+        mine(&src, &other);
+    }
+    a.wallet.sync(&src, |_, _| {}).unwrap();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Refunding, "{}", a.swap().status);
+    mine(&src, &other);
+    a.wallet.sync(&src, |_, _| {}).unwrap();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Refunded, "{}", a.swap().status);
+    assert_eq!(a.wallet.locked_balance(), 0);
+    assert!(a.wallet.balance().total >= before + GNR - s.refund_fee.unwrap());
+}
+
 #[test]
 fn a_seller_without_the_gnr_gets_nothing() {
     let dir = tempfile::tempdir().unwrap();
@@ -656,4 +721,145 @@ fn codes_roundtrip_and_reject_garbage() {
     );
     assert!(Msg::decode("gks1abc").is_err());
     assert!(Msg::decode("hello").is_err());
+}
+
+/// A sell offer proves its GNR. The coins are set aside in a note of their own; the proof
+/// fits that offer only and no block can ever include it; whoever checks it can see the
+/// moment the coins move; and a take locks exactly those coins.
+#[test]
+fn a_sell_offer_proves_its_gnr() {
+    use krypton_core::consensus::StateView;
+    use krypton_swap::board::{self, Offer, Side as OfferSide};
+    use krypton_wallet_core::{Aside, DEFAULT_FEE};
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = b.wallet.address();
+    let offer = |gnr: u64, id: u8| Offer {
+        id: hex::encode([id; 16]),
+        network: "devnet".into(),
+        btc_network: "regtest".into(),
+        side: OfferSide::SellGnr,
+        gnr,
+        sats: SATS,
+        key: hex::encode(board::offer_key(&[7; 64], 1).public().to_bytes()),
+        expires: krypton_core::now() + 3600,
+        cancel: board::cancel_hash(&[id; 32]),
+        nonce: 0,
+    };
+    let o = offer(GNR, 1);
+    let (owner, rcm) = board::reserve_output(&o);
+    let h32 = |s: &str| <[u8; 32]>::try_from(hex::decode(s).unwrap()).unwrap();
+    let prove = |w: &Wallet, cm: &Hash32, fee: u64, expiry: u64| {
+        w.prove_reserve(&src, cm, owner, o.gnr, rcm, fee, expiry)
+    };
+
+    // The offer's amount and the fee of the lock a take needs go into one note.
+    let need = GNR + board::RESERVE_FEE;
+    let Aside::Pending { cm, .. } = a.wallet.set_aside(&src, need, DEFAULT_FEE, &o.id).unwrap()
+    else {
+        panic!("a new note was needed");
+    };
+    assert!(
+        prove(&a.wallet, &cm, board::RESERVE_FEE, board::RESERVE_EXPIRY).is_err(),
+        "nothing to prove before the note is in a block"
+    );
+    mine_both(&src, &miner, &mut a, &mut b);
+    assert_eq!(a.wallet.balance().held, need);
+
+    let tx = prove(&a.wallet, &cm, board::RESERVE_FEE, board::RESERVE_EXPIRY).unwrap();
+    let backing = board::check_reserve(&o, &tx).expect("a sound proof of funds");
+    // What a board checks against its own chain: the proof is for this chain, and the
+    // notes behind it are unspent.
+    {
+        let v = chain.view().unwrap();
+        assert!(v.anchor_height(&h32(&backing.anchor)).is_some());
+        assert!(
+            backing
+                .nullifiers
+                .iter()
+                .all(|n| !v.nullifier_spent(&h32(n)))
+        );
+    }
+    // Nothing moved, and nothing can: no node takes this as a transaction.
+    assert!(chain.check_mempool_tx(&tx).is_err());
+    assert_eq!(a.wallet.balance().held, need);
+    assert_eq!(a.wallet.balance().pending, 0);
+
+    // It fits this offer only: not another amount, another offer, or a buy offer.
+    assert!(board::check_reserve(&offer(GNR + 1, 1), &tx).is_err());
+    assert!(board::check_reserve(&offer(GNR, 2), &tx).is_err());
+    let mut buy = o.clone();
+    buy.side = OfferSide::BuyGnr;
+    assert!(board::check_reserve(&buy, &tx).is_err());
+    // The wallet makes no proof that a block could still include (0 never expires).
+    let tip = chain.tip().height();
+    for expiry in [0, tip + 1, tip + 100] {
+        assert!(prove(&a.wallet, &cm, board::RESERVE_FEE, expiry).is_err());
+    }
+    // And a board takes none: a transfer that could be mined is not a proof of funds,
+    // nor is one that leaves nothing for the fee of the lock, nor one that was changed
+    // afterwards.
+    for expiry in [0, 2, tip + 1, tip + 100] {
+        let mut minable = tx.clone();
+        minable.expiry_height = expiry;
+        let why = board::check_reserve(&o, &minable).unwrap_err().to_string();
+        assert!(why.contains("can be mined"), "{why}");
+    }
+    assert!(
+        board::check_reserve(
+            &o,
+            &prove(
+                &a.wallet,
+                &cm,
+                board::RESERVE_FEE - 1,
+                board::RESERVE_EXPIRY
+            )
+            .unwrap()
+        )
+        .is_err()
+    );
+    let mut forged = tx.clone();
+    forged.nullifiers.swap(0, 1);
+    assert!(board::check_reserve(&o, &forged).is_err());
+    // A wallet that does not have the coins cannot make one at all.
+    assert!(prove(&b.wallet, &cm, board::RESERVE_FEE, board::RESERVE_EXPIRY).is_err());
+
+    // A buyer takes the offer: the seller's lock spends the note behind it, so whoever
+    // watches the proof's nullifiers sees the offer is no longer open.
+    let req = b
+        .engine(&src, &btc, &chain)
+        .request(GNR, SATS, &btc_addr(2).to_string())
+        .unwrap();
+    let acc = a
+        .engine(&src, &btc, &chain)
+        .accept_from(
+            req.code.as_ref().unwrap(),
+            &btc_addr(1).to_string(),
+            Some(cm),
+        )
+        .unwrap();
+    assert_eq!(acc.from_note, Some(hex::encode(cm)));
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Locked, "{}", a.swap().status);
+    mine_both(&src, &miner, &mut a, &mut b);
+    {
+        let v = chain.view().unwrap();
+        assert!(
+            backing
+                .nullifiers
+                .iter()
+                .any(|n| v.nullifier_spent(&h32(n)))
+        );
+    }
+    assert_eq!(a.wallet.balance().held, 0);
+    assert!(a.wallet.holds().is_empty());
+    assert!(a.wallet.note(&cm).is_none(), "spent by the lock");
+    // The same coins cannot be proven again.
+    assert!(prove(&a.wallet, &cm, board::RESERVE_FEE, board::RESERVE_EXPIRY).is_err());
 }

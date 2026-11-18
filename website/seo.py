@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.39"
+VERSION = "1.0.40"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
@@ -48,6 +48,9 @@ PAGES = {
     "quantum": {"path": "/quantum", "file": "quantum.html", "priority": "0.9", "freq": "monthly", "type": "article",
                 "og_title": "Quantum-resistant cryptocurrency: what quantum computers break, and what they do not",
                 "og_desc": "Which cryptography a quantum computer breaks (elliptic curves), which it does not (hashes, ML-KEM), what that means for Bitcoin and privacy coins, and how Genoryn Krypton is built against it."},
+    "updates": {"path": "/updates", "file": "updates.html", "priority": "0.8", "freq": "daily",
+                "og_title": "Genoryn Krypton updates: every release and change since launch",
+                "og_desc": "Every update to Genoryn Krypton (GNR) since the mainnet launch, newest first: releases of the wallet, node and miner, and changes to genoryn.io."},
     "about": {"path": "/about", "file": "about.html", "type": "article", "priority": "0.9", "freq": "monthly",
               "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
               "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
@@ -151,6 +154,9 @@ FAQ_GROUPS = [
         ("Is GNR listed on an exchange?", "No. GNR is earned by mining or exchanged with bitcoin directly between wallets."),
         ("Where does the GNR price come from?", "Only from completed swaps: the market price is their plain average over the last 72 hours. Offers and swaps in progress never move it. <a href=\"/market\">Live market</a>."),
         ("Why swap bitcoin for GNR?", "Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could break. A swap moves value into a system guarded by hash-based proofs, directly from your own wallet."),
+        ("Can someone offer GNR they do not have?", "No. A sell offer is listed only after its GNR is set aside in a note of its own and the offer board has checked a zero-knowledge proof that the seller can spend it. The board takes the offer down the moment that GNR moves, and the same GNR cannot back two offers. <a href=\"/market#rules\">The rules of an offer</a>."),
+        ("Why is my GNR held after I cancel a sell offer?", "The wallet frees the GNR of a cancelled sell offer 24 hours later, or when the offer would have ended if that is sooner, so that offers are made in earnest. You can put it into a new offer at once. An offer that runs its time frees its GNR at once."),
+        ("Why is the bitcoin of a buy offer not locked in advance?", "A bitcoin contract has to name the seller's key and the hash of the seller's secret, and neither exists before a seller takes the offer. Bitcoin locked earlier would only be bitcoin that its owner can still move. So a buyer pays into the contract of a swap that has started, after the seller's GNR is locked for them on chain, and never before."),
         ("Can a swap cheat me?", "Both sides lock their coins under the same hash lock with a time lock. The seller's GNR is locked on chain before the buyer pays, taking the bitcoin reveals the secret that releases the GNR, and if anyone stops, both sides are refunded after the time locks."),
     ]),
     ("wallet", "Wallet", [
@@ -248,6 +254,15 @@ def graph(page):
     elif page == "market":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Market", p["path"])]
+    elif page == "updates":
+        import updates
+        items += [{"@type": "CollectionPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"},
+                   "dateModified": updates.UPDATES[0]["date"],
+                   "mainEntity": {"@type": "ItemList", "itemListElement": [
+                       {"@type": "ListItem", "position": i + 1, "url": f"{url}#{updates._anchor(u)}",
+                        "name": ("Genoryn Krypton " + u["v"] + ": " if "v" in u else "") + u["title"]}
+                       for i, u in enumerate(updates.UPDATES[:20])]}},
+                  crumbs("Updates", p["path"])]
     elif page == "get":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Get GNR", p["path"])]
@@ -304,6 +319,8 @@ def lastmod(key):
     files = [_HERE / PAGES[key]["file"]]
     if key in ("faq", "quantum"):
         files.append(_HERE / "seo.py")
+    if key in ("updates", "home"):
+        files.append(_HERE / "updates.py")
     t = max(f.stat().st_mtime for f in files if f.exists())
     return datetime.datetime.fromtimestamp(t, datetime.timezone.utc).date().isoformat()
 

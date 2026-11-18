@@ -15,13 +15,18 @@
 		Cross-Origin-Opener-Policy same-origin
 		-Server
 	}
-	# Small JSON requests everywhere except transactions and JSON-RPC (proofs are large).
-	@small not path /v1/tx /rpc
+	# Small JSON requests everywhere except transactions, JSON-RPC and sell offers (proofs
+	# are large).
+	@small not path /v1/tx /rpc /v1/swap/offers
 	request_body @small {
 		max_size 64KB
 	}
 	request_body /v1/tx {
 		max_size 8MB
+	}
+	# A sell offer carries its proof of funds: a transfer of about 100 KB, in hex.
+	request_body /v1/swap/offers {
+		max_size 512KB
 	}
 	# The BTC price in dollars for the GNR market price, fetched by this server so visitors'
 	# browsers never contact a third party (connect-src stays 'self').

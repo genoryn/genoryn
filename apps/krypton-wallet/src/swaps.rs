@@ -373,6 +373,7 @@ pub fn has_work(w: &Wallet) -> bool {
 pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types::Transaction]) {
     crate::board::refresh_market(a);
     crate::coins::tick(a, w, src);
+    crate::board::reconcile_holds(w);
     if !has_work(w) || inactive(a, Some(w)).is_some() {
         return;
     }

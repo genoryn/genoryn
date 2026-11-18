@@ -164,6 +164,9 @@ impl Wallet {
     /// GNR seller: locks `value` (which includes the claimer's fee) for swap `swap`.
     /// `claim_outputs` come from the BTC seller's wallet. Returns the txid and the
     /// terms to send back to the BTC seller.
+    ///
+    /// `from` names the note to spend: the one set aside for the offer being taken
+    /// ([`Wallet::set_aside`]). Without it any free notes pay.
     #[allow(clippy::too_many_arguments)]
     pub fn lock_funds(
         &mut self,
@@ -175,6 +178,7 @@ impl Wallet {
         value: u64,
         refund_fee: u64,
         fee: u64,
+        from: Option<Hash32>,
     ) -> Result<(Hash32, LockTerms)> {
         let tip = self.lock_active()?;
         ensure!(
@@ -207,7 +211,25 @@ impl Wallet {
             claim_outputs,
             refund_outputs,
         };
-        let chosen = self.select_notes(value.checked_add(fee).context("amount overflow")?)?;
+        let need = value.checked_add(fee).context("amount overflow")?;
+        let chosen = match from {
+            Some(cm) => {
+                let n = self
+                    .note(&cm)
+                    .cloned()
+                    .context("the GNR set aside for this offer is no longer in the wallet")?;
+                ensure!(
+                    n.position.is_some() && n.pending_spend.is_none(),
+                    "the GNR set aside for this offer is not confirmed yet"
+                );
+                ensure!(
+                    n.value >= need,
+                    "the GNR set aside for this offer is less than the swap needs"
+                );
+                vec![n]
+            }
+            None => self.select_notes(need)?,
+        };
         let (inputs, root) = self.input_witnesses(src, &chosen)?;
         let change = chosen.iter().map(|n| n.value).sum::<u64>() - value - fee;
         let me = self.address();

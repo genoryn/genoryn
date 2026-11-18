@@ -36,6 +36,11 @@ impl Mempool {
         self.txs.contains_key(id)
     }
 
+    /// Whether a pending transaction spends the note with this nullifier.
+    pub fn spends(&self, nf: &Hash32) -> bool {
+        self.nfs.contains_key(nf)
+    }
+
     /// Checks pool-level policy (validity against the chain is checked by the caller).
     pub fn precheck(&self, tx: &Transaction) -> Result<(), String> {
         let size = tx.size();

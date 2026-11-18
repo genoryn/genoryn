@@ -115,6 +115,39 @@ pub struct OwnedNote {
     pub coin: Option<AssetId>,
 }
 
+/// A note kept out of ordinary spending. While `until` is `None` it backs an open sell
+/// offer (`tag` is the offer's id); otherwise it is free again at `until` (unix seconds).
+/// A hold is a mark in this wallet's own file, never a rule of the chain: it can only
+/// keep coins in the wallet, not lose them, and a wallet restored from its recovery
+/// phrase has none.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Hold {
+    #[serde(with = "hex::serde")]
+    pub cm: Hash32,
+    pub tag: String,
+    #[serde(default)]
+    pub until: Option<u64>,
+}
+
+/// What a transfer of this wallet created.
+struct Sent {
+    txid: Hash32,
+    /// Commitment of the payment output.
+    pay: Hash32,
+    /// Commitment of the change output.
+    change: Hash32,
+}
+
+/// What [`Wallet::set_aside`] did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Aside {
+    /// A note of exactly the amount was there already: it is held now.
+    Ready(Hash32),
+    /// A transfer to this wallet itself creates the note (`cm`); it can be used once
+    /// that transaction (`txid`) is in a block.
+    Pending { cm: Hash32, txid: Hash32 },
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub txid: String,
@@ -183,6 +216,9 @@ struct State {
     best_work: Option<String>,
     #[serde(default)]
     best_tip: Option<String>,
+    /// Notes set aside (for open sell offers, or for a while after one was cancelled).
+    #[serde(default)]
+    holds: Vec<Hold>,
 }
 
 pub struct Wallet {
@@ -222,6 +258,8 @@ pub struct Balance {
     pub pending: u64,
     pub immature: u64,
     pub total: u64,
+    /// Set aside (see [`Hold`]): part of `total`, not of `spendable`.
+    pub held: u64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -272,6 +310,7 @@ impl Wallet {
             app: Default::default(),
             best_work: None,
             best_tip: None,
+            holds: vec![],
         };
         let w = Self {
             keys,
@@ -487,6 +526,7 @@ impl Wallet {
     }
 
     pub fn balance(&self) -> Balance {
+        let now = krypton_core::now();
         let mut b = Balance::default();
         for n in self
             .state
@@ -499,11 +539,92 @@ impl Wallet {
                 b.immature += n.value;
             } else if n.pending_spend.is_some() {
                 b.pending += n.value;
+            } else if self.held_at(&n.cm, now) {
+                b.held += n.value;
             } else {
                 b.spendable += n.value;
             }
         }
         b
+    }
+
+    /// Notes set aside, with holds that have run out or whose note is spent left out.
+    pub fn holds(&self) -> Vec<Hold> {
+        let now = krypton_core::now();
+        self.state
+            .holds
+            .iter()
+            .filter(|h| h.until.is_none_or(|t| t > now))
+            .filter(|h| {
+                self.state
+                    .notes
+                    .iter()
+                    .find(|n| n.cm == h.cm)
+                    .is_none_or(|n| n.spent_height.is_none())
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// The hold on a note, if one is in force at `now`.
+    fn hold_of(&self, cm: &Hash32, now: u64) -> Option<&Hold> {
+        self.state
+            .holds
+            .iter()
+            .find(|h| h.cm == *cm && h.until.is_none_or(|t| t > now))
+    }
+
+    fn held_at(&self, cm: &Hash32, now: u64) -> bool {
+        self.hold_of(cm, now).is_some()
+    }
+
+    /// The unspent GNR note with this commitment, if this wallet has it.
+    pub fn note(&self, cm: &Hash32) -> Option<&OwnedNote> {
+        self.state
+            .notes
+            .iter()
+            .find(|n| n.cm == *cm && n.coin.is_none() && n.spent_height.is_none())
+    }
+
+    /// Sets a note aside for `tag` until it is released.
+    pub fn hold(&mut self, cm: Hash32, tag: &str) -> Result<()> {
+        self.state.holds.retain(|h| h.cm != cm);
+        self.state.holds.push(Hold {
+            cm,
+            tag: tag.to_string(),
+            until: None,
+        });
+        self.tidy_holds();
+        self.save()
+    }
+
+    /// Ends the hold on a note: at once (`None`), or from `until` on.
+    pub fn release(&mut self, cm: &Hash32, until: Option<u64>) -> Result<()> {
+        match until {
+            None => self.state.holds.retain(|h| h.cm != *cm),
+            Some(t) => {
+                for h in self.state.holds.iter_mut().filter(|h| h.cm == *cm) {
+                    h.until = Some(t);
+                }
+            }
+        }
+        self.tidy_holds();
+        self.save()
+    }
+
+    /// Drops holds that no longer hold anything: run out, or their note is spent.
+    fn tidy_holds(&mut self) {
+        let now = krypton_core::now();
+        let spent: Vec<Hash32> = self
+            .state
+            .notes
+            .iter()
+            .filter(|n| n.spent_height.is_some())
+            .map(|n| n.cm)
+            .collect();
+        self.state
+            .holds
+            .retain(|h| h.until.is_none_or(|t| t > now) && !spent.contains(&h.cm));
     }
 
     /// Proof-of-work verifier for this wallet's network.
@@ -929,7 +1050,7 @@ impl Wallet {
         ensure!(self.verifier.is_some(), "sync the wallet first");
         let need = amount.checked_add(fee).context("amount overflow")?;
         let chosen = self.select_notes(need)?;
-        self.spend_notes(src, &chosen, to, amount, fee, memo)
+        Ok(self.spend_notes(src, &chosen, to, amount, fee, memo)?.txid)
     }
 
     /// One or two spendable GNR notes covering `need`.
@@ -937,9 +1058,11 @@ impl Wallet {
         self.select_notes_of(None, need)
     }
 
-    /// One or two spendable notes of `coin` (`None`: GNR) covering `need`.
+    /// One or two spendable notes of `coin` (`None`: GNR) covering `need`. Notes set
+    /// aside are never chosen.
     fn select_notes_of(&self, coin: Option<AssetId>, need: u64) -> Result<Vec<OwnedNote>> {
-        let mut spendable: Vec<&OwnedNote> = self
+        let now = krypton_core::now();
+        let spendable: Vec<&OwnedNote> = self
             .state
             .notes
             .iter()
@@ -949,16 +1072,22 @@ impl Wallet {
                     && n.pending_spend.is_none()
                     && n.value > 0
                     && n.coin == coin
+                    && !self.held_at(&n.cm, now)
             })
             .collect();
-        spendable.sort_by_key(|n| std::cmp::Reverse(n.value));
+        Self::pick(spendable, need)
+    }
+
+    /// The smallest single note covering `need`, else the two largest.
+    fn pick(mut notes: Vec<&OwnedNote>, need: u64) -> Result<Vec<OwnedNote>> {
+        notes.sort_by_key(|n| std::cmp::Reverse(n.value));
         Ok(
-            if let Some(one) = spendable.iter().rev().find(|n| n.value >= need) {
+            if let Some(one) = notes.iter().rev().find(|n| n.value >= need) {
                 vec![(*one).clone()]
-            } else if spendable.len() >= 2 && spendable[0].value + spendable[1].value >= need {
-                vec![spendable[0].clone(), spendable[1].clone()]
+            } else if notes.len() >= 2 && notes[0].value.saturating_add(notes[1].value) >= need {
+                vec![notes[0].clone(), notes[1].clone()]
             } else {
-                let total: u64 = spendable.iter().map(|n| n.value).sum();
+                let total: u64 = notes.iter().map(|n| n.value).sum();
                 if total >= need {
                     bail!(
                         "NEEDS_CONSOLIDATION: funds are split across many notes; a transaction spends at most two, so merge them first"
@@ -971,6 +1100,182 @@ impl Wallet {
                 );
             },
         )
+    }
+
+    /// Puts `amount` into a note of its own and holds it for `tag` (a sell offer), so
+    /// that exactly these coins back the offer and nothing else can spend them.
+    ///
+    /// A free note of exactly `amount`, or one being released after an earlier offer, is
+    /// held as it is. Otherwise one transfer to this wallet itself makes the note; notes
+    /// being released may pay for it, and their change stays held as they were.
+    pub fn set_aside(
+        &mut self,
+        src: &impl ChainSource,
+        amount: u64,
+        fee: u64,
+        tag: &str,
+    ) -> Result<Aside> {
+        ensure!(amount > 0, "amount must be positive");
+        ensure!(
+            (MIN_FEE..=MAX_FEE).contains(&fee),
+            "the fee must be between {} and {} GNR",
+            krypton_core::emission::format_amount(MIN_FEE),
+            krypton_core::emission::format_amount(MAX_FEE)
+        );
+        ensure!(self.verifier.is_some(), "sync the wallet first");
+        let now = krypton_core::now();
+        let usable = |n: &&OwnedNote| {
+            n.position.is_some()
+                && n.spent_height.is_none()
+                && n.pending_spend.is_none()
+                && n.value > 0
+                && n.coin.is_none()
+        };
+        // Being released (the hold ends at a known time), as opposed to backing an offer.
+        let cooling = |n: &&OwnedNote| self.hold_of(&n.cm, now).is_some_and(|h| h.until.is_some());
+        let free = |n: &&OwnedNote| !self.held_at(&n.cm, now);
+        let notes = &self.state.notes;
+        if let Some(n) = notes
+            .iter()
+            .filter(usable)
+            .filter(|n| n.value == amount)
+            .find(|n| cooling(n))
+            .or_else(|| {
+                notes
+                    .iter()
+                    .filter(usable)
+                    .filter(|n| n.value == amount)
+                    .find(|n| free(n))
+            })
+        {
+            let cm = n.cm;
+            self.hold(cm, tag)?;
+            return Ok(Aside::Ready(cm));
+        }
+        let need = amount.checked_add(fee).context("amount overflow")?;
+        // Free notes first: then nothing that is being released is touched.
+        let chosen = match Self::pick(notes.iter().filter(usable).filter(free).collect(), need) {
+            Ok(c) => c,
+            Err(first) => Self::pick(
+                notes
+                    .iter()
+                    .filter(usable)
+                    .filter(|n| free(n) || cooling(n))
+                    .collect(),
+                need,
+            )
+            .map_err(|_| first)?,
+        };
+        // Change of a note that was being released stays held as that note was.
+        let carried = chosen
+            .iter()
+            .filter_map(|n| self.hold_of(&n.cm, now).cloned())
+            .max_by_key(|h| h.until);
+        let me = self.address();
+        let sent =
+            self.spend_notes(src, &chosen, &me, amount, fee, "set aside for a sell offer")?;
+        self.state
+            .holds
+            .retain(|h| h.cm != sent.pay && h.cm != sent.change);
+        self.state.holds.push(Hold {
+            cm: sent.pay,
+            tag: tag.to_string(),
+            until: None,
+        });
+        if let Some(h) = carried {
+            self.state.holds.push(Hold {
+                cm: sent.change,
+                tag: h.tag,
+                until: h.until,
+            });
+        }
+        self.save()?;
+        Ok(Aside::Pending {
+            cm: sent.pay,
+            txid: sent.txid,
+        })
+    }
+
+    /// Proves that this wallet can spend the note `cm` and that it holds at least
+    /// `value + fee`, without spending it: a transfer of `value` to the note
+    /// (`owner`, `rcm`) that no block can ever include, because it is expired from the
+    /// start (`expiry`). It is not sent anywhere and changes nothing in the wallet.
+    ///
+    /// Whoever checks it learns the note's nullifier (and so sees when it is spent) and
+    /// that amount; not this wallet's address, its balance or its other notes.
+    #[allow(clippy::too_many_arguments)]
+    pub fn prove_reserve(
+        &self,
+        src: &impl ChainSource,
+        cm: &Hash32,
+        owner: Digest,
+        value: u64,
+        rcm: Digest,
+        fee: u64,
+        expiry: u64,
+    ) -> Result<Transaction> {
+        // The proof is a real transfer of this note; only its expiry keeps it out of
+        // every block. That holds once the chain is past height `expiry`: each block
+        // still to come then finds it expired. (An expiry of 0 would never expire.)
+        ensure!(
+            expiry != 0 && self.synced_height().is_some_and(|h| h >= expiry),
+            "the chain is too young for a proof of funds"
+        );
+        let n = self
+            .note(cm)
+            .cloned()
+            .context("the note set aside for this offer is not in the wallet")?;
+        ensure!(
+            n.position.is_some() && n.pending_spend.is_none(),
+            "the note set aside for this offer is not confirmed yet"
+        );
+        let need = value.checked_add(fee).context("amount overflow")?;
+        ensure!(
+            n.value >= need,
+            "the note set aside holds less than the offer needs"
+        );
+        let (inputs, root) = self.input_witnesses(src, std::slice::from_ref(&n))?;
+        let pay = OutputWitness { owner, value, rcm };
+        let mut rest = OutputWitness::dummy();
+        rest.value = n.value - need;
+        // Nothing is ever delivered, so there is nothing to encrypt.
+        let blank = || vec![0u8; krypton_core::types::NOTE_CIPHERTEXT_LEN];
+        let mut tx = Transaction {
+            version: TX_VERSION,
+            kind: TxKind::Transfer,
+            anchor: digest_to_bytes(&root),
+            nullifiers: [
+                HexHash(digest_to_bytes(&inputs[0].nullifier())),
+                HexHash(digest_to_bytes(&inputs[1].nullifier())),
+            ],
+            outputs: [
+                Output {
+                    cm: digest_to_bytes(&pay.commitment()),
+                    ciphertext: blank(),
+                },
+                Output {
+                    cm: digest_to_bytes(&rest.commitment()),
+                    ciphertext: blank(),
+                },
+            ],
+            fee,
+            mint: 0,
+            expiry_height: expiry,
+            lock: None,
+            proof: vec![],
+            asset: None,
+        };
+        let w = SpendWitness {
+            inputs: [inputs[0].clone(), inputs[1].clone()],
+            outputs: [pay, rest],
+            root,
+            fee,
+            mint: 0,
+            sighash: tx.sighash(),
+            asset: None,
+        };
+        tx.proof = krypton_zk::prove(&w).map_err(|e| anyhow::anyhow!("{e}"))?.1;
+        Ok(tx)
     }
 
     /// Input witnesses for `chosen` at one common root, which must be the note root of
@@ -1026,7 +1331,7 @@ impl Wallet {
         amount: u64,
         fee: u64,
         memo: &str,
-    ) -> Result<Hash32> {
+    ) -> Result<Sent> {
         let tip = self
             .verifier
             .as_ref()
@@ -1149,7 +1454,11 @@ impl Wallet {
             });
         }
         self.save()?;
-        Ok(txid)
+        Ok(Sent {
+            txid,
+            pay: cm0,
+            change: cm1,
+        })
     }
 
     /// One consolidation round: pairs spendable notes (largest first) and merges each
@@ -1160,6 +1469,7 @@ impl Wallet {
         fee: u64,
         max_txs: usize,
     ) -> Result<Vec<Hash32>> {
+        let now = krypton_core::now();
         let mut notes: Vec<OwnedNote> = self
             .state
             .notes
@@ -1170,6 +1480,7 @@ impl Wallet {
                     && n.pending_spend.is_none()
                     && n.value > fee
                     && n.coin.is_none()
+                    && !self.held_at(&n.cm, now)
             })
             .cloned()
             .collect();
@@ -1181,14 +1492,17 @@ impl Wallet {
             if pair.len() < 2 {
                 break;
             }
-            ids.push(self.spend_notes(
-                src,
-                pair,
-                &me,
-                pair[0].value + pair[1].value - fee,
-                fee,
-                "consolidate",
-            )?);
+            ids.push(
+                self.spend_notes(
+                    src,
+                    pair,
+                    &me,
+                    pair[0].value + pair[1].value - fee,
+                    fee,
+                    "consolidate",
+                )?
+                .txid,
+            );
         }
         Ok(ids)
     }
@@ -1231,6 +1545,7 @@ impl Wallet {
 
     /// Whether a payment of `amount + fee` needs consolidation first.
     pub fn needs_consolidation(&self, amount: u64, fee: u64) -> bool {
+        let now = krypton_core::now();
         let mut v: Vec<u64> = self
             .state
             .notes
@@ -1240,6 +1555,7 @@ impl Wallet {
                     && n.spent_height.is_none()
                     && n.pending_spend.is_none()
                     && n.coin.is_none()
+                    && !self.held_at(&n.cm, now)
             })
             .map(|n| n.value)
             .collect();

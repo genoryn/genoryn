@@ -508,8 +508,10 @@ and if nobody does, both refund. Since 1.0.23 **the GNR is locked first**:
    reveals the secret on the Bitcoin chain.
 5. **The buyer takes the GNR** with the secret read from the seller's bitcoin claim.
 
-A seller who does not have the GNR cannot lock it, so nobody can sell GNR they do not have, and
-the seller cannot take the bitcoin without releasing the GNR to the buyer.
+Nobody can sell GNR they do not have: a sell offer is listed only after the board has checked
+a proof that its GNR is there (see [the offer board](#the-offer-board)), and a seller cannot
+lock what it does not have. The seller cannot take the bitcoin without releasing the GNR to
+the buyer.
 
 | Mainnet timing | Value |
 |---|---|
@@ -538,10 +540,13 @@ two wallets of a swap; it never sees keys, codes or coins.
 | Prices | **Any price may be offered**; the wallet only warns about a likely typo (3× from the market) |
 | Amounts | 10,000 sat to 1,000 BTC per offer |
 | Proof of work | 18 bits per offer, message and report; offers longer than a day need one bit more per doubling (21 for a week, 23 for a month, 27 for a year: seconds on a modern CPU) |
-| Reserved GNR | An open sell offer reserves its amount plus the fee, so a buyer always finds it |
+| Proof of funds | A sell offer is listed only after its GNR is set aside in a note of its own and the board has checked a zero-knowledge proof that the seller can spend it. The proof fits that offer only and can never be mined: nothing moves. The board takes the offer down the moment the note is spent, and no note backs two offers, or an offer and a swap in progress |
+| While it is open | The note cannot be sent or put into another offer; a take locks exactly it |
+| Cancelling | The offer leaves the board at once; the wallet frees its GNR 24 hours later, or when the offer would have ended if sooner. It can go into a new offer at once. An offer that runs its time frees its GNR at once |
+| Buy offers | Lock nothing when published: a bitcoin contract names the seller's key and the hash of the seller's secret, which do not exist before a seller takes the offer |
 | Online | The maker's wallet pings every 45 s; seen in the last 2 minutes = green dot, takeable, swap starts within seconds without approval |
 | Offline | Stays listed, greyed out, not takeable; removed after a week offline (the wallet then frees the GNR) |
-| In progress | Only the maker can mark a taken offer "in progress"; its wallet confirms every 10 minutes and removes it as soon as the swap can no longer complete |
+| In progress | Only the maker can mark a taken offer "in progress"; it is shown as taken, not paid yet, until the bitcoin is in its contract, and only paid swaps count as running. The maker's wallet confirms every 10 minutes and removes the entry as soon as the swap can no longer complete |
 | Limits | Up to 5,000 offers, mailboxes of 100 messages kept a day, per-client rate limits |
 | Anonymity | Each offer has its own one-time X25519 + ML-KEM-1024 key, never your address |
 

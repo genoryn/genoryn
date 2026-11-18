@@ -504,6 +504,7 @@ fn atomic_swap_lock_claim_and_refund() {
             value,
             refund_fee,
             DEFAULT_FEE,
+            None,
         )
         .unwrap();
     let cm = b.watch_lock(1, terms.clone(), value, claim_fee).unwrap();
@@ -567,6 +568,7 @@ fn atomic_swap_lock_claim_and_refund() {
             value,
             refund_fee,
             DEFAULT_FEE,
+            None,
         )
         .unwrap();
     let cm2 = b.watch_lock(2, terms2.clone(), value, claim_fee).unwrap();
@@ -667,6 +669,98 @@ fn expired_sends_release_their_notes() {
     mine(&src, &a.address());
     a.sync(&src, |_, _| {}).unwrap();
     assert_eq!(a.balance().pending, 0);
+}
+
+/// GNR set aside for a sell offer stays where it is: sends and merges never pick it, a
+/// released note goes straight into a new offer, and holds survive a restart.
+#[test]
+fn notes_set_aside_are_not_spent() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let path = dir.path().join("a.wallet");
+    let mut a = Wallet::create(
+        &path,
+        "password-a",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    let to = new_wallet(dir.path(), "b.wallet", &keys::new_mnemonic()).address();
+    for _ in 0..12 {
+        mine(&src, &a.address());
+    }
+    // Blocks from here on pay someone else, so this wallet's balance moves only by fees.
+    for _ in 0..6 {
+        mine(&src, &to);
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    let before = a.balance();
+    assert!(before.spendable > 0 && before.held == 0 && before.immature == 0);
+    let amount = 40_000_000;
+    // No note of exactly this amount yet: one transfer to itself makes it.
+    let Aside::Pending { cm, .. } = a.set_aside(&src, amount, DEFAULT_FEE, "offer-a").unwrap()
+    else {
+        panic!("a new note was needed");
+    };
+    assert_eq!(a.holds().len(), 1, "held from the moment it is asked for");
+    mine(&src, &to);
+    a.sync(&src, |_, _| {}).unwrap();
+    let b = a.balance();
+    assert_eq!(b.held, amount);
+    assert_eq!(b.total, before.total - DEFAULT_FEE);
+    assert_eq!(b.spendable, b.total - amount);
+    // What is free can be sent; a single krypton more cannot, though the total covers it.
+    let err = a
+        .send(&src, &to, b.spendable - DEFAULT_FEE + 1, DEFAULT_FEE, "")
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("insufficient"), "{err}");
+    assert!(!a.needs_consolidation(b.spendable, DEFAULT_FEE));
+    // Merging notes leaves it alone.
+    if a.consolidate(&src, DEFAULT_FEE, 64).is_ok() {
+        mine(&src, &to);
+        a.sync(&src, |_, _| {}).unwrap();
+    }
+    let n = a.note(&cm).expect("still there").clone();
+    assert!(n.pending_spend.is_none() && n.value == amount);
+    assert_eq!(a.balance().held, amount);
+    // Released for later: still held until then, but a new offer takes it at once and
+    // without another transfer.
+    a.release(&cm, Some(krypton_core::now() + 3600)).unwrap();
+    assert_eq!(a.balance().held, amount);
+    assert!(a.holds()[0].until.is_some());
+    assert_eq!(
+        a.set_aside(&src, amount, DEFAULT_FEE, "offer-b").unwrap(),
+        Aside::Ready(cm)
+    );
+    assert_eq!(a.holds().len(), 1);
+    assert_eq!(a.holds()[0].tag, "offer-b");
+    assert!(a.holds()[0].until.is_none());
+    // Holds are part of the wallet file.
+    drop(a);
+    let mut a = Wallet::open(&path, "password-a").unwrap();
+    assert_eq!(a.holds().len(), 1);
+    assert_eq!(a.balance().held, amount);
+    // A hold that has run out holds nothing.
+    a.release(&cm, Some(krypton_core::now().saturating_sub(1)))
+        .unwrap();
+    assert!(a.holds().is_empty());
+    assert_eq!(a.balance().held, 0);
+    // Released at once: a free note of exactly the amount is taken as it is.
+    assert_eq!(
+        a.set_aside(&src, amount, DEFAULT_FEE, "offer-c").unwrap(),
+        Aside::Ready(cm)
+    );
+    a.release(&cm, None).unwrap();
+    assert_eq!(a.balance().held, 0);
+    assert_eq!(a.balance().spendable, a.balance().total);
 }
 
 #[test]

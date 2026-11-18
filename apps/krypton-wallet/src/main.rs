@@ -547,6 +547,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "swaps_open": wv["swaps_open"],
             "swap_locked": wv["swap_locked"],
             "reserved": wv["reserved"],
+            "cooling": wv["cooling"],
             "market": board::cached_market(),
             "synced_height": wv["synced_height"],
             "history": wv["history"],
@@ -595,7 +596,9 @@ fn wallet_view(w: &Wallet) -> Value {
         "balance": w.balance(),
         "swaps_open": swaps::active_count(w),
         "swap_locked": w.locked_balance(),
-        "reserved": board::reserved(w),
+        // Set aside for open sell offers, and what is being released after cancelled ones.
+        "reserved": board::reserved(w).saturating_add(board::held(w).0),
+        "cooling": board::held(w).1.into_iter().map(|(value, until)| json!({"value": value, "until": until})).collect::<Vec<_>>(),
         "synced_height": w.synced_height(),
         "history": history,
     })
