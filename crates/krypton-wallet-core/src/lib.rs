@@ -1211,7 +1211,7 @@ impl Wallet {
             }
             let ids = self.consolidate(src, fee, 64)?;
             status(&format!(
-                "consolidation round {round}: merging notes in {} transactions, waiting for the next block",
+                "Preparing the payment, step {round}: the coins are in many small notes, so they are merged first ({} transactions), then the next block is awaited. The payment follows by itself; keep the wallet open.",
                 ids.len()
             ));
             let start = std::time::Instant::now();

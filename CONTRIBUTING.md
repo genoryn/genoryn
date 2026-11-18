@@ -21,7 +21,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Building and testing
 
-You need Rust 1.88 or newer. No other toolchain is required.
+You need Rust 1.89 or newer. No other toolchain is required.
 
 ```sh
 cargo build --release                                   # node, miner, wallets

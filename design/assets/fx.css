@@ -113,7 +113,7 @@ html[data-fx="low"] .drift { animation: none !important; }
 .gk-bar:hover { opacity: 1; }
 .gk-target { stroke: var(--text-tertiary); stroke-dasharray: 4 5; }
 .gk-cross { stroke: var(--line-strong); }
-.gk-dot, .gk-last { fill: var(--bg-solid); stroke: var(--text-primary); stroke-width: 2; }
+.gk-dot, .gk-last, .gk-pt { fill: var(--bg-solid); stroke: var(--text-primary); stroke-width: 2; }
 .gk-empty { fill: var(--text-tertiary); font: 13px var(--font-sans); }
 .gk-tip { position: absolute; pointer-events: none; padding: 8px 11px; border-radius: 10px; font-size: 12px; white-space: nowrap; z-index: 3; }
 .gk-tip b { display: block; font: 600 13px var(--font-mono); color: var(--text-primary); }

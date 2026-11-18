@@ -74,6 +74,52 @@
     $("mkAllV").textContent = all.length ? gnr(vol) + " GNR" + (dollars(vb) ? " · ≈ " + dollars(vb) : "") : "";
     $("mkRecentN").textContent = all.length ? "· " + all.length : "";
     $("mkRecent").innerHTML = all.length ? all.map(card).join("") : "<p class=\"muted\">No completed swaps yet.</p>";
+    history();
+    totals();
+  }
+  // What the board holds, in bitcoin and in dollars.
+  function totals() {
+    if (!$("mktBtc")) return;
+    var sum = function (l, k) { return l.reduce(function (a, o) { return a + Number(o[k] || 0); }, 0); };
+    var put = function (id, l, word, none) {
+      var s = sum(l, "sats"), g = sum(l, "gnr");
+      $(id).textContent = l.length ? (dollars(s) || btc(s) + " BTC") : "—";
+      $(id + "N").textContent = l.length ? gnr(g) + " GNR · " + btc(s) + " BTC · " + l.length + " " + word + (l.length === 1 ? "" : "s") : none;
+    };
+    $("mktBtc").textContent = data.btc > 0 ? GKValue.usd(data.btc) : "—";
+    $("mktBtcN").textContent = data.btc > 0 ? "per bitcoin" : "the price could not be read";
+    put("mktSell", data.offers.filter(function (o) { return o.side === "sell_gnr"; }), "sell offer", "no sell offers");
+    put("mktBuy", data.offers.filter(function (o) { return o.side === "buy_gnr"; }), "buy offer", "no buy offers");
+    put("mktProg", data.pending, "swap", "none right now");
+    put("mktDone", data.recent, "swap", "no swaps yet");
+  }
+  // Price history: one point per completed swap, oldest first.
+  var charts = {};
+  function draw(id, series, opts) {
+    var host = $(id);
+    if (!host || !window.GKCharts) return;
+    if (charts[id]) charts[id].update(series, opts); else charts[id] = GKCharts.chart(host, series, opts);
+  }
+  function history() {
+    if (!window.GKCharts || !$("mkChartPrice")) return;
+    var at = function (x) { return (x.claim && x.claim.time) || x.at; };
+    var all = data.recent.slice().sort(function (a, b) { return at(a) - at(b); });
+    var pick = function (f) { return all.map(function (x) { return { t: at(x), v: f(x), h: x.claim ? x.claim.height : null }; }); };
+    var satAxis = function (v, axis) { return axis ? GKCharts.fmtNum(v) + " sat" : sat(v) + (usd(v) ? " · ≈ " + usd(v) : ""); };
+    draw("mkChartPrice", pick(function (x) { return Number(x.price) || 0; }), { kind: "area", straight: true, points: true, fmt: satAxis, label: "Price per GNR of every completed swap", height: 230 });
+    draw("mkChartVol", pick(function (x) { return Number(x.gnr || 0) / 1e8; }), { kind: "bars", fmt: function (v, axis) { return axis ? GKCharts.fmtNum(v) : gnr(v * 1e8) + " GNR"; }, label: "GNR traded in each swap", height: 230 });
+    draw("mkChartBtc", pick(function (x) { return Number(x.sats || 0); }), { kind: "bars", fmt: function (v, axis) { return axis ? GKCharts.fmtNum(v) + " sat" : btc(v) + " BTC" + (dollars(v) ? " · ≈ " + dollars(v) : ""); }, label: "Bitcoin paid in each swap", height: 200 });
+    var last = all[all.length - 1];
+    $("mkHistLast").textContent = last ? "last " + sat(last.price) : "no swaps yet";
+    $("mkHistVol").textContent = all.length ? gnr(all.reduce(function (a, x) { return a + Number(x.gnr || 0); }, 0)) + " GNR" : "—";
+    $("mkHistBtc").textContent = all.length ? btc(all.reduce(function (a, x) { return a + Number(x.sats || 0); }, 0)) + " BTC" : "—";
+  }
+  function hashrate() {
+    if (!window.GKCharts || !$("mkChartRate")) return;
+    gk.api("/v1/stats?range=7d").then(function (s) {
+      draw("mkChartRate", (s.points || []).map(function (p) { return { t: p.t, v: p.hashrate, h: p.h }; }), { kind: "area", fmt: GKCharts.fmtRate, label: "Network hashrate, last 7 days", height: 200 });
+      $("mkHistRate").textContent = gk.rate((s.summary || {}).hashrate);
+    }).catch(function () {});
   }
   var esc = function (s) { return gk.esc(s); };
   var short = function (h) { return h ? h.slice(0, 10) + "…" + h.slice(-8) : "—"; };
@@ -137,5 +183,7 @@
     render();
   });
   load();
+  hashrate();
   setInterval(function () { if (!document.hidden) load(); }, 30000);
+  setInterval(function () { if (!document.hidden) hashrate(); }, 300000);
 })();

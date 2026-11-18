@@ -103,12 +103,25 @@
       put("[data-gpu-value]", usd != null ? GKValue.usd(g * usd) + " a day at the market price" : "no market price yet");
     }
   };
+  // Home: the price of every completed swap, oldest first (one point per swap).
+  var homePriceChart = null;
+  gk.priceChart = function () {
+    var host = document.getElementById("homePrice");
+    if (!host || !window.GKCharts || !window.GKValue) return;
+    var at = function (x) { return (x.claim && x.claim.time) || x.at; };
+    var btc = Number(gk.btcUsd) || 0;
+    var series = (gk.mkRecent || []).slice().sort(function (a, b) { return at(a) - at(b); })
+      .map(function (x) { return { t: at(x), v: Number(x.price) || 0, h: x.claim ? x.claim.height : null }; });
+    var opts = { kind: "area", straight: true, points: true, height: 190, label: "Price per GNR of every completed swap",
+      fmt: function (v, axis) { var u = GKValue.market(v, btc); return axis ? GKCharts.fmtNum(v) + " sat" : GKValue.btc(v) + (u != null ? " · ≈ " + GKValue.usd(u) : ""); } };
+    if (homePriceChart) homePriceChart.update(series, opts); else homePriceChart = GKCharts.chart(host, series, opts);
+  };
   if (document.querySelector("[data-mk-usd], [data-main], [data-mk-price]")) {
     var loadMarket = function () {
       var info = gk.api("/v1/info").catch(function () { return null; });
-      var mk = gk.api("/v1/swap/market").then(function (m) { gk.mk = m.market; }).catch(function () {});
+      var mk = gk.api("/v1/swap/market").then(function (m) { gk.mk = m.market; gk.mkRecent = m.recent || []; }).catch(function () {});
       var btc = gk.api("/v1/btc-price").then(function (p) { gk.btcUsd = p.USD; }).catch(function () {});
-      Promise.all([info, mk, btc]).then(function (r) { gk.value(r[0]); });
+      Promise.all([info, mk, btc]).then(function (r) { gk.value(r[0]); gk.priceChart(); });
     };
     loadMarket();
     setInterval(function () { if (!document.hidden) loadMarket(); }, 60000);
@@ -155,6 +168,37 @@
     };
     loadNet();
     setInterval(function () { if (!document.hidden) loadNet(); }, 60000);
+  }
+  // Home: charts with a time range, the supply disc and the latest blocks.
+  var homeDash = document.getElementById("homeDash");
+  if (homeDash && window.GKCharts) {
+    var hk = function (k, v) { homeDash.querySelectorAll('[data-kpi="' + k + '"]').forEach(function (e) { e.textContent = v; }); };
+    var hd = GKCharts.dashboard(homeDash, function (r) { return gk.api("/v1/stats?range=" + r); }, function (s, pts) {
+      var last = pts[pts.length - 1] || {};
+      var avg = function (k) { return pts.length ? pts.reduce(function (a, p) { return a + Number(p[k] || 0); }, 0) / pts.length : 0; };
+      hk("hashrate", gk.rate(s.hashrate));
+      hk("miners", String(s.estimated_miners || 0));
+      hk("block_time", avg("block_time").toFixed(0) + " s avg");
+      hk("difficulty", GKCharts.fmtNum(last.difficulty || 0));
+      hk("issued", gk.gnr(s.issued, 0) + " GNR");
+      hk("remaining", gk.gnr(s.remaining, 0) + " GNR");
+      GKCharts.disc(document.getElementById("homeDisc"), Number(s.issued || 0), Number(s.max_supply || 21e14));
+    });
+    setInterval(function () { if (!document.hidden) hd.reload(); }, 120000);
+  }
+  var homeBlocks = document.getElementById("homeBlocks");
+  if (homeBlocks) {
+    var loadBlocks = function () {
+      gk.api("/v1/blocks?count=6").then(function (bs) {
+        homeBlocks.innerHTML = bs.map(function (b) {
+          var h = Number(b.height), tx = Number(b.txs) || 0, sh = Number(b.shares) || 0;
+          return '<a href="/explorer#/block/' + h + '"><b>#' + h.toLocaleString("en-US") + "</b><span>" + gk.ago(b.timestamp) + "</span><span>" + sh + " share" + (sh === 1 ? "" : "s") +
+            "</span><span>" + tx + " tx</span><em>" + gk.gnr((Number(b.subsidy) || 0) + (Number(b.fees) || 0), 2) + " GNR</em></a>";
+        }).join("");
+      }).catch(function () {});
+    };
+    loadBlocks();
+    setInterval(function () { if (!document.hidden) loadBlocks(); }, 30000);
   }
   if (window.GKCharts) GKCharts.tilt(".tilt-card");
 

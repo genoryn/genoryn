@@ -481,7 +481,22 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
                     remember_view(w, &v);
                     v
                 }
-                None => Value::Null,
+                None => {
+                    // The wallet just made active can still be out with the background
+                    // sync; it is back within moments. Show its last snapshot meanwhile,
+                    // not the password form.
+                    let id = a.vault.active_id();
+                    let away = a.vault.syncing.lock().contains(&id)
+                        && a.vault.unlocked.lock().contains_key(&id)
+                        && !vault::expired(&a, &id);
+                    if !away {
+                        Value::Null
+                    } else if let Some(v) = active_view(&a) {
+                        v
+                    } else {
+                        return Ok(json!({"working": true, "unlocked": true, "exists": true, "busy": a.busy.lock().clone(), "network": a.network.as_str()}));
+                    }
+                }
             },
             None => {
                 match active_view(&a) {
@@ -927,6 +942,37 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
     }
 }
 
+#[derive(Deserialize)]
+struct PlanQ {
+    amount: String,
+    fee: Option<u64>,
+}
+
+/// Whether a payment of this amount must first merge notes (a transfer spends two notes;
+/// mining rewards arrive as many).
+async fn send_plan(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<PlanQ>,
+) -> Response {
+    if let Err(x) = check_open(&app, &h) {
+        return x;
+    }
+    let Some(amount) = parse_amount(&q.amount) else {
+        return Json(json!({"merge": false})).into_response();
+    };
+    let merge = app
+        .wallet
+        .try_lock_for(std::time::Duration::from_secs(2))
+        .and_then(|g| {
+            g.as_ref().map(|w| {
+                w.needs_consolidation(amount, q.fee.unwrap_or(krypton_wallet_core::DEFAULT_FEE))
+            })
+        })
+        .unwrap_or(false);
+    Json(json!({"merge": merge})).into_response()
+}
+
 async fn publish(State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check_open(&app, &h) {
         return x;
@@ -1003,10 +1049,57 @@ async fn history_page(
                 received += e.amount;
             }
         }
+        // Zero-amount records of a transfer to oneself say nothing; the fee row does.
+        let internal = |e: &krypton_wallet_core::HistoryEntry| e.txid.starts_with("self:");
+        // Merging notes before a payment takes many transactions: one row per block.
+        let merge = |e: &krypton_wallet_core::HistoryEntry| {
+            e.memo == "consolidate" && e.amount <= 0 && e.to.is_some()
+        };
+        let rows = |list: Vec<&krypton_wallet_core::HistoryEntry>| -> Vec<Value> {
+            let mut out: Vec<Value> = Vec::new();
+            let mut groups: std::collections::HashMap<Option<u64>, usize> = Default::default();
+            for e in list {
+                if merge(e) {
+                    if let Some(&i) = groups.get(&e.height) {
+                        let r = &mut out[i];
+                        let n = r["count"].as_u64().unwrap_or(1) + 1;
+                        r["count"] = json!(n);
+                        r["amount"] = json!(r["amount"].as_i64().unwrap_or(0) + e.amount as i64);
+                        r["fee"] = json!(r["fee"].as_u64().unwrap_or(0) + e.fee);
+                        r["time"] = json!(r["time"].as_u64().unwrap_or(0).max(e.time));
+                        r["memo"] = json!(format!("Notes merged before a payment ({n} transactions)"));
+                    } else {
+                        groups.insert(e.height, out.len());
+                        out.push(json!({
+                            "txid": e.txid, "height": e.height, "amount": e.amount as i64, "fee": e.fee,
+                            "memo": "Notes merged before a payment (1 transaction)", "to": null,
+                            "time": e.time, "provable": false, "kind": "merge", "count": 1,
+                        }));
+                    }
+                    continue;
+                }
+                out.push(json!({
+                    "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
+                    "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
+                    "kind": if mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
+                }));
+            }
+            out
+        };
+        let newest_first = |v: &mut Vec<&krypton_wallet_core::HistoryEntry>| {
+            v.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
+        };
+        let mut everything: Vec<_> = w
+            .history()
+            .iter()
+            .filter(|e| e.coin.is_none() && !internal(e))
+            .collect();
+        newest_first(&mut everything);
+        let all = rows(everything).len();
         let mut items: Vec<_> = w
             .history()
             .iter()
-            .filter(|e| e.coin.is_none())
+            .filter(|e| e.coin.is_none() && !internal(e))
             .filter(|e| match kind {
                 "in" => e.amount >= 0 && !mining(e),
                 "out" => e.amount < 0,
@@ -1024,7 +1117,8 @@ async fn history_page(
                     || e.height.is_some_and(|h| h.to_string() == needle)
             })
             .collect();
-        items.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
+        newest_first(&mut items);
+        let items = rows(items);
         // Payments to us still in the mempool come first, marked pending.
         let incoming: Vec<Value> = w
             .incoming()
@@ -1047,20 +1141,14 @@ async fn history_page(
         let limit = q.limit.unwrap_or(15).clamp(1, 100);
         let page: Vec<Value> = incoming
             .into_iter()
-            .chain(items.into_iter().map(|e| {
-                json!({
-                    "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
-                    "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
-                    "kind": if mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
-                })
-            }))
+            .chain(items)
             .skip(q.offset.unwrap_or(0))
             .take(limit)
             .collect();
         Ok(json!({
             "total": total,
             "items": page,
-            "all": w.history().len(),
+            "all": all,
             "sums": {"received": received, "sent": sent, "mining": mined, "fees": fees},
         }))
     })
@@ -1747,9 +1835,11 @@ async fn quit(State(app): S, h: HeaderMap) -> Response {
     Json(json!({"ok": true})).into_response()
 }
 
-/// If a wallet is already running for this network, returns its URL.
-fn running_instance(dir: &std::path::Path) -> Option<String> {
+/// If a wallet is already running for this network, returns its URL. `patient` waits
+/// longer for the answer: a wallet that is proving can take seconds to reply.
+fn running_instance(dir: &std::path::Path, patient: bool) -> Option<String> {
     use std::io::{Read, Write};
+    let (connect, read) = if patient { (2_000, 6_000) } else { (600, 800) };
     let url = std::fs::read_to_string(dir.join("wallet-instance.url")).ok()?;
     let host = url
         .trim()
@@ -1759,8 +1849,9 @@ fn running_instance(dir: &std::path::Path) -> Option<String> {
         .to_string();
     let addr: std::net::SocketAddr = host.parse().ok()?;
     let mut s =
-        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(600)).ok()?;
-    s.set_read_timeout(Some(std::time::Duration::from_millis(800)))
+        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(connect))
+            .ok()?;
+    s.set_read_timeout(Some(std::time::Duration::from_millis(read)))
         .ok()?;
     write!(s, "GET /api/ping HTTP/1.0\r\nHost: {host}\r\n\r\n").ok()?;
     let mut buf = String::new();
@@ -1978,6 +2069,7 @@ async fn serve(
         .route("/api/lock", post(lock))
         .route("/api/reveal", post(reveal))
         .route("/api/send", post(send))
+        .route("/api/send-plan", get(send_plan))
         .route("/api/publish", post(publish))
         .route("/api/settings", post(save_settings))
         .route("/api/node/start", post(node_start))
@@ -2064,11 +2156,36 @@ fn main() -> Result<()> {
     let dir = data_dir(network);
     std::fs::create_dir_all(&dir)?;
     // Second launch (desktop icon clicked again): show the running wallet instead.
-    if let Some(url) = running_instance(&dir) {
+    if let Some(url) = running_instance(&dir, false) {
         if !a.no_browser {
             window::show(&url, None, None);
         }
         return Ok(());
+    }
+    // Only one wallet may use a data directory: two would overwrite each other's wallet
+    // files. The lock is held until this process ends. A wallet that holds it but did not
+    // answer above is busy (proving) or just closing: wait for it instead of starting a
+    // second one.
+    let instance_lock = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(dir.join("wallet.lock"))
+        .context("open the wallet lock file")?;
+    let mut waited = 0;
+    while instance_lock.try_lock().is_err() {
+        if let Some(url) = running_instance(&dir, true) {
+            if !a.no_browser {
+                window::show(&url, None, None);
+            }
+            return Ok(());
+        }
+        waited += 1;
+        anyhow::ensure!(
+            waited < 30,
+            "Genoryn Krypton is already running for this network but does not answer; wait a moment and try again"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
     let (tx, rx) = std::sync::mpsc::channel();
     let port = a.port;

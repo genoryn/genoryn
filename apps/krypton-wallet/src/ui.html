@@ -75,6 +75,8 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .modal-card input{margin:14px 0 0}
 .modal-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.modal-acts .btn{min-width:104px}
 .btn-danger{background:var(--text-primary);color:var(--bg-solid);border-color:var(--text-primary)}
+.sum-note{margin:12px 0 0;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--bg-inset);font-size:13.5px;line-height:1.55;color:var(--text-secondary);text-align:left}.sum-note b{display:block;color:var(--text-primary);margin-bottom:3px}
+.send-busy{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--bg-inset);font-size:13.5px;line-height:1.5}.send-busy .mk-dot{flex:none;margin-top:6px}
 .sum{margin:14px 0 2px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg-inset)}
 .sum-amt{padding:16px 16px 12px;text-align:center;border-bottom:1px solid var(--line)}.sum-amt b{display:block;font:700 30px/1.1 var(--font-mono)}.sum-amt span{font-size:12.5px;color:var(--text-tertiary)}
 .sum .row{padding:9px 14px;margin:0}.sum .row:last-child{border-bottom:0}.sum .row b{max-width:62%}
@@ -377,6 +379,14 @@ header{padding:14px 30px}
 .kpi{padding:18px 20px;border-radius:18px}
 @media (min-width:1900px){body{font-size:17px}main{max-width:1760px}#app:not(.hidden){grid-template-columns:268px minmax(0,1fr)}}
 /* swap: why, two-sided book, receipts */
+.big.bal-main{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font-size:clamp(28px,2.1vw,42px)}.ov-title .ic{width:18px;height:18px;margin-right:9px;vertical-align:-2px}.big.bal-main .coin{align-self:center;width:.82em;height:.82em}.big.bal-main small{font-size:.38em;font-weight:600;letter-spacing:.04em}
+.kr-line{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:10px 0 12px;padding:7px 14px;border:1px solid var(--line);border-radius:99px;background:var(--bg-inset);color:var(--text-secondary);font-size:13.5px;max-width:100%}.kr-line b{font:500 15px var(--font-mono);color:var(--text-primary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sw-totals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.swt{padding:18px 20px;border-radius:18px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.swt-k{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-tertiary)}.swt-k .coin,.swt-k .ic{width:16px;height:16px;color:var(--text-primary)}
+.swt b{font:700 clamp(20px,1.9vw,28px)/1.1 var(--font-display);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.swt em{font-style:normal;font-size:12.5px;line-height:1.45;color:var(--text-secondary)}
+@media (max-width:1300px){.sw-totals{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:760px){.sw-totals{grid-template-columns:1fr 1fr}}
 .sw-why{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:18px}
 .sw-why h3{font:700 24px/1.15 var(--font-display);letter-spacing:-.01em;margin:8px 0 10px}.sw-why p{margin:0;max-width:720px}
 .sw-why ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}.sw-why li{padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset)}.sw-why li b{display:block;font-size:14px}.sw-why li span{color:var(--text-secondary);font-size:13px}
@@ -402,7 +412,7 @@ header{padding:14px 30px}
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17a1 1 0 0 1 1 1v2"/><path d="M4 7.5v10A2.5 2.5 0 0 0 6.5 20H19a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 5.5"/><circle cx="16" cy="14" r="1.3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M13.5 9.5l2 2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16"/><path d="m7.5 14 3.5-4 3 2.5L19 7"/></symbol><symbol id="i-display" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17a1 1 0 0 1 1 1v2"/><path d="M4 7.5v10A2.5 2.5 0 0 0 6.5 20H19a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 5.5"/><circle cx="16" cy="14" r="1.3"/></symbol>
   <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-mining" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
   <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M10.9 7 6.1 16M13.1 7l4.8 9M7.3 18h9.4"/></symbol>
@@ -460,7 +470,7 @@ header{padding:14px 30px}
   </section>
   <section id="mnemonicBox" class="center hidden">
     <div class="glass card">
-      <h2>Your recovery phrase<span id="mnFor" class="muted"></span></h2>
+      <h2><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>Your recovery phrase<span id="mnFor" class="muted"></span></h2>
       <p class="warn">Write these 24 words <b>with their numbers</b> on paper, in order, and keep them offline. Anyone with them controls your funds. They will not be shown again.</p>
       <p class="hero-note">384 bits of entropy: a 192-bit margin even against quantum computers. A built-in checksum catches any wrong word or number when you restore.</p>
       <div id="words" class="words"></div>
@@ -513,7 +523,7 @@ header{padding:14px 30px}
       <div id="tSplit" class="wsplit" aria-hidden="true"></div>
       <p id="tNote" class="hero-note" style="margin-top:6px"></p>
       <div id="addPanel" class="addp hidden">
-        <h2>Add a wallet</h2>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg>Add a wallet</h2>
         <p class="muted">Each wallet has its own 24 words and its own password. Add as many as you like; the total above adds them all up.</p>
         <div class="add-grid">
           <div><label for="addName">Name</label><input id="addName" maxlength="40" placeholder="e.g. Savings"></div>
@@ -536,8 +546,9 @@ header{padding:14px 30px}
     </section>
     <div class="grid">
       <div class="glass card">
-        <h2>Balance</h2>
-        <div class="big glow"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><span id="bal" class="num">0</span> <small>GNR</small></div>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Balance</h2>
+        <div class="big glow bal-main"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><span id="bal" class="num">0</span><small>GNR</small></div>
+        <div class="kr-line" id="balKRow" title="The krypton is the smallest unit of GNR: 1 GNR = 100,000,000 krypton, as a satoshi is to a bitcoin."><b id="balK" class="num">0</b> krypton</div>
         <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">at the market price</span></div>
         <div class="row">Spendable<b id="bSpend">0</b></div>
         <div class="row">Pending<b id="bPend">0</b></div>
@@ -548,7 +559,7 @@ header{padding:14px 30px}
         <p id="busy" class="warn"></p>
       </div>
       <div class="glass card">
-        <h2>Receive</h2>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Receive</h2>
         <p class="muted">Short address (resolvable on published nodes):</p>
         <div class="mono addr inset" id="short"></div>
         <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
@@ -557,21 +568,22 @@ header{padding:14px 30px}
         <div class="mono addr inset" id="full"></div>
       </div>
       <div class="glass card">
-        <h2>Send privately</h2>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send privately</h2>
         <label for="to">To (address or short address)</label><textarea id="to" style="min-height:64px"></textarea>
         <label for="amount">Amount (GNR)</label><input id="amount" placeholder="0.0" inputmode="decimal">
         <label for="memo">Private memo (only the recipient can read it)</label><input id="memo" maxlength="120">
         <label>Network fee</label>
         <div class="seg fee-seg" id="feeSeg" role="group" aria-label="Network fee"><button type="button" data-s="economy">Economy <em id="feE"></em></button><button type="button" data-s="normal" class="on">Normal <em id="feN"></em></button><button type="button" data-s="fast">Fast <em id="feF"></em></button><button type="button" data-s="custom">Custom</button></div>
         <input id="feeCustom" class="hidden" placeholder="Fee in GNR, e.g. 0.00002" inputmode="decimal" aria-label="Custom fee in GNR" style="margin-top:8px">
-        <button id="sendBtn" class="btn btn-primary" onclick="send()" style="margin-top:10px">Send</button>
+        <button id="sendBtn" class="btn btn-primary" onclick="send()" style="margin-top:10px"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send</button>
+        <div class="send-busy hidden" id="sendBusy" role="status"><span class="mk-dot"></span><span id="sendBusyT"></span></div>
         <p class="hero-note">The smallest unit of GNR is the <b>krypton</b>: 1 GNR = 100,000,000 krypton.</p>
         <p class="hero-note" id="feeNote">Fees follow the network: when blocks have room the lowest fee confirms just as fast. They go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
     </div>
     <section id="overview" class="ov" aria-label="Network and mining overview">
       <div class="ov-head">
-        <h2 class="ov-title">Overview</h2>
+        <h2 class="ov-title"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Overview</h2>
         <div class="gk-range" id="ovRange" role="group" aria-label="Time range"><button type="button" data-range="1h">1H</button><button type="button" data-range="6h">6H</button><button type="button" data-range="24h" class="on">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button></div>
       </div>
       <div class="ov-kpis">
@@ -642,6 +654,13 @@ header{padding:14px 30px}
         <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
         <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
       </section>
+      <section class="sw-totals" aria-label="The bitcoin price and the totals on the board">
+        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="swtBtc">-</b><em id="swtBtcN">per bitcoin</em></div>
+        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="swtSell">-</b><em id="swtSellN">sell offers</em></div>
+        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="swtBuy">-</b><em id="swtBuyN">buy offers</em></div>
+        <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>In progress</span><b id="swtProg">-</b><em id="swtProgN">swaps running</em></div>
+        <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
+      </section>
       <section class="glass card sw-why">
         <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
           <p class="muted">Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could one day break. A swap moves that value into GNR, which is guarded by hash-based proofs instead, directly between two wallets: no exchange, no custody, no account. You can swap back to bitcoin the same way at any time.</p></div>
@@ -699,20 +718,20 @@ header{padding:14px 30px}
       </section>
       <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes</summary>
         <div class="grid" style="margin-top:14px">
-          <div class="glass card"><h2>Buy GNR with bitcoin</h2>
+          <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Buy GNR with bitcoin</h2>
             <p class="muted">The seller locks the GNR for you first; you pay only once it is locked on chain. Either both of you get paid, or both get your own coins back.</p>
             <label for="swGnr">GNR you receive</label><input id="swGnr" inputmode="decimal" placeholder="100" autocomplete="off">
             <label for="swBtc">Bitcoin you pay (BTC)</label><input id="swBtc" inputmode="decimal" placeholder="0.001" autocomplete="off">
             <label for="swRef">Your Bitcoin address for a refund</label><input id="swRef" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
             <button class="btn btn-primary swbtn" onclick="swapRequest()">Create request code</button>
           </div>
-          <div class="glass card"><h2>Paste a swap code</h2>
+          <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Paste a swap code</h2>
             <p class="muted">Codes start with <code>gks1</code>: a request from someone who wants to buy your GNR, or the next code of a swap in progress.</p>
             <label for="swCode">Swap code</label><textarea id="swCode" class="mono" spellcheck="false" style="min-height:96px"></textarea>
             <div id="swPayRow" class="hidden"><label for="swPay">Your Bitcoin address to receive the bitcoin</label><input id="swPay" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"></div>
             <button class="btn btn-primary swbtn" onclick="swapCode()">Continue</button>
           </div>
-          <div class="glass card"><h2>How it works</h2>
+          <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-docs"/></svg>How it works</h2>
             <ol class="swsteps">
               <li><b>Request.</b> The buyer creates a request code and sends it to the seller.</li>
               <li><b>Accept.</b> The seller pastes it and sends back an accept code.</li>
@@ -876,7 +895,7 @@ header{padding:14px 30px}
       </div>
       <div class="grid">
       <div class="glass card">
-        <h2>Mine GNR</h2>
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg>Mine GNR</h2>
         <p class="muted">Choose your hardware. GPUs are much faster (KryptoHash is memory-bandwidth bound); CPUs work too, e.g. on cloud servers.</p>
         <label for="backend">Device</label>
         <select id="backend"><option value="auto">Automatic (best available GPU, else CPU)</option><option value="cuda">NVIDIA GPU (CUDA)</option><option value="opencl">AMD / Intel GPU (OpenCL)</option><option value="cpu">CPU</option></select>
@@ -952,11 +971,11 @@ header{padding:14px 30px}
       </div>
     </div>
     <div class="grid" style="margin-top:18px">
-      <div class="glass card"><h2>Display</h2>
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-display"/></svg>Display</h2>
         <label class="mcheck" style="margin-top:0"><input type="checkbox" id="showVal" onchange="setShowVal(this.checked)"> Show the market value next to balances and mining earnings</label>
         <p class="hero-note"><b>Market price:</b> set by the people who trade GNR on the offer board. The plain average of the swaps people completed (each one the same, counted once its claim is on chain); offers never move it, so you may offer at any price. Converted to dollars with the BTC price, which arrives through genoryn.io so no third party sees this wallet. Before the first completed swap, no value is shown.</p>
       </div>
-      <div class="glass card"><h2>Connection mode</h2>
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg>Connection mode</h2>
         <label><input type="radio" name="mode" value="light"> Light (recommended): remote nodes provide data, everything is verified on this device</label>
         <label><input type="radio" name="mode" value="full"> Full node: download and validate the whole chain on this computer</label>
         <label class="mcheck"><input type="checkbox" id="acceptPeers"> Let other nodes connect to my full node (helps the network; needs a restart of the node)</label>
@@ -964,7 +983,7 @@ header{padding:14px 30px}
         <label for="nodes" style="margin-top:14px">Nodes for light mode (one per line; several are cross-checked)</label><textarea id="nodes"></textarea>
         <div class="row-flex"><button class="btn btn-primary" onclick="saveSettings()">Save</button><button class="btn" onclick="api('/api/node/start',{}).then(refresh)">Start my full node</button><button class="btn" onclick="api('/api/node/stop',{}).then(refresh)">Stop node</button></div>
       </div>
-      <div class="glass card"><h2>Chain</h2>
+      <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg>Chain</h2>
         <div class="row">Height<b id="cH">-</b></div><div class="row">Verified locally to<b id="cV">-</b></div><div class="row">Peers of source<b id="cP">-</b></div>
         <div class="row">Network hashrate<b id="cR">-</b></div><div class="row">Issued supply<b id="cS">-</b></div><div class="row">Own node<b id="cN">-</b></div>
       </div>
@@ -1290,11 +1309,13 @@ async function send(){
   const feeG=FEE.speed==='custom'?Math.round(Number(String(body.fee).replace(',','.'))*1e8):(FEE.opts?FEE.opts[FEE.speed]:0);
   if(FEE.speed==='custom' && !(feeG>0)) return toast('Enter a valid fee', true);
   const speed={economy:'Economy',normal:'Normal',fast:'Fast',custom:'Custom'}[FEE.speed];
+  let plan={}; try{ plan=await api('/api/send-plan?amount='+encodeURIComponent(String(amt))+'&fee='+(feeG||0)); }catch(e){}
   const ok=await ask({title:'Confirm payment', icon:'wallet', ok:'Send now',
     body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(Math.round(amt*1e8)))} GNR</b><span>to ${who.own?'your wallet “'+esc(who.own)+'”':'<span class="mono">'+esc(who.short.slice(0,28))+'…</span>'}</span></div>
       <div class="row">Network fee<b>${esc(gnrShort(feeG))} GNR · ${speed}</b></div>
       <div class="row tot">Total<b>${esc(gnrShort(Math.round(amt*1e8)+feeG))} GNR</b></div>
       ${body.memo?`<div class="row">Private memo<b>${esc(body.memo)}</b></div>`:''}</div>
+      ${plan.merge?'<div class="sum-note"><b>This payment takes a few minutes.</b>Your coins are in many small notes (every mining payout is its own note), and one transfer can spend two of them. The wallet first merges them, which takes a few blocks, and then sends the payment by itself. Keep the wallet open until it says “Sent”.</div>':''}
       <p class="mtext">Transfers are final. Amount, sender and recipient stay hidden on chain; proving takes a few seconds.</p>`, pass:true});
   body.password=takePass();
   if(!ok) return;
@@ -1380,7 +1401,7 @@ function renderOvKpis(){
 /* ---- History: paged, filtered, searched on the wallet side ---- */
 const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
 const fmtTime=t=>t?new Date(t*1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
-const KIND={in:'Received', out:'Sent', mining:'Mining reward'};
+const KIND={in:'Received', out:'Sent', mining:'Mining reward', merge:'Notes merged'};
 const SEEN_IN=new Set();
 async function loadHistory(){
   H.stale=false; const my=++H.seq; let r;
@@ -1666,8 +1687,8 @@ async function loadBoard(){
   const m=bdMkt();
   $('bdBoard').textContent=(BD.board||'').replace(/^https?:\/\//,'');
   const u=btcUsd(), n=(m.asks||0)+(m.bids||0);
-  $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtPx(m.price)):'No offers yet';
-  $('bdPrice').textContent=m.price!=null?'Market '+fmtPx(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):'Publish the first offer: it sets the first price.';
+  $('bdUsd').textContent=m.price!=null?(u?GKValue.usd(m.price*u/1e8):fmtPx(m.price)):n?'No swaps yet':'No offers yet';
+  $('bdPrice').textContent=m.price!=null?'Market '+fmtPx(m.price)+' per GNR'+(u?' ('+GKValue.usd(m.price*u/1e8)+')':''):n?'The first completed swap sets the price.':'Publish the first offer: it sets the first price.';
   $('bdPriceL').textContent=m.price!=null?'· average of '+(Number(m.priced)||0)+' completed swap'+(Number(m.priced)===1?'':'s'):'· after the first completed swap';
   const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
   $('bdConfBox').classList.toggle('hidden', m.price==null);
@@ -1678,7 +1699,19 @@ async function loadBoard(){
   $('bdBid').textContent=fmtPx(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';
   $('bdVol').textContent=(m.trades||0)+' done · '+(m.pending||0)+' in progress';
-  renderBook(); renderMine(); bdPer();
+  renderBook(); renderMine(); bdPer(); swTotals();
+}
+/* What the board holds, in bitcoin and in dollars: offers on each side, swaps running, swaps done. */
+function swTotals(){
+  const u=btcUsd(), all=BD.offers||[], sum=(l,k)=>l.reduce((a,o)=>a+Number(o[k]||0),0);
+  const money=s=>u?GKValue.usd(s*u/1e8):btcFmt(s/1e8)+' BTC';
+  const put=(id,l,word,none)=>{ const s=sum(l,'sats'), g=sum(l,'gnr'); $(id).textContent=l.length?money(s):'-';
+    $(id+'N').textContent=l.length?gnrShort(g)+' GNR · '+btcFmt(s/1e8)+' BTC · '+l.length+' '+word+(l.length===1?'':'s'):none; };
+  $('swtBtc').textContent=u?GKValue.usd(u):'-'; $('swtBtcN').textContent=u?'per bitcoin':'the price could not be read';
+  put('swtSell', all.filter(o=>o.side==='sell_gnr'), 'sell offer', 'no sell offers');
+  put('swtBuy', all.filter(o=>o.side==='buy_gnr'), 'buy offer', 'no buy offers');
+  put('swtProg', BD.in_progress||[], 'swap', 'none right now');
+  put('swtDone', (BD.market&&BD.market.recent)||[], 'swap', 'no swaps yet');
 }
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
@@ -1969,16 +2002,20 @@ async function checkUpdates(){ const b=$('updCheck'); if(b){ b.disabled=true; b.
   if(b){ b.disabled=false; b.textContent='Check for updates'; } }
 async function openLink(t){ try{ await api('/api/open',{target:t}); toast('Opened in your browser'); }catch(e){ toast(e.message,true) } }
 function rate(r){ return r>=1e9?(r/1e9).toFixed(2)+' GH/s':r>=1e6?(r/1e6).toFixed(2)+' MH/s':r>=1e3?(r/1e3).toFixed(1)+' kH/s':(r||0).toFixed(0)+' H/s'; }
-let settingsLoaded=false;
+let settingsLoaded=false, lockGrace=0;
 async function refresh(){
   try{ S = await api('/api/state'); }catch(e){ $('sync').textContent='offline'; return; }
   $('net').textContent = S.network;
   const st=S.tip&&S.tip.stats; if(st){ const nm=st.estimated_miners??0; $('netBadgeText').textContent=nm+(nm===1?' miner · ':' miners · ')+rate(st.hashrate||S.tip.hashrate); show('netBadge'); }
   if(S.update){ $('updTitle').textContent='Genoryn Krypton '+S.update.version+' is available'; $('updText').textContent=S.update_status||(S.update.can_install?'Checked against the project\'s post-quantum release signature before it installs. A running miner resumes automatically.':'Open the release page to download it.'); $('updBtn').textContent=S.update.can_install?'Install update':'Download'; show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
+  $('sendBusyT').textContent=S.busy||''; $('sendBusy').classList.toggle('hidden', !S.busy);
   if(S.working){ $('busy').textContent = S.busy || 'working…'; return; }
   const act=S.active||{}; const nw=S.wallet_count||0;
   if(S.exists && !adding){ $('wChipName').textContent=act.name||'Wallet'; $('wChipCount').textContent=nw>1?'· '+nw:''; $('wChip').title=(S.unlocked&&act.locks_in!=null?'Unlocked · locks itself in '+dur(act.locks_in):'Locked')+' · click to manage your wallets'; show('wChip'); } else hide('wChip');
+  // A wallet that is unlocked but was syncing when it was picked comes back within moments:
+  // wait for it instead of flashing the password form.
+  if(S.exists && !S.unlocked && !adding){ const me=(S.wallet_names||[]).find(w=>w.id===act.id); if(me&&me.unlocked&&lockGrace<8){ lockGrace++; setTimeout(refresh,350); return; } } else lockGrace=0;
   ['onboard','unlockBox','app'].forEach(hide); if(!S.unlocked) $('proofIn').value=''; $('lockBtn').classList.toggle('hidden', !S.unlocked);
   if(!$('mnemonicBox').classList.contains('hidden')) return;
   if(adding || !S.exists){ $('onbTitle').textContent=adding?'Add a wallet':'Welcome'; $('onbText').classList.toggle('hidden',adding); $('onbBack').classList.toggle('hidden',!adding); show('onboard'); return; }
@@ -1990,7 +2027,7 @@ async function refresh(){
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
-  const b=S.balance||{}; animNum($('bal'), b.total||0); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
+  const b=S.balance||{}; animNum($('bal'), b.total||0); $('balK').textContent=Number(b.total||0).toLocaleString('en-US'); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
   if(++refreshN%3===0) loadWallets();
   $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
   $('bRes').textContent=gnr(S.reserved); $('bResRow').classList.toggle('hidden', !Number(S.reserved));

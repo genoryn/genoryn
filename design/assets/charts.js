@@ -41,7 +41,8 @@
     return d;
   }
 
-  /* data: [{t, v}], opts: {fmt, kind: "area"|"line"|"bars", target, targetLabel, height, zero} */
+  /* data: [{t, v}], opts: {fmt, kind: "area"|"line"|"bars", target, targetLabel, height, zero,
+     straight (no smoothing: each point is a real event), points (a dot on every point)} */
   function chart(host, data, opts) {
     opts = opts || {};
     host.classList.add("gk-chart");
@@ -98,7 +99,7 @@
           el("rect", { x: p[0] - bw / 2, y: p[1], width: bw, height: Math.max(0.5, Y(vmin) - p[1]), rx: Math.min(3, bw / 3), class: "gk-bar" }, svg);
         });
       } else {
-        var line = smooth(pts);
+        var line = o.straight ? "M" + pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join("L") : smooth(pts);
         if (o.kind !== "line") {
           el("path", { d: line + "L" + pts[pts.length - 1][0].toFixed(1) + "," + Y(vmin) + "L" + pts[0][0].toFixed(1) + "," + Y(vmin) + "Z", fill: "url(#" + gid + ")", class: "gk-area" }, svg);
         }
@@ -112,6 +113,7 @@
             path.style.strokeDashoffset = 0;
           }
         }
+        if (o.points) pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 3, class: "gk-pt" }, svg); });
         var last = pts[pts.length - 1];
         el("circle", { cx: last[0], cy: last[1], r: 3.5, class: "gk-last" }, svg);
       }

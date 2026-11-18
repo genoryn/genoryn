@@ -68,6 +68,14 @@
   </tr>
 </table>
 
+## Start mining in three steps
+
+1. **Download** the wallet for [Windows or Linux](https://github.com/genoryn/genoryn/releases/latest) and create a wallet (write down its 24 words).
+2. Open the **Mining** tab and choose your GPU (NVIDIA with CUDA, AMD or Intel with OpenCL) or your CPU.
+3. Press **Start mining**. There is no pool, no account and no configuration file: every block pays all miners by their share of the work, and rewards arrive every 360 blocks (about six hours).
+
+Live numbers: [network and hashrate](https://genoryn.io/explorer) · [mining guide and calculator](https://genoryn.io/mining) · [market and price history](https://genoryn.io/market).
+
 ---
 ## Why this exists
 
@@ -153,7 +161,7 @@ The same material, with more detail, is on [genoryn.io/docs](https://genoryn.io/
 | Windows, portable | `genoryn-krypton-<version>-windows-x64-portable.zip` | The same programs without an installer |
 | **Ubuntu / Debian (x64)** | `genoryn-krypton_<version>_amd64.deb` | `sudo apt install ./genoryn-krypton_<version>_amd64.deb`; desktop entry and systemd units included |
 | Linux, any distribution | `genoryn-krypton-<version>-linux-x64.tar.gz` | Unpack and run `krypton-wallet` |
-| From source | this repository | Rust 1.88+: `cargo build --release`; binaries in `target/release` |
+| From source | this repository | Rust 1.89+: `cargo build --release`; binaries in `target/release` |
 
 All downloads: [releases/latest](https://github.com/genoryn/genoryn/releases/latest). Every
 package contains four programs:
@@ -189,7 +197,7 @@ The wallet's updater performs exactly this check before it installs anything.
    about half a second.
 
 ```sh
-# Build from source (Rust 1.88+)
+# Build from source (Rust 1.89+)
 cargo build --release
 
 # Desktop wallet

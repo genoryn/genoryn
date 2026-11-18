@@ -50,6 +50,25 @@
     <div><span>Swaps on record</span><b id="mkAll">—</b><em id="mkAllV"></em></div>
   </section>
 
+  <section class="mk-totals" aria-label="The bitcoin price and the totals on the board">
+    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="mktBtc">—</b><em id="mktBtcN">per bitcoin</em></div>
+    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="mktSell">—</b><em id="mktSellN">sell offers</em></div>
+    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="mktBuy">—</b><em id="mktBuyN">buy offers</em></div>
+    <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
+    <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
+  </section>
+
+  <section class="mk-hist" id="history" aria-labelledby="hist-h">
+    <div class="mk-sec"><span class="eyebrow">History</span><h2 id="hist-h" class="h3">Price history</h2><p class="muted">Every point is one completed swap, at the price its two wallets agreed on. Nothing is interpolated: while swaps are few, so are the points. Move over a chart to read a swap.</p></div>
+    <div class="dash-grid">
+      <div class="glass card chart-card wide"><div class="gk-card-head"><h3>Price per GNR · every completed swap</h3><b id="mkHistLast">—</b></div><div id="mkChartPrice"></div></div>
+      <div class="glass card chart-card"><div class="gk-card-head"><h3>GNR traded per swap</h3><b id="mkHistVol">—</b></div><div id="mkChartVol"></div></div>
+      <div class="glass card chart-card"><div class="gk-card-head"><h3>Bitcoin paid per swap</h3><b id="mkHistBtc">—</b></div><div id="mkChartBtc"></div></div>
+      <div class="glass card chart-card wide"><div class="gk-card-head"><h3>Network hashrate · last 7 days</h3><b id="mkHistRate">—</b></div><div id="mkChartRate"></div></div>
+    </div>
+    <p class="muted mk-fine mk-hist-note">The hashrate shows how much work is competing for each new GNR: the other way to get GNR is to <a href="/mining">mine it</a>.</p>
+  </section>
+
   <div class="mk-sec"><span class="eyebrow">Order book</span><h2 class="h3">Open offers</h2><p class="muted">Anyone may offer any price, for an hour up to a year. A green dot means the maker's wallet is online: taking the offer starts the swap within seconds.</p></div>
   <section class="mk-book">
     <div class="glass card mk-side mk-sell">
@@ -95,6 +114,7 @@
 </main>
 <!--FOOTER-->
 <script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/charts.js" defer></script>
 <script src="/assets/value.js" defer></script>
 <script src="/site.js" defer></script>
 <script src="/market.js" defer></script>

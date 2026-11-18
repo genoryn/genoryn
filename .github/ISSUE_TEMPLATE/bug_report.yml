@@ -19,7 +19,7 @@ body:
     attributes:
       label: Version
       description: The wallet's About tab, or `kryptond --version`.
-      placeholder: "1.0.38"
+      placeholder: "1.0.39"
     validations:
       required: true
   - type: input

@@ -14,31 +14,62 @@
 <link rel="stylesheet" href="/assets/fx.css">
 <link rel="stylesheet" href="/site.css">
 </head>
-<body data-page="home">
+<body data-page="home" class="lp">
 <!--NAV-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8h.01"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0 1 12 6c5 0 8.5 4 9.5 6a13 13 0 0 1-2.6 3.4M6.3 7.6A13.4 13.4 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.3 0 2.5-.3 3.6-.7M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 19v-1.5A3.5 3.5 0 0 0 12.5 14h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.4c-.8.4-1.2 1-1.2 1.8M12 17h.01"/></symbol>
+  <symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(120 12 12)"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M13.5 9.5l2 2"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-quote" viewBox="0 0 24 24"><path d="M6 8h5v4c0 3-1.6 5-4.5 6M14 8h5v4c0 3-1.6 5-4.5 6"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 4 14 2.5-7H21"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-compare" viewBox="0 0 24 24"><path d="M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
+  <symbol id="i-steps" viewBox="0 0 24 24"><path d="M4 20h4v-5h4v-5h4V5h4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="9" r="1.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+</svg>
 <main id="top">
-  <section class="hero">
+  <section class="hero lp-hero">
     <div class="pool" aria-hidden="true"></div>
     <div class="wrap">
       <div>
-        <span class="eyebrow"><span class="dot live ok" id="liveDot"></span><span id="liveText">Mainnet is live</span></span>
-        <h1 class="display glow" style="margin-top:18px">Money that outlives quantum computers.</h1>
+        <span class="eyebrow lp-live"><span class="dot live ok" id="liveDot"></span><span id="liveText">Mainnet is live</span></span>
+        <h1 class="display glow">Money that outlives quantum computers.</h1>
         <p class="manifesto"><span>Privacy is not a crime.</span><span>It's a right.</span></p>
-        <p class="lead" style="margin-top:20px">Genoryn Krypton is private by default and secured only by hashes and NIST post-quantum cryptography. No premine, no owner, built for a hundred years.</p>
+        <p class="lead"><b>Genoryn Krypton (GNR)</b> is a quantum-resistant, private-by-default cryptocurrency you can mine today. It is secured only by hashes and NIST post-quantum cryptography. No premine, no owner, built for a hundred years.</p>
         <div class="hero-ctas">
-          <a class="btn btn-primary" href="/download">Get the wallet</a>
-          <a class="btn" href="/mining">Start mining</a>
-        <a class="btn" href="/about">What is Genoryn Krypton?</a>
+          <a class="btn btn-primary" href="/download"><svg class="ic" aria-hidden="true"><use href="#n-download"/></svg>Get the wallet</a>
+          <a class="btn" href="/mining"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>Start mining</a>
+          <a class="btn" href="/about"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>What is Genoryn Krypton?</a>
         </div>
+        <ul class="lp-facts" aria-label="Key facts">
+          <li><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg><b>21,000,000</b><span>maximum supply</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#n-coin"/></svg><b>5 GNR</b><span>per block, halving</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><b>60 s</b><span>block time</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-ban"/></svg><b>0</b><span>premine, presale, dev fee</span></li>
+        </ul>
         <form class="glass hero-search" action="/explorer" method="get" role="search" aria-label="Search the chain">
           <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
           <input name="q" type="search" placeholder="Block, transaction or nullifier hash, address, or payment proof" aria-label="Block height, hash, transaction id, address or payment proof" autocomplete="off" spellcheck="false">
           <button class="btn btn-primary" type="submit">Search</button>
         </form>
-
-        <div class="trust chip-scroll">
-          <span class="chip">zk-STARK shielded</span><span class="chip">ML-KEM-1024 · FIPS 203</span><span class="chip">Fair launch · 21M cap</span>
-        </div>
       </div>
       <div class="hero-right">
         <a class="glass hero-price" href="/market" aria-label="GNR price: open the market">
@@ -55,7 +86,7 @@
       <div class="hero-stage" id="heroStage">
         <div class="coin3d" aria-hidden="true"><i style="--z:-5px"></i><i style="--z:-3px"></i><i style="--z:-1px"></i><i style="--z:1px"></i><i style="--z:3px"></i><i style="--z:5px"></i><div class="c3-face c3-front"><svg><use href="#c-gnr"/></svg></div><div class="c3-face c3-back"><svg><use href="#c-gnr"/></svg></div></div>
         <figure class="mockup glass" style="margin:0">
-          <img src="/assets/shots/wallet-720.webp" srcset="/assets/shots/wallet-720.webp 720w, /assets/shots/wallet-1440.webp 1440w" sizes="(max-width: 980px) 94vw, 560px" width="1440" height="923" alt="The Genoryn Krypton desktop wallet overview: network hashrate, estimated miners, block height, mining share, accruing rewards and live charts" fetchpriority="low">
+          <img src="/assets/shots/wallet-720.webp" srcset="/assets/shots/wallet-720.webp 720w, /assets/shots/wallet-1440.webp 1440w" sizes="(max-width: 980px) 94vw, 720px" width="1440" height="923" alt="The Genoryn Krypton desktop wallet overview: network hashrate, estimated miners, block height, mining share, accruing rewards and live charts" fetchpriority="low">
         </figure>
         <div class="floaty float f1 drift"><span class="muted">Block reward</span><b>5.00000000 GNR</b></div>
         <div class="floaty float f2 drift slow"><span class="muted">Spend proof</span><b>zk-STARK · 92 KB</b></div>
@@ -65,111 +96,231 @@
     </div>
   </section>
 
-  <section class="block" aria-labelledby="stats-h">
+  <div class="lp-ticker" aria-label="What Genoryn Krypton is built from">
+    <div class="lp-ticker-track">
+      <span><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>zk-STARK spends</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>ML-KEM-1024 · FIPS 203</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>ML-DSA-87 + SLH-DSA releases</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>KryptoHash · GPU and CPU</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg>21,000,000 GNR cap</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Atomic swaps with bitcoin</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-eyeoff"/></svg>Every transfer shielded</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Fair launch · no premine</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>Paid by share, no pool</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#n-github"/></svg>Open source · Rust</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>zk-STARK spends</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>ML-KEM-1024 · FIPS 203</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>ML-DSA-87 + SLH-DSA releases</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>KryptoHash · GPU and CPU</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg>21,000,000 GNR cap</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Atomic swaps with bitcoin</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-eyeoff"/></svg>Every transfer shielded</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Fair launch · no premine</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>Paid by share, no pool</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#n-github"/></svg>Open source · Rust</span>
+    </div>
+  </div>
+
+  <section class="block lp-live-block" aria-labelledby="stats-h">
     <div class="wrap">
-      <h2 id="stats-h" class="sr-only">Network statistics</h2>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-pulse"/></svg>Live network</span><h2 id="stats-h" class="h2 glow">The network, right now.</h2><p class="lead">Read straight from the chain, every few seconds. Nothing here is a projection.</p></div>
       <div class="stats stats-5">
-        <div class="glass stat reveal tilt-card"><b id="sHeight">—</b><span>Block height</span></div>
-        <div class="glass stat reveal tilt-card"><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
-        <div class="glass stat reveal tilt-card"><b id="sRate">—</b><span>Network hashrate</span></div>
-        <div class="glass stat reveal tilt-card"><b id="sMiners">—</b><span>Estimated miners <em id="sGpus" class="stat-sub"></em></span></div>
-        <div class="glass stat reveal tilt-card"><b data-main>—</b><span><span data-vlabel>GNR price</span> <em class="stat-sub">per GNR</em></span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#n-explorer"/></svg><b id="sHeight">—</b><span>Block height</span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-layers"/></svg><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-bolt"/></svg><b id="sRate">—</b><span>Network hashrate</span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-users"/></svg><b id="sMiners">—</b><span>Estimated miners <em id="sGpus" class="stat-sub"></em></span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-tag"/></svg><b data-main>—</b><span><span data-vlabel>GNR price</span> <em class="stat-sub">per GNR</em></span></div>
       </div>
-      <div class="glass value-strip reveal">
-        <div class="vs-main"><span class="eyebrow-s">Swaps, 24 h</span><b data-mk-swaps>—</b></div>
-        <p class="vs-note">The <b>GNR price</b> is set only by the people who trade: the average of completed BTC ⇄ GNR swaps. Offers may ask any price; they never move it. Every swap is atomic and the seller's GNR is locked on chain before the buyer pays, so nobody can sell coins they do not have.</p>
-        <div class="row-btns"><a class="btn" href="/market">Open the market</a><a class="btn" href="/mining#calc">Mining calculator</a></div>
+      <div class="lp-dash" id="homeDash" data-default-range="24h">
+        <div class="dash-head">
+          <h3 class="dash-title"><svg class="ic" aria-hidden="true"><use href="#n-market"/></svg>Charts</h3>
+          <div class="gk-range" role="group" aria-label="Time range">
+            <button type="button" data-range="24h">24H</button><button type="button" data-range="7d">7D</button><button type="button" data-range="30d">30D</button><button type="button" data-range="all">ALL</button>
+          </div>
+        </div>
+        <div class="dash-grid">
+          <div class="glass card chart-card wide tilt-card"><div class="gk-card-head"><h3>Network hashrate</h3><b data-kpi="hashrate">—</b></div><div data-chart="hashrate"></div></div>
+          <div class="glass card chart-card supply-card tilt-card"><div class="gk-card-head"><h3>Supply</h3><b>21,000,000 GNR</b></div><div id="homeDisc"></div>
+            <div class="supply-legend"><div><i class="sw on"></i>Issued <b data-kpi="issued">—</b></div><div><i class="sw"></i>Remaining <b data-kpi="remaining">—</b></div></div></div>
+          <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Active miners</h3><b data-kpi="miners">—</b></div><div data-chart="miners"></div></div>
+          <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Block time</h3><b data-kpi="block_time">—</b></div><div data-chart="block_time"></div></div>
+          <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Difficulty</h3><b data-kpi="difficulty">—</b></div><div data-chart="difficulty"></div></div>
+        </div>
+        <div class="row-btns lp-center"><a class="btn" href="/explorer#dash"><svg class="ic" aria-hidden="true"><use href="#n-explorer"/></svg>Full network dashboard</a><a class="btn" href="/mining#calc"><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg>Mining calculator</a></div>
       </div>
-      <div class="glass card net-teaser reveal tilt-card" id="homeNet">
-        <div class="teaser-chart">
-          <div class="gk-card-head"><h3>Network hashrate · last 24 h</h3><b id="homeRate">—</b></div>
-          <div id="homeChart"></div>
-        </div>
-        <div class="teaser-disc">
-          <div id="homeDisc"></div>
-          <p class="muted"><b id="homeIssued">—</b> GNR issued · <b id="homeLeft">—</b> remaining</p>
-          <a class="btn" href="/explorer#dash">Network dashboard</a>
-        </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="hub-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg>Explore</span><h2 id="hub-h" class="h2 glow">Everything, one click away.</h2><p class="lead">The market, mining, the chain, the wallet and the documentation, each with what matters most up front.</p></div>
+      <div class="bento">
+        <article class="glass bx bx-7 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-market"/></svg></span><span class="bx-kicker">Market</span><a class="bx-go" href="/market">Open the market<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+          <h3>The price is set by people, not by an exchange.</h3>
+          <div class="bx-split">
+            <div class="bx-num"><b data-mk-usd>—</b><span><span data-mk-sat>—</span></span>
+              <ul class="bx-list">
+                <li><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg><span>Best sell offer</span><b data-mk-ask>—</b></li>
+                <li><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg><span>Best buy offer</span><b data-mk-bid>—</b></li>
+                <li><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swaps, 24 h</span><b data-mk-swaps>—</b></li>
+              </ul>
+            </div>
+            <div class="bx-chart"><div class="gk-card-head"><h3>Price of completed swaps</h3></div><div id="homePrice"></div></div>
+          </div>
+          <p class="bx-note">The <b>GNR price</b> is the average of completed BTC ⇄ GNR swaps. Offers may ask any price; they never move it. Every swap is atomic, and the seller's GNR is locked on chain before the buyer pays.</p>
+        </article>
+
+        <article class="glass bx bx-5 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-mining"/></svg></span><span class="bx-kicker">Mining</span><a class="bx-go" href="/mining">Mining guide<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+          <h3>Mine with a GPU or a CPU. No pool needed.</h3>
+          <div class="bx-num"><span class="bx-cap">One RTX 5090 mines today</span><b data-gpu-gnr>—</b><span data-gpu-value></span></div>
+          <ul class="bx-list">
+            <li><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span>Every block pays all miners by their work</span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>Payouts every 360 blocks, about six hours</span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-bolt"/></svg><span>CUDA, OpenCL or plain CPU threads</span></li>
+          </ul>
+          <div class="row-btns"><a class="btn btn-primary" href="/mining"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>Start mining</a><a class="btn" href="/mining#calc"><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg>Calculator</a></div>
+        </article>
+
+        <article class="glass bx bx-5 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-explorer"/></svg></span><span class="bx-kicker">Explorer</span><a class="bx-go" href="/explorer">Open the explorer<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+          <h3>Latest blocks</h3>
+          <div class="bx-blocks" id="homeBlocks"><p class="muted">Loading the latest blocks…</p></div>
+          <p class="bx-note">Everything public is there. Amounts, senders and recipients are shielded and appear only as commitments.</p>
+        </article>
+
+        <article class="glass bx bx-4 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-atom"/></svg></span><span class="bx-kicker">Quantum security</span><a class="bx-go" href="/quantum">Read<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+          <h3>What a quantum computer breaks</h3>
+          <ul class="bx-verdicts">
+            <li><span>Elliptic-curve signatures<em>Bitcoin, Ethereum, Monero, Zcash</em></span><b class="no">Broken</b></li>
+            <li><span>Hash functions<em>Mining, zk-STARK proofs</em></span><b>Hold</b></li>
+            <li><span>ML-KEM encryption<em>NIST FIPS 203</em></span><b>Hold</b></li>
+          </ul>
+          <p class="bx-note">No elliptic curve protects GNR coins or privacy.</p>
+        </article>
+
+        <article class="glass bx bx-3 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-coin"/></svg></span><span class="bx-kicker">Get GNR</span></header>
+          <h3>Two ways in</h3>
+          <ul class="bx-list">
+            <li><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg><span><b>Mine it</b> from the wallet</span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span><b>Swap bitcoin</b> for it, wallet to wallet</span></li>
+          </ul>
+          <p class="bx-note">No presale and no exchange listing.</p>
+          <div class="row-btns"><a class="btn" href="/get"><svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg>How to get GNR</a></div>
+        </article>
+
+        <article class="glass bx bx-6 reveal bx-wallet">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-wallet"/></svg></span><span class="bx-kicker">Wallet</span><a class="bx-go" href="/download">Download<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+          <h3>One app: wallet, miner and optional full node.</h3>
+          <ul class="bx-tags"><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Windows 10 and 11</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Linux</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Verified light sync</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Signed updates</li></ul>
+          <img class="bx-shot" loading="lazy" src="/assets/shots/mining-720.webp" srcset="/assets/shots/mining-720.webp 720w, /assets/shots/mining-1440.webp 1440w" sizes="(max-width: 980px) 90vw, 640px" width="1440" height="923" alt="The Mining tab of the Genoryn Krypton wallet: hashrate, share of the network and expected earnings">
+        </article>
+
+        <article class="glass bx bx-3 reveal">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-docs"/></svg></span><span class="bx-kicker">Docs and API</span></header>
+          <h3>Build on it</h3>
+          <pre class="code bx-code"><code>curl https://genoryn.io/v1/info</code></pre>
+          <ul class="bx-list">
+            <li><svg class="ic" aria-hidden="true"><use href="#n-github"/></svg><span>REST, JSON-RPC, WebSocket</span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#n-github"/></svg><span>Rust, C and TypeScript SDKs</span></li>
+          </ul>
+          <div class="row-btns"><a class="btn" href="/docs"><svg class="ic" aria-hidden="true"><use href="#n-docs"/></svg>Documentation</a></div>
+        </article>
+
+        <article class="glass bx bx-3 reveal bx-soon">
+          <header class="bx-head"><span class="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#n-coins"/></svg></span><span class="bx-kicker">Roadmap</span><span class="pill">Planned · not live</span></header>
+          <h3 id="coins-h">Quantum tokens</h3>
+          <p class="bx-note">In a future release, anyone will be able to deploy stablecoins and other tokens, as private and quantum-safe as GNR.</p>
+          <div class="row-btns"><a class="btn" href="/tokens"><svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg>See the plan</a></div>
+        </article>
       </div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="feat-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Why Krypton</span><h2 id="feat-h" class="h2 glow">Built on assumptions that age well.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Why Krypton</span><h2 id="feat-h" class="h2 glow">Built on assumptions that age well.</h2></div>
       <div class="features">
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Quantum-resistant end to end</h3><p>Spends are authorized by zk-STARK proofs over hashes, notes are encrypted with hybrid X25519 + ML-KEM-1024, peers talk over X25519 + ML-KEM-768. No elliptic-curve signature guards your coins.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.6 2.5 13.4 0 16M12 4c-2.5 2.6-2.5 13.4 0 16"/></svg></div><h3>Private by default</h3><p>Every transfer is shielded: sender, recipient and amount stay hidden. There is no transparent mode to fall back to, so privacy is the same for everyone.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h6"/><circle cx="18" cy="16" r="3"/></svg></div><h3>No full node required</h3><p>Light wallets check the chain with logarithmic MMR proofs and verify every block they read. Billions of blocks later it still takes seconds. Run a full node only if you want to.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V5M12 7V5M17 7V5M7 19v-2M12 19v-2M17 19v-2"/></svg></div><h3>Mine on GPU or CPU</h3><p>KryptoHash is memory-bandwidth bound: an RTX 5090 does about 74 MH/s, a 24-core CPU about 1.4 MH/s. Use CUDA, OpenCL or plain CPU threads, with a usage cap.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8h11a3 3 0 010 6H8a3 3 0 000 6h11"/></svg></div><h3>Bitcoin-style issuance</h3><p>5 GNR per block, halving every 2,100,000 blocks, at most 21,000,000 GNR. The genesis issues nothing; there is no premine, no developer fund and no early bonus.</p></article>
-        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12"/></svg></div><h3>Easy to integrate</h3><p>REST, JSON-RPC 2.0 and WebSocket APIs, a Rust SDK, C bindings and a TypeScript client. Exchanges and wallets get the same verified light protocol.</p></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg></div><h3>Quantum-resistant end to end</h3><p>Spends are authorized by zk-STARK proofs over hashes, notes are encrypted with hybrid X25519 + ML-KEM-1024, peers talk over X25519 + ML-KEM-768. No elliptic-curve signature guards your coins.</p><a class="ft-go" href="/quantum">How it holds<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#i-eyeoff"/></svg></div><h3>Private by default</h3><p>Every transfer is shielded: sender, recipient and amount stay hidden. There is no transparent mode to fall back to, so privacy is the same for everyone.</p><a class="ft-go" href="/docs#privacy">Privacy model<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></div><h3>No full node required</h3><p>Light wallets check the chain with logarithmic MMR proofs and verify every block they read. Billions of blocks later it still takes seconds. Run a full node only if you want to.</p><a class="ft-go" href="/docs#light">Light clients<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#n-mining"/></svg></div><h3>Mine on GPU or CPU</h3><p>KryptoHash is memory-bandwidth bound: an RTX 5090 does about 74 MH/s, a 24-core CPU about 1.4 MH/s. Use CUDA, OpenCL or plain CPU threads, with a usage cap.</p><a class="ft-go" href="/mining">Mining guide<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg></div><h3>Bitcoin-style issuance</h3><p>5 GNR per block, halving every 2,100,000 blocks, at most 21,000,000 GNR. The genesis issues nothing; there is no premine, no developer fund and no early bonus.</p><a class="ft-go" href="/docs#emission">Emission<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
+        <article class="glass feature reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#n-github"/></svg></div><h3>Easy to integrate</h3><p>REST, JSON-RPC 2.0 and WebSocket APIs, a Rust SDK, C bindings and a TypeScript client. Exchanges and wallets get the same verified light protocol.</p><a class="ft-go" href="/docs#api">API reference<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a></article>
       </div>
     </div>
   </section>
 
-  <section class="block" aria-labelledby="coins-h">
+  <section class="block" aria-labelledby="cmp-h">
     <div class="wrap">
-      <div class="glass card cn-band reveal">
-        <div class="cn-band-t">
-          <span class="eyebrow">Roadmap · planned, not live yet</span>
-          <h2 id="coins-h" class="h2 glow">Quantum tokens.</h2>
-          <p class="lead">In a future release, anyone will be able to deploy stablecoins and other tokens on Genoryn Krypton, as private and quantum-safe as GNR, with everything their issuer may do declared up front and unchangeable.</p>
-          <div class="row-btns"><a class="btn" href="/tokens">See the plan</a></div>
-        </div>
-        <div class="cn-band-coins cn-stage" aria-hidden="true"><div class="cn-orbit cn-orbit-soon" style="width:190px;height:190px"><svg class="coin cn-big" style="width:84px;height:84px"><use href="#c-gnr"/></svg><span class="cn-sat s1"></span><span class="cn-sat s2"></span><span class="cn-sat s3"></span></div></div>
-      </div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-compare"/></svg>Compared</span><h2 id="cmp-h" class="h2 glow">Bitcoin's money, without the curves.</h2><p class="lead">How the cryptography and design differ. Each project has its own strengths.</p></div>
+      <div class="table-wrap lp-cmp reveal"><table class="data cmp">
+        <thead><tr><th></th><th>Bitcoin</th><th>Monero</th><th>Zcash</th><th>Genoryn Krypton</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Compared">Funds rely on elliptic curves</td><td data-label="Bitcoin">Yes</td><td data-label="Monero">Yes</td><td data-label="Zcash">Yes</td><td data-label="Genoryn Krypton"><b>No</b></td></tr>
+          <tr><td data-label="Compared">Post-quantum encryption of payment data</td><td data-label="Bitcoin">No (no encryption)</td><td data-label="Monero">No</td><td data-label="Zcash">No</td><td data-label="Genoryn Krypton"><b>Yes (X25519 + ML-KEM-1024)</b></td></tr>
+          <tr><td data-label="Compared">Privacy by default</td><td data-label="Bitcoin">No</td><td data-label="Monero">Yes</td><td data-label="Zcash">Optional</td><td data-label="Genoryn Krypton"><b>Yes, always</b></td></tr>
+          <tr><td data-label="Compared">Supply cap</td><td data-label="Bitcoin">21,000,000</td><td data-label="Monero">No hard cap</td><td data-label="Zcash">21,000,000</td><td data-label="Genoryn Krypton"><b>21,000,000</b></td></tr>
+          <tr><td data-label="Compared">Small miners</td><td data-label="Bitcoin">Join a pool</td><td data-label="Monero">Join a pool (or P2Pool)</td><td data-label="Zcash">Join a pool</td><td data-label="Genoryn Krypton"><b>Paid by share every block, no pool</b></td></tr>
+        </tbody>
+      </table></div>
+      <div class="row-btns lp-center"><a class="btn" href="/about#compare"><svg class="ic" aria-hidden="true"><use href="#i-compare"/></svg>The full comparison</a><a class="btn" href="/quantum"><svg class="ic" aria-hidden="true"><use href="#i-atom"/></svg>Quantum security, explained</a></div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="how-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">How it works</span><h2 id="how-h" class="h2 glow">From install to private payment in minutes.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-steps"/></svg>How it works</span><h2 id="how-h" class="h2 glow">From install to private payment in minutes.</h2></div>
       <div class="steps">
-        <div class="step reveal"><span class="n">1</span><h3>Install the wallet</h3><p>Create a wallet and write down 24 words with their numbers. Keys never leave your device.</p></div>
-        <div class="step reveal"><span class="n">2</span><h3>Verify, don't trust</h3><p>The wallet samples the chain, checks proofs of work and every block it reads.</p></div>
-        <div class="step reveal"><span class="n">3</span><h3>Receive or mine</h3><p>Share your short address, or mine with your GPU or CPU from the wallet.</p></div>
-        <div class="step reveal"><span class="n">4</span><h3>Send privately</h3><p>A zk-STARK proof is built on your device in under a second. Nobody sees who paid whom.</p></div>
+        <div class="step reveal"><span class="n"><svg class="ic" aria-hidden="true"><use href="#n-download"/></svg></span><em class="step-k">Step 1</em><h3>Install the wallet</h3><p>Create a wallet and write down 24 words with their numbers. Keys never leave your device.</p></div>
+        <div class="step reveal"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><em class="step-k">Step 2</em><h3>Verify, don't trust</h3><p>The wallet samples the chain, checks proofs of work and every block it reads.</p></div>
+        <div class="step reveal"><span class="n"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg></span><em class="step-k">Step 3</em><h3>Receive or mine</h3><p>Share your short address, or mine with your GPU or CPU from the wallet.</p></div>
+        <div class="step reveal"><span class="n"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg></span><em class="step-k">Step 4</em><h3>Send privately</h3><p>A zk-STARK proof is built on your device in under a second. Nobody sees who paid whom.</p></div>
       </div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="shots-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">The wallet</span><h2 id="shots-h" class="h2 glow">One app: wallet, node and miner.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>The wallet</span><h2 id="shots-h" class="h2 glow">One app: wallet, node and miner.</h2></div>
       <div class="shots">
-        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/wallets-720.webp" width="1440" height="923" alt="All wallets expanded on the Wallet tab: several wallets, each with its own password, and their total balance"><figcaption>Several wallets, one total</figcaption></figure>
-        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/mining-720.webp" width="1440" height="923" alt="Mining tab with hashrate, share of the network, expected earnings and accruing rewards"><figcaption>Proportional mining on GPU or CPU</figcaption></figure>
-        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/proofs-720.webp" width="1440" height="923" alt="History with a payment proof and its verification"><figcaption>Payment proofs, verified on chain</figcaption></figure>
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/wallets-720.webp" width="1440" height="923" alt="All wallets expanded on the Wallet tab: several wallets, each with its own password, and their total balance"><figcaption><svg class="ic" aria-hidden="true"><use href="#n-wallet"/></svg>Several wallets, one total</figcaption></figure>
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/mining-720.webp" width="1440" height="923" alt="Mining tab with hashrate, share of the network, expected earnings and accruing rewards"><figcaption><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>Proportional mining on GPU or CPU</figcaption></figure>
+        <figure class="glass shot reveal" style="margin:0"><img loading="lazy" src="/assets/shots/proofs-720.webp" width="1440" height="923" alt="History with a payment proof and its verification"><figcaption><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Payment proofs, verified on chain</figcaption></figure>
       </div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="plans-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Ways to run it</span><h2 id="plans-h" class="h2 glow">Free, open source, your choice.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-server"/></svg>Ways to run it</span><h2 id="plans-h" class="h2 glow">Free, open source, your choice.</h2></div>
       <div class="plans">
-        <article class="glass plan rec reveal"><span class="pill">Most popular</span><h3>Light wallet</h3><div class="price">0 GNR</div><p class="muted">For everyday use on any computer.</p><ul><li>Verified light sync, no download</li><li>Private sends and receipts</li><li>Cross-checks several nodes</li></ul><a class="btn btn-primary" href="/download">Download</a></article>
-        <article class="glass plan reveal"><h3>Full node</h3><div class="price">~60 MB/day</div><p class="muted">Validate every rule yourself.</p><ul><li>Archive or pruned storage</li><li>Serve light wallets</li><li>REST, JSON-RPC, WebSocket</li></ul><a class="btn" href="/download#node">Run a node</a></article>
-        <article class="glass plan reveal"><h3>Miner</h3><div class="price">5 GNR / block</div><p class="muted">Secure the network, earn new coins.</p><ul><li>CUDA, OpenCL or CPU</li><li>CPU usage cap for shared machines</li><li>Solo mining against your node</li></ul><a class="btn" href="/mining">Mining guide</a></article>
+        <article class="glass plan rec reveal"><span class="pill">Most popular</span><div class="tile"><svg viewBox="0 0 24 24"><use href="#n-wallet"/></svg></div><h3>Light wallet</h3><div class="price">0 GNR</div><p class="muted">For everyday use on any computer.</p><ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Verified light sync, no download</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Private sends and receipts</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Cross-checks several nodes</li></ul><a class="btn btn-primary" href="/download"><svg class="ic" aria-hidden="true"><use href="#n-download"/></svg>Download</a></article>
+        <article class="glass plan reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#i-server"/></svg></div><h3>Full node</h3><div class="price">~60 MB/day</div><p class="muted">Validate every rule yourself.</p><ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Archive or pruned storage</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Serve light wallets</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>REST, JSON-RPC, WebSocket</li></ul><a class="btn" href="/download#node"><svg class="ic" aria-hidden="true"><use href="#i-server"/></svg>Run a node</a></article>
+        <article class="glass plan reveal"><div class="tile"><svg viewBox="0 0 24 24"><use href="#n-mining"/></svg></div><h3>Miner</h3><div class="price">5 GNR / block</div><p class="muted">Secure the network, earn new coins.</p><ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>CUDA, OpenCL or CPU</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>CPU usage cap for shared machines</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Solo mining against your node</li></ul><a class="btn" href="/mining"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>Mining guide</a></article>
       </div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="pr-h">
     <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">Principles</span><h2 id="pr-h" class="h2 glow">What the protocol promises.</h2></div>
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg>Principles</span><h2 id="pr-h" class="h2 glow">What the protocol promises.</h2></div>
       <div class="quotes">
-        <blockquote class="glass quote reveal" style="margin:0"><p>"No key, no person and no company can mint, freeze or reverse."</p><span>Consensus rules, enforced by every node</span></blockquote>
-        <blockquote class="glass quote reveal" style="margin:0"><p>"Security that rests on hashes outlives the curves of today."</p><span>Cryptographic design</span></blockquote>
-        <blockquote class="glass quote reveal" style="margin:0"><p>"The author is unknown and will stay unknown. The code is the authority."</p><span>Zarazi Sokani, pseudonymous creator</span></blockquote>
+        <blockquote class="glass quote reveal" style="margin:0"><svg class="ic q-ic" aria-hidden="true"><use href="#i-quote"/></svg><p>"No key, no person and no company can mint, freeze or reverse."</p><span>Consensus rules, enforced by every node</span></blockquote>
+        <blockquote class="glass quote reveal" style="margin:0"><svg class="ic q-ic" aria-hidden="true"><use href="#i-quote"/></svg><p>"Security that rests on hashes outlives the curves of today."</p><span>Cryptographic design</span></blockquote>
+        <blockquote class="glass quote reveal" style="margin:0"><svg class="ic q-ic" aria-hidden="true"><use href="#i-quote"/></svg><p>"The author is unknown and will stay unknown. The code is the authority."</p><span>Zarazi Sokani, pseudonymous creator</span></blockquote>
       </div>
     </div>
   </section>
 
   <section class="block" aria-labelledby="faq-h">
-    <div class="wrap">
-      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow">FAQ</span><h2 id="faq-h" class="h2 glow">Questions, answered honestly.</h2></div>
+    <div class="wrap lp-faq">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg>FAQ</span><h2 id="faq-h" class="h2 glow">Questions, answered honestly.</h2>
+        <div class="row-btns"><a class="btn" href="/faq"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg>All questions and answers</a><a class="btn" href="/quantum"><svg class="ic" aria-hidden="true"><use href="#i-atom"/></svg>Quantum security</a><a class="btn" href="/about"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>What is Genoryn Krypton?</a></div>
+      </div>
       <div class="faq">
         <details class="glass"><summary>Is Genoryn Krypton really quantum-resistant?</summary><p>Spends rely on zk-STARKs (hash functions only), note encryption uses ML-KEM-1024 (FIPS 203) combined with X25519, peers use ML-KEM-768. Shor's algorithm breaks none of these; Grover's algorithm only halves hash security, and 256-bit hashes keep a 128-bit margin. All algorithms are versioned so they can be upgraded by soft fork. The code has not had an independent audit yet.</p></details>
         <details class="glass"><summary>Was there a premine or an early bonus?</summary><p>No. The genesis block issues nothing and every block pays the same schedule: 5 GNR halving every 2,100,000 blocks. The mainnet genesis commits to the hash of Bitcoin block 974,438, the newest Bitcoin block at launch, so no Genoryn Krypton block could be mined before it.</p></details>
@@ -178,13 +329,12 @@
         <details class="glass"><summary>Do small miners earn anything?</summary><p>Yes. Every block's reward is shared among all miners by the work they did: about 32 shares per block each earn an equal slice, so 1 % of the hashrate earns about 1 % of the rewards, without a pool.</p></details>
         <details class="glass"><summary>Who controls the project?</summary><p>Nobody. It was created by the pseudonymous Zarazi Sokani, whose identity will never be revealed. Anyone may build, market or extend it, but no one can change the rules without the nodes that run them.</p></details>
       </div>
-      <p class="muted" style="margin-top:18px"><a href="/faq">All questions and answers</a> · <a href="/quantum">How quantum computers threaten cryptocurrencies</a> · <a href="/about">What is Genoryn Krypton?</a></p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <div class="glass cta-band reveal"><div class="pool" aria-hidden="true"></div><h2 class="h2 glow">Own money nobody can switch off.</h2><p class="lead" style="margin:14px auto 26px">Download the wallet and mine your first block today.</p><div class="row-flex" style="justify-content:center"><a class="btn btn-primary" href="/download">Get the wallet</a><a class="btn" href="/explorer">Open the explorer</a></div></div>
+      <div class="glass cta-band reveal"><div class="pool" aria-hidden="true"></div><h2 class="h2 glow">Own money nobody can switch off.</h2><p class="lead" style="margin:14px auto 26px">Download the wallet and mine your first block today.</p><div class="row-btns" style="justify-content:center"><a class="btn btn-primary" href="/download"><svg class="ic" aria-hidden="true"><use href="#n-download"/></svg>Get the wallet</a><a class="btn" href="/mining"><svg class="ic" aria-hidden="true"><use href="#n-mining"/></svg>Start mining</a><a class="btn" href="/explorer"><svg class="ic" aria-hidden="true"><use href="#n-explorer"/></svg>Open the explorer</a></div></div>
     </div>
   </section>
 </main>
