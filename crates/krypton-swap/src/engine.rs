@@ -20,7 +20,7 @@
 //! Swaps started before 1.0.23 (flow 0: bitcoin first, the buyer holds the secret) finish
 //! as they began; new ones are never started that way.
 
-use crate::btc::BtcChain;
+use crate::btc::{BtcChain, Utxo};
 use crate::{
     Funding, Htlc, MAX_SWAP_SECS, Secret, Timelocks, Timing, derive_key, derive_secret, public_key,
 };
@@ -83,10 +83,13 @@ impl Swap {
     /// Whether this side can still walk away: nothing of its own is locked yet.
     pub fn cancellable(&self) -> bool {
         match (self.role, self.flow) {
-            (Role::BtcSeller, FLOW_GNR_FIRST) => matches!(
-                self.stage,
-                Stage::Requested | Stage::Accepted | Stage::AwaitDeposit
-            ),
+            // Not once the wallet has sent the payment itself, even before it is seen.
+            (Role::BtcSeller, FLOW_GNR_FIRST) => {
+                matches!(
+                    self.stage,
+                    Stage::Requested | Stage::Accepted | Stage::AwaitDeposit
+                ) && self.paid_tx.is_none()
+            }
             (Role::GnrSeller, FLOW_GNR_FIRST) => {
                 self.stage == Stage::Accepted && self.lock_cm.is_none()
             }
@@ -176,7 +179,35 @@ pub struct Swap {
     /// commitment). The lock spends exactly it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_note: Option<String>,
+    /// BTC seller: the number of the deposit address that holds this swap's bitcoin
+    /// (`crate::deposit`), when it came from a buy offer whose bitcoin was paid in
+    /// advance. The wallet then pays the contract by itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fund: Option<u32>,
+    /// That payment into the contract, once sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paid_tx: Option<String>,
 }
+
+/// GNR this wallet locked in a swap that this copy of the wallet has no record of: the
+/// swap was started by the same wallet on another computer (or its record was lost).
+#[derive(Clone, Debug, Serialize)]
+pub struct Elsewhere {
+    pub value: u64,
+    /// The block that holds the lock, and the block from which it can be refunded.
+    pub height: Option<u64>,
+    pub refund_height: u64,
+    /// This wallet has sent the refund.
+    pub refunding: bool,
+}
+
+/// How long past the payment window a swap waits for a payment its own wallet sent to
+/// show up on the Bitcoin chain.
+pub const PAID_UNSEEN_SECS: u64 = 6 * 3600;
+
+/// A lock whose swap runs elsewhere is refunded by this copy this many blocks after its
+/// refund height, if it is still there: the copy that runs the swap goes first.
+pub const ELSEWHERE_REFUND_DELAY: u64 = 30;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -265,6 +296,30 @@ pub fn load(w: &Wallet) -> Vec<Swap> {
 
 pub fn save(w: &mut Wallet, swaps: &[Swap]) -> Result<()> {
     w.set_app_data(STORE_KEY, serde_json::to_value(swaps)?)
+}
+
+/// A lock this wallet funded that none of its swap records knows: unspent, and no swap
+/// with its number.
+fn orphan(l: &LockRecord, swaps: &[Swap]) -> bool {
+    l.role == LockRole::Refunder
+        && l.spent_height.is_none()
+        && !swaps
+            .iter()
+            .any(|s| s.index == l.swap && s.role == Role::GnrSeller)
+}
+
+/// GNR of `w` that is locked in swaps this copy of the wallet has no record of.
+pub fn elsewhere(w: &Wallet, swaps: &[Swap]) -> Vec<Elsewhere> {
+    w.locks()
+        .iter()
+        .filter(|l| orphan(l, swaps))
+        .map(|l| Elsewhere {
+            value: l.value,
+            height: l.height,
+            refund_height: l.terms.refund_height,
+            refunding: l.pending_spend.is_some(),
+        })
+        .collect()
 }
 
 fn now() -> u64 {
@@ -385,6 +440,18 @@ impl<G: ChainSource> Engine<'_, G> {
     /// BTC seller: starts a swap of `sats` bitcoin for `gnr` GNR (krypton). Refunds go to
     /// `refund_address`. Returns the request code for the GNR seller.
     pub fn request(&mut self, gnr: u64, sats: u64, refund_address: &str) -> Result<Swap> {
+        self.request_from(gnr, sats, refund_address, None)
+    }
+
+    /// [`Engine::request`] for a buy offer whose bitcoin waits at deposit address number
+    /// `fund` of this wallet: the swap pays the contract from there by itself.
+    pub fn request_from(
+        &mut self,
+        gnr: u64,
+        sats: u64,
+        refund_address: &str,
+        fund: Option<u32>,
+    ) -> Result<Swap> {
         self.check_active()?;
         btc_address(refund_address, self.btc_network)?;
         ensure!(sats >= 10_000, "swap at least 10,000 sat");
@@ -436,6 +503,8 @@ impl<G: ChainSource> Engine<'_, G> {
             pay_by: None,
             learned: None,
             from_note: None,
+            fund,
+            paid_tx: None,
         };
         s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
@@ -578,6 +647,8 @@ impl<G: ChainSource> Engine<'_, G> {
             pay_by: None,
             learned: None,
             from_note: from.map(hex::encode),
+            fund: None,
+            paid_tx: None,
         };
         s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
@@ -818,14 +889,26 @@ impl<G: ChainSource> Engine<'_, G> {
                 });
             }
             // GNR first: the buyer pays within the window it was given, or not at all.
+            // A payment the wallet sent itself and that the Bitcoin server has not shown
+            // yet is waited for well past the window (`PAID_UNSEEN_SECS`).
             if s.gnr_first()
                 && s.stage == Stage::AwaitDeposit
-                && s.pay_by.is_some_and(|p| p < t)
                 && s.deposit.is_none()
+                && s.pay_by.is_some_and(|p| {
+                    p + if s.paid_tx.is_some() {
+                        PAID_UNSEEN_SECS
+                    } else {
+                        0
+                    } < t
+                })
             {
                 s.stage = Stage::Failed;
                 s.code = None;
-                s.say("Expired: the payment window closed before you paid. Nothing was paid; if you pay now anyway, the bitcoin refunds.");
+                s.say(if s.paid_tx.is_some() {
+                    "The payment your wallet sent never appeared on the Bitcoin chain, so the swap ended. If it appears after all, the bitcoin refunds at the contract's time lock."
+                } else {
+                    "Expired: the payment window closed before you paid. Nothing was paid; if you pay now anyway, the bitcoin refunds."
+                });
             }
             // Paid after all, into a given-up swap: refund it at the timelock.
             if s.watching()
@@ -1007,6 +1090,125 @@ impl<G: ChainSource> Engine<'_, G> {
         Ok(())
     }
 
+    /// The address of deposit number `n` of this wallet (`crate::deposit`).
+    pub fn deposit_address(&self, n: u32) -> Address {
+        crate::deposit::address(self.wallet.swap_seed(), n, self.btc_network)
+    }
+
+    /// The bitcoin at deposit address `n` that has not been spent: every payment to it,
+    /// confirmed or not.
+    pub fn deposit_coins(&self, n: u32) -> Result<Vec<Utxo>> {
+        let mut coins = self.btc.unspent(&self.deposit_address(n))?;
+        // Anyone can pay an address: dust sent to it must not stand in the way. One
+        // transaction spends the largest outputs; a later one takes the rest.
+        coins.sort_by_key(|c| std::cmp::Reverse(c.value));
+        coins.truncate(crate::deposit::MAX_COINS);
+        Ok(coins)
+    }
+
+    /// Sends everything at deposit address `n` to `dest` (the buyer's own address): the
+    /// bitcoin of a buy offer that ended unsold goes back. `None` if nothing is there.
+    pub fn sweep_deposit(&self, n: u32, dest: &str) -> Result<Option<Txid>> {
+        let dest = btc_address(dest, self.btc_network)?.script_pubkey();
+        let coins = self.deposit_coins(n)?;
+        if coins.is_empty() {
+            return Ok(None);
+        }
+        let key = crate::deposit::key(self.wallet.swap_seed(), n);
+        let tx = crate::deposit::spend(&coins, &key, None, &dest, self.btc.fee_rate()?)?;
+        Ok(Some(self.btc.broadcast(&tx)?))
+    }
+
+    /// The buyer's wallet pays the contract from the bitcoin deposited for the offer. The
+    /// swap is at the point where a person would be shown where to pay; what that person
+    /// relies on is checked once more at this moment.
+    fn pay_from_deposit(
+        &mut self,
+        s: &mut Swap,
+        n: u32,
+        contract: &Address,
+        lock: Option<&LockRecord>,
+        btc_tip: u32,
+        gnr_tip: u64,
+    ) -> Result<()> {
+        if s.paid_tx.is_some() {
+            // Sent; the Bitcoin server has not shown it yet.
+            return Ok(());
+        }
+        ensure!(
+            s.pay_by.is_some_and(|p| p > now()),
+            "the payment window is over"
+        );
+        let l = lock.context("the GNR lock is not in the wallet")?;
+        ensure!(
+            l.height.is_some() && l.spent_height.is_none(),
+            "the GNR lock is no longer on chain"
+        );
+        let tl = s.timelocks().context("timelocks")?;
+        self.timing
+            .check_pay(&tl, btc_tip, gnr_tip)
+            .map_err(|e| anyhow!("not paying: {e}"))?;
+        let coins = self.deposit_coins(n)?;
+        let have: u64 = coins.iter().map(|c| c.value.to_sat()).sum();
+        ensure!(
+            have > s.sats,
+            "the bitcoin deposited for this offer ({} BTC) no longer covers the payment of {} BTC and its fee; pay the contract yourself, or let the swap end",
+            Amount::from_sat(have).to_btc(),
+            Amount::from_sat(s.sats).to_btc()
+        );
+        let back = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
+        let key = crate::deposit::key(self.wallet.swap_seed(), n);
+        let tx = crate::deposit::spend(
+            &coins,
+            &key,
+            Some((&contract.script_pubkey(), Amount::from_sat(s.sats))),
+            &back,
+            self.btc.fee_rate()?,
+        )?;
+        // Exactly the agreed amount, to exactly this swap's contract.
+        ensure!(
+            tx.output[0].script_pubkey == s.htlc()?.script_pubkey()
+                && tx.output[0].value.to_sat() == s.sats,
+            "the payment would not match the contract"
+        );
+        let id = self.btc.broadcast(&tx)?;
+        s.paid_tx = Some(id.to_string());
+        s.say(format!(
+            "The seller's GNR is locked for you, and your wallet paid {} BTC into the contract from the bitcoin you deposited ({id}).",
+            Amount::from_sat(s.sats).to_btc()
+        ));
+        Ok(())
+    }
+
+    /// GNR of this wallet that is locked in swaps this copy has no record of.
+    pub fn elsewhere(&self) -> Vec<Elsewhere> {
+        let swaps = load(self.wallet);
+        elsewhere(self.wallet, &swaps)
+    }
+
+    /// Takes back GNR locked in a swap this copy has no record of, once its lock has run
+    /// out and the copy that runs the swap has had its chance. Returns how many refunds
+    /// were sent.
+    pub fn refund_elsewhere(&mut self) -> usize {
+        let Ok(tip) = self.gnr_tip() else { return 0 };
+        let swaps = load(self.wallet);
+        let due: Vec<krypton_core::Hash32> = self
+            .wallet
+            .locks()
+            .iter()
+            .filter(|l| orphan(l, &swaps))
+            .filter(|l| {
+                l.position.is_some()
+                    && l.pending_spend.is_none()
+                    && tip + 1 >= l.terms.refund_height + ELSEWHERE_REFUND_DELAY
+            })
+            .map(|l| l.cm)
+            .collect();
+        due.iter()
+            .filter(|cm| self.wallet.refund_lock(self.gnr, cm).is_ok())
+            .count()
+    }
+
     /// GNR first, the buyer: waits for the GNR lock, only then shows where to pay, reads
     /// the secret from the seller's bitcoin claim and claims the GNR with it.
     fn step2_buyer(&mut self, s: &mut Swap, btc_tip: u32, gnr_tip: u64) -> Result<()> {
@@ -1085,6 +1287,10 @@ impl<G: ChainSource> Engine<'_, G> {
                     );
                     s.stage = Stage::Deposited;
                     s.say("Paid. The seller takes the bitcoin with the secret, and your wallet then claims the GNR with it.");
+                } else if let Some(n) = s.fund {
+                    // The bitcoin of this swap's offer waits at an address of this wallet:
+                    // the wallet pays the contract itself, now.
+                    self.pay_from_deposit(s, n, &addr, lock.as_ref(), btc_tip, gnr_tip)?;
                 }
             }
             Stage::Deposited | Stage::Claiming => {

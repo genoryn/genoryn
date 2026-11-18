@@ -103,10 +103,11 @@
       <li><b>When a buyer takes the offer,</b> the wallet locks exactly that GNR for them on chain. If they never pay, it returns to you when the lock ends, about 32 hours later.</li>
     </ol></div>
     <div class="glass card"><h3>Buying GNR</h3><ol>
-      <li><b>You never pay first.</b> The seller's GNR is locked for you on chain, and only after that lock has confirmed are you shown where to pay.</li>
-      <li><b>Your bitcoin goes into a contract,</b> never to a person: the seller can take it only by revealing the secret that releases the GNR to you.</li>
-      <li><b>Pay within two hours.</b> If you do not, nothing is paid. If the seller never takes the bitcoin, it comes back to you when the contract's time lock ends.</li>
-      <li><b>A buy offer locks nothing</b> when it is published. Bitcoin cannot be placed in a contract before a seller exists, because the contract names the seller's key; it is paid only into a swap that has started.</li>
+      <li><b>A buy offer is paid in advance, to yourself.</b> Publishing shows an address of your own wallet. Once your bitcoin is there and confirmed, the board checks it on the Bitcoin chain and lists the offer with a ✓.</li>
+      <li><b>When a seller takes it, you do nothing.</b> Their GNR is locked for you on chain; once that lock has confirmed, your wallet pays the swap contract from your deposit and then claims the GNR.</li>
+      <li><b>Your bitcoin goes into a contract,</b> never to a person, and only after the GNR is locked for you: the seller can take it only by revealing the secret that releases the GNR to you. If the seller never takes it, it comes back when the contract's time lock ends.</li>
+      <li><b>If you cancel, or nobody sells,</b> the wallet sends the bitcoin back to your address. It cannot wait in the swap contract itself, because that contract names the seller's key and there is no seller yet.</li>
+      <li><b>Taking a sell offer</b> works the same way: you pay once, to an address of your wallet, and the swap starts and completes by itself; if the offer is gone meanwhile, the bitcoin comes back. Or pay by hand: the wallet shows where to pay after the seller's GNR is locked for you, and you have two hours.</li>
     </ol></div>
   </section>
 

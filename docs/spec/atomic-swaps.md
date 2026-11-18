@@ -404,11 +404,91 @@ the side that acts second; it costs the seller time, never coins. The board coun
 swap as "taken, not paid yet", and as running only once the maker reports that the bitcoin is
 in the contract.
 
-**Buy offers** lock nothing when they are published. The bitcoin contract names the seller's
-claim key and the hash of the seller's secret, and neither exists before a seller takes the
-offer; bitcoin "locked" earlier would be in an output its owner can still spend, which proves
-nothing. A buyer pays only into the contract of a swap that has started, after the seller's
-GNR is locked for it and that lock has confirmed.
+**Buy offers** cannot put bitcoin into the swap contract when they are published. The
+contract names the seller's claim key and the hash of the seller's secret, and neither exists
+before a seller takes the offer. See the next section for what a buy offer does instead.
+
+## Buy offers with the bitcoin deposited (from 1.0.41)
+
+A buyer pays the bitcoin when publishing the offer, to an address of the buyer's own wallet,
+and from then on does nothing: the wallet pays the contract when a seller's GNR is locked,
+and sends the bitcoin back if nobody sells.
+
+**The deposit address** (`krypton_swap::deposit`). A pay-to-witness-public-key-hash address
+whose key derives from the wallet's swap seed and a small number (`deposit::key(seed, n)`,
+its own derivation tag), so the 24 words find it again. The wallet asks for the offer's
+amount plus a fee reserve: twice today's fee for the payment into the contract, at least
+1,000 sat (`deposit::fee_reserve`). The bitcoin is the buyer's the whole time: nobody else
+has the key, and there is no script on it.
+
+**Listing** (`apps/krypton-wallet/src/board.rs`, `advance_buy`). The wallet watches the
+address. When unspent outputs worth the offer and at least half of the reserve have one
+confirmation, it seals the offer's proof of work and posts the offer with
+`funding = {key, sig}`: the address's public key and an ECDSA signature over the offer (id,
+offer key, cancel hash, amounts, both networks; `board::sign_funding`). The signature shows
+that whoever posts the offer controls the address; it fits no other offer.
+
+**What the board does** (`apps/kryptond/src/swapboard.rs`). It checks the signature
+(`board::check_funding`). If it is configured with a Bitcoin server (`KRYPTON_BTC_API`: an
+Esplora URL, or `rpc:` and a Bitcoin Core URL) it looks the address up: confirmed, unspent
+outputs worth at least the offer's bitcoin must be there, or the offer is refused. It then
+lists the offer with `deposited: true`, keeps the address to itself, refuses a second offer
+on the same address, and looks the deposits of open offers up again every five minutes,
+taking the mark off an offer whose bitcoin moved. A board without a Bitcoin server lists the
+offer unmarked. The mark is a statement of the board; a seller who takes a marked offer
+risks what a seller always risks, GNR locked until its refund height if the buyer does not
+pay, never coins.
+
+**The payment** (`Engine::pay_from_deposit`). A swap that comes from such an offer carries
+the deposit's number (`Swap::fund`). When it reaches the point where a person would be shown
+where to pay (the seller's lock holds exactly the agreed amount, only the buyer can claim it,
+it has its confirmations, and the time locks leave the safe margins), the wallet checks once
+more that the payment window is open, the lock is still on chain and the margins still hold,
+and then spends the deposit: output 0 is the contract, exactly the agreed amount; what is
+left after the fee goes to the buyer's own address. The fee follows the fee rate of the
+moment; if the reserve does not cover it, a lower fee is paid, down to the relay minimum,
+and never anything less than the agreed amount. A deposit that no longer covers the amount
+is not spent at all. From here the swap is an ordinary one, and the bitcoin refunds from
+the contract at its time lock if the seller never takes it.
+
+**The bitcoin comes back** when the offer is cancelled, runs its time, is removed by the
+board, or its swap is over: `Engine::sweep_deposit` sends everything at the address to the
+buyer's address (`settle_funds`), and the wallet keeps looking for three days so a payment
+that arrives late goes back too. A swap that ends before the buyer paid puts the offer back
+on the board with the same deposit. A wallet restored from its phrase has no record of its
+offers: `POST /api/board/recover-btc` (Swap, Bitcoin connection) looks at its deposit
+addresses and sends what it finds to an address the user gives.
+
+**Taking a sell offer with the bitcoin paid first** (`take_offer`, `advance_takes`). A
+buyer who takes a sell offer can pay in advance in the same way. The wallet then does not
+send its request at once: it waits until the deposit has one confirmation and the offer is
+still listed, proven and its maker online, and only then starts the swap, which pays from
+the deposit by itself. A seller's GNR is therefore locked only for a buyer whose bitcoin is
+ready (an honest wallet's rule; the cost of taking without paying is still open, see issue
+9). If the offer is gone by then, no bitcoin arrives within two hours, or the swap cannot
+start for six, the purchase is called off and what was sent goes back.
+
+**Limits on fees and inputs.** No transaction of a deposit pays more fee than a tenth of
+what it moves (3,000 sat for small ones), whatever fee rate the Bitcoin server reports, and
+it spends at most the 50 largest outputs at the address, so dust sent to the address by
+someone else cannot stand in the way. Deposit numbers come in 64 lanes; each copy of a
+wallet picks one at random and passes over an address that has been paid before, so two
+copies of a wallet do not hand out the same address, and the numbers stay few enough to
+look through when a wallet is restored (`recover_btc`).
+
+**Privacy.** The deposit address is a Bitcoin address like any other; the board that checks
+it learns it, the public listing does not show it. The payment into the contract links the
+deposit to the swap on the Bitcoin chain, as any payment into a contract does.
+
+**The same wallet on two computers.** Offers and swaps are records of the wallet that
+started them; a second copy of the wallet (the same phrase) does not have them. It does see
+the lock note it funded, because that note is encrypted to the wallet's own key
+(`Wallet::recover_lock`), and shows it as "locked in a swap on another computer"
+(`engine::elsewhere`). It leaves the lock to the copy that runs the swap and refunds it
+itself only `ELSEWHERE_REFUND_DELAY` (30) blocks after the refund height, if it is still
+there. Numbers of offers and takes, from which their keys and mailboxes derive, are random
+from 1.0.41, so two copies never give two offers the same key.
+
 
 **Tests.** `crates/krypton-swap/tests/engine.rs` (`a_sell_offer_proves_its_gnr`): the proof is
 sound, fits one offer, cannot be mined, is refused when it could be mined, leaves no fee or

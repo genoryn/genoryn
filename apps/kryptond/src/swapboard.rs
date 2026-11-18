@@ -79,6 +79,10 @@ struct Inner {
     backing_checked: u64,
     /// Swaps in progress whose bitcoin has been paid, as their makers report it.
     funded: HashSet<String>,
+    /// Buy offers whose bitcoin was found at the deposit address their maker proved to
+    /// own (`board::check_funding`), with that address. It is never published.
+    deposits: HashMap<String, String>,
+    deposits_checked: u64,
 }
 
 impl Inner {
@@ -129,11 +133,22 @@ impl Inner {
         self.offers.remove(id);
         self.pending.remove(id);
         self.backing.remove(id);
+        self.deposits.remove(id);
         if !self.coin_offers.contains_key(id) {
             self.seen.remove(id);
         }
         self.pending_seen.remove(id);
         self.funded.remove(id);
+    }
+
+    /// Marks the buy offer `id` (just listed) as having its bitcoin at `address`. One
+    /// deposit stands behind one offer.
+    fn deposited(&mut self, id: &str, address: String) -> bool {
+        if self.deposits.values().any(|a| *a == address) {
+            return false;
+        }
+        self.deposits.insert(id.to_string(), address);
+        true
     }
 }
 
@@ -180,6 +195,8 @@ impl Board {
         // Coins stay spoken for while their offer is open and while its swap runs.
         let (offers, pending) = (&i.offers, &i.pending);
         i.backing
+            .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
+        i.deposits
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
         let ids: std::collections::HashSet<String> = i
             .offers
@@ -232,6 +249,7 @@ impl Board {
             if !purged {
                 i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
                 i.backing = s.backing.into_iter().collect();
+                i.deposits = s.deposits.into_iter().collect();
             }
             i.funded = s.funded.into_iter().collect();
             i.coin_offers = s
@@ -313,6 +331,11 @@ impl Board {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
             funded: i.funded.iter().cloned().collect(),
+            deposits: i
+                .deposits
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
         };
         if let Ok(b) = serde_json::to_vec(&s) {
             Board::write(&p.with_file_name("swap-board.json"), b);
@@ -334,6 +357,8 @@ struct Saved {
     backing: Vec<(String, Backing)>,
     #[serde(default)]
     funded: Vec<String>,
+    #[serde(default)]
+    deposits: Vec<(String, String)>,
 }
 
 fn hash32(s: &str) -> Option<Hash32> {
@@ -471,6 +496,9 @@ pub async fn offers(State(node): S) -> Response {
     Board::expire(&mut i, now());
     let t = now();
     drop_unbacked(&node, &mut i, t);
+    drop(i);
+    recheck_deposits(&node);
+    let i = node.board.inner.lock();
     let mut list: Vec<&Offer> = i.offers.values().collect();
     list.sort_by(|a, b| a.price().total_cmp(&b.price()));
     let v: Vec<Value> = list
@@ -482,6 +510,8 @@ pub async fn offers(State(node): S) -> Response {
             x["seen"] = json!(seen);
             // The seller's GNR was proven to be there, and has not moved since.
             x["backed"] = json!(i.backing.contains_key(&o.id));
+            // The buyer's bitcoin was found at a deposit address of the buyer's wallet.
+            x["deposited"] = json!(i.deposits.contains_key(&o.id));
             x
         })
         .collect();
@@ -550,6 +580,10 @@ pub struct OfferPost {
     /// Hex of a transfer that can never be mined (`krypton_swap::board::check_reserve`).
     #[serde(default)]
     reserve: Option<String>,
+    /// A buy offer whose bitcoin is deposited: the proof of the deposit address
+    /// (`krypton_swap::board::check_funding`).
+    #[serde(default)]
+    funding: Option<board::Funding>,
 }
 
 pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
@@ -615,17 +649,127 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
     } else {
         None
     };
+    // A buy offer may say that its bitcoin is deposited. The claim is checked on the
+    // Bitcoin chain if this board can read it, and the offer is marked only then.
+    let deposit = match (&p.funding, o.side) {
+        (Some(f), Side::BuyGnr) => {
+            let address = match board::check_funding(&o, f) {
+                Ok(a) => a,
+                Err(e) => return bad(e),
+            };
+            match btc_api() {
+                None => None,
+                Some(api) => {
+                    let (a, need) = (address.clone(), o.sats);
+                    match tokio::task::spawn_blocking(move || deposit_at(&api, &a, need)).await {
+                        Ok(Ok(true)) => Some(address.to_string()),
+                        Ok(Ok(false)) => {
+                            return bad(
+                                "the bitcoin of this offer is not at its deposit address, confirmed and unspent",
+                            );
+                        }
+                        // The Bitcoin server did not answer: list the offer unmarked.
+                        Ok(Err(_)) | Err(_) => None,
+                    }
+                }
+            }
+        }
+        _ => None,
+    };
     // Checked and listed in one step, under the board's lock: of two offers posted at the
     // same moment with the same coins behind them, only the first is listed.
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
+    if deposit
+        .as_ref()
+        .is_some_and(|a| i.deposits.values().any(|x| x == a))
+    {
+        return bad("this bitcoin deposit already stands behind another offer on the board");
+    }
+    let id = o.id.clone();
     if let Err(e) = i.list(o, backing, t) {
         return bad(e);
     }
+    let marked = deposit.is_some_and(|a| i.deposited(&id, a));
     node.board.save_board(&i);
-    Json(json!({"ok": true})).into_response()
+    Json(json!({"ok": true, "deposited": marked})).into_response()
+}
+
+/// The Bitcoin server this board reads deposits of buy offers from (`KRYPTON_BTC_API`:
+/// an Esplora URL, or `rpc:` and a Bitcoin Core URL). Without it buy offers are listed
+/// as before, unmarked.
+fn btc_api() -> Option<String> {
+    std::env::var("KRYPTON_BTC_API")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Whether confirmed, unspent outputs worth at least `need` sat pay `address`.
+fn deposit_at(
+    api: &str,
+    address: &krypton_swap::bitcoin::Address,
+    need: u64,
+) -> anyhow::Result<bool> {
+    let btc = krypton_swap::btc::connect(api)?;
+    let have = btc
+        .unspent(address)?
+        .iter()
+        .filter(|u| u.height.is_some())
+        .fold(0u64, |a, u| a.saturating_add(u.value.to_sat()));
+    Ok(have >= need)
+}
+
+/// How often the deposits behind open buy offers are looked up again.
+const DEPOSIT_CHECK_SECS: u64 = 300;
+
+/// Looks the deposits of open buy offers up again and takes the mark off those whose
+/// bitcoin has moved. The lookups run off the board's lock.
+fn recheck_deposits(node: &Arc<Node>) {
+    let Some(api) = btc_api() else { return };
+    let list: Vec<(String, String, u64)> = {
+        let mut i = node.board.inner.lock();
+        let t = now();
+        if i.deposits_checked + DEPOSIT_CHECK_SECS > t {
+            return;
+        }
+        i.deposits_checked = t;
+        i.deposits
+            .iter()
+            .filter_map(|(id, a)| i.offers.get(id).map(|o| (id.clone(), a.clone(), o.sats)))
+            .take(100)
+            .collect()
+    };
+    if list.is_empty() {
+        return;
+    }
+    let node = node.clone();
+    tokio::task::spawn_blocking(move || {
+        use std::str::FromStr;
+        let gone: Vec<String> = list
+            .into_iter()
+            .filter(|(_, a, need)| {
+                krypton_swap::bitcoin::Address::from_str(a)
+                    .ok()
+                    .map(|a| a.assume_checked())
+                    // Only a clear "not there" takes the mark off, not a failed lookup.
+                    .is_some_and(|a| matches!(deposit_at(&api, &a, *need), Ok(false)))
+            })
+            .map(|(id, _, _)| id)
+            .collect();
+        if gone.is_empty() {
+            return;
+        }
+        let mut i = node.board.inner.lock();
+        for id in &gone {
+            if i.offers.contains_key(id) {
+                i.deposits.remove(id);
+            }
+        }
+        node.board.save_board(&i);
+    });
 }
 
 #[derive(Deserialize)]

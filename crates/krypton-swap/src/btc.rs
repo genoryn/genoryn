@@ -28,6 +28,21 @@ pub trait BtcChain {
     fn broadcast(&self, tx: &Transaction) -> Result<Txid>;
     /// A fee rate that confirms within about half an hour.
     fn fee_rate(&self) -> Result<FeeRate>;
+    /// The outputs paying `address` that nothing has spent, confirmed or not.
+    fn unspent(&self, address: &Address) -> Result<Vec<Utxo>> {
+        unspent_of(self, address)
+    }
+}
+
+/// The unspent outputs of `address`, from its outputs and one look at each.
+fn unspent_of<C: BtcChain + ?Sized>(chain: &C, address: &Address) -> Result<Vec<Utxo>> {
+    let mut coins: Vec<Utxo> = Vec::new();
+    for u in chain.outputs(address)? {
+        if !coins.iter().any(|c| c.outpoint == u.outpoint) && !chain.is_spent(&u.outpoint)? {
+            coins.push(u);
+        }
+    }
+    Ok(coins)
 }
 
 fn http() -> Result<reqwest::blocking::Client> {
@@ -90,6 +105,25 @@ impl Esplora {
             );
         }
         Ok(body)
+    }
+    /// The server's own list of the unspent outputs of an address: complete, however
+    /// many other payments the address has seen (its transaction list is one page).
+    fn utxo(&self, address: &Address) -> Result<Vec<Utxo>> {
+        let v: Value = serde_json::from_str(&self.get(&format!("/address/{address}/utxo"))?)?;
+        v.as_array()
+            .context("unexpected Bitcoin API reply")?
+            .iter()
+            .map(|u| {
+                Ok(Utxo {
+                    outpoint: OutPoint::new(
+                        Txid::from_str(u["txid"].as_str().context("txid")?)?,
+                        u["vout"].as_u64().context("vout")? as u32,
+                    ),
+                    value: Amount::from_sat(u["value"].as_u64().context("value")?),
+                    height: u["status"]["block_height"].as_u64().map(|h| h as u32),
+                })
+            })
+            .collect()
     }
 }
 
@@ -154,6 +188,11 @@ impl BtcChain for Esplora {
             );
         }
         Ok(Txid::from_str(body.trim())?)
+    }
+    /// The server's own list of unspent outputs; if it does not give one (some refuse it
+    /// for busy addresses), the outputs are looked at one by one instead.
+    fn unspent(&self, address: &Address) -> Result<Vec<Utxo>> {
+        self.utxo(address).or_else(|_| unspent_of(self, address))
     }
     fn fee_rate(&self) -> Result<FeeRate> {
         let v: Value = serde_json::from_str(&self.get("/fee-estimates")?)?;

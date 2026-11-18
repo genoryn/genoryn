@@ -23,7 +23,7 @@
       return "<tr class=\"" + (off ? "mk-off" : "") + "\" style=\"--depth:" + w + "%\">" +
         "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline: it cannot be taken until the maker's wallet is back" : "Maker online: the swap starts within seconds") + "\"></span><div>" + cell(sat(p), usd(p)) + "</div></div></td>" +
         "<td class=\"num\">" + cell(gnr(o.gnr) + (o.backed ? "<i class=\"mk-ok\" title=\"The seller's GNR is set aside and proven to the board\">✓</i>" : ""), kind === "pend" ? (o.funded ? "bitcoin paid" : "taken, not paid yet") : "") + "</td>" +
-        "<td class=\"num\">" + cell(btc(o.sats) + " BTC", dollars(o.sats)) + "</td>" +
+        "<td class=\"num\">" + cell(btc(o.sats) + " BTC" + (o.deposited ? "<i class=\"mk-ok\" title=\"The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself\">✓</i>" : ""), dollars(o.sats)) + "</td>" +
         "<td class=\"num\">" + when(o) + "</td></tr>";
     }).join("");
   }

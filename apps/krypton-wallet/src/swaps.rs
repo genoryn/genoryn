@@ -104,6 +104,8 @@ fn view(s: &Swap, via_board: bool) -> Value {
             .map(|a| a.to_string())
     );
     v["gnr_first"] = json!(s.gnr_first());
+    // The wallet pays the contract itself, from the bitcoin deposited for the offer.
+    v["auto_pay"] = json!(s.fund.is_some());
     v["pay_in"] = json!(s.pay_by.map(|p| p.saturating_sub(krypton_core::now())));
     v["finished"] = json!(s.stage.finished());
     v["cancellable"] = json!(s.cancellable());
@@ -149,14 +151,51 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     let g = app.wallet.lock();
     let swaps = g.as_ref().map(engine::load).unwrap_or_default();
     let linked = g.as_ref().map(crate::board::linked_ids).unwrap_or_default();
+    let gone = g.as_ref().map(crate::board::gone_ids).unwrap_or_default();
     let why = inactive(&app, g.as_ref());
+    let tip = g.as_ref().and_then(|w| w.synced_height()).unwrap_or(0);
+    // GNR of this wallet locked in swaps that this copy of it did not start: the same
+    // wallet is open on another computer, and the swap runs there.
+    let elsewhere: Vec<Value> = g
+        .as_ref()
+        .map(|w| engine::elsewhere(w, &swaps))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|l| {
+            json!({
+                "gnr_text": format_amount(l.value),
+                "height": l.height,
+                "refund_height": l.refund_height,
+                "blocks_left": l.refund_height.saturating_sub(tip + 1),
+                "backstop_height": l.refund_height + engine::ELSEWHERE_REFUND_DELAY,
+                "refunding": l.refunding,
+            })
+        })
+        .collect();
     drop(g);
     let mut swaps: Vec<Value> = swaps
         .iter()
-        .map(|s| view(s, linked.contains(&s.id)))
+        .map(|s| {
+            let mut v = view(s, linked.contains(&s.id));
+            // The buyer gave up after our GNR was locked: say so, and when it returns.
+            if gone.contains(&s.id)
+                && s.role == engine::Role::GnrSeller
+                && s.stage == Stage::Locked
+                && s.deposit.is_none()
+                && let Some(h) = s.gnr_refund_height
+            {
+                v["peer_gone"] = json!(true);
+                v["status"] = json!(format!(
+                    "The buyer cancelled or did not pay in time. Nothing was paid, and your GNR comes back to you by itself at block {h} (in about {} blocks, one a minute). Keep the wallet running then.",
+                    h.saturating_sub(tip + 1)
+                ));
+            }
+            v
+        })
         .collect();
     swaps.reverse();
     Json(json!({
+        "elsewhere": elsewhere,
         "active": why.is_none(),
         "reason": why,
         "btc_network": btc_network(&app).to_core_arg(),
@@ -374,7 +413,8 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
     crate::board::refresh_market(a);
     crate::coins::tick(a, w, src);
     crate::board::reconcile_holds(w);
-    if !has_work(w) || inactive(a, Some(w)).is_some() {
+    let stray = engine::elsewhere(w, &engine::load(w));
+    if (!has_work(w) && stray.is_empty()) || inactive(a, Some(w)).is_some() {
         return;
     }
     let Ok(backend) = btc::connect(&backend_spec(a)) else {
@@ -394,6 +434,11 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
     };
     if let Err(x) = e.step(mempool) {
         *a.last_error.lock() = format!("swaps: {x}");
+    }
+    // GNR locked by a swap this copy of the wallet does not know (it runs on another
+    // computer): taken back here if it is still locked well after its lock ran out.
+    if !stray.is_empty() {
+        e.refund_elsewhere();
     }
     crate::board::tick(a, &mut e);
 }

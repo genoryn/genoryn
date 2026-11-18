@@ -4,6 +4,17 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.41](https://github.com/genoryn/genoryn/releases/tag/v1.0.41) · 2026-11-18: Buy offers with the bitcoin deposited: the swap completes by itself
+
+- A buy offer is now paid in advance, to an address of the buyer's own wallet. The wallet shows the address and the amount, and publishes the offer by itself once the bitcoin has one confirmation.
+- The offer board checks on the Bitcoin chain that the bitcoin is there and marks the offer with a ✓. It keeps the address to itself.
+- When a seller takes the offer, the buyer does nothing: once the seller's GNR is locked and confirmed, the buyer's wallet pays the swap contract from the deposit, exactly the agreed amount, and then claims the GNR.
+- Buying from a sell offer works the same way: pay once, to an address of your wallet, and the swap starts and completes by itself. The seller's GNR is locked only once the buyer's bitcoin is there.
+- If the offer is cancelled, nobody sells, or the offer you wanted is gone, the wallet sends the bitcoin back to your address. What was set aside for the network fee and not used comes back too.
+- A wallet restored from its 24 words finds bitcoin left from buy offers again: Swap, Bitcoin connection.
+- The same wallet open on two computers: the second one now shows GNR that the first has locked in a swap, with the block at which it returns, and takes it back itself if the first is gone when the lock ends. Offers of two copies no longer share a mailbox.
+- A seller whose buyer cancelled or did not pay is told so, with the block at which the GNR returns.
+
 ## [1.0.40](https://github.com/genoryn/genoryn/releases/tag/v1.0.40) · 2026-11-18: Sell offers prove their GNR
 
 - A sell offer is listed only after its GNR is set aside in a note of its own and the offer board has checked a zero-knowledge proof that it is there. Nobody can offer GNR they do not have.

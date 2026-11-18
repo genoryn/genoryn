@@ -275,6 +275,70 @@ pub fn check_reserve(o: &Offer, tx: &krypton_core::types::Transaction) -> Result
     })
 }
 
+// Bitcoin behind buy offers.
+//
+// A buy offer can come with the bitcoin already paid to an address of the buyer's own
+// wallet (`crate::deposit`). The wallet proves that the address is its own by signing the
+// offer with the address's key. A board that can read the Bitcoin chain then checks that
+// the offer's amount is there, unspent, and marks the offer; it keeps the address to
+// itself. From that address the buyer's wallet pays the swap contract by itself.
+
+/// What a wallet sends with a buy offer whose bitcoin is deposited: the public key of the
+/// deposit address and its signature over the offer (both hex).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Funding {
+    pub key: String,
+    pub sig: String,
+}
+
+fn funding_digest(o: &Offer) -> [u8; 32] {
+    use bitcoin::hashes::{Hash, sha256};
+    let (gnr, sats) = (o.gnr.to_le_bytes(), o.sats.to_le_bytes());
+    let parts: [&[u8]; 7] = [
+        o.id.as_bytes(),
+        o.key.as_bytes(),
+        o.cancel.as_bytes(),
+        &gnr,
+        &sats,
+        o.network.as_bytes(),
+        o.btc_network.as_bytes(),
+    ];
+    sha256::Hash::hash(&tagged_parts("Krypton/board/funded", &parts)).to_byte_array()
+}
+
+/// Signs `o` with the key of the deposit address that holds its bitcoin.
+pub fn sign_funding(o: &Offer, key: &bitcoin::secp256k1::SecretKey) -> Funding {
+    use bitcoin::secp256k1::{Message, Secp256k1};
+    let secp = Secp256k1::signing_only();
+    let sig = secp.sign_ecdsa(&Message::from_digest(funding_digest(o)), key);
+    Funding {
+        key: hex::encode(key.public_key(&secp).serialize()),
+        sig: hex::encode(sig.serialize_compact()),
+    }
+}
+
+/// Checks that `f` was made for the buy offer `o` by the owner of a deposit address, and
+/// returns that address. Whether the bitcoin is there is for the caller to look up on the
+/// Bitcoin chain: unspent outputs of that address worth at least `o.sats`.
+pub fn check_funding(o: &Offer, f: &Funding) -> Result<bitcoin::Address> {
+    use bitcoin::secp256k1::{Message, PublicKey, Secp256k1, ecdsa::Signature};
+    ensure!(o.side == Side::BuyGnr, "only buy offers deposit bitcoin");
+    let network = bitcoin::Network::from_core_arg(&o.btc_network)
+        .map_err(|_| anyhow!("unknown Bitcoin network"))?;
+    ensure!(f.key.len() == 66 && f.sig.len() == 128, "bad deposit proof");
+    let key = PublicKey::from_slice(&hex::decode(&f.key).context("bad deposit key")?)
+        .map_err(|_| anyhow!("bad deposit key"))?;
+    let sig = Signature::from_compact(&hex::decode(&f.sig).context("bad deposit signature")?)
+        .map_err(|_| anyhow!("bad deposit signature"))?;
+    Secp256k1::verification_only()
+        .verify_ecdsa(&Message::from_digest(funding_digest(o)), &sig, &key)
+        .map_err(|_| anyhow!("the deposit proof is not for this offer"))?;
+    Ok(bitcoin::Address::p2wpkh(
+        &bitcoin::CompressedPublicKey(key),
+        network,
+    ))
+}
+
 pub fn cancel_hash(secret: &[u8; 32]) -> String {
     hex::encode(tagged("Krypton/board/cancel", secret))
 }
@@ -852,6 +916,71 @@ pub fn market(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_deposit_proof_fits_one_buy_offer_and_one_key() {
+        let offer = |id: u8, side: Side, sats: u64| Offer {
+            id: hex::encode([id; 16]),
+            network: "mainnet".into(),
+            btc_network: "main".into(),
+            side,
+            gnr: 5 * 100_000_000,
+            sats,
+            key: "aa".repeat(8),
+            expires: 2_000_000_000,
+            cancel: "bb".repeat(32),
+            nonce: 0,
+        };
+        let seed = [3u8; 64];
+        let key = crate::deposit::key(&seed, 2);
+        let o = offer(1, Side::BuyGnr, 50_000);
+        let f = sign_funding(&o, &key);
+        let address = check_funding(&o, &f).unwrap();
+        assert_eq!(
+            address,
+            crate::deposit::address(&seed, 2, bitcoin::Network::Bitcoin)
+        );
+        // The proof of work is not part of it: sealing the offer keeps the proof valid.
+        let mut sealed = o.clone();
+        sealed.nonce = 77;
+        assert!(check_funding(&sealed, &f).is_ok());
+        // Another offer, another amount, a sell offer: not this proof.
+        assert!(check_funding(&offer(2, Side::BuyGnr, 50_000), &f).is_err());
+        assert!(check_funding(&offer(1, Side::BuyGnr, 60_000), &f).is_err());
+        assert!(check_funding(&offer(1, Side::SellGnr, 50_000), &f).is_err());
+        // Someone else's address cannot be claimed: the key must have signed.
+        let other = sign_funding(&o, &crate::deposit::key(&seed, 3));
+        let forged = Funding {
+            key: f.key.clone(),
+            sig: other.sig,
+        };
+        assert!(check_funding(&o, &forged).is_err());
+        for bad in [
+            Funding {
+                key: "00".repeat(33),
+                sig: f.sig.clone(),
+            },
+            Funding {
+                key: f.key.clone(),
+                sig: "zz".repeat(64),
+            },
+            Funding {
+                key: String::new(),
+                sig: String::new(),
+            },
+        ] {
+            assert!(check_funding(&o, &bad).is_err());
+        }
+        let mut regtest = o.clone();
+        regtest.btc_network = "regtest".into();
+        let f2 = sign_funding(&regtest, &key);
+        assert!(
+            check_funding(&regtest, &f2)
+                .unwrap()
+                .to_string()
+                .starts_with("bcrt1q")
+        );
+    }
 
     fn offer(side: Side, gnr: u64, sats: u64) -> Offer {
         let k = offer_key(&[1; 64], 1);

@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.40"
+VERSION = "1.0.41"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
@@ -156,7 +156,8 @@ FAQ_GROUPS = [
         ("Why swap bitcoin for GNR?", "Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could break. A swap moves value into a system guarded by hash-based proofs, directly from your own wallet."),
         ("Can someone offer GNR they do not have?", "No. A sell offer is listed only after its GNR is set aside in a note of its own and the offer board has checked a zero-knowledge proof that the seller can spend it. The board takes the offer down the moment that GNR moves, and the same GNR cannot back two offers. <a href=\"/market#rules\">The rules of an offer</a>."),
         ("Why is my GNR held after I cancel a sell offer?", "The wallet frees the GNR of a cancelled sell offer 24 hours later, or when the offer would have ended if that is sooner, so that offers are made in earnest. You can put it into a new offer at once. An offer that runs its time frees its GNR at once."),
-        ("Why is the bitcoin of a buy offer not locked in advance?", "A bitcoin contract has to name the seller's key and the hash of the seller's secret, and neither exists before a seller takes the offer. Bitcoin locked earlier would only be bitcoin that its owner can still move. So a buyer pays into the contract of a swap that has started, after the seller's GNR is locked for them on chain, and never before."),
+        ("Where is the bitcoin of a buy offer?", "At an address of the buyer's own wallet. A bitcoin contract has to name the seller's key and the hash of the seller's secret, and neither exists before a seller takes the offer, so the bitcoin cannot wait in the contract. Instead the buyer pays it to an address only their wallet has the key of; the offer board checks on the Bitcoin chain that it is there and marks the offer. When a seller's GNR is locked and confirmed, the wallet pays the contract by itself. If nobody sells, it sends the bitcoin back. <a href=\"/market#rules\">The rules of an offer</a>."),
+        ("I opened the same wallet on two computers. Why does only one show my swap?", "A swap is run by the wallet that started it, and its record is in that wallet's own file, not on the chain. The other computer shows your balance and the GNR that is locked in the swap, with the block at which it returns, but not the swap's progress. Run the offers and swaps of one wallet on one computer."),
         ("Can a swap cheat me?", "Both sides lock their coins under the same hash lock with a time lock. The seller's GNR is locked on chain before the buyer pays, taking the bitcoin reveals the secret that releases the GNR, and if anyone stops, both sides are refunded after the time locks."),
     ]),
     ("wallet", "Wallet", [

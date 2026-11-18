@@ -2106,6 +2106,8 @@ async fn serve(
         .route("/api/board/publish", post(board::publish))
         .route("/api/board/take", post(board::take))
         .route("/api/board/cancel", post(board::cancel))
+        .route("/api/board/recover-btc", post(board::recover_btc))
+        .route("/api/board/untake", post(board::untake))
         .route("/api/swap/settings", post(swaps::settings))
         .route("/api/coins", get(coins::list))
         .route("/api/coin/send", post(coins::send))

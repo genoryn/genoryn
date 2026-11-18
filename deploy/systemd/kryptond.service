@@ -6,6 +6,9 @@ Wants=network-online.target
 [Service]
 User=krypton
 Group=krypton
+# /etc/krypton/kryptond.env may also set KRYPTON_BTC_API (an Esplora URL such as
+# https://mempool.space/api, or rpc:http://user:password@127.0.0.1:8332): the offer board
+# then checks the bitcoin deposits of buy offers on the Bitcoin chain and marks them.
 EnvironmentFile=-/etc/krypton/kryptond.env
 ExecStart=/opt/krypton/bin/kryptond --network ${KRYPTON_NETWORK} --data-dir /var/lib/krypton/${KRYPTON_NETWORK} --rpc 127.0.0.1:${KRYPTON_RPC_PORT} $KRYPTON_EXTRA_ARGS
 Restart=always
