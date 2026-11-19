@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network Support: How a Genoryn Krypton Full Node Helps Everyone</title>
+<meta name="description" content="What a Genoryn Krypton full node does for the network: it relays blocks, transactions and mining shares over links encrypted against quantum computers, serves nodes that are syncing, and makes the network harder to split or censor.">
+<!--SEO:network-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="network">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/features">Features</a> <span aria-hidden="true">/</span> <span>Network support</span></nav>
+    <span class="eyebrow">Network support</span>
+    <h1 class="h2 glow">A network is the people who run it.</h1>
+    <p class="lead">Genoryn Krypton has no servers of its own to rely on. It is the computers of the people who run the software, passing blocks and transactions to each other. Every full node you add makes that web denser, and a denser web is harder to split, to censor and to lie to.</p>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features">Overview</a><a href="/validation">Validation</a><a href="/privacy">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements">Requirements</a><a href="/interface">User interface</a><a href="/network" aria-current="page">Network support</a></nav>
+  <section class="pg-sec" id="does">
+    <span class="eyebrow">What your node does</span>
+    <h2>Four jobs, done without asking</h2>
+    <div class="pg-grid two">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>It carries</h3><p>New blocks, transactions and mining shares reach your node from some peers and leave it for others, after it has checked them. Invalid data stops at your node: it is never passed on.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-download"/></svg></span><h3>It serves</h3><p>A node that is new, or was switched off for a week, gets the blocks it lacks from nodes that have them. If yours accepts incoming connections, it is one of them.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>It introduces</h3><p>Nodes find each other by asking peers for addresses of other nodes. Each honest node in that address book makes it harder to surround a newcomer with dishonest ones.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>It refuses</h3><p>A peer that sends a malformed message, an invalid block or transaction, or shares without work is disconnected and its address refused for 24 hours. Bad data finds fewer and fewer doors.</p></div>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="in">
+    <span class="eyebrow">Incoming connections</span>
+    <h2>Listening is what helps most</h2>
+    <p>Every node connects out to up to 8 others. A node that also <b>accepts</b> connections, up to 64, is where those outgoing connections land. Without enough listening nodes, new nodes have nobody to connect to.</p>
+    <p>The node the wallet starts does <b>not</b> listen unless you tell it to: nothing on the internet can then open a connection to your computer. That is the right default for a laptop. If your computer is on most of the time and your connection has room, switch it on:</p>
+    <ol class="pg-steps">
+      <li><h3>Let nodes in</h3><p>In the wallet: <b>Network → Let other nodes connect to my full node</b>, then restart the node. On a server, <code>kryptond</code> listens by default on port 30333.</p></li>
+      <li><h3>Open the door</h3><p>On a home connection, tell your router to forward TCP port <b>30333</b> to the computer that runs the node, and allow it through that computer's firewall. The <a href="/full-node#network">full-node guide</a> shows how.</p></li>
+      <li><h3>See that it works</h3><p>After a while, <code>getpeerinfo</code> in the wallet's console shows peers with <code>"inbound": true</code>.</p></li>
+    </ol>
+  </section>
+
+  <section class="pg-sec" id="safe">
+    <span class="eyebrow">Safety</span>
+    <h2>Built so that peers cannot use your node against you</h2>
+    <div class="table-wrap"><table class="data">
+      <tbody>
+        <tr><td data-label=""><b>Encrypted links</b></td><td data-label="">Every connection begins with an X25519 + ML-KEM-768 handshake and runs in ChaCha20-Poly1305 frames. Whoever records the traffic today cannot read it later with a quantum computer.</td></tr>
+        <tr><td data-label=""><b>Nothing to break into</b></td><td data-label="">The networking code is memory-safe Rust with no <code>unsafe</code> code. A peer can send protocol messages and nothing else: a node never runs commands, opens files or reaches its own API for a peer.</td></tr>
+        <tr><td data-label=""><b>Strict limits</b></td><td data-label="">Messages of at most 8 MiB, with the length checked before memory is set aside; a cap on every list; 10 seconds for a handshake; at most 4 connections from one address; a cap on what is queued for a slow peer.</td></tr>
+        <tr><td data-label=""><b>A careful address book</b></td><td data-label="">Peers can point your node only at public internet addresses, never at your own computer or your home network. No single part of the internet can fill more than 16 places in it.</td></tr>
+        <tr><td data-label=""><b>An API for you alone</b></td><td data-label="">The node's API listens on this computer only. It has no wallet and no administrative functions. To offer it to others, put it behind a web server with limits, as genoryn.io does.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pg-sec" id="cost">
+    <span class="eyebrow">What it costs you</span>
+    <h2>Disk, a little memory, and bandwidth when others sync</h2>
+    <p>A node keeps the whole chain, about 0.5 GB today, and uses well under a gigabyte of memory. Day to day it sends and receives one small block a minute. The larger cost is serving a node that is syncing from scratch: the whole chain, once, to each. You can bound all of it: fewer peers, no incoming connections, or simply switching the node off when you need the line. See <a href="/requirements">Requirements</a> and <a href="/full-node#tuning">tuning</a>.</p>
+  </section>
+
+  <section class="pg-sec" id="supports">
+    <span class="eyebrow">What is supported</span>
+    <h2>Networks and transports</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th></th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td data-label=""><b>IPv4 and IPv6</b></td><td data-label="Status"><span class="pg-mark yes">Yes</span></td><td data-label="Notes">Connection limits count an IPv6 /64 as one address.</td></tr>
+        <tr><td data-label=""><b>Mainnet, testnet, devnet</b></td><td data-label="Status"><span class="pg-mark yes">Yes</span></td><td data-label="Notes">Ports 30333, 31333 and 32333. A devnet is a private chain on your own computer, for trying things.</td></tr>
+        <tr><td data-label=""><b>Light wallets</b></td><td data-label="Status"><span class="pg-mark yes">Yes</span></td><td data-label="Notes">Any node can serve them through its API. They verify what they are told.</td></tr>
+        <tr><td data-label=""><b>Tor, I2P</b></td><td data-label="Status"><span class="pg-mark no">Not built in</span></td><td data-label="Notes">The node does not open onion services or use a proxy by itself.</td></tr>
+        <tr><td data-label=""><b>Pruned nodes</b></td><td data-label="Status"><span class="pg-mark no">Not yet</span></td><td data-label="Notes">Every node keeps every block.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="glass pg-cta">
+      <div><h2>Add your node</h2><p>Ten minutes of setup, and the network is one honest node stronger.</p></div>
+      <div class="row-btns"><a class="btn btn-primary" href="/full-node">Run a full node</a><a class="btn" href="/explorer">See the network live</a></div>
+    </div>
+  </section>
+  <div class="pg-next"><a class="glass" href="/interface"><em>Previous</em><b>User interface</b></a><a class="glass" href="/features"><em>Next</em><b>Overview</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

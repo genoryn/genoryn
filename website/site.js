@@ -12,6 +12,44 @@
   document.querySelectorAll(".nav-links a[data-page]").forEach(function (a) {
     if (a.getAttribute("data-page") === page) { a.classList.add("on", "rail"); a.setAttribute("aria-current", "page"); }
   });
+  // Menus of the navbar: they open on hover and on focus by CSS; a click (or a touch)
+  // pins one open, and a click elsewhere or Escape closes it.
+  var menus = Array.prototype.slice.call(document.querySelectorAll(".nav-dd"));
+  function closeMenus(except) {
+    menus.forEach(function (d) {
+      if (d === except) return;
+      d.classList.remove("open");
+      d.querySelector(".nav-dd-btn").setAttribute("aria-expanded", "false");
+    });
+  }
+  menus.forEach(function (d) {
+    var btn = d.querySelector(".nav-dd-btn");
+    if ((" " + (d.getAttribute("data-pages") || "") + " ").indexOf(" " + page + " ") >= 0) btn.classList.add("on");
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      var open = !d.classList.contains("open");
+      closeMenus(d);
+      d.classList.toggle("open", open);
+      btn.setAttribute("aria-expanded", String(open));
+    });
+    d.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      var items = Array.prototype.slice.call(d.querySelectorAll(".nav-menu a"));
+      var at = items.indexOf(document.activeElement);
+      e.preventDefault();
+      if (!d.classList.contains("open")) { d.classList.add("open"); btn.setAttribute("aria-expanded", "true"); }
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    });
+  });
+  document.addEventListener("click", function (e) {
+    if (!(e.target.closest && e.target.closest(".nav-dd"))) closeMenus(null);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var open = document.querySelector(".nav-dd.open, .nav-dd:focus-within");
+    closeMenus(null);
+    if (open && open.contains(document.activeElement)) open.querySelector(".nav-dd-btn").blur();
+  });
   window.siteDrawer = function (open) {
     document.getElementById("drawer").classList.toggle("open", open);
     document.getElementById("drawerBackdrop").classList.toggle("hidden", !open);

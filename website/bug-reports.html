@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Reports: How to Report a Problem in Genoryn Krypton</title>
+<meta name="description" content="How to report a bug in the Genoryn Krypton wallet, miner, node or website so that it can be reproduced and fixed: where to report, what to include, what never to post, and how vulnerabilities are reported privately.">
+<!--SEO:bug-reports-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="bug-reports">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/contribute">Contribute</a> <span aria-hidden="true">/</span> <span>Bug reports</span></nav>
+    <span class="eyebrow">Contribute</span>
+    <h1 class="h2 glow">Bug reports</h1>
+    <p class="lead">A good bug report is the fastest way to get something fixed, and one of the most useful things anyone can give to the project. It takes ten minutes. This page says where to send it and what makes it good.</p>
+    <div class="row-btns"><a class="btn btn-primary" href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener">Report a bug</a><a class="btn" href="https://github.com/genoryn/genoryn/issues" rel="noopener">See open reports</a><a class="btn" href="#security">Security problems</a></div>
+  </header>
+  <div class="pg-note" style="margin-top:0"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Is it a vulnerability?</b> If what you found could let someone take coins, break privacy, crash other people's nodes or forge anything, do <b>not</b> report it in public. <a href="https://github.com/genoryn/genoryn/security/advisories/new" rel="noopener">Report it privately</a> instead, and give the project time to fix it before anyone else learns how. See <a href="#security">below</a>.</p></div></div>
+
+  <section class="pg-sec" id="how">
+    <span class="eyebrow">Four steps</span>
+    <h2>How to report a bug</h2>
+    <ol class="pg-steps">
+      <li><h3>Make sure it is still there</h3><p>Update to the newest version (<b>About → Check for updates</b>) and try again. The <a href="/updates">list of updates</a> says what each release fixed.</p></li>
+      <li><h3>See whether it is known</h3><p><a href="https://github.com/genoryn/genoryn/issues?q=is%3Aissue" rel="noopener">Search the issues</a>, open and closed, for the words of the error. If someone has reported it, add what you saw to their report rather than opening a second one.</p></li>
+      <li><h3>Find the smallest way to make it happen</h3><p>"Send fails" cannot be fixed. "Sending 5 GNR to a short address fails with <i>no node knows the full address</i>, every time, since 1.0.43" can.</p></li>
+      <li><h3>Write it up</h3><p>Open a <a href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener">new issue</a> and choose <b>Bug report</b>. The form asks for what is listed below. You need a free GitHub account, which needs no real name.</p></li>
+    </ol>
+  </section>
+
+  <section class="pg-sec" id="what">
+    <span class="eyebrow">What to include</span>
+    <h2>A report someone can act on</h2>
+    <div class="pg-split">
+      <div>
+        <ul>
+          <li><b>Which part:</b> desktop wallet, miner, swaps and the offer board, full node, command-line wallet, API or SDK, website or explorer.</li>
+          <li><b>The version</b>, exactly: the wallet's About tab, or <code>kryptond --version</code>.</li>
+          <li><b>Your system:</b> Windows 11, Ubuntu 24.04; for mining the graphics card and its driver.</li>
+          <li><b>What you did,</b> step by step, from a state someone else can get to.</li>
+          <li><b>What you expected</b> and <b>what happened instead.</b></li>
+          <li><b>The exact text</b> of any message, copied, not retold. A screenshot helps for anything you see; hide balances and addresses you do not want to show.</li>
+          <li><b>How often:</b> every time, sometimes, once.</li>
+        </ul>
+        <h3>Where to find details</h3>
+        <ul>
+          <li><b>The wallet</b> shows its last error in a bar at the top, and the status of every swap and offer in the Swap tab. Its <b>Console</b> answers <code>getversion</code>, <code>getnetworkinfo</code> and <code>getblockchaininfo</code>: copy what they say.</li>
+          <li><b>The miner</b> shows why it stopped in the Mining tab.</li>
+          <li><b>A node</b> run as a service writes to the system log: <code>journalctl -u kryptond --since "1 hour ago"</code>. Started by hand, it writes to the terminal; <code>RUST_LOG=debug kryptond</code> says more.</li>
+          <li><b>Transaction and block ids</b> are public. They tell a developer exactly where to look.</li>
+        </ul>
+      </div>
+      <div class="glass pg-panel">
+        <h3>Never post</h3>
+        <div class="row">Your 24 recovery words<b>never</b></div>
+        <div class="row">Your password<b>never</b></div>
+        <div class="row">Your wallet file<b>never</b></div>
+        <div class="row">A payment proof you want kept private<b>your choice</b></div>
+        <div class="row">Your address<b>your choice</b></div>
+        <div class="row">Transaction and block ids<b>fine</b></div>
+        <div class="row">Version, system, error text<b>please</b></div>
+        <p class="pg-text" style="margin:14px 0 0;font-size:14px">No fix has ever needed a recovery phrase. Anyone who asks for yours "to look into the bug" is a thief.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="after">
+    <span class="eyebrow">Afterwards</span>
+    <h2>What happens to your report</h2>
+    <p>Reports are read in public, by whoever maintains the code and by anyone else who cares. A report that can be reproduced gets fixed; one that cannot gets questions. Answer them if you can: the person asking does not have your computer.</p>
+    <p>When a fix ships, the release that carries it is listed under <a href="/updates">News</a> and the issue is closed with a note. Fixes to the rules of the network itself take longer: they need a specification, tests, and a block height announced in advance, never an overnight switch.</p>
+    <p>Nobody is paid to answer, and nobody owes an answer by a certain day. Clear reports get faster ones.</p>
+  </section>
+
+  <section class="pg-sec" id="security">
+    <span class="eyebrow">Vulnerabilities</span>
+    <h2>Report security problems privately</h2>
+    <p>A bug that an attacker could use is different from a bug that annoys. Published before it is fixed, it puts everyone's coins at risk. So:</p>
+    <ul>
+      <li>Use <a href="https://github.com/genoryn/genoryn/security/advisories/new" rel="noopener">GitHub's private vulnerability reporting</a> on the project's repository. Only the maintainers see it.</li>
+      <li>Say what the problem is, what an attacker gains, and how to reproduce it.</li>
+      <li>Test only against a private network of your own (<code>kryptond --network devnet --no-seeds</code>), never against other people's nodes or funds.</li>
+      <li>Do not publish details until a fixed version is out and people have had time to install it.</li>
+    </ul>
+    <p>The parts most worth a careful look are listed in the <a href="https://github.com/genoryn/genoryn/blob/main/SECURITY.md" rel="noopener">security policy</a>: the spend proof, consensus, the light wallet's verification, key handling and the handshake between nodes. The software has many automated tests and an internal review, and <b>no independent audit yet</b>; the policy says so too.</p>
+  </section>
+
+  <section class="pg-sec" id="other">
+    <span class="eyebrow">Not a bug?</span>
+    <h2>Ideas and questions</h2>
+    <div class="pg-grid">
+      <a class="glass pg-card" href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-star"/></svg></span><h3>An idea</h3><p>Something the software should do and does not. Choose <b>Feature request</b> and say what problem it would solve for you.</p><span class="pg-go">Suggest it <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/help"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-help"/></svg></span><h3>A question</h3><p>You are not sure whether it is a bug, or how something is meant to work.</p><span class="pg-go">Get help <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/contribute"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-github"/></svg></span><h3>A fix</h3><p>You found the bug and the line that causes it. Even better.</p><span class="pg-go">Contribute code <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+    </div>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

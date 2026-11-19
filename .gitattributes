@@ -4,3 +4,7 @@ docs/verified-assets.json -text
 docs/verified-assets.json.sig -text
 docs/coins/*.kam -text
 design/assets/coins/*.svg -text
+
+# Scripts and service files run on Linux: always LF, on every computer.
+*.sh text eol=lf
+deploy/** text eol=lf

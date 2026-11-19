@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Installs a Genoryn Krypton node (+ optional CPU miner capped at 50 %) on Ubuntu 22.04/24.04.
+# Sets a Genoryn Krypton node up as a service (+ optional CPU miner capped at 50 %) on a
+# Linux with systemd. The release programs need glibc 2.39 (Ubuntu 24.04, Debian 13).
 # Usage: sudo ./setup-server.sh <network> [--miner <payout-address-file>]
+# After the .deb package: sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet
 set -euo pipefail
 NET="${1:-mainnet}"
 MINER_ADDR=""
@@ -11,7 +13,16 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 id krypton >/dev/null 2>&1 || useradd --system --home /var/lib/krypton --shell /usr/sbin/nologin krypton
 install -d -o krypton -g krypton -m 750 /var/lib/krypton
 install -d -m 755 /opt/krypton/bin /etc/krypton
-install -m 755 "$HERE"/../bin/* /opt/krypton/bin/ 2>/dev/null || install -m 755 "$HERE"/bin/* /opt/krypton/bin/
+# The programs: next to this folder (the release .tar.gz), in a bin folder (a source
+# build copied here), or installed by the .deb package.
+BIN=""
+for d in "$HERE/.." "$HERE/../bin" "$HERE/bin" "$HERE/../target/release" /usr/bin; do
+  if [[ -x "$d/kryptond" ]]; then BIN="$d"; break; fi
+done
+[[ -n "$BIN" ]] || { echo "kryptond was not found next to this script or in /usr/bin"; exit 1; }
+for f in kryptond krypton-miner krypton-wallet-cli; do
+  if [[ -x "$BIN/$f" ]]; then install -m 755 "$BIN/$f" /opt/krypton/bin/; fi
+done
 
 printf 'KRYPTON_NETWORK=%s\nKRYPTON_RPC_PORT=%s\n' "$NET" "$RPC" > /etc/krypton/kryptond.env
 install -m 644 "$HERE/systemd/kryptond.service" /etc/systemd/system/kryptond.service
@@ -25,11 +36,12 @@ if [[ -n "$MINER_ADDR" ]]; then
   sed "s/__CPU_QUOTA__/$QUOTA/" "$HERE/systemd/krypton-miner.service" > /etc/systemd/system/krypton-miner.service
 fi
 
-if command -v ufw >/dev/null; then
-  ufw allow OpenSSH >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow "$P2P"/tcp >/dev/null
-  ufw --force enable >/dev/null
+# A firewall that is already on gets the node's port opened; one that is off is left alone.
+if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+  ufw allow "$P2P"/tcp >/dev/null
+  echo "ufw: opened port $P2P/tcp for other nodes"
 fi
 systemctl daemon-reload
 systemctl enable --now kryptond
-[[ -n "$MINER_ADDR" ]] && systemctl enable --now krypton-miner
+if [[ -n "$MINER_ADDR" ]]; then systemctl enable --now krypton-miner; fi
 echo "kryptond ($NET) running; API http://127.0.0.1:$RPC/v1/info"

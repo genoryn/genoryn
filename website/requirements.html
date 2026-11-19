@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Requirements: What You Need to Run the Genoryn Krypton Wallet, a Full Node or a Miner</title>
+<meta name="description" content="System requirements for Genoryn Krypton: the light wallet needs no chain download, a full node needs about 0.5 GB of disk today, mining wants a graphics card. Disk, memory, network and operating systems, with measured numbers.">
+<!--SEO:requirements-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="requirements">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/features">Features</a> <span aria-hidden="true">/</span> <span>Requirements</span></nav>
+    <span class="eyebrow">Requirements</span>
+    <h1 class="h2 glow">It runs on the computer you have.</h1>
+    <p class="lead">Genoryn Krypton was built so that checking your own money does not take a data centre. The light wallet downloads no chain at all. A full node, which checks every rule since the first block, fits on any disk today. The numbers below were measured, and they say when.</p>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features">Overview</a><a href="/validation">Validation</a><a href="/privacy">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements" aria-current="page">Requirements</a><a href="/interface">User interface</a><a href="/network">Network support</a></nav>
+  <div class="pg-facts">
+    <div class="glass pg-fact"><b>0 GB</b><span>of chain for the light wallet: it verifies without downloading history</span></div>
+    <div class="glass pg-fact"><b>≈ 0.5 GB</b><span>of disk for a full node at block 21,800 (19 November 2026)</span></div>
+    <div class="glass pg-fact"><b>≈ 0.5 s</b><span>to prove a payment on a desktop processor</span></div>
+    <div class="glass pg-fact"><b>≈ 2 ms</b><span>for a node to verify one</span></div>
+  </div>
+
+  <section class="pg-sec" id="table">
+    <span class="eyebrow">At a glance</span>
+    <h2>Three ways to take part</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th></th><th>Light wallet</th><th>Full node</th><th>Mining</th></tr></thead>
+      <tbody>
+        <tr><td data-label=""><b>Disk</b></td><td data-label="Light wallet">About 100 MB for the programs. A wallet file is a few megabytes.</td><td data-label="Full node">about 0.5 GB today; allow 20 GB so it has room for years.</td><td data-label="Mining">Nothing extra.</td></tr>
+        <tr><td data-label=""><b>Memory</b></td><td data-label="Light wallet">4 GB in the computer. Unlocking a wallet uses 256 MiB for about a second, on purpose: it is what makes guessing a password expensive.</td><td data-label="Full node">2 GB free. A busy public node with 40 peers uses about 0.7 GB; a first sync peaked at 0.5 GB.</td><td data-label="Mining">The mining dataset: 2 GiB today, growing slowly. On a graphics card it lives in the card's memory, so the card needs more than that.</td></tr>
+        <tr><td data-label=""><b>Processor</b></td><td data-label="Light wallet">Any 64-bit x86 processor of the last ten years.</td><td data-label="Full node">Two cores or more. The first sync verifies every proof since the first block: on a fast desktop processor (Intel Core Ultra 9 285K) it took 32 minutes at block 21,800, on 19 November 2026; a slower computer needs longer, and the time grows with the chain.</td><td data-label="Mining">A graphics card is many times faster (an RTX 5090 does about 74 MH/s, a 24-thread desktop processor about 1.4 MH/s), but a processor works.</td></tr>
+        <tr><td data-label=""><b>Internet</b></td><td data-label="Light wallet">Any connection.</td><td data-label="Full node">A connection without a tight data cap. A block arrives every 60 seconds.</td><td data-label="Mining">Stay online: a share counts once it reaches the network.</td></tr>
+        <tr><td data-label=""><b>Always on?</b></td><td data-label="Light wallet">No. It catches up when you open it.</td><td data-label="Full node">No, but it is most useful to you and to others when it is. It catches up after a break.</td><td data-label="Mining">While you want to earn.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pg-sec" id="os">
+    <span class="eyebrow">Operating systems</span>
+    <h2>Where it runs</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>System</th><th>How</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td data-label="System"><b>Windows 10 and 11</b> (64-bit)</td><td data-label="How">Installer, or a portable zip</td><td data-label="Notes">Installs for the current user, without administrator rights. Graphics-card mining with NVIDIA, AMD and Intel drivers.</td></tr>
+        <tr><td data-label="System"><b>Ubuntu 24.04 and newer, Debian 13 and newer</b> (x86-64)</td><td data-label="How"><code>.deb</code> package</td><td data-label="Notes">The packaged programs need glibc 2.39. The desktop wallet needs a graphical session; the node and the miner do not.</td></tr>
+        <tr><td data-label="System"><b>Other Linux</b> (x86-64, glibc 2.39 or newer)</td><td data-label="How"><code>.tar.gz</code></td><td data-label="Notes">Unpack and run. On an older system, build from source.</td></tr>
+        <tr><td data-label="System"><b>macOS</b></td><td data-label="How">From source</td><td data-label="Notes">There is no packaged build yet. The project's tests run on macOS with every change, and the node and the command-line wallet build with Rust.</td></tr>
+        <tr><td data-label="System"><b>Anything else with Rust</b></td><td data-label="How">From source</td><td data-label="Notes">Rust 1.89 or newer: <code>cargo build --release</code>. No other toolchain is needed.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pg-sec" id="growth">
+    <span class="eyebrow">Later</span>
+    <h2>How fast the chain grows</h2>
+    <p>A full node keeps every block. At block 21,800 that is about 0.5 GB: on average about 25 KB a block, or some 35 MB a day at today's use. Blocks have a hard ceiling of about 4 MiB, so if every block were full the chain could grow by up to 5.8 GB a day. That would take about 40 transfers every minute, around the clock; today there are a handful an hour.</p>
+    <p>The light wallet is not affected by any of this. Its work grows with the logarithm of the chain's length, and it reads only the blocks since the wallet was created.</p>
+    <div class="pg-note"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Not yet:</b> a node cannot discard old blocks (pruning), and it cannot start from a snapshot. Both would shorten the first sync and the disk needed, and neither exists today. A node downloads and checks everything.</p></div></div>
+  </section>
+
+  <section class="pg-sec" id="problems">
+    <span class="eyebrow">Before you start</span>
+    <h2>Things to know</h2>
+    <ul>
+      <li><b>Data caps.</b> A full node that accepts incoming connections sends blocks to other nodes that are syncing. If your connection is metered, keep the node outbound-only (the wallet's node is, by default) or limit its peers. See <a href="/full-node#tuning">tuning</a>.</li>
+      <li><b>Antivirus.</b> A miner uses your graphics card at full power, and some antivirus programs do not like the look of that. The release files are signed; <a href="/download">verify what you downloaded</a> rather than switching protection off.</li>
+      <li><b>Heat and power.</b> Mining draws real electricity. The wallet lets you cap processor use; nothing limits a graphics card but the card.</li>
+      <li><b>The law.</b> Using, mining or running a node for a cryptocurrency is restricted in some countries. Check what applies where you live.</li>
+    </ul>
+  </section>
+  <div class="pg-next"><a class="glass" href="/quantum"><em>Previous</em><b>Quantum security</b></a><a class="glass" href="/interface"><em>Next</em><b>User interface</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

@@ -34,6 +34,46 @@ pub trait BtcChain {
     }
 }
 
+/// How far back a swap's payment is looked for (blocks, four days): reports arrive within
+/// hours of the swap, and a server that scans blocks for the spender (Bitcoin Core) must
+/// not be sent far back for a payment that is not there.
+pub const CLAIM_LOOKBACK: u32 = 576;
+
+/// What the chain shows was taken out of the swap contract `htlc` with `secret`: the
+/// bitcoin (sat) that the transaction spending `funding` pays out, if that transaction
+/// spends nothing else, spends it by the contract's script and reveals the secret.
+/// 0 when there is no such transaction (yet).
+pub fn claimed_from(
+    chain: &(impl BtcChain + ?Sized),
+    htlc: &crate::Htlc,
+    funding: &OutPoint,
+    funded_height: u32,
+    secret: &[u8; 32],
+) -> Result<u64> {
+    let tip = chain.tip()?;
+    anyhow::ensure!(
+        funded_height > 0
+            && funded_height <= tip
+            && funded_height.saturating_add(CLAIM_LOOKBACK) >= tip,
+        "the payment of this swap is not in a recent Bitcoin block"
+    );
+    let Some(tx) = chain.spender(funding, funded_height)? else {
+        return Ok(0);
+    };
+    let script = htlc.script();
+    let by_contract = tx.input.len() == 1
+        && tx.input[0].previous_output == *funding
+        && tx.input[0].witness.last() == Some(script.as_bytes())
+        && tx.input[0].witness.iter().any(|w| w == secret);
+    Ok(if by_contract {
+        tx.output
+            .iter()
+            .fold(0u64, |a, o| a.saturating_add(o.value.to_sat()))
+    } else {
+        0
+    })
+}
+
 /// The unspent outputs of `address`, from its outputs and one look at each.
 fn unspent_of<C: BtcChain + ?Sized>(chain: &C, address: &Address) -> Result<Vec<Utxo>> {
     let mut coins: Vec<Utxo> = Vec::new();

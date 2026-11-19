@@ -111,7 +111,7 @@ themselves, and trading with bitcoin without an exchange.
 | Mining rewards | **Proportional to hashrate**: ~32 shares per block, each paid an equal slice of the reward pool, no pool needed |
 | Payouts | One note per miner every 360 blocks (~6 h), spendable after 100 blocks |
 | Trading | **Atomic BTC ⇄ GNR swaps** on an anonymous offer board; the seller's GNR is locked first |
-| Market price | The plain average of completed swaps; offers never move it |
+| Market price | From completed swaps, weighed by the bitcoin found on the Bitcoin chain (volume-weighted median); offers never move it |
 | Quantum tokens | **Planned, not live yet:** stablecoins and other tokens anyone will be able to deploy, as private and quantum-safe as GNR |
 | Payment proofs | Prove a payment to anyone without revealing anything else |
 | Recovery phrase | 24 words with numbers (`orbit-42 …`), 384-bit entropy, checksummed |
@@ -223,11 +223,12 @@ in its own window. Keys, scanning and proving never leave your computer.
 | Tab | What it does |
 |---|---|
 | **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value), **Receive** (full address, short form, QR, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
-| **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, and a **Proof** button for every send |
+| **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, a **Proof** button for every send, and **View ↗** / **Block ↗** to open a payment's transaction or block on the genoryn.io explorer |
 | **Swap** | The GNR price, the offer board (sell, buy, in progress, yours), publishing an offer (1 hour to 1 year), taking offers, your swaps with their progress, and a payment window with amount, address and QR code when it is time to pay |
 | **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, miners, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
+| **Console** | Commands and their answers, as in Bitcoin's wallet, with completion as you type: the chain (`getblockchaininfo`, `getblock`, `gettransaction`, `getpeerinfo`, `validateaddress`, ...) and the open wallet (`getbalance`, `getaddress`, `listtransactions`). It only reads: no command can send, reveal a phrase or key, or change a setting |
 | **Security** | Change a wallet's password, lock wallets |
 | **About** | Version, update check, automatic updates |
 
@@ -556,17 +557,29 @@ two wallets of a swap; it never sees keys, codes or coins.
 ## Market price
 
 The GNR price shown by the wallet and genoryn.io is the board's market price and nothing else:
-**the plain average of the swaps people completed**.
+**where half of the bitcoin in completed swaps changed hands below, and half above**.
 
-* After a swap completes, the wallets may report its amounts and hash lock (on by default; the
+* After a swap completes, the wallets report its amounts and hash lock (on by default; the
   `share_prices` setting turns it off). The board accepts a report only if a claim with that hash
   lock is on its own chain, and counts each hash once.
-* The price is the arithmetic mean of the swaps completed in the last 72 hours, each counting the
-  same whatever its size (all recorded swaps while none is that recent).
-* With three or more swaps, one more than 4× from their median is left out as a typo or fake.
+* **From 1.0.44 a report proves its bitcoin.** It names the swap's bitcoin contract and is
+  signed with one of the contract's two keys, which only the swap's two wallets hold. The board
+  looks the contract up on the Bitcoin chain and notes how much was taken out of it with the
+  swap's secret. A swap whose two wallets report different amounts does not count.
+* With three or more such swaps in the last 72 hours, the price is their **volume-weighted
+  median**. A swap weighs the bitcoin it moved, never more than its GNR is worth at the going
+  price, and never more than a fifth of the total. Reports without a proof then weigh nothing.
+  One or two large swaps cannot set the price; it takes several that together outweigh the rest.
+* Until there are three, the price is the plain average of the reported swaps, as before.
+* A swap more than 4× from the median is left out as a typo or fake.
 * **Offers and swaps in progress never move it**; they are listed with their totals in bitcoin
   and dollars. Dollar values use the BTC price, which genoryn.io fetches from mempool.space so
   browsers and wallets contact no third party.
+
+What this cannot do: tell a swap between two people from a swap someone makes with themselves.
+It makes such a swap cost what a real one costs, real bitcoin through a real contract and the
+fees of both chains, and it bounds what any one swap can do. An offer that follows the market
+price therefore never goes past the limit its owner set.
 
 [genoryn.io/market](https://genoryn.io/market) lists every offer and every completed swap with
 what the GNR chain proves: the claim transaction, its block, the hash lock, the revealed secret
@@ -654,11 +667,15 @@ Specification: [docs/spec/addresses-and-p2p.md](docs/spec/addresses-and-p2p.md).
 
 ## Running a node
 
+A step-by-step guide for Linux, Windows and macOS, with why a full node matters and what it
+costs, is at [genoryn.io/full-node](https://genoryn.io/full-node).
+
 ```sh
 kryptond                                       # mainnet: P2P 0.0.0.0:30333, API 127.0.0.1:30334
 kryptond --no-listen                           # connect out only
 kryptond --listen 0.0.0.0:30333 --rpc 127.0.0.1:30334 --peer 2.24.162.163:29710
 sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %
+sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet   # the same after installing the .deb
 ```
 
 | Flag | Default | Meaning |
@@ -888,7 +905,7 @@ secret that releases the GNR to you. If anyone stops, timeouts refund both.
 
 <details><summary><b>Where does the price come from?</b></summary>
 
-Only from completed swaps: their plain average over the last 72 hours. Offers never move it.
+Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the price at which half of that bitcoin changed hands below and half above. Offers never move it.
 </details>
 
 <details><summary><b>Can someone break into my computer through the node?</b></summary>

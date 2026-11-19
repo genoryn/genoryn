@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User Interface: Wallet, Console, Command Line and API of Genoryn Krypton</title>
+<meta name="description" content="Every way to use Genoryn Krypton: the desktop wallet with its miner, swap board and read-only console, the command-line wallet, the full node, its REST API, JSON-RPC and WebSocket, and SDKs for TypeScript, Rust and C.">
+<!--SEO:interface-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="interface">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/features">Features</a> <span aria-hidden="true">/</span> <span>User interface</span></nav>
+    <span class="eyebrow">User interface</span>
+    <h1 class="h2 glow">One wallet for people. One API for programs.</h1>
+    <p class="lead">Most people will only ever see the desktop wallet: a window with a balance, a Send button and a Start mining button. Under it is the same node and the same commands that a server or an exchange uses. Pick the one that fits what you are doing.</p>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features">Overview</a><a href="/validation">Validation</a><a href="/privacy">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements">Requirements</a><a href="/interface" aria-current="page">User interface</a><a href="/network">Network support</a></nav>
+  <section class="pg-sec" id="wallet">
+    <span class="eyebrow">For everyone</span>
+    <h2>The desktop wallet</h2>
+    <div class="pg-split">
+      <div>
+        <p>The wallet is a small program that runs entirely on your computer and shows itself in its own window. Keys are made there and never leave; proofs are built there; what nodes tell it is checked there.</p>
+        <ul>
+          <li><b>Wallet.</b> Any number of wallets, each with its own 24 words and password. Balance, private payments with an optional memo, a short address and a QR code to be paid with.</li>
+          <li><b>History.</b> Every payment, with search and filters, a <b>Proof</b> button to prove a payment to someone, and a link that opens its transaction or block on the explorer.</li>
+          <li><b>Swap.</b> Buy or sell GNR for bitcoin, wallet to wallet, with no exchange and no custody. Offers can follow the market price by themselves, within a limit you set.</li>
+          <li><b>Mining.</b> Choose a graphics card or the processor and press Start. It shows your share of the network and what it earns.</li>
+          <li><b>Network.</b> Live charts, peers, and the switch between light mode and your own full node.</li>
+          <li><b>Console.</b> Ask the chain and the wallet by command. More on it below.</li>
+          <li><b>Security and About.</b> Passwords, locks, the recovery phrase, updates.</li>
+        </ul>
+        <p>Dark and light themes, and updates that are checked against the project's post-quantum signature before they install.</p>
+      </div>
+      <figure class="pg-shot" style="margin-top:0"><img src="/assets/shots/wallet-1440.webp" width="1440" height="900" alt="The Genoryn Krypton desktop wallet: balance, send and receive, and the network at a glance" loading="lazy" decoding="async"><figcaption>The Wallet tab, on a test network.</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="console">
+    <span class="eyebrow">New in 1.0.44</span>
+    <h2>The console</h2>
+    <p>The wallet has a console, as Bitcoin's has: a line to type commands on, with their answers above it. Start typing and it offers the commands that match; <b>Tab</b> completes one, the arrow keys bring back earlier lines, and <code>help</code> lists them all.</p>
+    <div class="pg-term" role="img" aria-label="An example session in the wallet's console">
+      <div class="pg-term-bar"><i></i><i></i><i></i><span>Genoryn Krypton · Console</span></div>
+<pre><b>&gt; getblockcount</b>
+21763
+
+<b>&gt; getblockhash 21000</b>
+"7989d2cf54aadd42b81bfd7d01f89d9bf5633d536fd12be9e28224cca2122902"
+
+<b>&gt; getsupply</b>
+{
+  "halving_interval": 2100000,
+  "height": 21763,
+  "issued_gnr": "108815.00000000",
+  "max_supply": 2100000000000000,
+  "next_halving_height": 2100001,
+  "subsidy": 500000000
+}
+
+<b>&gt; validateaddress gnrs1…</b>
+{ "valid": true, "network": "mainnet", "form": "short" }</pre>
+    </div>
+    <div class="pg-grid four">
+      <div class="glass pg-card"><h3>Blockchain</h3><p><code>getblockchaininfo</code> <code>getblockcount</code> <code>getbestblockhash</code> <code>getblockhash</code> <code>getblock</code> <code>getblockheader</code> <code>getrecentblocks</code> <code>getdifficulty</code> <code>getsupply</code></p></div>
+      <div class="glass pg-card"><h3>Transactions and addresses</h3><p><code>gettransaction</code> <code>getmempoolinfo</code> <code>getnullifier</code> <code>estimatefee</code> <code>validateaddress</code> <code>resolveaddress</code> <code>getaddressinfo</code></p></div>
+      <div class="glass pg-card"><h3>Mining and network</h3><p><code>getnetworkhashps</code> <code>getshares</code> <code>getminerinfo</code> <code>getmininginfo</code> <code>getpeerinfo</code> <code>getconnectioncount</code> <code>getnetworkinfo</code> <code>getmarketinfo</code></p></div>
+      <div class="glass pg-card"><h3>This wallet</h3><p><code>getwalletinfo</code> <code>getbalance</code> <code>getaddress</code> <code>listtransactions</code> <code>listwallets</code> <code>getversion</code> <code>help</code> <code>clear</code></p></div>
+    </div>
+    <div class="pg-note"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>The console only reads.</b> No command can send GNR, show a recovery phrase or a key, or change a setting. That is deliberate. In other wallets, people have been talked into pasting a command that handed over their coins; here there is no such command. Nobody ever needs you to type anything into the console to "verify" or "repair" a wallet.</p><p>Questions about the chain go to the node your wallet uses, your own if you run one. A transaction's amount and parties stay hidden there as everywhere.</p></div></div>
+  </section>
+
+  <section class="pg-sec" id="cli">
+    <span class="eyebrow">For servers and scripts</span>
+    <h2>The command line</h2>
+    <p><code>krypton-wallet-cli</code> is the same wallet without a window. It verifies what a node tells it exactly as the desktop wallet does.</p>
+<pre class="code"><span class="c"># create a wallet; the 24 words are shown once</span>
+krypton-wallet-cli new
+<span class="c"># a verified light sync, then the balance</span>
+krypton-wallet-cli --node https://genoryn.io balance
+<span class="c"># pay privately, with a memo only the recipient can read</span>
+krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 42"</pre>
+    <p><code>kryptond</code> is the full node, and <code>krypton-miner</code> the miner. Each explains itself with <code>--help</code>. See the <a href="/full-node">full-node guide</a> and <a href="/mining">Mining</a>.</p>
+  </section>
+
+  <section class="pg-sec" id="api">
+    <span class="eyebrow">For programs</span>
+    <h2>The node's API</h2>
+    <p>Every node answers on this computer, port 30334, in three ways. None of them can spend anything: a node holds no keys.</p>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>REST</h3><p>Plain addresses that answer JSON: <code>/v1/info</code>, <code>/v1/block/21000</code>, <code>/v1/tx/…</code>, <code>/v1/supply</code>, <code>/v1/fee</code>, and more for wallets, miners and the swap board.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-term"/></svg></span><h3>JSON-RPC 2.0</h3><p>At <code>/rpc</code>, with the method names people know from Bitcoin: <code>getblockcount</code>, <code>getblock</code>, <code>gettransaction</code>, <code>sendrawtransaction</code>, <code>getblocktemplate</code>.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>WebSocket</h3><p>At <code>/v1/ws</code>: a message for every new block and every new transaction, as they arrive.</p></div>
+    </div>
+<pre class="code">curl -s http://127.0.0.1:30334/v1/info
+curl -s http://127.0.0.1:30334/rpc -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"getblockcount","params":[]}'</pre>
+    <p>The public node at genoryn.io answers the same questions, with limits per visitor. There are SDKs for TypeScript and JavaScript, for Rust and for C. The whole reference, with what an exchange needs to list GNR, is in the <a href="/docs#api">documentation</a>.</p>
+  </section>
+  <div class="pg-next"><a class="glass" href="/requirements"><em>Previous</em><b>Requirements</b></a><a class="glass" href="/network"><em>Next</em><b>Network support</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

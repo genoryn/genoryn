@@ -15,6 +15,17 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.44", "date": "2026-11-19", "title": "A console in the wallet, offers that follow the market, a market price that rests on bitcoin really paid",
+     "tags": ["Wallet", "Swap", "Site"],
+     "items": [
+         "The wallet has a Console: type a command and read the answer, as in Bitcoin's wallet. It completes commands as you type, keeps earlier lines, and `help` lists everything: blocks, transactions, peers, addresses, the supply, your balance. It only reads: no command can send GNR or show a recovery phrase or a key.",
+         "History links straight to the explorer: View opens a payment's transaction on genoryn.io, Block the block that holds it. The explorer never shows an amount or who paid whom.",
+         "An offer can follow the market price. A sell offer keeps its GNR and a buy offer its bitcoin; what is asked for it moves with the market, at most every ten minutes and by at most 5 % at a time. It never passes the limit you set: a sell offer never asks less, a buy offer never pays more.",
+         "The market price now rests on bitcoin found on the Bitcoin chain. A swap's report names its bitcoin contract and is signed by one of the swap's two wallets; the board looks the payment up. With three such swaps the price is their volume-weighted median, and no single swap weighs more than a fifth. Reports nobody proved weigh nothing then.",
+         "genoryn.io has a guide to running a full node on Linux, Windows and macOS, pages on validation, privacy, requirements, the user interface and network support, and pages for getting help, reporting bugs and contributing.",
+         "The Linux service script works from the release packages (its line endings broke it before), finds the programs the package installed, and no longer switches a firewall on that was off.",
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one.",
+     ]},
     {"v": "1.0.43", "date": "2026-11-19", "title": "Offers only for buyers whose bitcoin is ready, faster swaps, one wallet on two computers",
      "tags": ["Swap", "Wallet"],
      "items": [

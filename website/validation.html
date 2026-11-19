@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation: How a Genoryn Krypton Full Node Protects Your GNR</title>
+<meta name="description" content="A Genoryn Krypton full node checks every block, proof and coin against every rule, so nobody can make you accept GNR that breaks them. What it checks, what a light wallet checks, and which attacks each one stops.">
+<!--SEO:validation-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="validation">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/features">Features</a> <span aria-hidden="true">/</span> <span>Validation</span></nav>
+    <span class="eyebrow">Validation</span>
+    <h1 class="h2 glow">Do not take anyone's word for it.</h1>
+    <p class="lead">A payment is worth what the rules behind it are worth, and the rules are only real for someone who checks them. A Genoryn Krypton full node checks every block it receives, in full, before it believes anything in it. It trusts no miner, no website and no other node.</p>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features">Overview</a><a href="/validation" aria-current="page">Validation</a><a href="/privacy">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements">Requirements</a><a href="/interface">User interface</a><a href="/network">Network support</a></nav>
+  <section class="pg-sec" id="checks">
+    <p class="pg-quote">Imagine being handed a banknote and being able to test, in two milliseconds, that it was printed by the rules and that there will never be more than 21 million of them. That is what a full node does with every GNR, including the ones nobody has paid you yet.</p>
+    <span class="eyebrow">What is checked</span>
+    <h2>Every rule, on every block</h2>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-mining"/></svg></span><h3>The work</h3><p>Each block's KryptoHash proof of work, against a difficulty that the node computes itself from the 90 blocks before it. A block with too little work is not a block.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Every proof</h3><p>Each transfer carries a zk-STARK proof that its inputs exist, belong to the spender and add up to its outputs and fee. The node verifies every one, in about 2 ms each. A transfer that creates GNR from nothing has no valid proof.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-eye"/></svg></span><h3>No coin spent twice</h3><p>Spending a note reveals its nullifier. The node keeps every nullifier ever seen and refuses a block that repeats one.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-coin"/></svg></span><h3>The supply</h3><p>5 GNR per block, halving every 2,100,000 blocks, 21,000,000 in all. The node adds the reward up itself; a block that pays out more is refused whatever work stands behind it.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>Who is paid</h3><p>Mining rewards go to a pool and are paid by shares. The node checks every share's work and every payout against the accounts it keeps, so no miner can pay itself another's reward.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>The chain itself</h3><p>Timestamps, sizes, the note tree's root, the commitment to all earlier blocks. When two chains compete, the node follows the valid one with the most work, and no other.</p></div>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="attacks">
+    <span class="eyebrow">Why it matters</span>
+    <h2>How validation protects your GNR</h2>
+    <p>There are three ways to hold GNR: let someone else hold it for you, use the light wallet, or run a full node. They stop different attacks.</p>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Attack</th><th>Someone else holds your GNR</th><th>Light wallet</th><th>Your own full node</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Attack"><b>Direct theft.</b> The holder of your coins disappears, is hacked, or freezes your account.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span><br>The keys are theirs, not yours.</td><td data-label="Light wallet"><span class="pg-mark yes">Protected</span><br>Your keys never leave your computer.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span><br>Your keys never leave your computer.</td></tr>
+        <tr><td data-label="Attack"><b>A payment that does not exist.</b> You are shown an incoming payment and hand over goods; the payment was never real.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span><br>You see what their website shows you.</td><td data-label="Light wallet"><span class="pg-mark part">Partly</span><br>A payment counts only when it is in a block whose proof of work the wallet has checked, so faking one takes real mining work for every confirmation. The wallet does not re-verify the payment's own proof: wait for several confirmations for larger amounts.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span><br>The node has verified the payment's own proof, also while it still waits for a block.</td></tr>
+        <tr><td data-label="Attack"><b>Broken rules.</b> Miners with most of the hashrate mine blocks that create GNR from nothing or spend other people's coins.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span><br>You follow whatever chain they follow.</td><td data-label="Light wallet"><span class="pg-mark part">Partly</span><br>It follows the chain with the most work above a checkpoint, and does not re-verify other people's proofs. A majority of the hashrate could show it such a chain.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span><br>An invalid block is refused however much work it carries. To a full node that chain does not exist.</td></tr>
+        <tr><td data-label="Attack"><b>A cheap fake chain.</b> A node shows you a private chain where you were paid.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span></td><td data-label="Light wallet"><span class="pg-mark yes">Protected</span><br>The wallet samples the whole history, checks the work, remembers the most work it has seen and refuses less. Faking confirmations costs as much as honest mining.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span></td></tr>
+        <tr><td data-label="Attack"><b>Hiding a payment from you.</b> The node you ask leaves your incoming payment out.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span></td><td data-label="Light wallet"><span class="pg-mark part">Partly</span><br>A block's outputs are checked against its header, so nothing can be left out of a block unnoticed. A node can only stall; several nodes are cross-checked.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span><br>It hears every block from many peers.</td></tr>
+        <tr><td data-label="Attack"><b>Being watched.</b> Whoever serves you learns what you own.</td><td data-label="Custodian"><span class="pg-mark no">Exposed</span><br>They know every balance and payment.</td><td data-label="Light wallet"><span class="pg-mark part">Partly</span><br>A node sees your internet address and that you sync. It does not learn which notes are yours: the wallet downloads whole blocks and whole parts of the note tree.</td><td data-label="Full node"><span class="pg-mark yes">Protected</span><br>It asks nobody anything about you.</td></tr>
+        <tr><td data-label="Attack"><b>Rewriting history.</b> Someone with enough hashrate replaces recent blocks and takes a payment back.</td><td data-label="Custodian"><span class="pg-mark part">Partly</span></td><td data-label="Light wallet"><span class="pg-mark part">Partly</span></td><td data-label="Full node"><span class="pg-mark part">Partly</span><br>Nothing stops this but work. Every confirmation makes it cost more: wait for more of them for larger amounts.</td></tr>
+      </tbody>
+    </table></div>
+    <p>The last row is true of every proof-of-work currency, Bitcoin included. A full node cannot prevent a rewrite; it can only make sure that what replaces the old blocks obeys every rule too.</p>
+  </section>
+
+  <section class="pg-sec" id="light">
+    <span class="eyebrow">The light wallet</span>
+    <h2>Stronger than "simple payment verification", and honest about its limit</h2>
+    <div class="pg-split">
+      <div>
+        <p>Most light wallets of other currencies ask a server and believe the answer. The Genoryn Krypton wallet does not. Every block header commits to all blocks before it and to the work in them, so the wallet can check, with a few hundred samples, that the chain it is shown is the one with the most work; it refuses blocks dated in the future, a chain without the release's checkpoint, and any chain lighter than one it has already seen. Then it checks every block it reads against that block's header.</p>
+        <p>What it does not do is re-verify the proofs inside other people's transactions. For that it relies on the miners who built on the block, like every light wallet does. A full node relies on nobody.</p>
+        <p>For everyday amounts the light wallet is a sound choice. If you accept large payments, run a business on GNR, or simply want to depend on no one, run a full node and point your wallet at it.</p>
+      </div>
+      <div class="glass pg-panel">
+        <h3>What each one verifies</h3>
+        <div class="row">Proof of work of the chain<b>both</b></div>
+        <div class="row">Most work wins, checkpoint<b>both</b></div>
+        <div class="row">Your blocks against their headers<b>both</b></div>
+        <div class="row">Every transfer's zk-STARK proof<b>full node</b></div>
+        <div class="row">No nullifier twice, in all history<b>full node</b></div>
+        <div class="row">The 21,000,000 limit<b>full node</b></div>
+        <div class="row">Shares and payouts of all miners<b>full node</b></div>
+        <div class="row">Disk needed<b>none · about 0.5 GB</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="decentralization">
+    <span class="eyebrow">Who decides</span>
+    <h2>Validation is what keeps the rules yours</h2>
+    <p>No company, foundation or person controls Genoryn Krypton, and no key can change its rules. The rules are whatever the people who accept GNR check for. A miner can produce any block it likes; if the nodes of the people being paid refuse it, it is worth nothing.</p>
+    <p>That only works while enough people check. If almost everyone used someone else's node, a handful of miners and services could agree to change the rules, the supply limit included, and most users would never notice. Each person who verifies their own payments makes that harder for everyone else as well.</p>
+    <p>So the most useful thing you can do for Genoryn Krypton, after using it, is to validate the payments you receive with your own full node.</p>
+  </section>
+
+  <section class="pg-sec" id="doyou">
+    <span class="eyebrow">In practice</span>
+    <h2>Do you validate your payments?</h2>
+    <p>Running a node somewhere is not the same as using it. You validate when the wallet you are paid with gets its data from a node you run. There are three ways:</p>
+    <ol class="pg-steps">
+      <li><h3>The wallet's own node</h3><p>In the wallet open <b>Network</b>, choose <b>Full node</b> and press <b>Save</b>. The wallet starts <code>kryptond</code>, which downloads and checks the whole chain, and from then on asks only it.</p></li>
+      <li><h3>A node on another computer of yours</h3><p>Run <code>kryptond</code> on a computer that is always on, and enter its address under <b>Network → Nodes for light mode</b> in the wallet on your laptop. Your wallet still verifies what it is told, and now it is told by you.</p></li>
+      <li><h3>The command line</h3><p>For servers and businesses: <code>kryptond</code> with <code>krypton-wallet-cli --node http://127.0.0.1:30334</code>, or your own program on the node's API.</p></li>
+    </ol>
+    <div class="glass pg-cta">
+      <div><h2>Run a full node</h2><p>Step by step for Linux, Windows and macOS, with what it costs and what to expect.</p></div>
+      <div class="row-btns"><a class="btn btn-primary" href="/full-node">The full-node guide</a><a class="btn" href="/docs#light">How the light wallet verifies</a></div>
+    </div>
+  </section>
+  <div class="pg-next"><a class="glass" href="/features"><em>Previous</em><b>Overview</b></a><a class="glass" href="/privacy"><em>Next</em><b>Privacy</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

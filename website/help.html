@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get Help with Genoryn Krypton: Wallet, Mining, Swaps and Nodes</title>
+<meta name="description" content="Where to get help with Genoryn Krypton: what to check first, where to ask, what to include, how to stay safe from people who pretend to help, and how to help others.">
+<!--SEO:help-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="help">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Get help</span></nav>
+    <span class="eyebrow">Help</span>
+    <h1 class="h2 glow">Get help</h1>
+    <p class="lead">Something does not work, or you are not sure how it should. Most questions are answered in a minute by the pages below. If yours is not, here is where to ask, and how to ask so that someone can answer.</p>
+    <div class="row-btns"><a class="btn btn-primary" href="/docs#troubleshooting">Troubleshooting</a><a class="btn" href="/faq">FAQ</a><a class="btn" href="#ask">Where to ask</a></div>
+  </header>
+  <div class="pg-note" style="margin-top:0"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Nobody who helps you needs your 24 words, your password or your wallet file. Ever.</b> Nobody from the project will write to you first, ask you to install a "support tool", to share your screen, or to send coins to "verify" a wallet. Whoever does is trying to rob you.</p></div></div>
+
+  <section class="pg-sec" id="first">
+    <span class="eyebrow">First</span>
+    <h2>Look here before you ask</h2>
+    <div class="pg-grid">
+      <a class="glass pg-card" href="/faq"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>FAQ</h3><p>Short answers: what GNR is, how it resists quantum computers, what is private, mining, swaps, fees, who controls it.</p><span class="pg-go">Read the FAQ <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/docs#troubleshooting"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-help"/></svg></span><h3>Troubleshooting</h3><p>The wallet does not connect, the miner stops, a payment is pending, a swap waits. What each one means and what to do.</p><span class="pg-go">Find your problem <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/docs"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>Documentation</h3><p>Everything in one place: the wallet tab by tab, backup, mining, swaps, running a node, the API.</p><span class="pg-go">Open the documentation <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/full-node"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>Running a full node</h3><p>Installing on Linux, Windows and macOS, opening the port, tuning, and what to do when it does not sync.</p><span class="pg-go">The full-node guide <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/mining"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-mining"/></svg></span><h3>Mining</h3><p>How to start, how rewards are shared, when they are paid, and what your hashrate earns.</p><span class="pg-go">Mining <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/updates"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-news"/></svg></span><h3>News and updates</h3><p>It may be fixed already. Every release says what changed.</p><span class="pg-go">See what is new <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="common">
+    <span class="eyebrow">Asked most</span>
+    <h2>Before anything else</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Question"><b>I lost my password.</b></td><td data-label="Answer">The 24 words restore the wallet without it: add a wallet, choose <b>Restore from recovery phrase</b> and set a new password. Without the words and without the password, nobody can open the wallet, the project included.</td></tr>
+        <tr><td data-label="Question"><b>I lost my 24 words.</b></td><td data-label="Answer">If you can still open the wallet, show them again under <b>Security</b> and write them down now. If you cannot, there is nothing anyone can do.</td></tr>
+        <tr><td data-label="Question"><b>My payment says pending.</b></td><td data-label="Answer">It waits for the next block, usually within a minute or two. If it stays, check that the wallet is connected (the badge at the top says <i>verified</i>).</td></tr>
+        <tr><td data-label="Question"><b>My swap says the GNR is locked and nothing happens.</b></td><td data-label="Answer">It is not lost. If the buyer never pays, the GNR comes back by itself at the block the swap shows, about 21 hours after the lock. Keep the wallet running then.</td></tr>
+        <tr><td data-label="Question"><b>My mining rewards are not in my balance.</b></td><td data-label="Answer">Rewards build up and are paid as one note every 360 blocks, about six hours, and can be spent 100 blocks later. The Mining tab shows what is building up.</td></tr>
+        <tr><td data-label="Question"><b>Is this version the newest?</b></td><td data-label="Answer"><b>About → Check for updates</b>. The newest release is always at the top of <a href="/updates">News</a>.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pg-sec" id="ask">
+    <span class="eyebrow">Then</span>
+    <h2>Where to ask</h2>
+    <p>The project has one public place for questions and problems: its issue tracker on GitHub. It is open to read without an account; to write you need a free GitHub account, which needs no real name.</p>
+    <div class="pg-grid">
+      <a class="glass pg-card" href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-help"/></svg></span><h3>Ask a question</h3><p>Choose <b>Question</b>. Someone who knows will answer in public, so the next person with the same question finds it.</p><span class="pg-go">Ask on GitHub <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/bug-reports"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-bug"/></svg></span><h3>Report a bug</h3><p>Something is broken rather than unclear. How to report it so that it can be found and fixed.</p><span class="pg-go">Bug reports <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="https://github.com/genoryn/genoryn/security/advisories/new" rel="noopener"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Report a vulnerability</h3><p>If what you found could cost people their coins or their privacy, tell the project privately, never in public.</p><span class="pg-go">Report privately <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+    </div>
+    <h3>What to put in your question</h3>
+    <ul>
+      <li>The <b>version</b>: the wallet's About tab, or <code>kryptond --version</code>.</li>
+      <li>Your <b>system</b>: Windows 11, Ubuntu 24.04, and for mining the graphics card.</li>
+      <li>What you <b>did</b>, what you <b>expected</b> and what you <b>saw</b>, with the exact words of any error.</li>
+      <li>Transaction and block ids are public and fine to post. Addresses are yours to share or not.</li>
+    </ul>
+    <p>The wallet's <b>Console</b> can gather some of this for you: <code>getversion</code>, <code>getnetworkinfo</code> and <code>getblockchaininfo</code> show the version, how the wallet is connected and where the chain stands. None of them shows a key or a balance.</p>
+  </section>
+
+  <section class="pg-sec" id="support">
+    <span class="eyebrow">Tech support</span>
+    <h2>Help someone else</h2>
+    <p>Genoryn Krypton has no support department. The people who answer are people who use it. If you have run a miner for a week or set up a node, you already know things a newcomer is stuck on.</p>
+    <ul>
+      <li><b>Answer questions.</b> Open questions are <a href="https://github.com/genoryn/genoryn/issues?q=is%3Aissue+is%3Aopen+label%3Aquestion" rel="noopener">listed here</a>. Say what worked for you, and say when you are not sure.</li>
+      <li><b>Confirm bugs.</b> "It happens for me too, on this system and this version" turns one report into a pattern.</li>
+      <li><b>Point to the page.</b> If the answer is in the documentation, link it. If it is not there, that is a gap worth <a href="/contribute#documentation">filling</a>.</li>
+      <li><b>Never ask for, and never accept,</b> anybody's recovery phrase, password or wallet file, and say so when you see someone else ask.</li>
+    </ul>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

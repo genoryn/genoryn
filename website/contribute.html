@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contribute to Genoryn Krypton: Code, Documentation, Translations</title>
+<meta name="description" content="How to contribute to Genoryn Krypton: build and test the code, send a change, review what matters most, improve the documentation, and where translations stand. Open source under MIT or Apache-2.0.">
+<!--SEO:contribute-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="contribute">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Contribute</span></nav>
+    <span class="eyebrow">Contribute</span>
+    <h1 class="h2 glow">Nobody owns it. Anyone can improve it.</h1>
+    <p class="lead">Genoryn Krypton is open source under MIT or Apache-2.0. There is no company behind it and no team to apply to: changes are proposed in public and judged on what they do. You do not need to be a programmer to help.</p>
+    <div class="row-btns"><a class="btn btn-primary" href="https://github.com/genoryn/genoryn" rel="noopener">Source code</a><a class="btn" href="/bug-reports">Report a bug</a><a class="btn" href="#code">Build and test</a></div>
+  </header>
+  <section class="pg-sec" id="ways">
+    <span class="eyebrow">Ways to help</span>
+    <h2>Pick what suits you</h2>
+    <div class="pg-grid">
+      <a class="glass pg-card" href="/bug-reports"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-bug"/></svg></span><h3>Bug reports</h3><p>Tell the project what broke, clearly enough that someone can fix it. The most useful ten minutes you can give.</p><span class="pg-go">How to report a bug <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="#code"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-github"/></svg></span><h3>Code</h3><p>Fix a bug, add a test, review a change. The node, the wallet, the miner and this website are all in one repository.</p><span class="pg-go">Build and test <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="#review"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Review</h3><p>Read the code that guards people's money and try to break it. There has been no independent audit yet; careful eyes are worth more than anything.</p><span class="pg-go">Where to look <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="#documentation"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>Documentation</h3><p>If a page confused you, it will confuse the next person. Say so, or fix it.</p><span class="pg-go">Improve the docs <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="#translations"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-lang"/></svg></span><h3>Translations</h3><p>The wallet and this site are in English only today. Here is where that stands and what would help.</p><span class="pg-go">Translations <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/help#support"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>Tech support</h3><p>Answer a newcomer's question. If you have mined for a week, you know things they are stuck on.</p><span class="pg-go">Help someone <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/full-node"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>Run a node</h3><p>No skills needed, and it makes the network stronger from the first hour.</p><span class="pg-go">The full-node guide <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="code">
+    <span class="eyebrow">Code</span>
+    <h2>Build it, test it, send a change</h2>
+    <p>Everything is written in Rust and lives in one repository: <a href="https://github.com/genoryn/genoryn" rel="noopener">github.com/genoryn/genoryn</a>. You need Rust 1.89 or newer and no other toolchain.</p>
+<pre class="code">git clone https://github.com/genoryn/genoryn
+cd genoryn
+cargo build --release                                   <span class="c"># node, miner, wallets</span>
+cargo test --workspace                                  <span class="c"># all tests</span>
+cargo fmt --all -- --check                              <span class="c"># formatting</span>
+cargo clippy --workspace --all-targets -- -D warnings   <span class="c"># lints</span>
+python website/build.py                                 <span class="c"># this website, into website/dist</span></pre>
+    <p>Try your change on a private network of your own before you propose it. Never test against other people's funds or nodes:</p>
+<pre class="code">kryptond --network devnet --no-seeds</pre>
+    <h3>Where things are</h3>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Path</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Path"><code>crates/krypton-core</code></td><td data-label="What">Consensus, transactions, emission, parameters</td></tr>
+        <tr><td data-label="Path"><code>crates/krypton-zk</code></td><td data-label="What">The zk-STARK spend circuit, prover and verifier</td></tr>
+        <tr><td data-label="Path"><code>crates/krypton-crypto</code></td><td data-label="What">Hashes, ML-KEM, signatures, key derivation</td></tr>
+        <tr><td data-label="Path"><code>crates/krypton-pow</code></td><td data-label="What">KryptoHash proof of work</td></tr>
+        <tr><td data-label="Path"><code>crates/krypton-p2p</code>, <code>krypton-store</code>, <code>krypton-light</code></td><td data-label="What">Network, storage, light client</td></tr>
+        <tr><td data-label="Path"><code>crates/krypton-wallet-core</code>, <code>krypton-swap</code></td><td data-label="What">Wallet logic, atomic swaps and the offer board</td></tr>
+        <tr><td data-label="Path"><code>apps/kryptond</code>, <code>krypton-miner</code>, <code>krypton-wallet</code>, <code>krypton-wallet-cli</code></td><td data-label="What">Node, miner, desktop wallet, command-line wallet</td></tr>
+        <tr><td data-label="Path"><code>docs/spec</code></td><td data-label="What">Specifications</td></tr>
+        <tr><td data-label="Path"><code>website</code></td><td data-label="What">genoryn.io</td></tr>
+      </tbody>
+    </table></div>
+    <h3>A good pull request</h3>
+    <ul>
+      <li><b>One change</b>, with a few sentences on what it does and why.</li>
+      <li><b>Tests</b> for the behaviour it changes. Consensus, proof and wallet code is not merged without them.</li>
+      <li><b>The four commands above pass.</b> They run again on Linux, Windows and macOS when you open the request.</li>
+      <li><b>Plain words</b> in comments and documents, no unsafe code in networking, no new dependency without a reason.</li>
+      <li><b>A change to the rules of the network</b> needs an update of the specification in <code>docs/spec</code> and a block height at which it starts, announced in advance. Never an immediate switch: people's nodes must have time to update, and nobody's coins may be stranded.</li>
+    </ul>
+    <p>The full guide is <a href="https://github.com/genoryn/genoryn/blob/main/CONTRIBUTING.md" rel="noopener">CONTRIBUTING.md</a>. By contributing you agree that your work is licensed like the rest of the project, under MIT or Apache-2.0 at the user's choice.</p>
+  </section>
+
+  <section class="pg-sec" id="review">
+    <span class="eyebrow">Review</span>
+    <h2>Where careful eyes are worth most</h2>
+    <p>The software has extensive automated tests and an internal review, and no independent audit yet. If you know cryptography, consensus or Rust, these are the places where a mistake would cost the most:</p>
+    <div class="table-wrap"><table class="data">
+      <tbody>
+        <tr><td data-label=""><b>The spend proof</b></td><td data-label="">The circuit that proves a transfer valid, and its zero-knowledge masking: <code>crates/krypton-zk</code>, <code>docs/spec/spend-circuit.md</code></td></tr>
+        <tr><td data-label=""><b>Consensus and reorganizations</b></td><td data-label=""><code>crates/krypton-core/src/consensus.rs</code>, <code>crates/krypton-store</code></td></tr>
+        <tr><td data-label=""><b>The light wallet's verification</b></td><td data-label=""><code>crates/krypton-light</code></td></tr>
+        <tr><td data-label=""><b>Keys and the wallet file</b></td><td data-label=""><code>crates/krypton-wallet-core</code></td></tr>
+        <tr><td data-label=""><b>The handshake between nodes</b></td><td data-label=""><code>crates/krypton-p2p/src/session.rs</code></td></tr>
+      </tbody>
+    </table></div>
+    <p>If you find something an attacker could use, <a href="/bug-reports#security">report it privately</a>.</p>
+  </section>
+
+  <section class="pg-sec" id="documentation">
+    <span class="eyebrow">Documentation</span>
+    <h2>Make it clearer for the next person</h2>
+    <p>Documentation is part of the software: a rule nobody can understand is a rule nobody can check. It lives in three places, all in the repository, all plain text you can edit in a browser on GitHub:</p>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>This website</h3><p>The folder <code>website</code>: one HTML file per page, no framework. <code>python website/build.py</code> builds it. The list of updates comes from <code>website/updates.py</code>.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-github"/></svg></span><h3>The README</h3><p><code>README.md</code> is the whole project on one page, for people who read on GitHub.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>The specifications</h3><p><code>docs/spec</code> says exactly what the rules are: the spend circuit, consensus, rewards, the light client, addresses and the network, atomic swaps.</p></div>
+    </div>
+    <h3>What helps</h3>
+    <ul>
+      <li><b>Say where you got lost.</b> Open an issue: "the page on swaps does not say what happens if I close the wallet". That alone is a contribution.</li>
+      <li><b>Fix what is wrong or out of date.</b> A number that changed, a button that was renamed, a step that no longer exists.</li>
+      <li><b>Write it the way you would say it.</b> Short sentences, ordinary words, what happens and what to do. No promises about price, ever: the project makes none.</li>
+      <li><b>Check it.</b> Run the command you describe. Documentation that is confidently wrong is worse than none.</li>
+    </ul>
+  </section>
+
+  <section class="pg-sec" id="translations">
+    <span class="eyebrow">Translations</span>
+    <h2>Where they stand</h2>
+    <p>Honestly: <b>the wallet and this website exist in English only today</b>, and the wallet has no system yet for showing itself in other languages. Its texts are written into the page it displays, so a translation cannot simply be dropped in.</p>
+    <p>That is worth changing. Money that only English speakers can read the warnings of is not money for everyone. What would help, in the order it has to happen:</p>
+    <ol class="pg-steps">
+      <li><h3>Say which language you would use it in</h3><p>Open an <a href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener">issue</a> or add your voice to an existing one. Which languages come first should follow who is there to keep them current.</p></li>
+      <li><h3>The wallet has to learn languages</h3><p>Its texts need to move out of the page into one file per language, with English as the fallback. That is a code change, and a welcome one: see <a href="#code">Code</a>.</p></li>
+      <li><h3>Then translate, and keep translating</h3><p>A wallet's words are instructions about money. A translation has to be exact, has to keep words like <i>recovery phrase</i> and <i>refund</i> the same throughout, and has to be updated with every release. A language without someone to maintain it is worse than no translation.</p></li>
+    </ol>
+    <p>Until then, translations of the documentation, written and kept by people who speak the language, are welcome as pages of their own. Mark clearly which version they describe, and link the English original.</p>
+  </section>
+
+  <div class="glass pg-cta">
+    <div><h2>Start small</h2><p>Report one thing that confused you, or fix one sentence. That is how every contributor started.</p></div>
+    <div class="row-btns"><a class="btn btn-primary" href="https://github.com/genoryn/genoryn" rel="noopener">Open the repository</a><a class="btn" href="/bug-reports">Report a bug</a></div>
+  </div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

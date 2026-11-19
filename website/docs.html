@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.43</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.44</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -126,7 +126,7 @@ krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 4
           <tbody>
             <tr><td data-label="Platform">Windows 10 / 11 (x64)</td><td data-label="File"><code>GenorynKrypton-&lt;version&gt;-Windows-x64-Setup.exe</code></td><td data-label="Notes">Installs for the current user (no administrator rights) into <code>%LOCALAPPDATA%\Programs\Genoryn Krypton</code>. Wallets and chain data live in <code>%APPDATA%\GenorynKrypton</code> and are kept when the program is removed.</td></tr>
             <tr><td data-label="Platform">Windows, portable</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-windows-x64-portable.zip</code></td><td data-label="Notes">The same programs without an installer.</td></tr>
-            <tr><td data-label="Platform">Ubuntu / Debian (x64)</td><td data-label="File"><code>genoryn-krypton_&lt;version&gt;_amd64.deb</code></td><td data-label="Notes"><code>sudo apt install ./genoryn-krypton_&lt;version&gt;_amd64.deb</code>; includes a desktop entry and systemd units.</td></tr>
+            <tr><td data-label="Platform">Ubuntu / Debian (x64)</td><td data-label="File"><code>genoryn-krypton_&lt;version&gt;_amd64.deb</code></td><td data-label="Notes"><code>sudo apt install ./genoryn-krypton_&lt;version&gt;_amd64.deb</code> (Ubuntu 24.04 or newer, Debian 13 or newer); includes a desktop entry. To run the node as a service: <code>sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</code>.</td></tr>
             <tr><td data-label="Platform">Linux (any distribution)</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-linux-x64.tar.gz</code></td><td data-label="Notes">Unpack and run <code>krypton-wallet</code>.</td></tr>
             <tr><td data-label="Platform">From source</td><td data-label="File"><a href="https://github.com/genoryn/genoryn">github.com/genoryn/genoryn</a></td><td data-label="Notes">Rust stable: <code>cargo build --release</code>. The binaries land in <code>target/release</code>.</td></tr>
           </tbody>
@@ -151,9 +151,9 @@ cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS
         </ul>
         <p>A transaction spends at most two notes. When a payment needs more, the wallet merges notes automatically in parallel rounds (one block per round) and then pays.</p>
         <h3>History</h3>
-        <p>Paged (15 to 100 entries per page) with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals. Each send has a <b>Proof</b> button for a <a href="#proofs">payment proof</a>.</p>
+        <p>Paged (15 to 100 entries per page) with filters for received, sent, mining and pending, search by memo, txid, address or block, and totals. Each send has a <b>Proof</b> button for a <a href="#proofs">payment proof</a>. <b>View ↗</b> opens a payment's transaction on the genoryn.io explorer, <b>Block ↗</b> the block that holds it, and the block number is a link too. The explorer shows that the transaction exists, its block and its fee, never the amount or the parties.</p>
         <h3>Swap</h3>
-        <p>The GNR price, the <a href="#board">offer board</a> (sell offers and buy offers side by side, swaps in progress, your own), the form to publish an offer, and your swaps with their progress. Taking an offer starts a swap at once; when it is time to pay, a window shows the amount, the address and a QR code. See <a href="#swaps">Atomic swaps</a>.</p>
+        <p>The GNR price, the <a href="#board">offer board</a> (sell offers and buy offers side by side, swaps in progress, your own), the form to publish an offer, and your swaps with their progress. Taking an offer starts a swap at once; when it is time to pay, a window shows the amount, the address and a QR code. An offer can <a href="#follow">follow the market price</a> by itself, within a limit you set. See <a href="#swaps">Atomic swaps</a>.</p>
         <h3>Mining</h3>
         <p>Choose <b>Automatic</b>, <b>NVIDIA</b> (CUDA), <b>AMD / Intel</b> (OpenCL) or <b>CPU</b> with a CPU-usage cap, then <b>Start mining</b>. The tab shows your hashrate, your share of the network, expected GNR per day, shares found, accruing rewards, payouts and the <a href="#calculator">mining and price calculator</a>. If the miner stops, the tab shows why (for example a GPU driver error); it is restarted automatically, and after three quick failures in a row the wallet stops retrying and says so. While the miner runs, closing the window keeps the wallet, node and miner running; <b>Quit</b> stops everything.</p>
         <h3>Network</h3>
@@ -162,6 +162,8 @@ cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS
           <li><b>Light</b> (recommended): remote nodes provide data; headers, outputs and tree updates are verified on your computer (<a href="#light">Light clients</a>). Several nodes can be configured; they are cross-checked.</li>
           <li><b>Full node</b>: one click starts <code>kryptond</code>, which downloads and validates the whole chain; the wallet then uses only your own node. By default it connects only out to other nodes; <b>Let other nodes connect to my full node</b> accepts incoming peers too (<a href="#p2p">Peer-to-peer network</a>).</li>
         </ul>
+        <h3>Console</h3>
+        <p>A line to type commands on, as Bitcoin's wallet has, with their answers above it. It completes commands as you type (<b>Tab</b>), brings back earlier lines with the arrow keys, and <code>help</code> lists everything. Commands about the chain (<code>getblockchaininfo</code>, <code>getblock</code>, <code>gettransaction</code>, <code>getpeerinfo</code>, <code>validateaddress</code> and more) go to the node the wallet uses; commands about the wallet (<code>getbalance</code>, <code>getaddress</code>, <code>listtransactions</code>) are answered on your computer. <b>The console only reads</b>: no command can send GNR, show a recovery phrase or a key, or change a setting, so nothing pasted into it can take your coins. See <a href="/interface#console">User interface</a>.</p>
         <h3>Security and About</h3>
         <p>Change a wallet's password and lock wallets; see the version, check for updates and choose whether updates install automatically.</p>
       </section>
@@ -430,17 +432,32 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
         <p>Offers are anonymous: each has its own one-time X25519 + ML-KEM-1024 key derived from the wallet's swap seed and used for nothing else, never your address.</p>
       </section>
 
+      <section id="follow">
+        <h2>Offers that follow the market</h2>
+        <p>From 1.0.44 an offer can follow the market price instead of standing at a price you chose. Tick <b>Follow the market price</b> when you publish.</p>
+        <ul>
+          <li><b>What the offer stands for is fixed; what is asked for it moves.</b> A sell offer names its GNR and the bitcoin asked follows the market; a buy offer names its bitcoin and the GNR asked follows the market. Nothing is locked at a price in advance: the price of a sale is the offer's price at the moment the other wallet takes it, and a request with any other amounts is refused.</li>
+          <li><b>The wallet moves the price.</b> When the market price is 1 % or more away from the offer's, the wallet takes the offer off the board and lists it again at the new price, with the same GNR (its proof made again) or the same bitcoin deposit behind it. It does so at most every 10 minutes and by at most 5 % at a time, so a price that jumps is followed slowly. A sell offer's week of commitment keeps counting from the first time it was published.</li>
+          <li><b>You set a limit, always.</b> A sell offer never asks less than your lowest price; a buy offer never pays more than your highest. The market price is what the board says it is: the limit is what protects you if that price is ever wrong or pushed. Where the market is past your limit, the offer stands at the limit.</li>
+          <li><b>Only your wallet can move the price</b>, so it must be running. While it is closed the offer stays at its last price.</li>
+        </ul>
+        <p>This is a function of the wallet. Nodes, the board's offer format and the rules of the chain are the same as before; to other wallets a following offer is an ordinary offer whose price changes now and then.</p>
+      </section>
+
       <section id="market">
         <h2>Market price</h2>
-        <p>The GNR price shown by the wallet and genoryn.io is the board's market price and nothing else: <b>the plain average of the swaps people completed</b>.</p>
+        <p>The GNR price shown by the wallet and genoryn.io is the board's market price and nothing else: <b>where half of the bitcoin in completed swaps changed hands below, and half above</b>.</p>
         <ul>
-          <li>After a swap completes, both wallets may report its amounts and hash lock (the <code>share_prices</code> setting turns this off). The board accepts a report only if a claim with that hash lock is on its own chain, and counts each hash once.</li>
-          <li>The price is the arithmetic mean of the swaps completed in the last 72 hours, each counting the same whatever its size; with none that recent, of all recorded swaps.</li>
-          <li>With three or more swaps, a swap more than 4× away from their median is left out: amounts are private on chain and reported by the wallets, so a typo or a fake report must not move the average.</li>
+          <li>After a swap completes, both wallets report its amounts and hash lock (the <code>share_prices</code> setting turns this off). The board accepts a report only if a claim with that hash lock is on its own chain, and counts each hash once.</li>
+          <li><b>From 1.0.44 a report proves its bitcoin.</b> It names the swap's bitcoin contract and is signed with one of the contract's two keys, which only the swap's two wallets hold. The board looks the contract up on the Bitcoin chain and notes how much was taken out of it with the swap's secret. A swap whose two wallets report different amounts does not count.</li>
+          <li>With three or more such swaps in the last 72 hours, the price is their <b>volume-weighted median</b>. A swap weighs the bitcoin it moved, never more than its GNR is worth at the going price, and never more than a fifth of the total; reports without a proof then weigh nothing. One or two large swaps cannot set the price: it takes several that together outweigh the rest.</li>
+          <li>Until there are three, the price is the plain average of the reported swaps, as before 1.0.44.</li>
+          <li>A swap more than 4× away from the median is left out: the GNR amount is private on chain and reported by the wallets, so a typo or a fake report must not move the price.</li>
+          <li>What this cannot do is tell a swap between two people from a swap someone makes with themselves. It makes such a swap cost what a real one costs, and bounds what any one swap can do. An <a href="#follow">offer that follows the market</a> therefore never goes past its owner's limit.</li>
           <li>Open offers and swaps in progress are listed with their totals in bitcoin and dollars, but <b>never move the price</b>: anyone can post an offer at any price.</li>
           <li>Dollar values use the BTC price, which genoryn.io fetches from mempool.space so visitors' browsers and wallets contact no third party.</li>
         </ul>
-        <p><code>GET /v1/swap/market</code> returns the price (sat per GNR), how many swaps it averages (<code>priced</code>), a confidence <code>v / (v + 25)</code> for the GNR <code>v</code> behind it, the best offers, volumes, and every completed swap with what the GNR chain shows of it: the claim transaction, its block and time, the hash lock, the revealed secret and the refund height.</p>
+        <p><code>GET /v1/swap/market</code> returns the price (sat per GNR), what it rests on (<code>source</code>: <code>verified swaps</code> or <code>swaps</code>), how many swaps it is computed from (<code>priced</code>), how many swaps of the window were found on the Bitcoin chain and their bitcoin (<code>verified</code>, <code>verified_sats</code>), a confidence <code>v / (v + 25)</code> for the GNR <code>v</code> behind it, the best offers, volumes, and every completed swap with what the GNR chain shows of it: the claim transaction, its block and time, the hash lock, the revealed secret and the refund height.</p>
       </section>
 
       <section id="coins">
@@ -533,6 +550,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
 kryptond --no-listen                          # connect out only: no incoming peers
 kryptond --listen 0.0.0.0:30333 --rpc 127.0.0.1:30334 --peer 2.24.162.163:29710
 sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %</pre>
+        <p>Step by step for Linux, Windows and macOS, with why a full node matters and what it costs: <a href="/full-node">Running a full node</a>.</p>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Flag</th><th>Default</th><th>Meaning</th></tr></thead>
           <tbody>
@@ -775,7 +793,7 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
         <details class="glass"><summary>Why are addresses so long?</summary><p>They carry a post-quantum public key (ML-KEM-1024). Publish the short form once and share it; the sender's wallet verifies it.</p></details>
         <details class="glass"><summary>Can anyone see my balance?</summary><p>No. Balances are computed only by wallets that hold the keys.</p></details>
         <details class="glass"><summary>How do I buy GNR?</summary><p>In the wallet's Swap tab: take a sell offer, or publish a buy offer. You pay bitcoin only after the seller's GNR is locked for you.</p></details>
-        <details class="glass"><summary>Where does the GNR price come from?</summary><p>Only from completed swaps: their plain average over the last 72 hours. Offers never move it.</p></details>
+        <details class="glass"><summary>Where does the GNR price come from?</summary><p>Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the price at which half of that bitcoin changed hands below and half above. Offers never move it.</p></details>
         <details class="glass"><summary>Can a swap cheat me?</summary><p>No. The buyer pays only after the seller's GNR is locked on chain for exactly the agreed amount, and the seller's bitcoin claim reveals the secret that releases the GNR to the buyer. If anyone stops, timeouts refund both.</p></details>
         <details class="glass"><summary>Why must the wallet stay open during a swap?</summary><p>Only your wallet holds the keys that lock, claim and refund your coins; no server can do it for you, which is also why nobody can take them. Closing the window is fine: the wallet keeps working in the background.</p></details>
         <details class="glass"><summary>Can someone break into my computer through the node?</summary><p>No. The wallet's node only connects out unless you allow incoming peers, its API listens only on your computer, the networking code has no unsafe code, and peers can only send protocol messages that are checked and limited.</p></details>

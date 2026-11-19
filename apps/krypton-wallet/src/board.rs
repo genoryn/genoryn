@@ -55,6 +55,176 @@ struct MyOffer {
     /// has seen at an address of the buyer's own wallet.
     #[serde(default)]
     prepaid_only: bool,
+    /// From 1.0.44: the offer's price follows the market price.
+    #[serde(default)]
+    follow: Option<Follow>,
+    /// The ids this offer was listed under before its price last moved (the newest
+    /// fifty). Someone who asks for one of them is told that listing is gone.
+    #[serde(default)]
+    was: Vec<String>,
+}
+
+/// An offer that follows the market (1.0.44). What it stands for is fixed: the GNR of a
+/// sell offer, the bitcoin of a buy offer. What is asked for it moves with the board's
+/// market price: when that has moved by a hundredth or more, the wallet takes the offer
+/// off the board and lists it again at the new price, at most every ten minutes and by
+/// at most a twentieth at a time. Nothing is locked at a price: the price of a sale is
+/// the offer's price at the moment a buyer's wallet asks for it, and a request with any
+/// other amounts is refused.
+///
+/// The market price is what the board says it is. So an offer never follows it past its
+/// owner's limit: a sell offer never asks less than `limit`, a buy offer never pays more.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+struct Follow {
+    /// Sat per GNR: the lowest price of a sell offer, the highest of a buy offer.
+    limit: f64,
+    /// When the price was last set, and how often it has been moved.
+    #[serde(default)]
+    at: u64,
+    #[serde(default)]
+    moves: u32,
+}
+
+/// A following offer's price is looked at this often, moved only when the market is at
+/// least `FOLLOW_MIN_MOVE` away from it, and then by at most `FOLLOW_MAX_STEP`: a price
+/// that jumps (a thin market, a wrong report) is followed slowly, not at once.
+const FOLLOW_EVERY_SECS: u64 = 10 * 60;
+const FOLLOW_MIN_MOVE: f64 = 0.01;
+const FOLLOW_MAX_STEP: f64 = 0.05;
+/// A market price is followed if it rests on at least this many completed swaps. One is
+/// enough: what protects a following offer from a thin or pushed price is its owner's
+/// limit and the size of a step, not a count.
+const FOLLOW_MIN_SWAPS: u64 = 1;
+
+/// The board's market price in sat per GNR, if there is one to follow.
+fn market_price(m: &Value) -> Option<f64> {
+    let p = m["price"].as_f64()?;
+    (m["priced"].as_u64().unwrap_or(0) >= FOLLOW_MIN_SWAPS && p.is_finite() && p > 0.0).then_some(p)
+}
+
+/// The price (sat per GNR) a following offer of `side` may stand at, given the market.
+fn follow_price(side: Side, f: &Follow, market: f64) -> f64 {
+    match side {
+        Side::SellGnr => market.max(f.limit),
+        Side::BuyGnr => market.min(f.limit),
+    }
+}
+
+/// The amounts of an offer of `side` at `price`: a sell offer keeps its GNR, a buy offer
+/// its bitcoin.
+fn amounts_at(side: Side, gnr: u64, sats: u64, price: f64) -> Option<(u64, u64)> {
+    if !(price.is_finite() && price > 0.0) {
+        return None;
+    }
+    let (g, s) = match side {
+        Side::SellGnr => (gnr as f64, (gnr as f64 / 1e8 * price).round()),
+        Side::BuyGnr => ((sats as f64 / price * 1e8).round(), sats as f64),
+    };
+    let ok = g > (2 * krypton_wallet_core::DEFAULT_FEE) as f64
+        && g < 2.1e15
+        && s >= 10_000.0
+        && s <= board::MAX_OFFER_SATS as f64;
+    ok.then_some((g as u64, s as u64))
+}
+
+/// The new amounts of the following offer `o`, if the market has moved enough for its
+/// price to be moved: one step towards the market, never past the owner's limit.
+fn follow_target(o: &Offer, f: &Follow, market: f64) -> Option<(u64, u64)> {
+    let at = o.price();
+    if !(at.is_finite() && at > 0.0) {
+        return None;
+    }
+    let step = market.clamp(at * (1.0 - FOLLOW_MAX_STEP), at * (1.0 + FOLLOW_MAX_STEP));
+    let to = follow_price(o.side, f, step);
+    if (to - at).abs() / at < FOLLOW_MIN_MOVE {
+        return None;
+    }
+    amounts_at(o.side, o.gnr, o.sats, to).filter(|x| *x != (o.gnr, o.sats))
+}
+
+/// Moves the prices of this wallet's following offers to the market. An offer is taken
+/// off the board before it is listed again: its GNR (or its deposit) stands behind one
+/// offer at a time. The offer keeps its GNR, its deposit, its key and its week.
+fn follow_market(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
+    let Some(market) = market_price(&cached_market()["market"]) else {
+        return;
+    };
+    let t = now();
+    let every = if e.wallet.network() == Network::Devnet {
+        20
+    } else {
+        FOLLOW_EVERY_SECS
+    };
+    for m in st.offers.iter_mut() {
+        let Some(f) = m.follow.clone() else { continue };
+        if m.taken || m.cancelled || m.offer.expires <= t + 900 || f.at + every > t {
+            continue;
+        }
+        // Only an offer that is on the board has a price to move.
+        let listed = m
+            .reserve
+            .as_ref()
+            .is_none_or(|r| r.posted && !r.released && r.cm.is_some())
+            && m.fund
+                .as_ref()
+                .is_none_or(|x| x.posted && x.closed.is_none() && !x.handed);
+        if !listed {
+            continue;
+        }
+        let Some((gnr, sats)) = follow_target(&m.offer, &f, market) else {
+            continue;
+        };
+        let secret: [u8; 32] = rand::random();
+        let mut next = Offer {
+            id: hex::encode(rand::random::<[u8; 16]>()),
+            gnr,
+            sats,
+            cancel: board::cancel_hash(&secret),
+            nonce: 0,
+            ..m.offer.clone()
+        };
+        let down = json!({"id": m.offer.id, "secret": m.cancel_secret});
+        if m.reserve.is_none() && m.fund.is_none() {
+            // Nothing stands behind it but its maker's word: the new one first.
+            next.seal_pow();
+            if post(base, "/v1/swap/offers", &next).is_err() {
+                continue;
+            }
+            let _ = post(base, "/v1/swap/offers/cancel", &down);
+        } else if post(base, "/v1/swap/offers/cancel", &down).is_err() {
+            continue;
+        }
+        let moving = "Following the market: publishing at the new price.";
+        if let Some(r) = m.reserve.as_mut() {
+            // The note is held for the new offer from this moment on.
+            if let Some(cm) = r.note() {
+                let _ = e.wallet.hold(cm, &next.id);
+            }
+            r.posted = false;
+            r.last_try = 0;
+            r.tries = 0;
+            r.status = moving.into();
+        }
+        if let Some(x) = m.fund.as_mut() {
+            x.posted = false;
+            x.marked = false;
+            x.last_check = 0;
+            x.tries = 0;
+            x.status = moving.into();
+        }
+        m.was.push(std::mem::replace(&mut m.offer, next).id);
+        if m.was.len() > 50 {
+            m.was.remove(0);
+        }
+        m.cancel_secret = hex::encode(secret);
+        m.follow = Some(Follow {
+            at: t,
+            moves: f.moves + 1,
+            ..f
+        });
+        advance(e, base, m);
+        advance_buy(e, base, m);
+    }
 }
 
 /// The bitcoin behind a buy offer. Publishing shows an address of this wallet's own
@@ -426,6 +596,9 @@ struct State {
     links: Vec<Link>,
     seen: Vec<String>,
     reported: Vec<String>,
+    /// Reports the board has not taken yet: hash lock, last try, tries (1.0.44).
+    #[serde(default)]
+    report_tries: Vec<(String, u64, u32)>,
     /// This copy of the wallet (random; another computer with the same phrase has another).
     #[serde(default)]
     device: String,
@@ -913,6 +1086,7 @@ fn publish_offer(
     secs: u64,
     pay: Pay,
     prepaid_only: bool,
+    follow: Option<Follow>,
 ) -> Result<Offer> {
     engine::btc_address(btc_address, e.btc_network)?;
     let secs = secs.clamp(15 * 60, board::MAX_OFFER_SECS);
@@ -952,6 +1126,8 @@ fn publish_offer(
         funded_sent: false,
         fund: None,
         prepaid_only: prepaid_only && side == Side::SellGnr,
+        follow,
+        was: Vec::new(),
     };
     let fund = match pay {
         _ if side == Side::SellGnr => None,
@@ -1750,6 +1926,34 @@ fn advance_takes(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
     st.links.extend(links);
 }
 
+/// A report the board did not take is sent again this often, this many times (a day).
+const REPORT_RETRY_SECS: u64 = 5 * 60;
+const REPORT_TRIES: u32 = 288;
+
+/// The proof that goes with the report `tr` of the finished swap `s`: its bitcoin
+/// contract and the payment into it, signed with this wallet's key of the contract.
+/// `None` when the swap's record does not have them (a swap from before 1.0.23).
+fn swap_proof(e: &Engine<'_, Multi>, s: &engine::Swap, tr: &Trade) -> Option<board::Paid> {
+    use krypton_swap::bitcoin::{OutPoint, Txid};
+    use std::str::FromStr;
+    let htlc = s.htlc().ok()?;
+    let d = s.deposit.as_ref()?;
+    let funding = OutPoint::new(Txid::from_str(&d.txid).ok()?, d.vout);
+    let key = krypton_swap::derive_key(e.wallet.swap_seed(), s.index);
+    let ours = krypton_swap::public_key(&key);
+    if ours != htlc.claim && ours != htlc.refund {
+        return None;
+    }
+    Some(board::sign_paid(
+        tr,
+        &htlc,
+        e.btc_network,
+        &funding,
+        d.height?,
+        &key,
+    ))
+}
+
 fn hash(code: &str) -> String {
     hex::encode(krypton_crypto::hash::tagged(
         "Krypton/board/sent",
@@ -1944,21 +2148,61 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             }
         }
     }
-    // Completed swaps count for the market price (amounts and hash lock only).
+    // Completed swaps count for the market price: amounts and hash lock, and from 1.0.44
+    // the swap's bitcoin contract, signed with this wallet's key of it, so the board can
+    // find the payment on the Bitcoin chain and weigh the swap by it.
     let share = a.settings.lock().share_prices.unwrap_or(true);
     for s in swaps.iter().filter(|s| s.stage == Stage::Done) {
         let h = hex::encode(s.hash);
-        if share && !st.reported.contains(&h) {
-            let mut tr = Trade {
-                network: e.wallet.network().as_str().into(),
-                hash: h.clone(),
-                gnr: s.gnr,
-                sats: s.sats,
-                nonce: 0,
-            };
-            tr.seal_pow();
-            if post(&base, "/v1/swap/trade", &tr).is_ok() {
-                st.reported.push(h);
+        if !share || st.reported.contains(&h) {
+            continue;
+        }
+        let tried = st.report_tries.iter().position(|(x, _, _)| *x == h);
+        // (A private test chain has its blocks seconds apart.)
+        let wait = if e.wallet.network() == Network::Devnet {
+            10
+        } else {
+            REPORT_RETRY_SECS
+        };
+        if tried.is_some_and(|k| st.report_tries[k].1 + wait > t) {
+            continue;
+        }
+        let mut tr = Trade {
+            network: e.wallet.network().as_str().into(),
+            hash: h.clone(),
+            gnr: s.gnr,
+            sats: s.sats,
+            nonce: 0,
+        };
+        tr.seal_pow();
+        let proof = swap_proof(e, s, &tr);
+        let mut body = serde_json::to_value(&tr)?;
+        if let Some(p) = &proof {
+            body["paid"] = serde_json::to_value(p)?;
+        }
+        match post(&base, "/v1/swap/trade", &body) {
+            Ok(_) => {
+                st.reported.push(h.clone());
+                st.report_tries.retain(|(x, _, _)| *x != h);
+            }
+            Err(x) => {
+                // The board has not found the claim or the bitcoin yet: again later, and
+                // after a day the swap is let be.
+                let n = match tried {
+                    Some(k) => {
+                        st.report_tries[k].1 = t;
+                        st.report_tries[k].2 += 1;
+                        st.report_tries[k].2
+                    }
+                    None => {
+                        st.report_tries.push((h.clone(), t, 1));
+                        1
+                    }
+                };
+                if n >= REPORT_TRIES || x.to_string().contains("bad swap proof") {
+                    st.reported.push(h.clone());
+                    st.report_tries.retain(|(x, _, _)| *x != h);
+                }
             }
         }
     }
@@ -2100,6 +2344,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
                 "The swap is over. What is left at its deposit address is sent back to you.".into();
         }
     }
+    follow_market(e, &base, &mut st);
     settle_funds(e, &mut st);
     mirror_publish(e, &base, &mut st, &swaps);
     let n = st.seen.len();
@@ -2130,6 +2375,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             m.offer.expires.saturating_sub(now()),
             pay,
             m.prepaid_only,
+            m.follow.clone(),
         );
         if r.is_err() && handed {
             // No new offer has the deposit: the old one keeps it, and it goes back.
@@ -2285,6 +2531,11 @@ fn handle(
                 });
                 return Ok(());
             }
+            // A listing of an offer that has followed the market since: it is gone, and
+            // the other wallet should know at once rather than wait for an answer.
+            if st.offers.iter().any(|o| o.n == n && o.was.contains(&offer)) {
+                return send_note(base, from, key, &Note::Gone { offer });
+            }
             bail!("a code for an offer this wallet does not know")
         }
         Note::Take { offer } => {
@@ -2293,6 +2544,9 @@ fn handle(
                 .iter_mut()
                 .find(|o| o.n == n && o.offer.id == offer && o.offer.side == Side::BuyGnr)
             else {
+                if st.offers.iter().any(|o| o.n == n && o.was.contains(&offer)) {
+                    return send_note(base, from, key, &Note::Gone { offer });
+                }
                 bail!("a take for an unknown offer");
             };
             if mo.taken || mo.cancelled {
@@ -2579,6 +2833,9 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 if m.prepaid_only {
                     v["prepaid"] = json!(true);
                 }
+                if let Some(f) = &m.follow {
+                    v["follow"] = json!({"limit": f.limit, "moves": f.moves, "at": f.at});
+                }
                 v["taken"] = json!(m.taken); v["cancelled"] = json!(m.cancelled);
                 v["expired"] = json!(m.offer.expires <= t);
                 if let Some(r) = &m.reserve {
@@ -2639,6 +2896,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 }))
             }).take(20).collect::<Vec<_>>(),
             "hold_secs": COMMIT_SECS,
+            "follow": {"every_secs": FOLLOW_EVERY_SECS, "min_move": FOLLOW_MIN_MOVE, "max_step": FOLLOW_MAX_STEP, "min_swaps": FOLLOW_MIN_SWAPS},
             "market": market,
         }))
     })
@@ -2669,6 +2927,13 @@ pub struct PublishReq {
     /// (the default), so that nobody can take the offer and leave the GNR locked unpaid.
     #[serde(default)]
     prepaid_only: Option<bool>,
+    /// The offer follows the market price (1.0.44). A sell offer then names its GNR and
+    /// a buy offer its bitcoin; the other amount comes from the market price. `limit` is
+    /// the price in sat per GNR the offer never goes below (sell) or above (buy).
+    #[serde(default)]
+    follow: Option<bool>,
+    #[serde(default)]
+    limit: Option<f64>,
 }
 
 pub async fn publish(
@@ -2682,10 +2947,44 @@ pub async fn publish(
     let a = app.clone();
     match blocking(move || {
         crate::confirm_password(&a, &r.password)?;
-        let gnr = parse_amount(&r.gnr).context("invalid GNR amount")?;
-        let sats = Amount::from_str_in(r.btc.trim(), Denomination::Bitcoin)
-            .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
-            .to_sat();
+        let btc = |s: &str| -> Result<u64> {
+            Ok(Amount::from_str_in(s.trim(), Denomination::Bitcoin)
+                .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
+                .to_sat())
+        };
+        let (gnr, sats, follow) = if r.follow.unwrap_or(false) {
+            let limit = r
+                .limit
+                .filter(|l| l.is_finite() && *l > 0.0)
+                .context(match r.side {
+                    Side::SellGnr => "say the lowest price this offer may go to",
+                    Side::BuyGnr => "say the highest price this offer may go to",
+                })?;
+            let base = board_url(&a);
+            let market = get(&base, "/v1/swap/market")
+                .ok()
+                .and_then(|m| market_price(&m["market"]))
+                .or_else(|| market_price(&cached_market()["market"]))
+                .context("there is no market price to follow yet: no swap has completed lately. Publish at a price of your own")?;
+            let f = Follow {
+                limit,
+                at: now(),
+                moves: 0,
+            };
+            let (gnr, sats) = match r.side {
+                Side::SellGnr => (parse_amount(&r.gnr).context("invalid GNR amount")?, 0),
+                Side::BuyGnr => (0, btc(&r.btc)?),
+            };
+            let (gnr, sats) = amounts_at(r.side, gnr, sats, follow_price(r.side, &f, market))
+                .context("the amount is too small or too large for an offer at this price")?;
+            (gnr, sats, Some(f))
+        } else {
+            (
+                parse_amount(&r.gnr).context("invalid GNR amount")?,
+                btc(&r.btc)?,
+                None,
+            )
+        };
         with_engine(&a, false, |e, base| {
             let o = publish_offer(
                 e,
@@ -2701,6 +3000,7 @@ pub async fn publish(
                     Pay::Later
                 },
                 r.prepaid_only.unwrap_or(true),
+                follow,
             )?;
             // A sell offer is listed once its GNR is set aside and proven: at once if a
             // note of the right amount was there, else after the next block. A buy offer
@@ -2974,6 +3274,8 @@ mod tests {
             funded_sent: false,
             fund: None,
             prepaid_only: false,
+            follow: None,
+            was: Vec::new(),
         }
     }
 

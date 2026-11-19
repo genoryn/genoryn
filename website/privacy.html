@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy in Genoryn Krypton: What Is Hidden, and From Whom</title>
+<meta name="description" content="Every Genoryn Krypton transfer hides sender, recipient and amount behind a zero-knowledge proof. What the chain shows, what a node or the offer board can learn about you, what is public on purpose, and what the software cannot hide.">
+<!--SEO:privacy-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="privacy">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/features">Features</a> <span aria-hidden="true">/</span> <span>Privacy</span></nav>
+    <span class="eyebrow">Privacy</span>
+    <h1 class="h2 glow">Private by default, for everyone, always.</h1>
+    <p class="lead">On most blockchains anyone can read who paid whom and how much, forever. In Genoryn Krypton every transfer is shielded: the chain proves that the payment obeys the rules without showing its sender, its recipient or its amount. There is no transparent mode to fall back to, so there is no small group of "private users" to single out.</p>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features">Overview</a><a href="/validation">Validation</a><a href="/privacy" aria-current="page">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements">Requirements</a><a href="/interface">User interface</a><a href="/network">Network support</a></nav>
+  <section class="pg-sec" id="chain">
+    <span class="eyebrow">On the chain</span>
+    <h2>What the blockchain shows, and what it does not</h2>
+    <p>Coins exist as <b>notes</b>: an owner, a value and a random number, sealed inside a commitment. Spending a note publishes only its <b>nullifier</b>, a number that marks it spent without saying which note it was. A zk-STARK proof ties the two together.</p>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Anyone can see</th><th>Nobody can see</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Visible">That a transfer happened, its size, its fee and when</td><td data-label="Hidden">Who sent it and who received it</td></tr>
+        <tr><td data-label="Visible">Commitments and nullifiers (random-looking numbers)</td><td data-label="Hidden">The amount, and the memo</td></tr>
+        <tr><td data-label="Visible">Which miner found which share, and what each miner is paid</td><td data-label="Hidden">Where mined coins go afterwards</td></tr>
+        <tr><td data-label="Visible">That GNR was locked for a swap, its hash lock, and the secret once claimed</td><td data-label="Hidden">The amount swapped and the addresses of both sides</td></tr>
+      </tbody>
+    </table></div>
+    <p>Because every transfer looks the same, each one hides among all the others. That crowd is the whole network, not the few who chose to switch privacy on.</p>
+  </section>
+
+  <section class="pg-sec" id="network">
+    <span class="eyebrow">On the network</span>
+    <h2>What a node can learn about you</h2>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>Sending</h3><p>Your wallet's transaction is first handed to one random peer and announced to the rest only 20 seconds later, so the first node to shout about it is not the one it came from.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-download"/></svg></span><h3>Receiving</h3><p>The wallet downloads whole blocks and the whole list of waiting transactions, and looks for its own payments on your computer. A node never learns which ones are yours.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-explorer"/></svg></span><h3>Spending</h3><p>To spend a note the wallet needs its place in the note tree. It asks for a whole part of the tree, 4,096 notes at a time, and finds the path itself. The node learns only which part.</p></div>
+    </div>
+    <div class="pg-note"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Your internet address is not hidden by the software.</b> A node you connect to sees where the connection comes from, as any website does. The software does not route through Tor or a similar network by itself. If that matters to you, run your own full node, which asks nobody about your payments, and put the computer behind a VPN or Tor at the system level.</p></div></div>
+  </section>
+
+  <section class="pg-sec" id="public">
+    <span class="eyebrow">Public on purpose</span>
+    <h2>What is open, and why</h2>
+    <ul>
+      <li><b>Mining income.</b> Shares and payouts are public per miner, as block rewards are on every chain: that is what lets every node check that rewards are paid fairly. Mine to a wallet of its own if you do not want your mining linked to the address you give to others.</li>
+      <li><b>A published short address.</b> A full address is about 2,600 characters, because it carries a post-quantum key. If you press <b>Publish short form</b>, nodes keep the full address under the short one so others can pay you with it. That shows the address exists. It shows nothing about what it has received.</li>
+      <li><b>Swaps with bitcoin.</b> The bitcoin side of a swap is an ordinary Bitcoin transaction, as public as any other. Offers on the board carry a one-time key, never your address, and the board cannot read the messages two wallets pass through it. A completed swap is reported to the board with its amounts and its bitcoin contract, because that is what the market price is made of and how the board finds the payment on the Bitcoin chain.</li>
+      <li><b>The explorer.</b> When you open a transaction from the wallet's History on genoryn.io, the site sees that someone looked that transaction up. It still cannot tell what the payment was or who made it.</li>
+    </ul>
+  </section>
+
+  <section class="pg-sec" id="proofs">
+    <span class="eyebrow">When you want to show something</span>
+    <h2>Proving a payment without opening your wallet</h2>
+    <p>Privacy by default would be a problem if you could never prove that you paid. So the wallet can make a <b>payment proof</b> for any payment you sent: a short text that shows that one payment, with its amount, memo and recipient, to whoever you give it to. Anyone can check it in the wallet or on the <a href="/explorer">explorer</a>. Nothing else about your wallet follows from it.</p>
+  </section>
+
+  <section class="pg-sec" id="future">
+    <span class="eyebrow">In twenty years</span>
+    <h2>Private later, not only today</h2>
+    <p>A blockchain never forgets. What is encrypted on it today can be attacked whenever the hardware exists, and privacy lost that way cannot be repaired by an upgrade, because the old data is already public. That is why the data only the recipient may read is encrypted with ML-KEM-1024, a NIST post-quantum standard, alongside X25519, and why the proofs rest on hash functions alone. See <a href="/quantum">Quantum security</a>.</p>
+  </section>
+
+  <section class="pg-sec" id="limits">
+    <span class="eyebrow">Limits</span>
+    <h2>What no software can hide for you</h2>
+    <ul>
+      <li>What you tell other people: an address you post next to your name is linked to your name.</li>
+      <li>What happens outside the chain: an exchange, a shop or a buyer knows what they traded with you.</li>
+      <li>A computer someone else controls. Keep your recovery phrase on paper, offline.</li>
+      <li>Timing. Someone who watches both you and the chain closely may guess that a transfer at that moment was yours.</li>
+    </ul>
+    <p>The full model, with what an observer of the chain and a hostile node can and cannot do, is in the <a href="/docs#privacy">documentation</a> and the <a href="https://github.com/genoryn/genoryn/blob/main/SECURITY.md" rel="noopener">security policy</a>.</p>
+  </section>
+  <div class="pg-next"><a class="glass" href="/validation"><em>Previous</em><b>Validation</b></a><a class="glass" href="/quantum"><em>Next</em><b>Quantum security</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

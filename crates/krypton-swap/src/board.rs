@@ -709,13 +709,129 @@ impl Trade {
     }
 }
 
+/// What makes a trade report count by its bitcoin (1.0.44): the swap's bitcoin contract,
+/// and the signature of one of the contract's two keys over the report. Only the two
+/// wallets of a swap hold those keys, so nobody else can report it; and the contract
+/// follows from the keys and the trade's hash lock, so the board can look up on the
+/// Bitcoin chain how much was taken out of it with the swap's secret.
+/// It travels next to the trade, not inside it: older boards read the trade as before.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Paid {
+    pub btc_network: String,
+    /// The contract's keys (hex) and refund height.
+    pub claim: String,
+    pub refund: String,
+    pub refund_height: u32,
+    /// The payment into the contract (`txid:vout`) and the Bitcoin block that holds it.
+    pub funding: String,
+    pub funded_height: u32,
+    /// The key that signed, one of the two above, and its signature.
+    pub key: String,
+    pub sig: String,
+}
+
+fn paid_digest(t: &Trade, p: &Paid) -> [u8; 32] {
+    use bitcoin::hashes::{Hash, sha256};
+    let (gnr, sats, height, funded) = (
+        t.gnr.to_le_bytes(),
+        t.sats.to_le_bytes(),
+        p.refund_height.to_le_bytes(),
+        p.funded_height.to_le_bytes(),
+    );
+    let parts: [&[u8]; 10] = [
+        t.network.as_bytes(),
+        t.hash.as_bytes(),
+        &gnr,
+        &sats,
+        p.btc_network.as_bytes(),
+        p.claim.as_bytes(),
+        p.refund.as_bytes(),
+        &height,
+        p.funding.as_bytes(),
+        &funded,
+    ];
+    sha256::Hash::hash(&tagged_parts("Krypton/board/paid", &parts)).to_byte_array()
+}
+
+/// Signs the report `t` of a swap whose bitcoin contract is `htlc`, paid by `funding`
+/// in the Bitcoin block `funded_height`, with this wallet's key of that contract.
+pub fn sign_paid(
+    t: &Trade,
+    htlc: &crate::Htlc,
+    network: bitcoin::Network,
+    funding: &bitcoin::OutPoint,
+    funded_height: u32,
+    key: &bitcoin::secp256k1::SecretKey,
+) -> Paid {
+    use bitcoin::secp256k1::{Message, Secp256k1};
+    let secp = Secp256k1::signing_only();
+    let mut p = Paid {
+        btc_network: network.to_core_arg().into(),
+        claim: htlc.claim.to_string(),
+        refund: htlc.refund.to_string(),
+        refund_height: htlc.refund_height,
+        funding: funding.to_string(),
+        funded_height,
+        key: hex::encode(key.public_key(&secp).serialize()),
+        sig: String::new(),
+    };
+    let sig = secp.sign_ecdsa(&Message::from_digest(paid_digest(t, &p)), key);
+    p.sig = hex::encode(sig.serialize_compact());
+    p
+}
+
+/// Checks that `p` was made for the report `t` by one of the two keys of the bitcoin
+/// contract it names, and returns that contract and the payment into it. What the
+/// Bitcoin chain shows of them is for the caller to look up
+/// ([`crate::btc::claimed_from`]).
+pub fn check_paid(t: &Trade, p: &Paid) -> Result<(crate::Htlc, bitcoin::OutPoint)> {
+    use bitcoin::secp256k1::{Message, PublicKey, Secp256k1, ecdsa::Signature};
+    use std::str::FromStr;
+    bitcoin::Network::from_core_arg(&p.btc_network)
+        .map_err(|_| anyhow!("unknown Bitcoin network"))?;
+    ensure!(
+        p.claim.len() == 66
+            && p.refund.len() == 66
+            && p.key.len() == 66
+            && p.sig.len() == 128
+            && p.funding.len() <= 80,
+        "bad swap proof"
+    );
+    let funding = bitcoin::OutPoint::from_str(&p.funding).map_err(|_| anyhow!("bad payment"))?;
+    ensure!(
+        p.key.eq_ignore_ascii_case(&p.claim) || p.key.eq_ignore_ascii_case(&p.refund),
+        "the swap proof is not signed by a key of its contract"
+    );
+    let hash: [u8; 32] = hex::decode(&t.hash)
+        .ok()
+        .and_then(|h| h.try_into().ok())
+        .context("bad hash")?;
+    let key = PublicKey::from_slice(&hex::decode(&p.key).context("bad key")?)
+        .map_err(|_| anyhow!("bad key"))?;
+    let sig = Signature::from_compact(&hex::decode(&p.sig).context("bad signature")?)
+        .map_err(|_| anyhow!("bad signature"))?;
+    Secp256k1::verification_only()
+        .verify_ecdsa(&Message::from_digest(paid_digest(t, p)), &sig, &key)
+        .map_err(|_| anyhow!("the swap proof is not for this report"))?;
+    let htlc = crate::Htlc::new(
+        hash,
+        bitcoin::PublicKey::from_str(&p.claim).map_err(|_| anyhow!("bad claim key"))?,
+        bitcoin::PublicKey::from_str(&p.refund).map_err(|_| anyhow!("bad refund key"))?,
+        p.refund_height,
+    )
+    .map_err(|e| anyhow!("bad contract: {e}"))?;
+    Ok((htlc, funding))
+}
+
 /// The market from the board's data.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
-    /// The market price in sat per GNR: the average of completed swaps (see
-    /// [`market`]). `None` while the board is empty.
+    /// The market price in sat per GNR, from completed swaps (see [`market`]). `None`
+    /// while the board has none.
     pub price: Option<f64>,
-    /// The strongest kind of data the price rests on: `swaps` or `offers`.
+    /// What the price rests on: `verified swaps` (their bitcoin was found on the Bitcoin
+    /// chain; the price is their volume-weighted median) or `swaps` (too few of those
+    /// yet: the plain average of the reported ones).
     pub source: Option<String>,
     /// How much the price can be trusted, 0 to 1: grows with the (time-weighted) GNR volume
     /// behind it, `w / (w + DEPTH_GNR)`.
@@ -737,9 +853,15 @@ pub struct Market {
     #[serde(default)]
     pub pending_gnr: u64,
     pub last_price: Option<f64>,
-    /// How many completed swaps the price is the average of.
+    /// How many completed swaps the price is computed from.
     #[serde(default)]
     pub priced: usize,
+    /// Swaps of the price window whose bitcoin the board found on the Bitcoin chain, and
+    /// that bitcoin (sat).
+    #[serde(default)]
+    pub verified: usize,
+    #[serde(default)]
+    pub verified_sats: u64,
     /// Cheapest sell offer and highest buy offer (sat per GNR).
     pub best_ask: Option<f64>,
     pub best_bid: Option<f64>,
@@ -775,13 +897,17 @@ fn weighted_median_f(mut v: Vec<(f64, f64)>) -> Option<f64> {
     v.last().map(|x| x.0)
 }
 
-/// The price is the average of the completed swaps of the last 72 hours (all kept swaps
-/// while there are none that recent).
+/// The price comes from the completed swaps of the last 72 hours (all kept swaps while
+/// there are none that recent).
 pub const MARKET_WINDOW_SECS: u64 = 72 * 3600;
 /// With three or more swaps, a swap more than this factor away from their median is left
-/// out: a swap reports its own amounts (they are private on chain), so a typo or a fake
-/// report must not move the average.
+/// out: a swap reports its own GNR amount (it is private on chain), so a typo or a fake
+/// report must not move the price.
 pub const OUTLIER_FACTOR: f64 = 4.0;
+/// From this many verified swaps in the window the price rests on them alone.
+pub const MIN_VERIFIED: usize = 3;
+/// No single swap carries more than this share of the weight behind the price.
+pub const MAX_SHARE: f64 = 0.2;
 /// GNR swapped behind the price at which confidence reaches one half.
 pub const DEPTH_GNR: f64 = 25.0;
 /// The book's best price is where at least this much GNR can be bought (or sold) at once,
@@ -829,35 +955,125 @@ pub fn book_price(offers: &[Offer]) -> Option<(f64, f64)> {
     }
 }
 
-/// The swaps the price is the average of: those of the last 72 hours (all of them while
-/// none is that recent), without typos and fakes (more than 4× from the median, once
-/// there are three or more).
-pub fn priced_swaps(trades: &[(Trade, u64)], now: u64) -> Vec<&Trade> {
+/// The completed swaps of the price window: those of the last 72 hours, or all of them
+/// while none is that recent.
+fn window(trades: &[(Trade, u64)], now: u64) -> Vec<&Trade> {
     let ok = |t: &&Trade| t.price().is_finite() && t.price() > 0.0;
-    let mut v: Vec<&Trade> = trades
+    let v: Vec<&Trade> = trades
         .iter()
         .filter(|(_, at)| *at + MARKET_WINDOW_SECS > now)
         .map(|(t, _)| t)
         .filter(ok)
         .collect();
     if v.is_empty() {
-        v = trades.iter().map(|(t, _)| t).filter(ok).collect();
+        trades.iter().map(|(t, _)| t).filter(ok).collect()
+    } else {
+        v
     }
-    if v.len() >= 3
-        && let Some(m) = weighted_median_f(v.iter().map(|t| (t.price(), 1.0)).collect())
-    {
-        v.retain(|t| t.price() <= m * OUTLIER_FACTOR && t.price() >= m / OUTLIER_FACTOR);
-    }
-    v
 }
 
-/// The market price: the arithmetic mean of the prices of completed swaps (each one's
-/// claim is on the GNR chain), every swap counting the same; see [`priced_swaps`].
+/// Caps every weight so that none is more than [`MAX_SHARE`] of the total (with five
+/// swaps or fewer that means: all the same).
+fn cap_shares(w: &mut [f64]) {
+    if w.is_empty() {
+        return;
+    }
+    let least = w.iter().copied().fold(f64::INFINITY, f64::min);
+    if (w.len() as f64) * MAX_SHARE <= 1.0 {
+        w.iter_mut().for_each(|x| *x = least);
+        return;
+    }
+    // The largest cap c with c = MAX_SHARE × Σ min(w, c), approached from above.
+    let mut c = w.iter().copied().fold(0.0, f64::max);
+    for _ in 0..64 {
+        let next = MAX_SHARE * w.iter().map(|x| x.min(c)).sum::<f64>();
+        if next >= c * (1.0 - 1e-9) {
+            break;
+        }
+        c = next.max(least);
+    }
+    w.iter_mut().for_each(|x| *x = x.min(c));
+}
+
+/// The swaps the price is computed from, each with its weight, and whether they are the
+/// verified ones.
+///
+/// * **Verified swaps** (`verified`: hash lock → sat found on the Bitcoin chain, paid into
+///   the swap's contract and taken out with its secret), once the window has
+///   [`MIN_VERIFIED`] of them: each weighs the bitcoin it moved, but never more than its
+///   GNR is worth at the going price (so an odd price cannot buy weight with one large
+///   side), and never more than [`MAX_SHARE`] of the total. One or two large swaps
+///   therefore cannot set the price; it takes several that together outweigh the rest.
+/// * Otherwise every reported swap, each weighing the same, as before 1.0.44.
+///
+/// Either way a swap more than [`OUTLIER_FACTOR`] from the median is left out once there
+/// are three.
+pub fn priced_swaps<'a>(
+    trades: &'a [(Trade, u64)],
+    verified: &std::collections::HashMap<String, u64>,
+    now: u64,
+) -> (Vec<(&'a Trade, f64)>, bool) {
+    let all = window(trades, now);
+    let proven: Vec<(&Trade, f64)> = all
+        .iter()
+        .filter_map(|t| {
+            verified
+                .get(&t.hash)
+                .map(|sats| (*t, (*sats).min(t.sats) as f64))
+        })
+        .filter(|(_, w)| *w > 0.0)
+        .collect();
+    let by_volume = proven.len() >= MIN_VERIFIED;
+    let mut v: Vec<(&Trade, f64)> = if by_volume {
+        proven
+    } else {
+        all.into_iter().map(|t| (t, 1.0)).collect()
+    };
+    // The going price is taken with the shares already capped: one huge swap at an odd
+    // price cannot make itself the yardstick and the others the outliers.
+    let capped = |v: &[(&Trade, f64)]| -> Vec<f64> {
+        let mut w: Vec<f64> = v.iter().map(|x| x.1).collect();
+        if by_volume {
+            cap_shares(&mut w);
+        }
+        w
+    };
+    if v.len() >= 3
+        && let Some(m) = weighted_median_f(
+            v.iter()
+                .zip(capped(&v))
+                .map(|((t, _), w)| (t.price(), w))
+                .collect(),
+        )
+    {
+        v.retain(|(t, _)| t.price() <= m * OUTLIER_FACTOR && t.price() >= m / OUTLIER_FACTOR);
+        if by_volume {
+            for (t, w) in v.iter_mut() {
+                *w = w.min(t.gnr as f64 / 1e8 * m);
+            }
+        }
+    }
+    let w = capped(&v);
+    for (x, w) in v.iter_mut().zip(w) {
+        x.1 = w;
+    }
+    (v, by_volume)
+}
+
+/// The market price, from completed swaps (each one's claim is on the GNR chain).
+///
+/// With enough swaps whose bitcoin the board found on the Bitcoin chain, the price is
+/// their **volume-weighted median**: half of the bitcoin that changed hands did so below
+/// it, half above. Moving it takes more bitcoin, really paid through swap contracts, than
+/// everyone else traded in the window; a report that is not one of a swap's two wallets'
+/// or that names no payment weighs nothing. See [`priced_swaps`]. Until there are enough
+/// such swaps it is the plain average of the reported ones, as before 1.0.44.
 ///
 /// Open offers and swaps in progress are counted and shown, but never move the price:
 /// anyone can post an offer at any price, and nothing proves a swap in progress runs.
 pub fn market(
     trades: &[(Trade, u64)],
+    verified: &std::collections::HashMap<String, u64>,
     offers: &[Offer],
     pending: &[(Offer, u64)],
     now: u64,
@@ -881,14 +1097,23 @@ pub fn market(
         .filter(|o| o.side == Side::BuyGnr)
         .map(Offer::price)
         .max_by(f64::total_cmp);
-    let swaps = priced_swaps(trades, now);
-    let price = (!swaps.is_empty())
-        .then(|| swaps.iter().map(|t| t.price()).sum::<f64>() / swaps.len() as f64);
-    let w: f64 = swaps.iter().map(|t| t.gnr as f64 / 1e8).sum();
+    let (swaps, by_volume) = priced_swaps(trades, verified, now);
+    let price = if swaps.is_empty() {
+        None
+    } else if by_volume {
+        weighted_median_f(swaps.iter().map(|(t, w)| (t.price(), *w)).collect())
+    } else {
+        Some(swaps.iter().map(|(t, _)| t.price()).sum::<f64>() / swaps.len() as f64)
+    };
+    let w: f64 = swaps.iter().map(|(t, _)| t.gnr as f64 / 1e8).sum();
     let confidence = if w > 0.0 { w / (w + DEPTH_GNR) } else { 0.0 };
+    let proven: Vec<u64> = window(trades, now)
+        .iter()
+        .filter_map(|t| verified.get(&t.hash).map(|s| (*s).min(t.sats)))
+        .collect();
     Market {
         price,
-        source: price.map(|_| "swaps".to_string()),
+        source: price.map(|_| if by_volume { "verified swaps" } else { "swaps" }.to_string()),
         confidence: (confidence * 1000.0).round() / 1000.0,
         depth: if confidence >= 0.8 {
             "deep"
@@ -907,6 +1132,8 @@ pub fn market(
         pending_gnr: pending.iter().map(|(o, _)| o.gnr).sum(),
         last_price: last,
         priced: swaps.len(),
+        verified: proven.len(),
+        verified_sats: proven.iter().sum(),
         best_ask: ask,
         best_bid: bid,
         offers: offers.len(),
@@ -1067,6 +1294,161 @@ mod tests {
         a.is_some_and(|a| (a - b).abs() < 0.01)
     }
 
+    fn none() -> std::collections::HashMap<String, u64> {
+        Default::default()
+    }
+
+    /// A swap with its own hash lock, and the same swap as the Bitcoin chain shows it.
+    fn swap(n: u8, sats: u64, gnr: u64) -> (Trade, (String, u64)) {
+        let mut t = trade(sats, gnr);
+        t.hash = hex::encode([n; 32]);
+        let seen = (t.hash.clone(), sats);
+        (t, seen)
+    }
+
+    #[test]
+    fn the_price_of_verified_swaps_is_where_half_the_bitcoin_changed_hands() {
+        let now = 500 * 3600;
+        let g = 100_000_000u64;
+        // Five swaps around 5,000 sat per GNR, 0.001 to 0.004 BTC each.
+        let honest = [
+            swap(1, 100_000, 20 * g),
+            swap(2, 204_000, 40 * g),
+            swap(3, 400_000, 80 * g),
+            swap(4, 245_000, 50 * g),
+            swap(5, 153_000, 30 * g),
+        ];
+        let mut trades: Vec<(Trade, u64)> =
+            honest.iter().map(|x| (x.0.clone(), now - 60)).collect();
+        let mut seen: std::collections::HashMap<String, u64> =
+            honest.iter().map(|x| x.1.clone()).collect();
+        let m = market(&trades, &seen, &[], &[], now);
+        assert_eq!(m.source.as_deref(), Some("verified swaps"));
+        assert_eq!((m.priced, m.verified), (5, 5));
+        let fair = m.price.unwrap();
+        assert!((4_900.0..=5_100.0).contains(&fair), "{fair}");
+
+        // Reports nobody proved weigh nothing, however many and whatever they say.
+        for i in 0..50u8 {
+            let mut t = trade(1_000_000, g);
+            t.hash = hex::encode([100 + i; 32]);
+            trades.push((t, now - 30));
+        }
+        assert_eq!(market(&trades, &seen, &[], &[], now).price, Some(fair));
+
+        // One real swap of 1 BTC for 2 GNR (a hundred times the price): it is left out as
+        // an outlier; at three times the price it stays, but weighs only what its 2 GNR
+        // are worth at the going price, not its bitcoin.
+        let (far, far_seen) = swap(60, 100_000_000, 2 * g);
+        let (odd, odd_seen) = swap(61, 30_000, 2 * g);
+        let mut with = trades.clone();
+        let mut seen_with = seen.clone();
+        with.push((far, now - 10));
+        with.push((odd, now - 10));
+        seen_with.extend([far_seen, odd_seen]);
+        let m = market(&with, &seen_with, &[], &[], now);
+        assert_eq!(m.priced, 6);
+        assert!((4_900.0..=5_100.0).contains(&m.price.unwrap()), "{m:?}");
+
+        // One whale cannot be the price: a single swap is at most a fifth of the weight.
+        let (whale, whale_seen) = swap(70, 6_000 * 2_000, 2_000 * g);
+        trades.push((whale, now - 5));
+        seen.insert(whale_seen.0, whale_seen.1);
+        let m = market(&trades, &seen, &[], &[], now);
+        assert!((4_900.0..=5_100.0).contains(&m.price.unwrap()), "{m:?}");
+
+        // Nor can two. It takes several large swaps that together outweigh the rest.
+        let mut more = trades.clone();
+        let mut seen_more = seen.clone();
+        let (t, s) = swap(71, 6_000 * 2_000, 2_000 * g);
+        more.push((t, now - 4));
+        seen_more.insert(s.0, s.1);
+        let two = market(&more, &seen_more, &[], &[], now).price.unwrap();
+        assert!(two < 5_200.0, "{two}");
+        let (t, s) = swap(72, 6_000 * 2_000, 2_000 * g);
+        more.push((t, now - 3));
+        seen_more.insert(s.0, s.1);
+        assert!(close(
+            market(&more, &seen_more, &[], &[], now).price,
+            6_000.0
+        ));
+    }
+
+    #[test]
+    fn too_few_verified_swaps_leave_the_price_as_it_was() {
+        let now = 600 * 3600;
+        let g = 100_000_000u64;
+        let (a, sa) = swap(1, 5_000, g);
+        let (b, sb) = swap(2, 7_000, g);
+        let (c, _) = swap(3, 6_000, g);
+        let trades = vec![(a, now - 3), (b, now - 2), (c, now - 1)];
+        let seen: std::collections::HashMap<String, u64> = [sa, sb].into_iter().collect();
+        let m = market(&trades, &seen, &[], &[], now);
+        assert_eq!(m.source.as_deref(), Some("swaps"));
+        assert_eq!((m.priced, m.verified, m.verified_sats), (3, 2, 12_000));
+        assert!(close(m.price, 6_000.0));
+        // A weight is never more than what the report itself says was paid.
+        let (d, mut sd) = swap(4, 5_000, g);
+        sd.1 = 9_000_000;
+        let same = [(d.clone(), now), (d.clone(), now), (d, now)];
+        let (v, by_volume) = priced_swaps(&same, &[sd].into_iter().collect(), now);
+        assert!(by_volume && v.iter().all(|(_, w)| *w <= 5_000.0));
+    }
+
+    #[test]
+    fn shares_are_capped_without_losing_the_weight() {
+        let mut w = vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 100.0];
+        cap_shares(&mut w);
+        let total: f64 = w.iter().sum();
+        assert!(w.iter().all(|x| *x <= total * MAX_SHARE + 1e-6), "{w:?}");
+        assert!((w[6] - 1.5).abs() < 1e-6 && w[0] == 1.0, "{w:?}");
+        let mut few = vec![5.0, 1.0, 3.0];
+        cap_shares(&mut few);
+        assert_eq!(few, vec![1.0, 1.0, 1.0]);
+        let mut even = vec![2.0; 8];
+        cap_shares(&mut even);
+        assert_eq!(even, vec![2.0; 8]);
+    }
+
+    #[test]
+    fn a_swap_proof_is_one_partys_word_for_one_report() {
+        use bitcoin::secp256k1::{Secp256k1, SecretKey};
+        let secp = Secp256k1::signing_only();
+        let (claim, refund, other) = (
+            SecretKey::from_slice(&[7; 32]).unwrap(),
+            SecretKey::from_slice(&[8; 32]).unwrap(),
+            SecretKey::from_slice(&[9; 32]).unwrap(),
+        );
+        let key = |k: &SecretKey| bitcoin::PublicKey::new(k.public_key(&secp));
+        let (t, _) = swap(5, 150_000, 30 * 100_000_000);
+        let htlc = crate::Htlc::new([5; 32], key(&claim), key(&refund), 900_000).unwrap();
+        let net = bitcoin::Network::Bitcoin;
+        let paid = bitcoin::OutPoint::new("aa".repeat(32).parse().unwrap(), 1);
+        for k in [&claim, &refund] {
+            let p = sign_paid(&t, &htlc, net, &paid, 880_000, k);
+            assert_eq!(check_paid(&t, &p).unwrap(), (htlc.clone(), paid));
+            let mut moved = p.clone();
+            moved.funding = format!("{}:2", "aa".repeat(32));
+            assert!(check_paid(&t, &moved).is_err());
+            // Another amount, another swap, another contract: not this proof.
+            let mut more = t.clone();
+            more.gnr += 1;
+            assert!(check_paid(&more, &p).is_err());
+            let mut elsewhere = t.clone();
+            elsewhere.hash = hex::encode([6; 32]);
+            assert!(check_paid(&elsewhere, &p).is_err());
+            let mut later = p.clone();
+            later.refund_height += 1;
+            assert!(check_paid(&t, &later).is_err());
+        }
+        // A key that is not in the contract cannot speak for it, even with a good
+        // signature of its own.
+        let mut p = sign_paid(&t, &htlc, net, &paid, 880_000, &other);
+        assert!(check_paid(&t, &p).is_err());
+        p.key = p.claim.clone();
+        assert!(check_paid(&t, &p).is_err());
+    }
+
     #[test]
     fn market_price_is_the_average_of_completed_swaps() {
         let now = 100 * 3600;
@@ -1078,7 +1460,7 @@ mod tests {
             (trade(1_000_000_000_000, 50_000_000_000), now - 300),
         ];
         // Every swap counts the same, whatever its size: (5,000 + 5,200 + 5,100) / 3.
-        let m = market(&trades, &[], &[], now);
+        let m = market(&trades, &none(), &[], &[], now);
         assert_eq!(m.trades, 4);
         assert!(close(m.price, 5_100.0), "{m:?}");
         assert_eq!(m.source.as_deref(), Some("swaps"));
@@ -1092,13 +1474,13 @@ mod tests {
             (trade(1_000, 100_000_000), now),
             (trade(3_000, 100_000_000), now),
         ];
-        assert!(close(market(&two, &[], &[], now).price, 2_000.0));
+        assert!(close(market(&two, &none(), &[], &[], now).price, 2_000.0));
         // No swap at all: no price, however many offers.
         let offers = vec![
             offer(Side::SellGnr, 100_000_000, 6_000),
             offer(Side::BuyGnr, 100_000_000, 4_000),
         ];
-        let m = market(&[], &offers, &[], now);
+        let m = market(&[], &none(), &offers, &[], now);
         assert_eq!((m.price, m.source), (None, None));
         assert_eq!((m.best_ask, m.best_bid), (Some(6_000.0), Some(4_000.0)));
         assert_eq!(m.offers_price, Some(5_000.0));
@@ -1123,7 +1505,7 @@ mod tests {
         let fake: Vec<_> = (0..100)
             .map(|_| (offer(Side::SellGnr, 100_000_000_000, 100_000_000_000), now))
             .collect();
-        let m = market(&swaps, &spam, &fake, now);
+        let m = market(&swaps, &none(), &spam, &fake, now);
         assert!(close(m.price, 5_000.0), "{m:?}");
         assert_eq!((m.pending, m.offers), (100, 80));
     }
@@ -1136,19 +1518,22 @@ mod tests {
             (trade(6_000, 100_000_000), now - 60),
         ];
         // The swap of 80 h ago is outside the 72 h window while a recent one exists.
-        assert!(close(market(&trades, &[], &[], now).price, 6_000.0));
+        assert!(close(
+            market(&trades, &none(), &[], &[], now).price,
+            6_000.0
+        ));
         // With only old swaps, their average.
         let old = vec![
             (trade(4_000, 100_000_000), now - 100 * 3600),
             (trade(6_000, 100_000_000), now - 90 * 3600),
         ];
-        assert!(close(market(&old, &[], &[], now).price, 5_000.0));
-        assert_eq!(market(&[], &[], &[], now).price, None);
+        assert!(close(market(&old, &none(), &[], &[], now).price, 5_000.0));
+        assert_eq!(market(&[], &none(), &[], &[], now).price, None);
         let deep = vec![
             (trade(500_000, 100 * 100_000_000), now - 60),
             (trade(500_000, 100 * 100_000_000), now - 30),
         ];
-        let m = market(&deep, &[], &[], now);
+        let m = market(&deep, &none(), &[], &[], now);
         assert_eq!(m.depth, "deep");
         assert!(m.confidence > 0.85);
     }

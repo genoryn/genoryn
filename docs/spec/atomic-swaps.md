@@ -267,18 +267,41 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
 * **Market price:** after a swap completes, wallets report its amounts and hash lock (on by
   default; the setting `share_prices` turns it off). The board accepts a report only if a
   claim with that hash lock is on its own chain, and it counts each hash once.
-  * The market price is the **arithmetic mean of completed swaps**, stored in sat per GNR
-    and shown in BTC (`board::market`, `board::priced_swaps`):
-    * the swaps completed in the last 72 hours, each counting the same whatever its size
-      (all recorded swaps while none is that recent);
-    * with three or more, a swap more than 4× away from their median is left out: amounts
-      are reported by the wallets (they are private on chain), so a typo or a fake report
-      must not move the average;
+  * **From 1.0.44 a report proves its bitcoin** (`board::Paid`, sent next to the trade so
+    that older boards read the trade as before). It names the swap's bitcoin contract (its
+    two keys and refund height; with the trade's hash lock they are the contract's script)
+    and the payment into it, and is signed with one of those two keys over the report. A
+    board with a Bitcoin server (`KRYPTON_BTC_API`) looks up the transaction that spends that
+    payment (`btc::claimed_from`): it must spend nothing else, spend it by the contract's
+    script and reveal the secret that the claim on the GNR chain shows. What that transaction
+    pays out is the swap's verified bitcoin. A second report, signed by the contract's other
+    key, that names other amounts marks the swap as disputed: it no longer counts. Lookups
+    are bounded: 10 a minute in all, 12 an hour for one swap, and no further back than
+    576 Bitcoin blocks.
+  * The market price is stored in sat per GNR and shown in BTC (`board::market`,
+    `board::priced_swaps`), from the swaps completed in the last 72 hours (all recorded
+    swaps while none is that recent):
+    * with three or more verified swaps, their **volume-weighted median**. A swap weighs
+      its verified bitcoin, never more than the bitcoin it reports, never more than its
+      GNR is worth at the going price (the median taken with the shares already capped),
+      and never more than a fifth of the total weight. Unverified reports weigh nothing.
+      Moving the price therefore takes several swaps that together outweigh the rest, each
+      with real bitcoin paid through a swap contract;
+    * with fewer, the arithmetic mean of the reported swaps, each counting the same, as
+      before 1.0.44;
+    * a swap more than 4× away from the median is left out: the GNR amount is reported by
+      the wallets (it is private on chain), so a typo or a fake report must not move the
+      price;
+    * the board cannot tell a swap between two people from one a person makes with
+      themselves. That is why the weight is bounded per swap, and why an offer that
+      follows the market never passes its owner's limit;
     * open offers and swaps in progress are listed and counted, but **never** move the
       price: anyone can post an offer at any price, and nothing proves a swap in progress
       runs. The best sell and buy offers are shown next to the price.
 
-    The board also reports how many swaps were averaged (`priced`), `confidence`,
+    The board also reports what the price rests on (`source`: `verified swaps` or
+    `swaps`), how many swaps of the window were verified and their bitcoin (`verified`,
+    `verified_sats`), how many swaps the price is computed from (`priced`), `confidence`,
     `v / (v + 25)` for the GNR `v` behind them, and a `depth` of thin (< 0.4), moderate or
     deep (≥ 0.8).
   * **Swaps in progress:** a taken offer moves to "in progress" when its maker proves it
@@ -561,3 +584,28 @@ moves them (the board takes the offers down within seconds), and a complete swap
 | 3 | Offer board, sealed mailboxes and the market price from completed swaps | **done** |
 | 3a | Sell offers prove their GNR to the board (1.0.40) | **done** |
 | 4 | Mainnet activation at block 3,300 (release 1.0.13); first swaps with small amounts; an independent review of the circuit change | **scheduled** |
+
+## Offers that follow the market (from 1.0.44)
+
+A function of the wallet: the chain, the nodes and the offer format are as before, and to
+other wallets a following offer is an ordinary offer whose price changes now and then.
+
+* **What is fixed and what moves.** A sell offer keeps its GNR and the bitcoin asked moves;
+  a buy offer keeps its bitcoin and the GNR asked moves. Nothing is agreed at a price in
+  advance: a request must name exactly the amounts of the offer as it stands, or it is
+  refused, as for every offer.
+* **Moving the price.** Every round the wallet compares the offer's price with the board's
+  market price. If the market is at least 1 % away and the price was last set 10 minutes
+  ago or more, the wallet moves the offer one step towards it, by at most 5 %:
+  it takes the offer off the board (with its cancel secret) and lists a new offer with a
+  new id, the same key, the same expiry and the new amounts. A sell offer's note stays the
+  same; it is held for the new id at once and proven to the board again (`prove_reserve`),
+  and the week it is committed for keeps counting from the first listing. A buy offer's
+  deposit stays at its address and is proven again with the deposit key's signature over
+  the new offer. An offer without either is posted anew before the old one is taken down.
+* **The limit.** The owner gives a price in sat per GNR that a sell offer never goes below
+  and a buy offer never above. The market price is the board's word, and the board cannot
+  tell real swaps from a person's swaps with themselves; the limit is what bounds the
+  harm of a wrong or pushed price. Past the limit the offer stands at the limit.
+* **Taken offers are not moved**, and an offer on its way to the board is not either. A
+  request for an offer that has been replaced finds no offer and is answered as gone.

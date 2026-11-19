@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genoryn Krypton Features: Validation, Privacy, Quantum Security, Wallet and Node</title>
+<meta name="description" content="What Genoryn Krypton (GNR) gives you: full validation of every rule, payments that are private by default, cryptography a quantum computer does not break, a wallet with a console, and a node that helps the network.">
+<!--SEO:features-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="features">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Features</span></nav>
+    <span class="eyebrow">Features</span>
+    <h1 class="h2 glow">Money you can check for yourself.</h1>
+    <p class="lead">Genoryn Krypton is one piece of open-source software in four programs: a wallet, a full node, a miner and a command-line wallet. Together they let you hold, send, mine and trade GNR without asking anyone's permission and without trusting anyone's word. These pages say what the software does, how, and where its limits are.</p>
+    <div class="row-btns"><a class="btn btn-primary" href="/download">Get the wallet</a><a class="btn" href="/full-node">Run a full node</a><a class="btn" href="/about">What is GNR?</a></div>
+  </header>
+  <nav class="pg-tabs" aria-label="Features"><a href="/features" aria-current="page">Overview</a><a href="/validation">Validation</a><a href="/privacy">Privacy</a><a href="/quantum">Quantum security</a><a href="/requirements">Requirements</a><a href="/interface">User interface</a><a href="/network">Network support</a></nav>
+  <div class="pg-facts">
+    <div class="glass pg-fact"><b>21,000,000</b><span>GNR at most, enforced by every full node</span></div>
+    <div class="glass pg-fact"><b>100 %</b><span>of transfers shielded: there is no transparent mode</span></div>
+    <div class="glass pg-fact"><b>0</b><span>elliptic curves guarding coins or privacy</span></div>
+    <div class="glass pg-fact"><b>0</b><span>premine, presale, founder reward or developer fee</span></div>
+  </div>
+
+  <section class="pg-sec" id="pages">
+    <span class="eyebrow">In depth</span>
+    <h2>Six things it is built to do well</h2>
+    <div class="pg-grid">
+      <a class="glass pg-card" href="/validation"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Validation</h3><p>A full node checks every block and every proof against every rule, so no miner, exchange or website can make you accept GNR that breaks them. The light wallet checks the proof of work behind what it is told.</p><span class="pg-go">How validation protects you <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/privacy"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-eye"/></svg></span><h3>Privacy</h3><p>Sender, recipient and amount of every transfer are hidden by a zero-knowledge proof. See exactly what the chain shows, what a node can learn about you, and what stays public on purpose.</p><span class="pg-go">What is hidden, and from whom <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/quantum"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-explorer"/></svg></span><h3>Quantum security</h3><p>Spending is a hash-based zk-STARK proof and payment data is encrypted with ML-KEM, NIST's post-quantum standard. Nothing that guards coins or privacy can be broken by Shor's algorithm.</p><span class="pg-go">What quantum computers break <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/requirements"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-gauge"/></svg></span><h3>Requirements</h3><p>The light wallet runs on an ordinary computer and needs no chain download. A full node needs about 0.5 GB of disk today. Mining wants a graphics card, and works on a processor.</p><span class="pg-go">What your computer needs <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/interface"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-window"/></svg></span><h3>User interface</h3><p>A desktop wallet with a built-in miner, swap board and console; a command-line wallet; a node with a REST API, JSON-RPC and a WebSocket; SDKs for TypeScript, Rust and C.</p><span class="pg-go">Every way to use it <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="/network"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>Network support</h3><p>Every full node carries blocks and transactions to others over links encrypted against quantum computers, and makes the network harder to split, censor or lie to.</p><span class="pg-go">How your node helps everyone <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="box">
+    <span class="eyebrow">In the box</span>
+    <h2>Four programs, one download</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Program</th><th>What it is</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Program"><code>krypton-wallet</code></td><td data-label="What">Desktop wallet</td><td data-label="Does">Any number of wallets, private payments, payment proofs, the miner, atomic swaps with bitcoin on the offer board, live network charts, a read-only console, signed updates. Verifies what nodes tell it; can run its own node with one switch.</td></tr>
+        <tr><td data-label="Program"><code>kryptond</code></td><td data-label="What">Full node</td><td data-label="Does">Downloads the whole chain and checks every rule. Relays blocks, transactions and mining shares. Serves an API on this computer for wallets, miners and your own programs.</td></tr>
+        <tr><td data-label="Program"><code>krypton-miner</code></td><td data-label="What">Miner</td><td data-label="Does">KryptoHash on NVIDIA (CUDA), AMD and Intel (OpenCL) graphics cards and on processors. Paid in proportion to its work, with no pool.</td></tr>
+        <tr><td data-label="Program"><code>krypton-wallet-cli</code></td><td data-label="What">Command-line wallet</td><td data-label="Does">The same wallet without a window, for servers and scripts.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Everything is in one package for Windows and for Linux, signed with the project's post-quantum release key. See <a href="/download">Download</a>.</p>
+  </section>
+
+  <section class="pg-sec" id="more">
+    <span class="eyebrow">Also</span>
+    <h2>What else it does</h2>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-mining"/></svg></span><h3>Mining that pays by work</h3><p>Every block's reward goes into a pool that consensus holds, and every share a miner finds earns an equal slice of it. One percent of the hashrate earns about one percent of the rewards, alone, from the first hour.</p><a class="pg-go" href="/mining">Mining <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-market"/></svg></span><h3>Trading without an exchange</h3><p>BTC and GNR change hands in atomic swaps between two wallets: either both sides are paid or neither is. A sell offer must prove its GNR to the board before it is listed.</p><a class="pg-go" href="/market">Market <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>Proof of a payment</h3><p>A payment proof shows one payment, its amount, memo and recipient, to whoever you give it to, and nothing else about your wallet. Anyone can check it on the explorer.</p><a class="pg-go" href="/docs#proofs">Payment proofs <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+    </div>
+  </section>
+
+  <div class="glass pg-cta">
+    <div><h2>Try it</h2><p>The wallet is free, open source and needs no account. Your keys are made on your computer and never leave it.</p></div>
+    <div class="row-btns"><a class="btn btn-primary" href="/download">Get the wallet</a><a class="btn" href="/full-node">Run a full node</a></div>
+  </div>
+  <div class="pg-next"><a class="glass" href="/network"><em>Previous</em><b>Network support</b></a><a class="glass" href="/validation"><em>Next</em><b>Validation</b></a></div>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

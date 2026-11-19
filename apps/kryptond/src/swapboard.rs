@@ -85,9 +85,66 @@ struct Inner {
     deposits_checked: u64,
     /// Sell offers whose makers lock GNR only for buyers whose bitcoin is deposited.
     prepaid: HashSet<String>,
+    /// Completed swaps whose bitcoin this board found on the Bitcoin chain (1.0.44): by
+    /// hash lock, the sat taken out of the swap's contract with its secret, and the key
+    /// of the contract that proved the report. Kept on disk with the trades.
+    paid: HashMap<String, (u64, String)>,
+    /// Swaps whose two wallets reported different amounts: they do not count.
+    disputed: HashSet<String>,
+    /// When payments were last looked up on the Bitcoin chain, to keep the lookups few:
+    /// all of them, and per hash lock (start of its hour, lookups in it).
+    lookups: VecDeque<u64>,
+    lookups_of: HashMap<String, (u64, u32)>,
+}
+
+/// Lookups of swap payments on the Bitcoin chain: this many a minute in all, and this
+/// many an hour for one swap. Each needs a proof signed by a key of the contract it
+/// names and a claim on the GNR chain, but anyone can make a key.
+const LOOKUPS_A_MINUTE: usize = 10;
+const LOOKUPS_AN_HOUR_EACH: u32 = 12;
+
+/// What is kept on disk of the swaps whose bitcoin was found.
+#[derive(serde::Serialize, Deserialize, Default)]
+struct SavedPaid {
+    paid: Vec<(String, u64, String)>,
+    disputed: Vec<String>,
 }
 
 impl Inner {
+    /// Whether one more look at the Bitcoin chain for the swap `hash` fits the budget;
+    /// counts it if so.
+    fn lookup_allowed(&mut self, hash: &str, t: u64) -> bool {
+        while self.lookups.front().is_some_and(|at| at + 60 <= t) {
+            self.lookups.pop_front();
+        }
+        if self.lookups.len() >= LOOKUPS_A_MINUTE {
+            return false;
+        }
+        if self.lookups_of.len() > 20_000 {
+            self.lookups_of.retain(|_, (since, _)| *since + 3600 > t);
+        }
+        let e = self.lookups_of.entry(hash.to_string()).or_insert((t, 0));
+        if e.0 + 3600 <= t {
+            *e = (t, 0);
+        }
+        if e.1 >= LOOKUPS_AN_HOUR_EACH {
+            return false;
+        }
+        e.1 += 1;
+        self.lookups.push_back(t);
+        true
+    }
+
+    /// The swaps the price may rest on by their bitcoin: found on the Bitcoin chain and
+    /// not disputed by the swap's other wallet.
+    fn verified(&self) -> HashMap<String, u64> {
+        self.paid
+            .iter()
+            .filter(|(h, _)| !self.disputed.contains(*h))
+            .map(|(h, (sats, _))| (h.clone(), *sats))
+            .collect()
+    }
+
     /// Whether coins of `b` already back an open offer or a swap in progress.
     fn backs_another(&self, b: &Backing) -> bool {
         self.backing
@@ -220,6 +277,11 @@ impl Board {
         i.message_bytes = bytes;
         i.trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
         i.coin_trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
+        if i.paid.len() + i.disputed.len() > 0 {
+            let kept: HashSet<&str> = i.trades.iter().map(|(x, _)| x.hash.as_str()).collect();
+            i.paid.retain(|h, _| kept.contains(h.as_str()));
+            i.disputed.retain(|h| kept.contains(h.as_str()));
+        }
     }
 
     fn load(&self, i: &mut Inner) {
@@ -239,6 +301,12 @@ impl Board {
             && let Ok(t) = serde_json::from_slice::<Vec<(CoinTrade, u64)>>(&b)
         {
             i.coin_trades = t;
+        }
+        if let Ok(b) = std::fs::read(p.with_file_name("swap-trades-paid.json"))
+            && let Ok(v) = serde_json::from_slice::<SavedPaid>(&b)
+        {
+            i.paid = v.paid.into_iter().map(|(h, s, k)| (h, (s, k))).collect();
+            i.disputed = v.disputed.into_iter().collect();
         }
         // Offers and sealed messages survive restarts too (a node update must not drop
         // them, or a swap in progress could lose a code).
@@ -312,6 +380,17 @@ impl Board {
             }
             if let Ok(b) = serde_json::to_vec(&i.coin_trades) {
                 Board::write(&p.with_file_name("swap-coin-trades.json"), b);
+            }
+            let paid = SavedPaid {
+                paid: i
+                    .paid
+                    .iter()
+                    .map(|(h, (s, k))| (h.clone(), *s, k.clone()))
+                    .collect(),
+                disputed: i.disputed.iter().cloned().collect(),
+            };
+            if let Ok(b) = serde_json::to_vec(&paid) {
+                Board::write(&p.with_file_name("swap-trades-paid.json"), b);
             }
         }
     }
@@ -926,31 +1005,109 @@ pub async fn inbox(State(node): S, Path(id): Path<String>) -> Response {
     Json(json!({"messages": msgs})).into_response()
 }
 
-pub async fn post_trade(State(node): S, Json(t): Json<Trade>) -> Response {
+/// A trade report as wallets post it: the trade (its proof of work covers exactly that),
+/// and from 1.0.44 the proof that lets the board find the swap's bitcoin.
+#[derive(Deserialize)]
+pub struct TradePost {
+    #[serde(flatten)]
+    trade: Trade,
+    #[serde(default)]
+    paid: Option<board::Paid>,
+}
+
+/// What the Bitcoin chain shows was taken out of the contract `p` names with `secret`.
+fn paid_on_chain(api: &str, t: &Trade, p: &board::Paid, secret: &str) -> anyhow::Result<u64> {
+    let (htlc, funding) = board::check_paid(t, p)?;
+    let secret: [u8; 32] = hash32(secret).ok_or_else(|| anyhow::anyhow!("no secret"))?;
+    let btc = krypton_swap::btc::connect(api)?;
+    krypton_swap::btc::claimed_from(btc.as_ref(), &htlc, &funding, p.funded_height, &secret)
+}
+
+pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
+    let TradePost { trade: t, paid } = p;
     if let Err(e) = t.validate(node.chain.params.network.as_str()) {
         return bad(e);
     }
     let n = node.clone();
-    let r = tokio::task::spawn_blocking(move || {
+    let r = tokio::task::spawn_blocking(move || -> Result<Value, String> {
         scan_claims(&n);
+        // The swap's secret, as its claim on the GNR chain shows it, and who has proven
+        // this swap already.
+        let (secret, proven_by) = {
+            let mut i = n.board.inner.lock();
+            n.board.load(&mut i);
+            let Some(c) = i.claims.get(&t.hash) else {
+                return Err("no claim with this hash lock on chain yet".into());
+            };
+            (
+                c.secret.clone(),
+                i.paid.get(&t.hash).map(|(_, key)| key.clone()),
+            )
+        };
+        // A report with a proof: the board looks on the Bitcoin chain for itself, off
+        // its lock. One look per report, and none for a wallet that has proven already.
+        let mut found: Option<(u64, String)> = None;
+        if let (Some(p), Some(api)) = (paid.as_ref(), btc_api()) {
+            board::check_paid(&t, p).map_err(|e| e.to_string())?;
+            let key = p.key.to_ascii_lowercase();
+            if proven_by.as_deref() != Some(key.as_str()) {
+                if !n.board.inner.lock().lookup_allowed(&t.hash, now()) {
+                    return Err(
+                        "the board is busy checking swap payments; the report is sent again by itself"
+                            .into(),
+                    );
+                }
+                let sats = paid_on_chain(&api, &t, p, &secret)
+                    .map_err(|e| format!("the bitcoin of this swap could not be looked up: {e}"))?;
+                // The payout is the payment less its fee: at least half of what is reported.
+                if sats == 0 || sats.saturating_mul(2) < t.sats {
+                    return Err(
+                        "the bitcoin of this swap was not found on the Bitcoin chain yet; the report is sent again by itself"
+                            .into(),
+                    );
+                }
+                found = Some((sats, key));
+            }
+        }
         let mut i = n.board.inner.lock();
-        n.board.load(&mut i);
-        if i.trades.iter().any(|(x, _)| x.hash == t.hash) {
-            return Ok(false);
+        let at = i.trades.iter().position(|(x, _)| x.hash == t.hash);
+        let mut added = false;
+        match (found, at) {
+            (Some(f), Some(k)) => {
+                let same = i.trades[k].0.gnr == t.gnr && i.trades[k].0.sats == t.sats;
+                if i.paid.contains_key(&t.hash) {
+                    // The swap's other wallet says something else: neither counts.
+                    if !same {
+                        i.disputed.insert(t.hash.clone());
+                    }
+                } else {
+                    // The first proven report stands in for an unproven one.
+                    if !same {
+                        i.trades[k].0 = t.clone();
+                    }
+                    i.paid.insert(t.hash.clone(), f);
+                }
+            }
+            (Some(f), None) => {
+                i.paid.insert(t.hash.clone(), f);
+                added = true;
+            }
+            (None, None) => added = true,
+            (None, Some(_)) => {}
         }
-        if !i.claims.contains_key(&t.hash) {
-            return Err("no claim with this hash lock on chain yet");
+        if added {
+            if i.trades.len() >= MAX_TRADES {
+                i.trades.remove(0);
+            }
+            i.trades.push((t.clone(), now()));
         }
-        if i.trades.len() >= MAX_TRADES {
-            i.trades.remove(0);
-        }
-        i.trades.push((t, now()));
         n.board.save(&i);
-        Ok(true)
+        let verified = i.paid.contains_key(&t.hash) && !i.disputed.contains(&t.hash);
+        Ok(json!({"ok": true, "added": added, "verified": verified}))
     })
     .await;
     match r {
-        Ok(Ok(added)) => Json(json!({"ok": true, "added": added})).into_response(),
+        Ok(Ok(v)) => Json(v).into_response(),
         Ok(Err(e)) => bad(e),
         Err(e) => bad(e),
     }
@@ -972,7 +1129,7 @@ fn current_market(i: &Inner, t: u64) -> board::Market {
         .filter(|(o, _)| i.funded.contains(&o.id))
         .cloned()
         .collect();
-    board::market(&i.trades, &offers, &pending, t)
+    board::market(&i.trades, &i.verified(), &offers, &pending, t)
 }
 
 pub async fn market(State(node): S) -> Response {
@@ -994,6 +1151,8 @@ pub async fn market(State(node): S) -> Response {
             let c = i.claims.get(&x.hash);
             json!({
                 "at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price(), "hash": x.hash,
+                // Its bitcoin was found on the Bitcoin chain, paid through the swap's contract.
+                "verified": i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash),
                 "claim": c,
                 "confirmations": c.map(|c| tip + 1 - c.height),
             })

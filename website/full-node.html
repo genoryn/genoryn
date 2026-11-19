@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Running a Full Node: Genoryn Krypton on Linux, Windows and macOS</title>
+<meta name="description" content="How to run a Genoryn Krypton full node, step by step: why it matters, what it costs, instructions for Linux, Windows and macOS, opening port 30333, tuning, using the console and the API, and updating.">
+<!--SEO:full-node-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="full-node">
+<!--NAV-->
+<main id="top" class="wrap pg">
+  <header class="pg-head">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Running a full node</span></nav>
+    <span class="eyebrow">Full node</span>
+    <h1 class="h2 glow">Running a full node</h1>
+    <p class="lead">A full node is a program that downloads every block and checks every one of them against every rule. It is how you use Genoryn Krypton without trusting anybody, and how the network stays in the hands of the people who use it. This guide takes you from nothing to a running node on Linux, Windows or macOS.</p>
+    <div class="row-btns"><a class="btn btn-primary" href="#linux">Linux</a><a class="btn" href="#windows">Windows</a><a class="btn" href="#macos">macOS</a><a class="btn" href="#why">Why run one?</a></div>
+  </header>
+  <nav class="glass pg-toc" aria-label="On this page">
+    <b>On this page</b>
+    <a href="#what">What a full node is</a><a href="#why">Why run one</a><a href="#costs">Costs and warnings</a><a href="#requirements">Minimum requirements</a>
+    <a href="#linux">Linux instructions</a><a href="#windows">Windows instructions</a><a href="#macos">macOS instructions</a><a href="#first">The first sync</a>
+    <a href="#use">Using your node</a><a href="#network">Network configuration</a><a href="#tuning">Configuration tuning</a><a href="#update">Updating</a><a href="#trouble">If something goes wrong</a>
+  </nav>
+
+  <section class="pg-sec" id="what">
+    <span class="eyebrow">Start here</span>
+    <h2>What is a full node?</h2>
+    <p>A full node is the program <code>kryptond</code>. It connects to other nodes, downloads the whole blockchain from the first block, and <b>validates</b> it: the proof of work of every block, the zero-knowledge proof of every transfer, that no coin is spent twice, that no block pays out more than the rules allow. After that it keeps up, one block a minute, and passes what it has checked on to others.</p>
+    <p>The wallet does not need one. Its <b>light mode</b> verifies the proof of work behind what nodes tell it and is a sound choice for everyday use. A full node goes further: it checks everything, and asks nobody.</p>
+  </section>
+
+  <section class="pg-sec" id="why">
+    <span class="eyebrow">The point of it</span>
+    <h2>Why a full node is worth running</h2>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Nobody can fool you</h3><p>Your node has verified every GNR you are paid, back to the block that created it. A block that breaks a rule does not exist for it, however much mining power stands behind it.</p><a class="pg-go" href="/validation">Validation <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-eye"/></svg></span><h3>Nobody watches you</h3><p>A wallet on your own node asks no other computer about your payments. Nothing about what you hold or whom you pay leaves the house.</p><a class="pg-go" href="/privacy">Privacy <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>The network gets stronger</h3><p>Your node relays blocks and transactions and serves nodes that are catching up. More honest nodes make the network harder to split or censor.</p><a class="pg-go" href="/network">Network support <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>The rules stay yours</h3><p>The rules of Genoryn Krypton are whatever the nodes of the people who accept it enforce. Running one is how you have a say, and the only way.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-mining"/></svg></span><h3>Your miner depends on no one</h3><p>A miner gets its work from a node. With your own, no outage or decision of someone else's node can stop it.</p><a class="pg-go" href="/mining">Mining <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-term"/></svg></span><h3>An API of your own</h3><p>Build on it: an explorer, a shop, a payment checker. The API answers on your computer, with no limits and no one in between.</p><a class="pg-go" href="/docs#api">API <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+    </div>
+  </section>
+
+  <section class="pg-sec" id="costs">
+    <span class="eyebrow">Read this first</span>
+    <h2>Costs and warnings</h2>
+    <p>Running a node is safe and cheap, but not free of things to know.</p>
+    <ul>
+      <li><b>Keep your wallet safe as always.</b> A node holds no keys and no coins. Your wallet does: write the 24 words on paper, and never type them into a website or give them to a person.</li>
+      <li><b>Bandwidth.</b> Day to day a node moves one small block a minute. If it accepts incoming connections, it also sends the chain to nodes that are syncing. On a metered connection, keep it outbound-only or lower its peer limits (<a href="#tuning">tuning</a>).</li>
+      <li><b>Disk.</b> about 0.5 GB at block 21,800, growing with use. A node cannot discard old blocks yet.</li>
+      <li><b>The first sync takes a while</b> and keeps the processor busy: every proof since the first block is verified. On a fast desktop processor (Intel Core Ultra 9 285K) it took 32 minutes at block 21,800, on 19 November 2026; a slower computer needs longer, and the time grows with the chain.</li>
+      <li><b>Antivirus.</b> Some programs distrust anything that talks to many computers or uses a graphics card. Verify your download instead of switching protection off.</li>
+      <li><b>The law.</b> Cryptocurrencies are restricted in some countries. Find out what applies where you live.</li>
+      <li><b>Being a target.</b> A listening node is a computer on the internet, like a web server. The node is written to give peers nothing to hold on to (<a href="/network#safe">how</a>), and the wallet's own node accepts no incoming connections unless you say so.</li>
+    </ul>
+  </section>
+
+  <section class="pg-sec" id="requirements">
+    <span class="eyebrow">What you need</span>
+    <h2>Minimum requirements</h2>
+    <div class="pg-facts">
+      <div class="glass pg-fact"><b>20 GB</b><span>of free disk: about 0.5 GB today, with room for years</span></div>
+      <div class="glass pg-fact"><b>2 GB</b><span>of free memory</span></div>
+      <div class="glass pg-fact"><b>2 cores</b><span>64-bit x86 processor; more cores sync faster</span></div>
+      <div class="glass pg-fact"><b>TCP 30333</b><span>open to the internet only if you want to accept other nodes</span></div>
+    </div>
+    <p>Windows 10 or 11, Ubuntu 24.04 or newer, Debian 13 or newer, or any system you can build Rust programs on. More in <a href="/requirements">Requirements</a>.</p>
+    <div class="pg-os"><a href="#linux">Linux</a><a href="#windows">Windows</a><a href="#macos">macOS</a></div>
+  </section>
+
+  <section class="pg-sec" id="linux">
+    <span class="eyebrow">Instructions</span>
+    <h2>Linux</h2>
+    <h3>Ubuntu and Debian: the package</h3>
+    <p>For Ubuntu 24.04 or newer and Debian 13 or newer. Open a terminal and download the package and its checksums:</p>
+<pre class="code">cd ~/Downloads
+curl -fLO https://github.com/genoryn/genoryn/releases/download/v<!--VERSION-->/genoryn-krypton_<!--VERSION-->_amd64.deb
+curl -fLO https://github.com/genoryn/genoryn/releases/download/v<!--VERSION-->/SHA256SUMS</pre>
+    <p>Check that the package is the one the project published. The line must end in <code>OK</code>:</p>
+<pre class="code">sha256sum -c SHA256SUMS --ignore-missing</pre>
+    <p>Install it. This puts <code>kryptond</code>, <code>krypton-wallet</code>, <code>krypton-miner</code> and <code>krypton-wallet-cli</code> in <code>/usr/bin</code>:</p>
+<pre class="code">sudo apt install ./genoryn-krypton_<!--VERSION-->_amd64.deb
+kryptond --version</pre>
+    <p>Start the node. It prints what it does and keeps running until you press <b>Ctrl+C</b>; the chain is stored in <code>~/.genoryn-krypton/mainnet</code>:</p>
+<pre class="code">kryptond</pre>
+    <p>In a second terminal, ask it how far it is:</p>
+<pre class="code">curl -s http://127.0.0.1:30334/v1/info</pre>
+    <p>The answer shows <code>height</code>, the block your node has reached, and <code>best_peer_height</code>, where the network is. When they are equal, your node is synced.</p>
+
+    <h3>Run it as a service</h3>
+    <p>To have the node start with the computer and restart by itself, set it up as a systemd service. The package brings a script that creates a user of its own for the node (<code>krypton</code>), stores the chain in <code>/var/lib/krypton</code> and starts the service with the system's sandboxing switched on:</p>
+<pre class="code">sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</pre>
+<pre class="code"><span class="c"># is it running?</span>
+systemctl status kryptond
+<span class="c"># what is it doing?</span>
+journalctl -u kryptond -f
+<span class="c"># stop it, start it</span>
+sudo systemctl stop kryptond
+sudo systemctl start kryptond</pre>
+    <p>If <code>ufw</code> is your firewall and it is on, the script opens port 30333 for other nodes. It does not switch a firewall on that was off.</p>
+
+    <h3>Other distributions</h3>
+    <p>On any x86-64 Linux with glibc 2.39 or newer, use the archive. It holds the same four programs and the same service script:</p>
+<pre class="code">curl -fLO https://github.com/genoryn/genoryn/releases/download/v<!--VERSION-->/genoryn-krypton-<!--VERSION-->-linux-x64.tar.gz
+curl -fLO https://github.com/genoryn/genoryn/releases/download/v<!--VERSION-->/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+tar -xzf genoryn-krypton-<!--VERSION-->-linux-x64.tar.gz
+cd genoryn-krypton-<!--VERSION-->
+./kryptond
+<span class="c"># or, as a service:</span>
+sudo ./deploy/setup-server.sh mainnet</pre>
+
+    <h3>From source</h3>
+    <p>On older systems, or to run exactly what you have read. You need Rust 1.89 or newer and nothing else:</p>
+<pre class="code">git clone https://github.com/genoryn/genoryn
+cd genoryn
+cargo build --release -p kryptond
+./target/release/kryptond</pre>
+
+    <div class="pg-note"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Check the signature too.</b> <code>SHA256SUMS</code> is signed with the project's hybrid post-quantum release key (ML-DSA-87 + SLH-DSA, fingerprint <code>e4567fb116258bdd</code>). With the source code at hand, <code>cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS SHA256SUMS.sig</code> checks it. The wallet's updater does this by itself before it installs anything.</p></div></div>
+  </section>
+
+  <section class="pg-sec" id="windows">
+    <span class="eyebrow">Instructions</span>
+    <h2>Windows</h2>
+    <h3>The easy way: the wallet</h3>
+    <ol class="pg-steps">
+      <li><h3>Install the wallet</h3><p>Download <b>GenorynKrypton-<!--VERSION-->-Windows-x64-Setup.exe</b> from <a href="/download">Download</a> and run it. It installs for you alone and asks for no administrator rights. The node comes with it.</p></li>
+      <li><h3>Create or open a wallet</h3><p>Choose a password, write the 24 words on paper.</p></li>
+      <li><h3>Switch to full node</h3><p>Open <b>Network</b>. Under <b>Connection mode</b> choose <b>Full node: download and validate the whole chain on this computer</b> and press <b>Save</b>. The wallet starts the node and, from now on, asks only it.</p></li>
+      <li><h3>Watch it sync</h3><p>The <b>Chain</b> card on the same page shows the height your node has reached; <b>Own node</b> says <i>running</i>. You can use the wallet meanwhile.</p></li>
+      <li><h3>Optional: accept other nodes</h3><p>Tick <b>Let other nodes connect to my full node</b>, press <b>Save</b>, then <b>Stop node</b> and <b>Start my full node</b>. Windows asks once whether the node may accept connections: allow it. Then forward port 30333 on your router (<a href="#network">below</a>).</p></li>
+    </ol>
+    <p>The node runs while the wallet runs. Closing the wallet's window keeps both running while the miner is on; <b>Quit</b> stops everything. The chain is stored in <code>%APPDATA%\GenorynKrypton\mainnet</code> and is kept when you update or remove the program.</p>
+
+    <h3>Without the wallet: the command line</h3>
+    <p>The node is a program of its own, <code>kryptond.exe</code>, in the folder the wallet was installed to (and in the portable zip). In PowerShell:</p>
+<pre class="code">cd "$env:LOCALAPPDATA\Programs\Genoryn Krypton"
+.\kryptond.exe --version
+.\kryptond.exe
+<span class="c"># in a second window: how far is it?</span>
+(Invoke-RestMethod http://127.0.0.1:30334/v1/info) | Select-Object height, best_peer_height, peers</pre>
+    <p>To start it with Windows, make a task in <b>Task Scheduler</b> that runs <code>kryptond.exe</code> "at log on". Do not run it and the wallet's own node at the same time: they would use the same folder and the same ports.</p>
+  </section>
+
+  <section class="pg-sec" id="macos">
+    <span class="eyebrow">Instructions</span>
+    <h2>macOS</h2>
+    <p>There is no packaged build for macOS yet, so the node is built from its source code. The project's tests run on macOS with every change. You need the Xcode command-line tools and Rust:</p>
+<pre class="code">xcode-select --install
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+git clone https://github.com/genoryn/genoryn
+cd genoryn
+cargo build --release -p kryptond -p krypton-wallet-cli
+./target/release/kryptond</pre>
+    <p>The chain is stored in <code>~/.genoryn-krypton/mainnet</code>. In a second Terminal window, <code>curl -s http://127.0.0.1:30334/v1/info</code> shows how far the node is. macOS asks whether <code>kryptond</code> may accept incoming connections: allow it if you want other nodes to reach yours.</p>
+  </section>
+
+  <section class="pg-sec" id="first">
+    <span class="eyebrow">What to expect</span>
+    <h2>The first sync</h2>
+    <p>A new node starts at block 0 and works its way up, verifying as it goes. On a fast desktop processor (Intel Core Ultra 9 285K) it took 32 minutes at block 21,800, on 19 November 2026; a slower computer needs longer, and the time grows with the chain. It may pause and go on; you can stop it at any time and it continues where it was.</p>
+    <p>While it syncs, a wallet on that node shows payments only up to the block the node has reached. Wait for <code>height</code> to equal <code>best_peer_height</code> before you rely on a balance.</p>
+  </section>
+
+  <section class="pg-sec" id="use">
+    <span class="eyebrow">Now what?</span>
+    <h2>Using your node</h2>
+    <div class="pg-grid">
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-wallet"/></svg></span><h3>Point your wallet at it</h3><p>On the same computer: <b>Network → Full node</b>. From another computer of yours: enter the node's address under <b>Nodes for light mode</b>. The command-line wallet takes <code>--node http://127.0.0.1:30334</code>.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-term"/></svg></span><h3>Ask it things</h3><p>The wallet's <b>Console</b> tab puts questions to your node by command: <code>getblockchaininfo</code>, <code>getpeerinfo</code>, <code>getblock 21000</code>. It completes commands as you type.</p><a class="pg-go" href="/interface#console">The console <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-mining"/></svg></span><h3>Mine on it</h3><p>The wallet's miner uses your node by itself in full-node mode. On a server: <code>krypton-miner --node http://127.0.0.1:30334 --address-file address.txt</code>.</p><a class="pg-go" href="/mining">Mining <svg aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
+    </div>
+    <p>From a terminal, the node answers plain web requests and JSON-RPC:</p>
+<pre class="code">curl -s http://127.0.0.1:30334/v1/info      <span class="c"># the chain, as your node sees it</span>
+curl -s http://127.0.0.1:30334/v1/peers     <span class="c"># who it is connected to</span>
+curl -s http://127.0.0.1:30334/v1/block/21000
+curl -s http://127.0.0.1:30334/rpc -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"getblockcount","params":[]}'</pre>
+  </section>
+
+  <section class="pg-sec" id="network">
+    <span class="eyebrow">Network configuration</span>
+    <h2>Letting other nodes reach yours</h2>
+    <p>A node works without this: it connects out to 8 others and that is enough to stay in sync. Accepting incoming connections is what makes it useful to nodes that are new or catching up.</p>
+    <h3>Is it reachable already?</h3>
+    <p>Ask the node for its peers, in the wallet's console (<code>getpeerinfo</code>) or with <code>curl -s http://127.0.0.1:30334/v1/peers</code>. If some of them show <code>"inbound": true</code> after an hour or so, other nodes are reaching you and there is nothing to do.</p>
+    <h3>If not: the three doors</h3>
+    <ol class="pg-steps">
+      <li><h3>The node itself</h3><p><code>kryptond</code> listens unless it is started with <code>--no-listen</code>. The wallet's node listens only when <b>Let other nodes connect to my full node</b> is ticked.</p></li>
+      <li><h3>The computer's firewall</h3><p>Allow incoming TCP on port 30333. On Ubuntu with ufw: <code>sudo ufw allow 30333/tcp</code>. On Windows, allow <code>kryptond.exe</code> when Windows asks, or add an inbound rule for TCP 30333 in <b>Windows Defender Firewall</b>.</p></li>
+      <li><h3>The router</h3><p>At home your computer sits behind a router. Give the computer a fixed address on your home network (in the router's settings, often called a DHCP reservation), then add a <b>port forwarding</b> rule: TCP, port 30333, to that address. Routers differ; the manual of yours says where.</p></li>
+    </ol>
+    <div class="pg-note"><svg aria-hidden="true"><use href="#n-check"/></svg><div><p><b>Forward 30333 only.</b> Never forward port 30334: that is the node's API, meant for your own computer. To offer the API to others, put it behind a web server with limits; the project's own configuration is in <code>deploy/caddy</code>.</p></div></div>
+  </section>
+
+  <section class="pg-sec" id="tuning">
+    <span class="eyebrow">Configuration tuning</span>
+    <h2>Options</h2>
+    <p><code>kryptond</code> has no configuration file: everything is an option on its command line. With the service, put options in <code>/etc/krypton/kryptond.env</code> as <code>KRYPTON_EXTRA_ARGS="--max-inbound 16"</code> and restart it.</p>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Option</th><th>Default</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Option"><code>--network</code></td><td data-label="Default">mainnet</td><td data-label="Does"><code>mainnet</code>, <code>testnet</code> or <code>devnet</code> (a private chain on your computer). Also <code>KRYPTON_NETWORK</code>.</td></tr>
+        <tr><td data-label="Option"><code>--data-dir</code></td><td data-label="Default"><code>~/.genoryn-krypton/&lt;network&gt;</code><br><code>%APPDATA%\GenorynKrypton\&lt;network&gt;</code></td><td data-label="Does">Where the chain is stored. Put it on another disk if the first is small. Also <code>KRYPTON_DATA_DIR</code>.</td></tr>
+        <tr><td data-label="Option"><code>--no-listen</code></td><td data-label="Default">off</td><td data-label="Does">Accept no incoming connections: the node only connects out. <b>The setting for a metered line.</b></td></tr>
+        <tr><td data-label="Option"><code>--max-inbound</code></td><td data-label="Default">64</td><td data-label="Does">How many nodes may connect to yours. Lower it to send less.</td></tr>
+        <tr><td data-label="Option"><code>--max-outbound</code></td><td data-label="Default">8</td><td data-label="Does">How many nodes yours connects to.</td></tr>
+        <tr><td data-label="Option"><code>--listen</code></td><td data-label="Default"><code>0.0.0.0:30333</code></td><td data-label="Does">The address and port other nodes connect to.</td></tr>
+        <tr><td data-label="Option"><code>--rpc</code></td><td data-label="Default"><code>127.0.0.1:30334</code></td><td data-label="Does">The address and port of the API. Leave it on 127.0.0.1 unless a web server stands in front of it.</td></tr>
+        <tr><td data-label="Option"><code>--peer</code></td><td data-label="Default">none</td><td data-label="Does">Another node to connect to, as <code>host:port</code>. May be given several times.</td></tr>
+        <tr><td data-label="Option"><code>--no-seeds</code></td><td data-label="Default">off</td><td data-label="Does">Do not use the built-in seed nodes: connect only to the peers you name.</td></tr>
+      </tbody>
+    </table></div>
+    <p>How much the node writes to its log is set by the environment variable <code>RUST_LOG</code>: <code>RUST_LOG=debug kryptond</code> for more, <code>RUST_LOG=warn</code> for less.</p>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Network</th><th>Other nodes (TCP)</th><th>API (this computer)</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Network">Mainnet</td><td data-label="P2P">30333</td><td data-label="API">30334</td></tr>
+        <tr><td data-label="Network">Testnet</td><td data-label="P2P">31333</td><td data-label="API">31334</td></tr>
+        <tr><td data-label="Network">Devnet</td><td data-label="P2P">32333</td><td data-label="API">32334</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pg-sec" id="update">
+    <span class="eyebrow">Keeping it current</span>
+    <h2>Updating</h2>
+    <p>New versions fix problems and sometimes prepare a change of rules that takes effect at a block height announced in advance. A node that is never updated will one day stop following the network. Every release is listed, with what changed, under <a href="/updates">News</a>.</p>
+    <ul>
+      <li><b>The wallet</b> checks for updates every hour, verifies the project's signature and installs them while no swap is running. Its node is updated with it.</li>
+      <li><b>Ubuntu and Debian</b>, one command. It downloads the newest package, checks it against its checksums, installs it and restarts the service if there is one:
+<pre class="code">curl -fsSL https://raw.githubusercontent.com/genoryn/genoryn/main/deploy/update.sh | sudo bash</pre></li>
+      <li><b>Everything else:</b> stop the node, replace the programs with the new ones, start it. The chain on disk stays as it is.</li>
+    </ul>
+  </section>
+
+  <section class="pg-sec" id="trouble">
+    <span class="eyebrow">Help</span>
+    <h2>If something goes wrong</h2>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>What you see</th><th>What it usually is</th></tr></thead>
+      <tbody>
+        <tr><td data-label="See"><code>height</code> stays at 0, <code>peers</code> is 0</td><td data-label="Is">The node cannot reach anyone. Check the internet connection and that outgoing connections are not blocked. Name a peer: <code>kryptond --peer seed.genoryn.io:30333</code>.</td></tr>
+        <tr><td data-label="See">An error that an address or port is already in use</td><td data-label="Is">Another <code>kryptond</code> is running: the wallet's own node, or the service. Run one.</td></tr>
+        <tr><td data-label="See"><code>kryptond: … GLIBC_2.39 not found</code></td><td data-label="Is">The system is older than the packaged programs need. Build from source.</td></tr>
+        <tr><td data-label="See">The disk is full</td><td data-label="Is">Stop the node, move its folder to a larger disk and start it with <code>--data-dir</code>.</td></tr>
+        <tr><td data-label="See">No incoming peers</td><td data-label="Is">One of the three doors is shut: see <a href="#network">Network configuration</a>. The node works without them.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="glass pg-cta">
+      <div><h2>Still stuck?</h2><p>Say what you did, what you expected and what you saw. Never post your recovery phrase.</p></div>
+      <div class="row-btns"><a class="btn btn-primary" href="/help">Get help</a><a class="btn" href="/bug-reports">Report a bug</a></div>
+    </div>
+  </section>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/site.js" defer></script>
+</body>
+</html>

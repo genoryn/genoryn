@@ -28,6 +28,12 @@ curl -fsSL -o "$tmp/SHA256SUMS" "$base/SHA256SUMS"
 was_active=no
 systemctl is-active --quiet kryptond 2>/dev/null && was_active=yes
 apt-get install -y "$tmp/$deb"
+# A node set up as a service (deploy/setup-server.sh) runs from /opt/krypton/bin.
+if [ -x /opt/krypton/bin/kryptond ]; then
+  for f in kryptond krypton-miner krypton-wallet-cli; do
+    if [ -x "/usr/bin/$f" ]; then install -m 755 "/usr/bin/$f" /opt/krypton/bin/; fi
+  done
+fi
 if [ "$was_active" = yes ]; then
   systemctl restart kryptond
   sleep 3

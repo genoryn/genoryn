@@ -501,6 +501,31 @@ impl NodeClient {
     pub fn base_url(&self) -> &str {
         &self.base
     }
+
+    /// Any read-only `/v1/` answer as JSON, at most `max` bytes: what the wallet's
+    /// console shows. Informational; nothing a wallet acts on comes through here.
+    pub fn view(&self, path: &str, max: u64) -> Result<serde_json::Value> {
+        anyhow::ensure!(path.starts_with("/v1/"), "not a node path");
+        let r = self
+            .http
+            .get(format!("{}{}", self.base, path))
+            .send()
+            .context("the node cannot be reached")?;
+        let status = r.status();
+        let body = read_limited(r, max).context("the node's answer is too large to show")?;
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_else(|_| {
+            serde_json::Value::String(String::from_utf8_lossy(&body).chars().take(300).collect())
+        });
+        if !status.is_success() {
+            let msg = v["error"]
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| v.as_str().map(str::to_string))
+                .unwrap_or_default();
+            bail!("{} (HTTP {})", msg.trim(), status.as_u16());
+        }
+        Ok(v)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]

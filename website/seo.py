@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.43"
+VERSION = "1.0.44"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
@@ -54,6 +54,36 @@ PAGES = {
     "about": {"path": "/about", "file": "about.html", "type": "article", "priority": "0.9", "freq": "monthly",
               "og_title": "What is Genoryn Krypton (GNR)? Quantum-resistant, private money with Bitcoin's monetary design",
               "og_desc": "21 million coins and halvings like Bitcoin, funds protected by hash-based zk-STARKs instead of elliptic curves, every transfer shielded, fair GPU/CPU mining, atomic swaps with bitcoin."},
+    "features": {"path": "/features", "file": "features.html", "type": "article", "priority": "0.9", "freq": "monthly", "crumb": "Features",
+                 "og_title": "Genoryn Krypton features: validation, privacy, quantum security, wallet and node",
+                 "og_desc": "Full validation of every rule, payments private by default, cryptography a quantum computer does not break, a wallet with a console, and a node that helps the network."},
+    "validation": {"path": "/validation", "file": "validation.html", "type": "article", "priority": "0.8", "freq": "monthly", "crumb": "Validation",
+                   "og_title": "Validation: how a Genoryn Krypton full node protects your GNR",
+                   "og_desc": "A full node checks every block, proof and coin against every rule. What it checks, what the light wallet checks, and which attacks each one stops."},
+    "privacy": {"path": "/privacy", "file": "privacy.html", "type": "article", "priority": "0.8", "freq": "monthly", "crumb": "Privacy",
+                "og_title": "Privacy in Genoryn Krypton: what is hidden, and from whom",
+                "og_desc": "Every transfer hides sender, recipient and amount. What the chain shows, what a node can learn about you, what is public on purpose, and what no software can hide."},
+    "requirements": {"path": "/requirements", "file": "requirements.html", "type": "article", "priority": "0.7", "freq": "monthly", "crumb": "Requirements",
+                     "og_title": "Requirements for the Genoryn Krypton wallet, a full node and mining",
+                     "og_desc": "The light wallet needs no chain download; a full node needs about 0.5 GB of disk today; mining wants a graphics card. Measured numbers for disk, memory and network."},
+    "interface": {"path": "/interface", "file": "interface.html", "type": "article", "priority": "0.7", "freq": "monthly", "crumb": "User interface",
+                  "og_title": "User interface: wallet, console, command line and API of Genoryn Krypton",
+                  "og_desc": "The desktop wallet with its miner, swap board and read-only console, the command-line wallet, the full node, its REST API, JSON-RPC and WebSocket, and the SDKs."},
+    "network": {"path": "/network", "file": "network.html", "type": "article", "priority": "0.7", "freq": "monthly", "crumb": "Network support",
+                "og_title": "Network support: how a Genoryn Krypton full node helps everyone",
+                "og_desc": "A full node relays blocks and transactions over links encrypted against quantum computers, serves nodes that are syncing, and makes the network harder to split or censor."},
+    "full-node": {"path": "/full-node", "file": "full-node.html", "type": "article", "priority": "0.9", "freq": "weekly", "crumb": "Running a full node",
+                  "og_title": "Running a full node: Genoryn Krypton on Linux, Windows and macOS",
+                  "og_desc": "Why a full node matters, what it costs, and step-by-step instructions for Linux, Windows and macOS: install, first sync, opening port 30333, tuning, the console and the API."},
+    "help": {"path": "/help", "file": "help.html", "priority": "0.7", "freq": "monthly", "crumb": "Get help",
+             "og_title": "Get help with Genoryn Krypton",
+             "og_desc": "What to check first, where to ask, what to include, how to stay safe from people who pretend to help, and how to help others."},
+    "bug-reports": {"path": "/bug-reports", "file": "bug-reports.html", "priority": "0.6", "freq": "monthly", "crumb": "Bug reports",
+                    "og_title": "Bug reports: how to report a problem in Genoryn Krypton",
+                    "og_desc": "Where to report a bug in the wallet, miner, node or website, what to include, what never to post, and how vulnerabilities are reported privately."},
+    "contribute": {"path": "/contribute", "file": "contribute.html", "priority": "0.7", "freq": "monthly", "crumb": "Contribute",
+                   "og_title": "Contribute to Genoryn Krypton: code, documentation, translations",
+                   "og_desc": "Build and test the code, send a change, review what matters most, improve the documentation, and where translations stand. Open source under MIT or Apache-2.0."},
 }
 
 ORG = {"@type": "Organization", "@id": SITE + "/#org", "name": NAME, "alternateName": ["Genoryn", "GNR", "Genoryn Krypton (GNR)"],
@@ -152,7 +182,7 @@ FAQ_GROUPS = [
     ("trading", "Getting and trading GNR", [
         ("How can I buy GNR?", "In the wallet's Swap tab, with bitcoin, through an atomic swap with another person: take a sell offer or publish a buy offer. There is no exchange, no account and no custody. <a href=\"/get\">How to get GNR</a>."),
         ("Is GNR listed on an exchange?", "No. GNR is earned by mining or exchanged with bitcoin directly between wallets."),
-        ("Where does the GNR price come from?", "Only from completed swaps: the market price is their plain average over the last 72 hours. Offers and swaps in progress never move it. <a href=\"/market\">Live market</a>."),
+        ("Where does the GNR price come from?", "Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the market price is where half of that bitcoin changed hands below and half above (a volume-weighted median). Offers and swaps in progress never move it. <a href=\"/market\">Live market</a>."),
         ("Why swap bitcoin for GNR?", "Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could break. A swap moves value into a system guarded by hash-based proofs, directly from your own wallet."),
         ("Can someone offer GNR they do not have?", "No. A sell offer is listed only after its GNR is set aside in a note of its own and the offer board has checked a zero-knowledge proof that the seller can spend it. The board takes the offer down the moment that GNR moves, and the same GNR cannot back two offers. <a href=\"/market#rules\">The rules of an offer</a>."),
         ("Why is my GNR held after I cancel a sell offer?", "Publishing a sell offer commits its GNR for 7 days, so that offers are made in earnest. Within that time the GNR can be sold or put into another sell offer at once, but not sent, also after you cancel or the offer runs its time. It can be sent again 7 days after the day you published."),
@@ -272,6 +302,19 @@ def graph(page):
     elif page == "explorer":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Explorer", p["path"])]
+    elif page == "full-node":
+        items += [{"@type": "TechArticle", "headline": p["og_title"], "url": url, "inLanguage": "en", "dateModified": TODAY,
+                   "author": {"@type": "Person", "name": "Zarazi Sokani"}, "publisher": {"@id": SITE + "/#org"}, "image": OG,
+                   "mainEntityOfPage": url, "about": ["full node", "blockchain validation", "Genoryn Krypton", "kryptond"]},
+                  crumbs(p["crumb"], p["path"])]
+    elif "crumb" in p:
+        kind = "Article" if p.get("type") == "article" else "WebPage"
+        entry = {"@type": kind, "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"},
+                 "inLanguage": "en", "dateModified": TODAY}
+        if kind == "Article":
+            entry.update({"headline": p["og_title"], "author": {"@type": "Person", "name": "Zarazi Sokani"},
+                          "publisher": {"@id": SITE + "/#org"}, "image": OG, "mainEntityOfPage": url})
+        items += [entry, crumbs(p["crumb"], p["path"])]
     return json.dumps({"@context": "https://schema.org", "@graph": items}, ensure_ascii=False, separators=(",", ":"))
 
 

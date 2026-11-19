@@ -59,6 +59,8 @@ def main():
         # line about the latest one, the feed and the repository's CHANGELOG.md.
         html = html.replace("<!--UPDATES-->", updates.page_html())
         html = html.replace("<!--LATEST_UPDATE-->", updates.latest_html())
+        # Guides name the files of the current release.
+        html = html.replace("<!--VERSION-->", seo.VERSION)
         html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
         html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
         (DIST / page.name).write_text(html, encoding="utf-8")

@@ -29,6 +29,7 @@ use std::sync::Arc;
 mod assets;
 mod board;
 mod coins;
+mod console;
 mod swaps;
 mod update;
 mod vault;
@@ -88,7 +89,7 @@ struct Settings {
     /// Bitcoin network for swaps (`bitcoin`, `signet`, `regtest`); default per GNR network.
     #[serde(default)]
     btc_network: Option<String>,
-    /// Report completed swaps (amounts and hash lock only) for the market price.
+    /// Report completed swaps (amounts, hash lock and the bitcoin contract) for the market price.
     #[serde(default)]
     share_prices: Option<bool>,
     /// Let other nodes connect to our own node (helps the network). Off by default: the
@@ -1812,7 +1813,21 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
         return x;
     }
     let own;
+    // A transaction or block of the history, by its id: only a 64-character hexadecimal id
+    // or a height ever becomes part of the link.
+    let id = b["id"].as_str().unwrap_or("");
     let url = match b["target"].as_str().unwrap_or("") {
+        "tx" if id.len() == 64 && id.bytes().all(|c| c.is_ascii_hexdigit()) => {
+            own = format!(
+                "https://genoryn.io/explorer#/tx/{}",
+                id.to_ascii_lowercase()
+            );
+            own.as_str()
+        }
+        "block" if !id.is_empty() && id.len() <= 12 && id.bytes().all(|c| c.is_ascii_digit()) => {
+            own = format!("https://genoryn.io/explorer#/block/{id}");
+            own.as_str()
+        }
         "address" => {
             let Some(short) = app
                 .wallet
@@ -1827,6 +1842,10 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
         "explorer" => "https://genoryn.io/explorer",
         "website" => "https://genoryn.io/",
         "docs" => "https://genoryn.io/docs",
+        "node-guide" => "https://genoryn.io/full-node",
+        "help" => "https://genoryn.io/help",
+        "bugs" => "https://genoryn.io/bug-reports",
+        "news" => "https://genoryn.io/updates",
         "source" => "https://github.com/genoryn/genoryn",
         "releases" => "https://github.com/genoryn/genoryn/releases",
         _ => {
@@ -2135,6 +2154,8 @@ async fn serve(
         .route("/api/board/recover-btc", post(board::recover_btc))
         .route("/api/board/untake", post(board::untake))
         .route("/api/swap/adopt", post(board::adopt))
+        .route("/api/console", post(console::run))
+        .route("/api/console/commands", get(console::commands))
         .route("/api/swap/settings", post(swaps::settings))
         .route("/api/coins", get(coins::list))
         .route("/api/coin/send", post(coins::send))
