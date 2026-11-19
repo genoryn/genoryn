@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Sets a Genoryn Krypton node up as a service (+ optional CPU miner capped at 50 %) on a
 # Linux with systemd. The release programs need glibc 2.39 (Ubuntu 24.04, Debian 13).
-# Usage: sudo ./setup-server.sh <network> [--miner <payout-address-file>]
-# After the .deb package: sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet
+# Usage: sudo bash setup-server.sh <network> [--miner <payout-address-file>]
+# After the .deb package: sudo bash /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet
 set -euo pipefail
 NET="${1:-mainnet}"
 MINER_ADDR=""

@@ -98,7 +98,7 @@ kryptond --version</pre>
 
     <h3>Run it as a service</h3>
     <p>To have the node start with the computer and restart by itself, set it up as a systemd service. The package brings a script that creates a user of its own for the node (<code>krypton</code>), stores the chain in <code>/var/lib/krypton</code> and starts the service with the system's sandboxing switched on:</p>
-<pre class="code">sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</pre>
+<pre class="code">sudo bash /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</pre>
 <pre class="code"><span class="c"># is it running?</span>
 systemctl status kryptond
 <span class="c"># what is it doing?</span>
@@ -117,7 +117,7 @@ tar -xzf genoryn-krypton-<!--VERSION-->-linux-x64.tar.gz
 cd genoryn-krypton-<!--VERSION-->
 ./kryptond
 <span class="c"># or, as a service:</span>
-sudo ./deploy/setup-server.sh mainnet</pre>
+sudo bash ./deploy/setup-server.sh mainnet</pre>
 
     <h3>From source</h3>
     <p>On older systems, or to run exactly what you have read. You need Rust 1.89 or newer and nothing else:</p>

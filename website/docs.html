@@ -126,7 +126,7 @@ krypton-wallet-cli --node https://genoryn.io send gnrs1... 2.5 --memo "invoice 4
           <tbody>
             <tr><td data-label="Platform">Windows 10 / 11 (x64)</td><td data-label="File"><code>GenorynKrypton-&lt;version&gt;-Windows-x64-Setup.exe</code></td><td data-label="Notes">Installs for the current user (no administrator rights) into <code>%LOCALAPPDATA%\Programs\Genoryn Krypton</code>. Wallets and chain data live in <code>%APPDATA%\GenorynKrypton</code> and are kept when the program is removed.</td></tr>
             <tr><td data-label="Platform">Windows, portable</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-windows-x64-portable.zip</code></td><td data-label="Notes">The same programs without an installer.</td></tr>
-            <tr><td data-label="Platform">Ubuntu / Debian (x64)</td><td data-label="File"><code>genoryn-krypton_&lt;version&gt;_amd64.deb</code></td><td data-label="Notes"><code>sudo apt install ./genoryn-krypton_&lt;version&gt;_amd64.deb</code> (Ubuntu 24.04 or newer, Debian 13 or newer); includes a desktop entry. To run the node as a service: <code>sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</code>.</td></tr>
+            <tr><td data-label="Platform">Ubuntu / Debian (x64)</td><td data-label="File"><code>genoryn-krypton_&lt;version&gt;_amd64.deb</code></td><td data-label="Notes"><code>sudo apt install ./genoryn-krypton_&lt;version&gt;_amd64.deb</code> (Ubuntu 24.04 or newer, Debian 13 or newer); includes a desktop entry. To run the node as a service: <code>sudo bash /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet</code>.</td></tr>
             <tr><td data-label="Platform">Linux (any distribution)</td><td data-label="File"><code>genoryn-krypton-&lt;version&gt;-linux-x64.tar.gz</code></td><td data-label="Notes">Unpack and run <code>krypton-wallet</code>.</td></tr>
             <tr><td data-label="Platform">From source</td><td data-label="File"><a href="https://github.com/genoryn/genoryn">github.com/genoryn/genoryn</a></td><td data-label="Notes">Rust stable: <code>cargo build --release</code>. The binaries land in <code>target/release</code>.</td></tr>
           </tbody>
@@ -549,7 +549,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
         <pre class="code">kryptond                                      # mainnet: P2P 0.0.0.0:30333, API 127.0.0.1:30334
 kryptond --no-listen                          # connect out only: no incoming peers
 kryptond --listen 0.0.0.0:30333 --rpc 127.0.0.1:30334 --peer 2.24.162.163:29710
-sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %</pre>
+sudo bash deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %</pre>
         <p>Step by step for Linux, Windows and macOS, with why a full node matters and what it costs: <a href="/full-node">Running a full node</a>.</p>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Flag</th><th>Default</th><th>Meaning</th></tr></thead>

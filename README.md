@@ -674,8 +674,8 @@ costs, is at [genoryn.io/full-node](https://genoryn.io/full-node).
 kryptond                                       # mainnet: P2P 0.0.0.0:30333, API 127.0.0.1:30334
 kryptond --no-listen                           # connect out only
 kryptond --listen 0.0.0.0:30333 --rpc 127.0.0.1:30334 --peer 2.24.162.163:29710
-sudo deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %
-sudo /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet   # the same after installing the .deb
+sudo bash deploy/setup-server.sh mainnet --miner address.txt   # Linux server: systemd, CPU miner capped at 50 %
+sudo bash /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet   # the same after installing the .deb
 ```
 
 | Flag | Default | Meaning |
