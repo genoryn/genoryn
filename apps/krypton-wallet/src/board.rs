@@ -51,6 +51,10 @@ struct MyOffer {
     /// Buy offers from 1.0.41: the bitcoin paid in advance for the offer.
     #[serde(default)]
     fund: Option<Fund>,
+    /// Sell offers from 1.0.43: GNR is locked only for a buyer whose bitcoin this wallet
+    /// has seen at an address of the buyer's own wallet.
+    #[serde(default)]
+    prepaid_only: bool,
 }
 
 /// The bitcoin behind a buy offer. Publishing shows an address of this wallet's own
@@ -422,6 +426,311 @@ struct State {
     links: Vec<Link>,
     seen: Vec<String>,
     reported: Vec<String>,
+    /// This copy of the wallet (random; another computer with the same phrase has another).
+    #[serde(default)]
+    device: String,
+    /// Swaps that other copies of this wallet reported, and what this copy reported last.
+    #[serde(default)]
+    mirror: Vec<Mirrored>,
+    #[serde(default)]
+    mirror_sent: Vec<(String, String)>,
+    #[serde(default)]
+    mirror_beat: u64,
+}
+
+// One wallet on several computers.
+//
+// A swap is a record in the wallet file of the computer that started it. So that the same
+// wallet on another computer can show the swap, and carry it on if the first computer is
+// gone, every copy reports its swaps to a mailbox on the board that only copies of this
+// wallet can find and read: its key derives from the wallet's seed, the reports are
+// sealed to it, and each carries a tag made with the seed. The board sees ciphertext.
+
+/// The number of the key of that mailbox (outside the numbers of offers and takes).
+const MIRROR_N: u32 = 0xF000_0001;
+
+/// A swap as another copy of this wallet last reported it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Mirrored {
+    device: String,
+    at: u64,
+    swap: engine::Swap,
+    #[serde(default)]
+    link: Option<Link>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MirrorMsg {
+    device: String,
+    at: u64,
+    #[serde(default)]
+    swap: Option<engine::Swap>,
+    #[serde(default)]
+    link: Option<Link>,
+    /// Made with the wallet's seed over everything above: only a copy of this wallet can
+    /// have written the report.
+    tag: String,
+}
+
+fn mirror_tag(w: &Wallet, m: &MirrorMsg) -> String {
+    let body = serde_json::to_vec(&(&m.device, m.at, &m.swap, &m.link)).unwrap_or_default();
+    hex::encode(krypton_crypto::hash::tagged_parts(
+        "Krypton/board/mirror/v1",
+        &[w.swap_seed().as_slice(), &body],
+    ))
+}
+
+/// What of a swap another copy needs to hear about again.
+fn mirror_digest(s: &engine::Swap) -> String {
+    format!(
+        "{:?}|{}|{}|{}|{}",
+        s.stage,
+        s.deposit.is_some(),
+        s.lock_cm.is_some(),
+        s.btc_spend.is_some(),
+        s.paid_tx.is_some()
+    )
+}
+
+fn mirror_post(e: &Engine<'_, Multi>, base: &str, mut m: MirrorMsg) -> Result<()> {
+    let key = key_of(e.wallet, MIRROR_N);
+    m.tag = mirror_tag(e.wallet, &m);
+    let env = board::seal(key.public(), &key, &serde_json::to_vec(&m)?)?;
+    post(base, "/v1/swap/inbox", &env)?;
+    Ok(())
+}
+
+/// Reports this copy's swaps whose state changed (a few per round: each report costs a
+/// second of proof of work), and once an hour that it is still running them.
+fn mirror_publish(e: &Engine<'_, Multi>, base: &str, st: &mut State, swaps: &[engine::Swap]) {
+    let t = now();
+    if st.device.is_empty() {
+        st.device = hex::encode(rand::random::<[u8; 8]>());
+    }
+    let mut sent = 0;
+    for s in swaps {
+        let d = mirror_digest(s);
+        let known = st.mirror_sent.iter().position(|(id, _)| *id == s.id);
+        // Unchanged, or over before this copy ever reported it (old history).
+        if known.is_some_and(|i| st.mirror_sent[i].1 == d)
+            || (known.is_none() && s.stage.finished())
+        {
+            continue;
+        }
+        if sent >= 3 {
+            break;
+        }
+        let mut copy = s.clone();
+        copy.log.clear();
+        let msg = MirrorMsg {
+            device: st.device.clone(),
+            at: t,
+            swap: Some(copy),
+            link: st.links.iter().find(|l| l.swap_id == s.id).cloned(),
+            tag: String::new(),
+        };
+        if mirror_post(e, base, msg).is_err() {
+            break;
+        }
+        match known {
+            Some(i) => st.mirror_sent[i].1 = d,
+            None => st.mirror_sent.push((s.id.clone(), d)),
+        }
+        sent += 1;
+    }
+    if swaps.iter().any(|s| !s.stage.finished()) && st.mirror_beat + 3600 < t {
+        let beat = MirrorMsg {
+            device: st.device.clone(),
+            at: t,
+            swap: None,
+            link: None,
+            tag: String::new(),
+        };
+        if mirror_post(e, base, beat).is_ok() {
+            st.mirror_beat = t;
+        }
+    }
+    let n = st.mirror_sent.len();
+    if n > 300 {
+        st.mirror_sent.drain(..n - 300);
+    }
+}
+
+/// Reads what other copies of this wallet reported. Run on every background round; it
+/// asks the board at most every two minutes.
+pub fn mirror_read(a: &App, w: &mut Wallet) {
+    static LAST: OnceLock<Mutex<std::collections::HashMap<String, Instant>>> = OnceLock::new();
+    let who = w.address().short();
+    {
+        let mut last = LAST.get_or_init(Default::default).lock();
+        if last
+            .get(&who)
+            .is_some_and(|i| i.elapsed() < Duration::from_secs(120))
+        {
+            return;
+        }
+        last.insert(who, Instant::now());
+    }
+    let key = key_of(w, MIRROR_N);
+    let inbox = board::inbox_of(key.public());
+    let Ok(v) = get(&board_url(a), &format!("/v1/swap/inbox/{inbox}")) else {
+        return;
+    };
+    let mut st = load(w);
+    let t = now();
+    let mut changed = false;
+    if st.device.is_empty() {
+        st.device = hex::encode(rand::random::<[u8; 8]>());
+        changed = true;
+    }
+    for m in v["messages"].as_array().cloned().unwrap_or_default() {
+        let Some(data) = m["data"].as_str() else {
+            continue;
+        };
+        let id = hash(data);
+        if st.seen.contains(&id) {
+            continue;
+        }
+        st.seen.push(id);
+        changed = true;
+        let Ok((_, body)) = board::open(&key, data) else {
+            continue;
+        };
+        let Ok(msg) = serde_json::from_slice::<MirrorMsg>(&body) else {
+            continue;
+        };
+        // Only a copy of this wallet can make the tag; a report of our own is skipped,
+        // and so is one from the future (a wrong clock must not outrank real reports).
+        if msg.tag != mirror_tag(w, &msg) || msg.device == st.device || msg.at > t + 600 {
+            continue;
+        }
+        let Some(s) = msg.swap else { continue };
+        let new = Mirrored {
+            device: msg.device,
+            at: msg.at,
+            swap: s,
+            link: msg.link,
+        };
+        match st.mirror.iter_mut().find(|x| x.swap.id == new.swap.id) {
+            Some(x) if x.at <= new.at => *x = new,
+            Some(_) => {}
+            None => st.mirror.push(new),
+        }
+    }
+    // What this copy runs itself is not another copy's; and old reports go.
+    let local: std::collections::HashSet<String> =
+        engine::load(w).into_iter().map(|s| s.id).collect();
+    let before = st.mirror.len();
+    st.mirror
+        .retain(|x| !local.contains(&x.swap.id) && x.at + 7 * 24 * 3600 > t);
+    let n = st.mirror.len();
+    if n > 50 {
+        st.mirror.drain(..n - 50);
+    }
+    if changed || st.mirror.len() != before {
+        let _ = save(w, &st);
+    }
+}
+
+/// Swaps of this wallet that run on another computer, for the Swap tab, and the numbers
+/// of those in which this wallet sells (their locks are not shown a second time).
+pub fn mirrored(w: &Wallet) -> (Vec<Value>, Vec<u32>) {
+    let st = load(w);
+    let t = now();
+    let local: std::collections::HashSet<String> =
+        engine::load(w).into_iter().map(|s| s.id).collect();
+    let list: Vec<&Mirrored> = st
+        .mirror
+        .iter()
+        .filter(|m| !local.contains(&m.swap.id))
+        .filter(|m| !m.swap.stage.finished() || m.at + 24 * 3600 > t)
+        .collect();
+    let sells = list
+        .iter()
+        .filter(|m| m.swap.role == Role::GnrSeller)
+        .map(|m| m.swap.index)
+        .collect();
+    let v = list
+        .iter()
+        .rev()
+        .take(20)
+        .map(|m| {
+            let s = &m.swap;
+            json!({
+                "id": s.id, "role": s.role, "stage": s.stage, "status": s.status,
+                "finished": s.stage.finished(),
+                "gnr_text": format_amount(s.gnr), "btc_text": btc_text(s.sats),
+                "age": t.saturating_sub(m.at),
+                "device": m.device.chars().take(6).collect::<String>(),
+            })
+        })
+        .collect();
+    (v, sells)
+}
+
+/// Carries a swap on here that another copy of this wallet started: its record, as that
+/// copy last reported it, becomes a swap of this copy. Every step of a swap spends
+/// something that can be spent once (the note behind the offer, the lock, the bitcoin
+/// deposit), so if the other copy is running after all, the two cannot pay or lock twice.
+fn adopt_swap(w: &mut Wallet, id: &str) -> Result<()> {
+    let mut st = load(w);
+    let i = st
+        .mirror
+        .iter()
+        .position(|x| x.swap.id == id)
+        .context("this swap is not known from another computer")?;
+    ensure!(!st.mirror[i].swap.stage.finished(), "this swap is over");
+    let mut swaps = engine::load(w);
+    ensure!(
+        !swaps
+            .iter()
+            .any(|s| s.id == id || s.index == st.mirror[i].swap.index),
+        "this wallet already has this swap"
+    );
+    let m = st.mirror.remove(i);
+    let mut s = m.swap;
+    s.log
+        .push((now(), "Carried on at this computer.".to_string()));
+    swaps.push(s);
+    engine::save(w, &swaps)?;
+    if let Some(l) = m.link
+        && !st.links.iter().any(|x| x.swap_id == l.swap_id)
+    {
+        st.links.push(l);
+    }
+    save(w, &st)
+}
+
+#[derive(Deserialize)]
+pub struct AdoptReq {
+    id: String,
+    #[serde(default)]
+    password: String,
+}
+
+pub async fn adopt(
+    axum::extract::State(app): S,
+    h: HeaderMap,
+    Json(r): Json<AdoptReq>,
+) -> Response {
+    if let Err(x) = check_open(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        crate::confirm_password(&a, &r.password)?;
+        let mut g = a.wallet.lock();
+        let w = g.as_mut().context("wallet locked")?;
+        if let Some(why) = crate::swaps::inactive(&a, Some(w)) {
+            bail!(why);
+        }
+        adopt_swap(w, &r.id)
+    })
+    .await
+    {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => err(e),
+    }
 }
 
 fn load(w: &Wallet) -> State {
@@ -603,6 +912,7 @@ fn publish_offer(
     btc_address: &str,
     secs: u64,
     pay: Pay,
+    prepaid_only: bool,
 ) -> Result<Offer> {
     engine::btc_address(btc_address, e.btc_network)?;
     let secs = secs.clamp(15 * 60, board::MAX_OFFER_SECS);
@@ -641,6 +951,7 @@ fn publish_offer(
         reserve: None,
         funded_sent: false,
         fund: None,
+        prepaid_only: prepaid_only && side == Side::SellGnr,
     };
     let fund = match pay {
         _ if side == Side::SellGnr => None,
@@ -830,6 +1141,9 @@ fn advance(e: &mut Engine<'_, Multi>, base: &str, m: &mut MyOffer) {
         }
         let mut body = serde_json::to_value(&m.offer)?;
         body["reserve"] = json!(hex::encode(tx.to_bytes()));
+        if m.prepaid_only {
+            body["prepaid"] = json!(true);
+        }
         post(base, "/v1/swap/offers", &body)?;
         Ok(true)
     };
@@ -1184,6 +1498,7 @@ fn take_offer(
         "the maker of this offer is offline right now, so the swap could not start at once; pick an online offer"
     );
     let proven = raw["backed"].as_bool().unwrap_or(false);
+    let prepaid_only = raw["prepaid"].as_bool().unwrap_or(false);
     let offer: Offer = serde_json::from_value(raw)?;
     offer.validate(e.wallet.network().as_str(), now())?;
     ensure!(
@@ -1196,6 +1511,10 @@ fn take_offer(
         offer.btc_network
     );
     let mut st = load(e.wallet);
+    ensure!(
+        offer.side != Side::SellGnr || !prepaid_only || deposit,
+        "this seller sells only to buyers whose bitcoin is deposited first: choose \"Pay the bitcoin now\""
+    );
     ensure!(
         !st.offers.iter().any(|m| m.offer.id == id),
         "this is your own offer"
@@ -1782,6 +2101,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
         }
     }
     settle_funds(e, &mut st);
+    mirror_publish(e, &base, &mut st, &swaps);
     let n = st.seen.len();
     if n > 1000 {
         st.seen.drain(..n - 1000);
@@ -1809,6 +2129,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             &m.btc_address,
             m.offer.expires.saturating_sub(now()),
             pay,
+            m.prepaid_only,
         );
         if r.is_err() && handed {
             // No new offer has the deposit: the old one keeps it, and it goes back.
@@ -1890,9 +2211,27 @@ fn handle(
                             mo.reserve.as_ref().is_none_or(|r| r.posted),
                             "a request for an offer that is not published yet"
                         );
+                        // A buyer whose bitcoin waits at an address of its own wallet
+                        // says so; the Bitcoin chain shows whether that is true.
+                        let shown = deposit_shown(e, &code, sats);
+                        let refuse = if mo.prepaid_only && !shown {
+                            Some(
+                                "a request for an offer that is only for buyers whose bitcoin is deposited first",
+                            )
+                        } else if !shown && unpaid_locks(e.wallet) >= engine::MAX_UNPAID_LOCKS {
+                            Some(
+                                "a request while GNR is already locked for buyers who have not paid",
+                            )
+                        } else {
+                            None
+                        };
+                        if let Some(why) = refuse {
+                            let _ = send_note(base, from, key, &Note::Gone { offer });
+                            bail!(why);
+                        }
                         // The lock spends the note set aside for this offer, nothing
                         // else. The offer counts as taken only once the swap exists.
-                        match e.accept_from(&code, &mo.btc_address, note) {
+                        match e.accept_from(&code, &mo.btc_address, note, shown) {
                             Ok(s) => s,
                             Err(x) => {
                                 let _ = send_note(base, from, key, &Note::Gone { offer });
@@ -1933,7 +2272,8 @@ fn handle(
                     "a request with other amounts than the offer"
                 );
                 let addr = tk.btc_address.clone();
-                let s = e.accept(&code, &addr)?;
+                let shown = deposit_shown(e, &code, sats);
+                let s = e.accept_from(&code, &addr, None, shown)?;
                 tk.swap_id = Some(s.id.clone());
                 st.links.push(Link {
                     swap_id: s.id,
@@ -2024,6 +2364,42 @@ pub fn tick(a: &App, e: &mut Engine<'_, Multi>) {
     if let Err(x) = poll(a, e) {
         *a.last_error.lock() = format!("swap board: {x}");
     }
+}
+
+/// Whether a request shows its bitcoin: it names an address of the buyer's own wallet,
+/// signed by that address's key, and the Bitcoin chain has at least the swap's amount
+/// there, confirmed and unspent.
+fn deposit_shown(e: &Engine<'_, Multi>, code: &str, sats: u64) -> bool {
+    let Ok(Some(a)) = engine::prepaid_address(code, e.btc_network) else {
+        return false;
+    };
+    // A Bitcoin server that fails once is asked again: a refusal sends the buyer away.
+    for attempt in 0..3 {
+        match e.btc.unspent(&a) {
+            Ok(v) => {
+                return v
+                    .iter()
+                    .filter(|u| u.height.is_some())
+                    .map(|u| u.value.to_sat())
+                    .sum::<u64>()
+                    >= sats;
+            }
+            Err(_) if attempt < 2 => std::thread::sleep(Duration::from_secs(2)),
+            Err(_) => {}
+        }
+    }
+    false
+}
+
+/// GNR locks this wallet holds, or is about to make, for buyers whose bitcoin it has not
+/// seen and who have not paid.
+fn unpaid_locks(w: &Wallet) -> usize {
+    engine::load(w)
+        .iter()
+        .filter(|s| {
+            s.role == Role::GnrSeller && !s.stage.finished() && s.deposit.is_none() && !s.prepaid
+        })
+        .count()
 }
 
 /// Swaps whose codes travel through the board.
@@ -2128,6 +2504,14 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 ))
             })
             .collect();
+        // Sell offers only for buyers whose bitcoin is deposited first (1.0.43).
+        let prepaid: std::collections::HashSet<String> = raw["offers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|o| o["prepaid"].as_bool().unwrap_or(false))
+            .filter_map(|o| o["id"].as_str().map(String::from))
+            .collect();
         // Buy offers whose bitcoin the board has found at its deposit address (1.0.41).
         let deposited: std::collections::HashSet<String> = raw["offers"]
             .as_array()
@@ -2179,6 +2563,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "online": mine.contains(&&o.id) || online.get(&o.id).copied().unwrap_or(false),
                 "backed": proven.contains(&o.id),
                 "deposited": deposited.contains(&o.id),
+                "prepaid": prepaid.contains(&o.id),
             })
         };
         // Fresh from the board (an offer just published shows at once), with the cached
@@ -2191,6 +2576,9 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
             "in_progress": in_progress,
             "my_offers": st.offers.iter().rev().take(200).map(|m| {
                 let mut v = view(&m.offer);
+                if m.prepaid_only {
+                    v["prepaid"] = json!(true);
+                }
                 v["taken"] = json!(m.taken); v["cancelled"] = json!(m.cancelled);
                 v["expired"] = json!(m.offer.expires <= t);
                 if let Some(r) = &m.reserve {
@@ -2277,6 +2665,10 @@ pub struct PublishReq {
     /// is paid by itself (the default). `false`: pay by hand when a seller takes it.
     #[serde(default)]
     deposit: Option<bool>,
+    /// A sell offer: lock the GNR only for a buyer whose bitcoin is already deposited
+    /// (the default), so that nobody can take the offer and leave the GNR locked unpaid.
+    #[serde(default)]
+    prepaid_only: Option<bool>,
 }
 
 pub async fn publish(
@@ -2308,6 +2700,7 @@ pub async fn publish(
                 } else {
                     Pay::Later
                 },
+                r.prepaid_only.unwrap_or(true),
             )?;
             // A sell offer is listed once its GNR is set aside and proven: at once if a
             // note of the right amount was there, else after the next block. A buy offer
@@ -2580,6 +2973,7 @@ mod tests {
             }),
             funded_sent: false,
             fund: None,
+            prepaid_only: false,
         }
     }
 

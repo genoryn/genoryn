@@ -78,6 +78,10 @@ struct Settings {
     /// Install signed updates as soon as they are found (otherwise offer them).
     #[serde(default)]
     auto_update: bool,
+    /// The owner has set `auto_update` themselves. Until then updates install by
+    /// themselves (from 1.0.43): a wallet that is never updated misses security fixes.
+    #[serde(default)]
+    auto_update_chosen: bool,
     /// Bitcoin connection for swaps: `esplora:<url>` or `rpc:<url>` (default per network).
     #[serde(default)]
     btc_backend: Option<String>,
@@ -507,7 +511,9 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
                 }
             }
         };
-        let s = a.settings.lock().clone();
+        // What the page shows as "install automatically" is what the wallet does.
+        let mut s = a.settings.lock().clone();
+        s.auto_update = s.auto_update || !s.auto_update_chosen;
         let address = wv["address"].as_str().map(str::to_string);
         let info = a
             .sources()
@@ -1352,6 +1358,7 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
     {
         let cur = app.settings.lock();
         s.auto_update = cur.auto_update;
+        s.auto_update_chosen = cur.auto_update_chosen;
         s.btc_backend = cur.btc_backend.clone();
         s.btc_network = cur.btc_network.clone();
         s.share_prices = cur.share_prices;
@@ -1661,7 +1668,11 @@ async fn auto_update(State(app): S, h: HeaderMap, Json(r): Json<AutoReq>) -> Res
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    app.settings.lock().auto_update = r.on;
+    {
+        let mut s = app.settings.lock();
+        s.auto_update = r.on;
+        s.auto_update_chosen = true;
+    }
     match app.save_settings() {
         Ok(()) => Json(json!({"ok": true, "auto_update": r.on})).into_response(),
         Err(e) => err(e),
@@ -1899,6 +1910,7 @@ async fn serve(
             mode: "light".into(),
             nodes: vec![PUBLIC_NODE.into()],
             auto_update: false,
+            auto_update_chosen: false,
             btc_backend: None,
             btc_network: None,
             share_prices: None,
@@ -1955,12 +1967,26 @@ async fn serve(
             if let Ok(Ok(found)) = tokio::task::spawn_blocking(update::check).await {
                 *up.update.lock() = found;
             }
-            let auto = up.settings.lock().auto_update;
+            let auto = {
+                let s = up.settings.lock();
+                s.auto_update || !s.auto_update_chosen
+            };
             let ready = up.update.lock().as_ref().is_some_and(|u| u.can_install);
-            if auto && ready && up.busy.lock().is_empty() {
-                let _ = start_install(&up).await;
+            if auto && ready {
+                // Never while a swap runs or an offer is open: the wallet restarts locked,
+                // and only an unlocked wallet can carry them on. Looked at every five
+                // minutes for an hour; one attempt.
+                let mut tried = false;
+                for _ in 0..12 {
+                    if !tried && up.busy.lock().is_empty() && up.vault.hold.lock().is_empty() {
+                        tried = true;
+                        let _ = start_install(&up).await;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                }
+            } else {
+                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
             }
-            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
         }
     });
 
@@ -2108,6 +2134,7 @@ async fn serve(
         .route("/api/board/cancel", post(board::cancel))
         .route("/api/board/recover-btc", post(board::recover_btc))
         .route("/api/board/untake", post(board::untake))
+        .route("/api/swap/adopt", post(board::adopt))
         .route("/api/swap/settings", post(swaps::settings))
         .route("/api/coins", get(coins::list))
         .route("/api/coin/send", post(coins::send))

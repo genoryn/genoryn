@@ -35,6 +35,82 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 pub const CODE_PREFIX: &str = "gks1";
+/// What a buyer's wallet says of itself in its request. From 2 (release 1.0.43) it works
+/// with the shorter locks (`Timing::gnr_lock2_fast_blocks`).
+pub const PROTOCOL: u8 = 2;
+/// A seller's wallet locks GNR for at most this many buyers at a time whose bitcoin it
+/// could not see beforehand. A taker who never pays can hold up this many of a seller's
+/// offers, not all of them.
+pub const MAX_UNPAID_LOCKS: usize = 2;
+
+/// A buyer's word that the bitcoin of a swap is ready: the public key of an address of
+/// the buyer's own wallet (`crate::deposit`) and its signature over the request. The
+/// seller's wallet looks the address up on the Bitcoin chain before it locks.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Prepaid {
+    pub key: String,
+    pub sig: String,
+}
+
+fn prepaid_digest(id: &str, gnr: u64, sats: u64, refund_pub: &str, btc_network: &str) -> [u8; 32] {
+    use bitcoin::hashes::{Hash, sha256};
+    let parts: [&[u8]; 5] = [
+        id.as_bytes(),
+        &gnr.to_le_bytes(),
+        &sats.to_le_bytes(),
+        refund_pub.as_bytes(),
+        btc_network.as_bytes(),
+    ];
+    sha256::Hash::hash(&krypton_crypto::hash::tagged_parts(
+        "Krypton/swap/prepaid/v1",
+        &parts,
+    ))
+    .to_byte_array()
+}
+
+fn sign_prepaid(digest: [u8; 32], key: &bitcoin::secp256k1::SecretKey) -> Prepaid {
+    use bitcoin::secp256k1::{Message, Secp256k1};
+    let secp = Secp256k1::signing_only();
+    Prepaid {
+        key: hex::encode(key.public_key(&secp).serialize()),
+        sig: hex::encode(
+            secp.sign_ecdsa(&Message::from_digest(digest), key)
+                .serialize_compact(),
+        ),
+    }
+}
+
+/// The address a request says its bitcoin waits at, if it says so and the address's key
+/// signed this very request. Whether the bitcoin is there is for the caller to look up.
+pub fn prepaid_address(code: &str, network: bitcoin::Network) -> Result<Option<Address>> {
+    use bitcoin::secp256k1::{Message, PublicKey as Key, Secp256k1, ecdsa::Signature};
+    let Msg::Request2 {
+        id,
+        btc_network,
+        gnr,
+        sats,
+        refund_pub,
+        prepaid: Some(p),
+        ..
+    } = Msg::decode(code)?
+    else {
+        return Ok(None);
+    };
+    ensure!(p.key.len() == 66 && p.sig.len() == 128, "bad deposit proof");
+    let key = Key::from_slice(&hex::decode(&p.key)?).context("bad deposit key")?;
+    let sig = Signature::from_compact(&hex::decode(&p.sig)?).context("bad deposit signature")?;
+    Secp256k1::verification_only()
+        .verify_ecdsa(
+            &Message::from_digest(prepaid_digest(&id, gnr, sats, &refund_pub, &btc_network)),
+            &sig,
+            &key,
+        )
+        .map_err(|_| anyhow!("the deposit proof is not for this request"))?;
+    Ok(Some(Address::p2wpkh(
+        &bitcoin::CompressedPublicKey(key),
+        network,
+    )))
+}
 const STORE_KEY: &str = "swaps";
 /// A swap whose bitcoin deposit has not arrived this long after it started is given up.
 pub const DEPOSIT_TIMEOUT_SECS: u64 = 3 * 3600;
@@ -187,12 +263,22 @@ pub struct Swap {
     /// That payment into the contract, once sent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paid_tx: Option<String>,
+    /// GNR seller: how many blocks the lock was made for (the shorter lock when the
+    /// buyer's wallet knows it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lock_blocks: Option<u64>,
+    /// The buyer's bitcoin was at an address of the buyer's wallet when the swap began:
+    /// the buyer's wallet knows it of its own swaps, the seller's wallet looked it up.
+    #[serde(default)]
+    pub prepaid: bool,
 }
 
 /// GNR this wallet locked in a swap that this copy of the wallet has no record of: the
 /// swap was started by the same wallet on another computer (or its record was lost).
 #[derive(Clone, Debug, Serialize)]
 pub struct Elsewhere {
+    /// The number of the swap the lock belongs to.
+    pub swap: u32,
     pub value: u64,
     /// The block that holds the lock, and the block from which it can be refunded.
     pub height: Option<u64>,
@@ -222,6 +308,12 @@ pub enum Msg {
         claim_fee: u64,
         claim_outputs: [HexCm; 2],
         refund_pub: String,
+        /// The buyer's wallet: [`PROTOCOL`] (0 before 1.0.43).
+        #[serde(default)]
+        v: u8,
+        /// The bitcoin waits at an address of the buyer's wallet.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        prepaid: Option<Prepaid>,
     },
     /// GNR first: the seller's hash lock, bitcoin claim key and GNR lock terms.
     Accept2 {
@@ -314,6 +406,7 @@ pub fn elsewhere(w: &Wallet, swaps: &[Swap]) -> Vec<Elsewhere> {
         .iter()
         .filter(|l| orphan(l, swaps))
         .map(|l| Elsewhere {
+            swap: l.swap,
             value: l.value,
             height: l.height,
             refund_height: l.terms.refund_height,
@@ -463,6 +556,18 @@ impl<G: ChainSource> Engine<'_, G> {
         let claim_fee = DEFAULT_FEE;
         let claim_outputs = self.wallet.claim_outputs(index, gnr, claim_fee)?;
         let id = hex::encode(rand::random::<[u8; 16]>());
+        let prepaid = fund.map(|d| {
+            sign_prepaid(
+                prepaid_digest(
+                    &id,
+                    gnr,
+                    sats,
+                    &refund_pub.to_string(),
+                    &net_name(self.btc_network),
+                ),
+                &crate::deposit::key(&seed, d),
+            )
+        });
         let msg = Msg::Request2 {
             id: id.clone(),
             gnr_network: self.wallet.network(),
@@ -472,6 +577,8 @@ impl<G: ChainSource> Engine<'_, G> {
             claim_fee,
             claim_outputs,
             refund_pub: refund_pub.to_string(),
+            v: PROTOCOL,
+            prepaid,
         };
         let mut s = Swap {
             id,
@@ -505,6 +612,8 @@ impl<G: ChainSource> Engine<'_, G> {
             from_note: None,
             fund,
             paid_tx: None,
+            lock_blocks: None,
+            prepaid: fund.is_some(),
         };
         s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
@@ -515,7 +624,7 @@ impl<G: ChainSource> Engine<'_, G> {
     /// GNR seller: accepts a request; the bitcoin will be paid to `payout_address`.
     /// Returns the swap with the accept code for the BTC seller.
     pub fn accept(&mut self, code: &str, payout_address: &str) -> Result<Swap> {
-        self.accept_from(code, payout_address, None)
+        self.accept_from(code, payout_address, None, false)
     }
 
     /// [`Engine::accept`] for an offer whose GNR was set aside: the lock spends the note
@@ -525,9 +634,10 @@ impl<G: ChainSource> Engine<'_, G> {
         code: &str,
         payout_address: &str,
         from: Option<krypton_core::Hash32>,
+        prepaid: bool,
     ) -> Result<Swap> {
         self.check_active()?;
-        let (id, gnr_network, btc_network, gnr, sats, claim_fee, claim_outputs, refund_pub) =
+        let (id, gnr_network, btc_network, gnr, sats, claim_fee, claim_outputs, refund_pub, v) =
             match Msg::decode(code)? {
                 Msg::Request2 {
                     id,
@@ -538,6 +648,8 @@ impl<G: ChainSource> Engine<'_, G> {
                     claim_fee,
                     claim_outputs,
                     refund_pub,
+                    v,
+                    ..
                 } => (
                     id,
                     gnr_network,
@@ -547,6 +659,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     claim_fee,
                     claim_outputs,
                     refund_pub,
+                    v,
                 ),
                 Msg::Request { .. } => bail!(UPDATE_HINT),
                 _ => bail!("this is not a swap request"),
@@ -608,7 +721,14 @@ impl<G: ChainSource> Engine<'_, G> {
         // We hold the secret and lock first; the lock lasts through the buyer's payment,
         // the bitcoin lock and the buyer's window to claim.
         let hash = derive_secret(&seed, index).hash();
-        let gnr_refund_height = self.gnr_tip()? + self.timing.gnr_lock2_blocks;
+        // A buyer's wallet from 1.0.43 works with the shorter lock; an older one would
+        // refuse to pay into it.
+        let lock_blocks = if v >= PROTOCOL {
+            self.timing.gnr_lock2_fast_blocks
+        } else {
+            self.timing.gnr_lock2_blocks
+        };
+        let gnr_refund_height = self.gnr_tip()? + lock_blocks;
         let msg = Msg::Accept2 {
             id: id.clone(),
             hash,
@@ -649,6 +769,8 @@ impl<G: ChainSource> Engine<'_, G> {
             from_note: from.map(hex::encode),
             fund: None,
             paid_tx: None,
+            lock_blocks: Some(lock_blocks),
+            prepaid,
         };
         s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
@@ -686,7 +808,8 @@ impl<G: ChainSource> Engine<'_, G> {
                 let gnr_tip = self.gnr_tip()?;
                 let t = self.timing;
                 ensure!(
-                    gnr_refund_height >= gnr_tip + t.gnr_lock2_blocks * 9 / 10,
+                    gnr_refund_height
+                        >= gnr_tip + t.gnr_lock2_fast_blocks.min(t.gnr_lock2_blocks) * 9 / 10,
                     "the GNR lock in the accept code expires too soon"
                 );
                 ensure!(
@@ -1250,11 +1373,11 @@ impl<G: ChainSource> Engine<'_, G> {
                     return Ok(());
                 };
                 let confs = gnr_tip + 1 - h;
-                if confs < t.gnr_confs_for(s.gnr) {
+                if confs < t.gnr_confs_for(s.sats) {
                     s.say(format!(
                         "The seller locked {} GNR for you at block {h}: {confs} of {} confirmations before you pay.",
                         krypton_core::emission::format_amount(s.gnr - s.claim_fee),
-                        t.gnr_confs_for(s.gnr)
+                        t.gnr_confs_for(s.sats)
                     ));
                     return Ok(());
                 }
@@ -1416,7 +1539,7 @@ impl<G: ChainSource> Engine<'_, G> {
                 s.say("GNR locked for the buyer. They pay once the lock has confirmed; if they do not, the GNR comes back to you.");
                 return Ok(());
             }
-            if gnr_tip + t.gnr_lock2_blocks * 9 / 10 > gnr_refund {
+            if gnr_tip + s.lock_blocks.unwrap_or(t.gnr_lock2_blocks) * 9 / 10 > gnr_refund {
                 s.stage = Stage::Failed;
                 s.say("Too late to lock the GNR for this swap; nothing was locked.");
                 return Ok(());
@@ -1478,7 +1601,7 @@ impl<G: ChainSource> Engine<'_, G> {
                         None => s.say("The GNR lock is sent; waiting for it to be in a block."),
                         Some(h) => {
                             let (confs, need) =
-                                ((gnr_tip + 1).saturating_sub(h), t.gnr_confs_for(s.gnr));
+                                ((gnr_tip + 1).saturating_sub(h), t.gnr_confs_for(s.sats));
                             if confs < need {
                                 s.say(format!(
                                     "GNR locked for the buyer at block {h}: {confs} of {need} confirmations, then they pay."

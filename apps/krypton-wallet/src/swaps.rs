@@ -152,6 +152,8 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     let swaps = g.as_ref().map(engine::load).unwrap_or_default();
     let linked = g.as_ref().map(crate::board::linked_ids).unwrap_or_default();
     let gone = g.as_ref().map(crate::board::gone_ids).unwrap_or_default();
+    // Swaps of this wallet that another computer runs and reported.
+    let (mirrored, mirrored_sells) = g.as_ref().map(crate::board::mirrored).unwrap_or_default();
     let why = inactive(&app, g.as_ref());
     let tip = g.as_ref().and_then(|w| w.synced_height()).unwrap_or(0);
     // GNR of this wallet locked in swaps that this copy of it did not start: the same
@@ -161,6 +163,8 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         .map(|w| engine::elsewhere(w, &swaps))
         .unwrap_or_default()
         .into_iter()
+        // Not a second time what the other computer's report already shows.
+        .filter(|l| !mirrored_sells.contains(&l.swap))
         .map(|l| {
             json!({
                 "gnr_text": format_amount(l.value),
@@ -198,6 +202,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     swaps.reverse();
     Json(json!({
         "elsewhere": elsewhere,
+        "mirrored": mirrored,
         "active": why.is_none(),
         "reason": why,
         "btc_network": btc_network(&app).to_core_arg(),
@@ -415,6 +420,7 @@ pub fn tick(a: &App, w: &mut Wallet, src: &Multi, mempool: &[krypton_core::types
     crate::board::refresh_market(a);
     crate::coins::tick(a, w, src);
     crate::board::reconcile_holds(w);
+    crate::board::mirror_read(a, w);
     let stray = engine::elsewhere(w, &engine::load(w));
     if (!has_work(w) && stray.is_empty()) || inactive(a, Some(w)).is_some() {
         return;

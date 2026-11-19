@@ -27,7 +27,7 @@ Both chains lock coins under the same hash lock `h = SHA-256(s)`. In the **GNR-f
 |---|---|---|
 | 1 | Buyer | Sends a request: amounts, its bitcoin refund key and its GNR claim outputs. |
 | 2 | GNR seller | Answers with `h`, its bitcoin claim key and the GNR lock terms, and **locks the GNR at once** in a lock note: claimable with `s` by the buyer only, refundable to the seller after `T_gnr` (≈ 32 h). |
-| 3 | Buyer | Waits for the lock to confirm: 6 GNR blocks for up to 50 GNR, 15 up to 500, 30 above (`Timing::gnr_confs_for`), so undoing the lock costs more than the trade. The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
+| 3 | Buyer | Waits for the lock to confirm: 3 GNR blocks for a payment up to 0.001 BTC, 6 up to 0.01 BTC, 15 up to 0.1 BTC, 30 above (`Timing::gnr_confs_for`), so undoing the lock costs more than the trade. The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
 | 4 | GNR seller | Waits for the bitcoin to confirm (1 block up to 0.01 BTC, else 2), then **claims the bitcoin** with `s`, at least 6 blocks before `T_btc`. This publishes `s` on Bitcoin. |
 | 5 | Buyer | Its wallet reads `s` from that bitcoin transaction and **claims the GNR**, long before `T_gnr`. |
 
@@ -39,7 +39,7 @@ If anyone stops halfway, the timelocks return the coins:
 * **The seller never claims the bitcoin:** `s` stays secret; the buyer refunds the bitcoin
   after `T_btc` and the seller refunds the GNR after `T_gnr`.
 * **The seller claims the bitcoin:** `s` is public, so the buyer can always claim the GNR,
-  because the GNR lock outlasts the bitcoin lock by at least 6 hours. The buyer's check
+  because the GNR lock outlasts the bitcoin lock by at least 4 hours (6 with a wallet before 1.0.43). The buyer's check
   (`Timing::check_pay`) counts bitcoin blocks slow (20 min) and GNR blocks fast (45 s), and
   adds the 2-hour payment window.
 * **No swap may last longer than a week:** both wallets refuse longer timelocks.
@@ -404,6 +404,40 @@ out could always sell to themselves. Locking the note on chain for a week would 
 nobody could buy it then: a swap's lock names the buyer's outputs, which do not exist before
 there is a buyer. What the chain and the board do guarantee is that an offer whose GNR moved
 is no longer listed.
+
+**Buyers whose bitcoin is ready** (1.0.43). A sell offer can be for prepaid buyers only
+(`MyOffer::prepaid_only`, the default; the board lists `prepaid: true`). A buyer whose
+bitcoin waits at a deposit address puts a proof into its request (`Msg::Request2::prepaid`):
+the address's public key and its signature over the request's id, amounts, refund key and
+Bitcoin network (`engine::prepaid_address`). The seller's wallet looks the address up with
+its own Bitcoin server and locks only if at least the swap's amount is there, confirmed and
+unspent (`deposit_shown`). A buyer could still move that bitcoin afterwards instead of
+paying, but has to hold it for every offer it takes, and an unmodified wallet pays by
+itself. For buyers whose bitcoin the wallet has not seen, it holds at most
+`MAX_UNPAID_LOCKS` (2) unpaid locks at a time and answers further requests with "gone". A
+higher proof of work for takes was considered and left out: requests are sealed, so the
+board cannot weigh them, and a wallet-side rule would shut out older wallets while costing
+an attacker seconds.
+
+**Shorter locks and fewer confirmations** (1.0.43). The buyer waits for confirmations on
+the seller's lock by the size of its own payment: 3 blocks up to 0.001 BTC, 6 up to
+0.01 BTC, 15 up to 0.1 BTC, 30 above (`Timing::gnr_confs_for`); only the buyer's wallet
+applies this. A buyer's wallet now locks its bitcoin for 18 blocks and keeps 4 hours to
+claim, which needs 1,080 GNR blocks left when it pays; a request says `v: 2`
+(`engine::PROTOCOL`), and for such a buyer the seller locks 1,260 blocks (about 21 hours)
+instead of 1,900. A request without `v` comes from a wallet that would refuse the shorter
+lock and gets the old one. A new buyer accepts either from a seller.
+
+**One wallet on several computers** (1.0.43). Each copy of a wallet seals reports of its
+swaps (the swap record and its board link, on every change of stage, and a sign of life
+every hour) to a mailbox whose key derives from the wallet's seed (`MIRROR_N`); a report
+carries a tag made with the seed (`mirror_tag`), so only a copy of the wallet can have
+written it. Other copies read the mailbox every two minutes (`mirror_read`), show those
+swaps, and can adopt one (`adopt_swap`, "Carry on here"): the record becomes a swap of that
+copy, which then does whatever step is open. Both copies running a swap cannot lock or pay
+twice, because each step spends a note, a lock or a bitcoin output that exists once; a
+seller's copy that finds the lock already made adopts it. The board sees an inbox with
+encrypted reports, not whose they are.
 
 **Nothing waits without saying why** (1.0.42). A seller's swap whose buyer did not pay
 shows the refund block and the hours until then; the lock cannot be opened sooner by anyone.

@@ -515,11 +515,11 @@ the buyer.
 
 | Mainnet timing | Value |
 |---|---|
-| GNR confirmations the buyer waits for | 6 blocks up to 50 GNR, 15 up to 500 GNR, 30 above |
+| GNR confirmations the buyer waits for | 3 blocks for a payment up to 0.001 BTC, 6 up to 0.01 BTC, 15 up to 0.1 BTC, 30 above |
 | Bitcoin confirmations the seller waits for | 1 up to 0.01 BTC, 2 above |
 | Payment window | 2 hours after the GNR lock has confirmed |
-| GNR timelock | 1,900 blocks (about 32 hours) |
-| Bitcoin timelock | 36 Bitcoin blocks (about 6 hours) |
+| GNR timelock | 1,260 blocks (about 21 hours); 1,900 (about 32 hours) when the buyer's wallet is older than 1.0.43 |
+| Bitcoin timelock | 18 Bitcoin blocks (about 3 hours) |
 | Longest possible swap | One week; longer terms are refused |
 
 **If something stops:** a buyer who never pays ends the swap and the seller's GNR returns after
@@ -542,6 +542,8 @@ two wallets of a swap; it never sees keys, codes or coins.
 | Proof of work | 18 bits per offer, message and report; offers longer than a day need one bit more per doubling (21 for a week, 23 for a month, 27 for a year: seconds on a modern CPU) |
 | Proof of funds | A sell offer is listed only after its GNR is set aside in a note of its own and the board has checked a zero-knowledge proof that the seller can spend it. The proof fits that offer only and can never be mined: nothing moves. The board takes the offer down the moment the note is spent, and no note backs two offers, or an offer and a swap in progress |
 | While it is open | The note cannot be sent or put into another offer; a take locks exactly it |
+| Buyers whose bitcoin is ready | A sell offer is by default only for buyers whose bitcoin is already at an address of their own wallet: the seller's wallet checks that on the Bitcoin chain before it locks GNR, and the buyer's wallet pays by itself. For other buyers a wallet holds at most two unpaid locks at a time |
+| One wallet, several computers | Each copy reports its swaps, encrypted, to a mailbox only copies of that wallet can read; another computer shows them and can carry one on if the first is gone |
 | A week's commitment | Publishing a sell offer commits its GNR for 7 days: it can be sold or go into another sell offer at once, but not be sent, also after cancelling or after the offer ran its time. A rule of the wallet; the chain cannot tell a real sale from a seller selling to themselves |
 | Buy offers | The bitcoin is paid in advance to an address of the buyer's own wallet (a contract cannot hold it before a seller exists: it names the seller's key and the hash of the seller's secret). The board checks on the Bitcoin chain that it is there and marks the offer. When a seller's GNR is locked and confirmed, the buyer's wallet pays the contract by itself; if nobody sells, it sends the bitcoin back |
 | One wallet, two computers | Offers and swaps live in the wallet that started them. A second copy of the wallet shows the GNR as locked in a swap elsewhere and takes it back 30 blocks after its lock ends if the first copy is gone |
@@ -848,8 +850,8 @@ or on another network.
 <details><summary><b>My swap seems stuck</b></summary>
 
 Keep the wallet running and unlocked; the swap card says what it waits for. If the buyer never
-pays, the seller's GNR returns after about 32 hours; if the seller never claims, the buyer's
-bitcoin returns after about 6 hours.
+pays, the seller's GNR returns after about 21 hours; if the seller never claims, the buyer's
+bitcoin returns after about 3 hours.
 </details>
 
 <details><summary><b>My offer shows as offline</b></summary>

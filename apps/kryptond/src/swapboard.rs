@@ -83,6 +83,8 @@ struct Inner {
     /// own (`board::check_funding`), with that address. It is never published.
     deposits: HashMap<String, String>,
     deposits_checked: u64,
+    /// Sell offers whose makers lock GNR only for buyers whose bitcoin is deposited.
+    prepaid: HashSet<String>,
 }
 
 impl Inner {
@@ -134,6 +136,7 @@ impl Inner {
         self.pending.remove(id);
         self.backing.remove(id);
         self.deposits.remove(id);
+        self.prepaid.remove(id);
         if !self.coin_offers.contains_key(id) {
             self.seen.remove(id);
         }
@@ -198,6 +201,7 @@ impl Board {
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
         i.deposits
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
+        i.prepaid.retain(|id| offers.contains_key(id));
         let ids: std::collections::HashSet<String> = i
             .offers
             .keys()
@@ -250,6 +254,7 @@ impl Board {
                 i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
                 i.backing = s.backing.into_iter().collect();
                 i.deposits = s.deposits.into_iter().collect();
+                i.prepaid = s.prepaid.into_iter().collect();
             }
             i.funded = s.funded.into_iter().collect();
             i.coin_offers = s
@@ -336,6 +341,7 @@ impl Board {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
+            prepaid: i.prepaid.iter().cloned().collect(),
         };
         if let Ok(b) = serde_json::to_vec(&s) {
             Board::write(&p.with_file_name("swap-board.json"), b);
@@ -359,6 +365,8 @@ struct Saved {
     funded: Vec<String>,
     #[serde(default)]
     deposits: Vec<(String, String)>,
+    #[serde(default)]
+    prepaid: Vec<String>,
 }
 
 fn hash32(s: &str) -> Option<Hash32> {
@@ -512,6 +520,8 @@ pub async fn offers(State(node): S) -> Response {
             x["backed"] = json!(i.backing.contains_key(&o.id));
             // The buyer's bitcoin was found at a deposit address of the buyer's wallet.
             x["deposited"] = json!(i.deposits.contains_key(&o.id));
+            // The seller locks GNR only for a buyer whose bitcoin is deposited.
+            x["prepaid"] = json!(i.prepaid.contains(&o.id));
             x
         })
         .collect();
@@ -584,6 +594,10 @@ pub struct OfferPost {
     /// (`krypton_swap::board::check_funding`).
     #[serde(default)]
     funding: Option<board::Funding>,
+    /// A sell offer for buyers whose bitcoin is deposited first (the maker's wallet
+    /// checks that itself; the board only shows it).
+    #[serde(default)]
+    prepaid: bool,
 }
 
 pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
@@ -689,8 +703,12 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
         return bad("this bitcoin deposit already stands behind another offer on the board");
     }
     let id = o.id.clone();
+    let prepaid = p.prepaid && o.side == Side::SellGnr;
     if let Err(e) = i.list(o, backing, t) {
         return bad(e);
+    }
+    if prepaid {
+        i.prepaid.insert(id.clone());
     }
     let marked = deposit.is_some_and(|a| i.deposited(&id, a));
     node.board.save_board(&i);

@@ -678,14 +678,16 @@ fn old_requests_and_unsafe_terms_are_refused() {
     assert!(e.to_string().contains("week"), "{e}");
     // Confirmations grow with the size of the swap.
     let t = Timing::MAINNET;
-    assert_eq!(t.gnr_confs_for(10 * GNR), 6);
-    assert_eq!(t.gnr_confs_for(100 * GNR), 15);
-    assert_eq!(t.gnr_confs_for(5_000 * GNR), 30);
+    // By what the buyer is about to pay: 0.0002 BTC, 0.001, 0.01, 0.1 and more.
+    assert_eq!(
+        [20_000, 100_000, 100_001, 1_000_000, 10_000_000, 10_000_001].map(|s| t.gnr_confs_for(s)),
+        [3, 3, 6, 6, 15, 30]
+    );
     assert_eq!(
         (t.btc_confs_for(500_000), t.btc_confs_for(2_000_000)),
         (1, 2)
     );
-    assert_eq!(Timing::TEST.gnr_confs_for(10 * GNR), 2);
+    assert_eq!(Timing::TEST.gnr_confs_for(50_000_000), 2);
     // The pay check: a week at most, and the GNR must outlast the bitcoin.
     let ok = krypton_swap::Timelocks {
         btc_refund_height: 1_036,
@@ -702,6 +704,100 @@ fn old_requests_and_unsafe_terms_are_refused() {
         ..ok
     };
     assert!(t.check_pay(&week, 1_000, 10_000).is_err());
+    // The shorter locks of 1.0.43: a bitcoin lock of 18 blocks needs 1,080 GNR blocks
+    // left when the buyer pays; the seller's 1,260 leave 180 for the confirmations.
+    let fast = |left: u64| krypton_swap::Timelocks {
+        btc_refund_height: 1_000 + t.btc_lock2_blocks,
+        gnr_refund_height: 10_000 + left,
+    };
+    assert_eq!(t.btc_lock2_blocks, 18);
+    assert!(t.check_pay(&fast(1_080), 1_000, 10_000).is_ok());
+    assert!(t.check_pay(&fast(1_079), 1_000, 10_000).is_err());
+    assert!(
+        t.check_pay(&fast(t.gnr_lock2_fast_blocks - 40), 1_000, 10_000)
+            .is_ok()
+    );
+    // What a wallet before 1.0.43 asks for (36 blocks, 6 hours to claim): 1,720.
+    assert!(t.gnr_lock2_blocks >= 1_720 + 150);
+}
+
+/// The length of the seller's lock follows the buyer's wallet: the shorter lock for a
+/// wallet that knows it, the old one for a wallet that would refuse anything shorter.
+/// And a buyer whose bitcoin is deposited can prove it to the seller.
+#[test]
+fn the_lock_follows_the_buyers_wallet_and_a_deposit_can_be_proven() {
+    use krypton_swap::engine::{Msg, PROTOCOL, prepaid_address};
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let tip = chain.tip().height();
+    let t = Timing::TEST;
+    assert!(t.gnr_lock2_fast_blocks < t.gnr_lock2_blocks);
+
+    // A wallet of today, paying by hand: the short lock, and no proof of a deposit.
+    let req = b
+        .engine(&src, &btc, &chain)
+        .request(GNR, SATS, &btc_addr(2).to_string())
+        .unwrap();
+    let code = req.code.clone().unwrap();
+    let Msg::Request2 { v, prepaid, .. } = Msg::decode(&code).unwrap() else {
+        panic!("a request")
+    };
+    assert_eq!((v, prepaid), (PROTOCOL, None));
+    assert_eq!(prepaid_address(&code, BtcNet::Regtest).unwrap(), None);
+    let s = a
+        .engine(&src, &btc, &chain)
+        .accept(&code, &btc_addr(1).to_string())
+        .unwrap();
+    assert_eq!(s.gnr_refund_height, Some(tip + t.gnr_lock2_fast_blocks));
+    assert_eq!(s.lock_blocks, Some(t.gnr_lock2_fast_blocks));
+    assert!(!s.prepaid);
+    // The buyer accepts that lock.
+    b.engine(&src, &btc, &chain)
+        .receive(s.code.as_ref().unwrap())
+        .unwrap();
+
+    // The same request as a wallet before 1.0.43 would send it: no version. It would
+    // refuse a lock shorter than the old one, so it gets the old one.
+    let mut old: serde_json::Value = serde_json::to_value(Msg::decode(&code).unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("v");
+    old["id"] = "11".repeat(16).into();
+    let old: Msg = serde_json::from_value(old).unwrap();
+    let s = a
+        .engine(&src, &btc, &chain)
+        .accept(&old.encode(), &btc_addr(1).to_string())
+        .unwrap();
+    assert_eq!(s.gnr_refund_height, Some(tip + t.gnr_lock2_blocks));
+
+    // A buyer whose bitcoin waits at deposit address 3 of its wallet says so, signed by
+    // that address's key. The proof names the address and fits this request only.
+    let req = b
+        .engine(&src, &btc, &chain)
+        .request_from(GNR, SATS, &btc_addr(2).to_string(), Some(3))
+        .unwrap();
+    assert!(req.prepaid);
+    let code = req.code.clone().unwrap();
+    let dep = b.engine(&src, &btc, &chain).deposit_address(3);
+    assert_eq!(prepaid_address(&code, BtcNet::Regtest).unwrap(), Some(dep));
+    let mut other: serde_json::Value = serde_json::to_value(Msg::decode(&code).unwrap()).unwrap();
+    other["sats"] = (SATS + 1).into();
+    let other: Msg = serde_json::from_value(other).unwrap();
+    assert!(prepaid_address(&other.encode(), BtcNet::Regtest).is_err());
+    let mut moved: serde_json::Value = serde_json::to_value(Msg::decode(&code).unwrap()).unwrap();
+    moved["id"] = "22".repeat(16).into();
+    let moved: Msg = serde_json::from_value(moved).unwrap();
+    assert!(prepaid_address(&moved.encode(), BtcNet::Regtest).is_err());
+    // The seller's wallet records what it was told it checked.
+    let s = a
+        .engine(&src, &btc, &chain)
+        .accept_from(&code, &btc_addr(1).to_string(), None, true)
+        .unwrap();
+    assert!(s.prepaid);
 }
 
 #[test]
@@ -842,6 +938,7 @@ fn a_sell_offer_proves_its_gnr() {
             req.code.as_ref().unwrap(),
             &btc_addr(1).to_string(),
             Some(cm),
+            false,
         )
         .unwrap();
     assert_eq!(acc.from_note, Some(hex::encode(cm)));

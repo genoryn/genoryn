@@ -352,6 +352,9 @@ pub struct Timing {
     /// How long the GNR stays locked: covers the buyer's confirmations, payment and the
     /// whole bitcoin lock, plus the buyer's window to claim.
     pub gnr_lock2_blocks: u64,
+    /// The same when the buyer's wallet is from 1.0.43 on, whose bitcoin lock and claim
+    /// window are shorter: the GNR of a swap nobody pays comes back sooner.
+    pub gnr_lock2_fast_blocks: u64,
     /// How long the buyer's bitcoin stays locked.
     pub btc_lock2_blocks: u32,
     /// Seconds per block for the buyer's check: bitcoin blocks counted slow and GNR blocks
@@ -381,13 +384,19 @@ impl Timing {
         claim_margin: 120,
         btc_confirmations: 2,
         gnr_confirmations: 30,
-        // GNR locked for about 32 hours at most (if the buyer never pays), bitcoin for
-        // about 6 hours.
+        // GNR locked for about 21 hours at most (if the buyer never pays), bitcoin for
+        // about 3 hours. What a buyer checks before paying (`check_pay`): the GNR lock
+        // outlasts the bitcoin lock counted slow (18 x 20 min = 6 h), the payment window
+        // (2 h) and the buyer's window to claim (4 h), with GNR blocks counted fast
+        // (45 s) and 120 blocks kept back: 1,080 blocks. The seller adds 180 blocks for
+        // the lock's confirmations. A buyer's wallet older than 1.0.43 asks for 1,720,
+        // so for it the seller locks 1,900 (about 32 hours).
         gnr_lock2_blocks: 1_900,
-        btc_lock2_blocks: 36,
+        gnr_lock2_fast_blocks: 1_260,
+        btc_lock2_blocks: 18,
         btc_slow_secs: 1_200,
         gnr_fast_secs: 45,
-        min_window2_secs: 6 * 3600,
+        min_window2_secs: 4 * 3600,
         btc_claim_margin: 6,
         pay_window_secs: 2 * 3600,
     };
@@ -402,6 +411,7 @@ impl Timing {
         btc_confirmations: 1,
         gnr_confirmations: 2,
         gnr_lock2_blocks: 120,
+        gnr_lock2_fast_blocks: 105,
         btc_lock2_blocks: 20,
         btc_slow_secs: 30,
         gnr_fast_secs: 10,
@@ -445,13 +455,16 @@ impl Timing {
         Ok(())
     }
 
-    /// GNR confirmations the buyer waits for on the seller's lock, by size: undoing a
-    /// lock means rewriting that many blocks, which must cost more than the trade is worth.
-    /// Up to 50 GNR: 6 blocks; up to 500: 15; more: `gnr_confirmations`.
-    pub fn gnr_confs_for(&self, krypton: u64) -> u64 {
-        let tier = match krypton / 100_000_000 {
-            0..=50 => 6,
-            51..=500 => 15,
+    /// GNR confirmations the buyer waits for on the seller's lock before paying, by what
+    /// the buyer is about to pay: undoing a lock means rewriting that many blocks (and
+    /// the ones mined while the bitcoin payment confirms), which must cost more than the
+    /// payment is worth. Up to 0.001 BTC: 3 blocks; up to 0.01 BTC: 6; up to 0.1 BTC: 15;
+    /// more: `gnr_confirmations`.
+    pub fn gnr_confs_for(&self, sats: u64) -> u64 {
+        let tier = match sats {
+            0..=100_000 => 3,
+            100_001..=1_000_000 => 6,
+            1_000_001..=10_000_000 => 15,
             _ => self.gnr_confirmations,
         };
         tier.min(self.gnr_confirmations)
