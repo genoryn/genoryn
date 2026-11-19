@@ -208,8 +208,9 @@ fn main() -> Result<()> {
             }
             let (mnemonic, birthday) = if let Cmd::Restore { birthday } = cli.cmd {
                 let m = rpassword::prompt_password("Recovery phrase (24 words): ")?;
+                let m = zeroize::Zeroizing::new(m);
                 keys::validate_mnemonic(&m)?;
-                (zeroize::Zeroizing::new(m), birthday)
+                (keys::normalize(&m)?, birthday)
             } else {
                 let tip = src.tip_height().unwrap_or(0);
                 (keys::new_mnemonic(), tip)

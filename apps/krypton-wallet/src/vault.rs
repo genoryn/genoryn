@@ -459,6 +459,7 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
         let st = krypton_wallet_core::password::strength(&r.password);
         ensure!(st.ok, "{}", st.hint);
         let restoring = r.mnemonic.as_deref().is_some_and(|m| !m.trim().is_empty());
+        let legacy = restoring && keys::is_legacy(r.mnemonic.as_deref().unwrap_or_default());
         let m = if restoring {
             let m = r.mnemonic.as_deref().unwrap_or_default();
             keys::validate_mnemonic(m)?;
@@ -528,7 +529,7 @@ pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response
             a.vault.others.lock().insert(id.clone(), w);
         }
         Ok(if restoring {
-            json!({"id": id})
+            json!({"id": id, "legacy": legacy})
         } else {
             json!({"id": id, "mnemonic": m.as_str()})
         })

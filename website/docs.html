@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.44</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.45</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -173,7 +173,7 @@ cargo run --release -p krypton-release -- verify docs/release-key.pub SHA256SUMS
         <p>The <b>recovery phrase</b> is the wallet. It consists of 24 tokens of the form <code>word-NN</code>: an English BIP-39 word and a number from 00 to 63, 17 bits each. Together they carry 384 bits of entropy and a 24-bit SHA3 checksum, so a mistyped token is detected. Everything else (keys, addresses, notes, mining rewards) is derived from or found again with it.</p>
         <ul>
           <li><b>Write it on paper</b> (or metal), in order, with the numbers. Never type it into a website, a chat, an email or a photo. Anyone who has it owns the coins.</li>
-          <li><b>Restore</b>: Wallet → <b>Add a wallet</b> → restore, or <code>krypton-wallet-cli restore</code>, then let it sync. Older 24-word phrases restore too.</li>
+          <li><b>Restore</b>: Wallet → <b>Add a wallet</b> → restore, or <code>krypton-wallet-cli restore</code>, then let it sync. A phrase of 24 words without numbers (BIP-39, as Genoryn Mainnet 1.0 and other wallets made them) restores too: type its words as they are. Positions written next to the words (<code>1.</code>, <code>2.</code> …) and commas may stay. Mainnet 1.0 was a separate, earlier chain: its coins are not on Genoryn Krypton.</li>
           <li><b>The wallet file</b> (<code>%APPDATA%\GenorynKrypton\mainnet\wallet.krypton</code> or <code>wallets\*.krypton</code>) is encrypted with Argon2id (256 MiB of memory) and XChaCha20-Poly1305 under your password. Copying it is a convenient backup of your history and swap records, but only the phrase guarantees access.</li>
           <li><b>Swaps in progress live in the wallet file.</b> If you restore from the phrase while a swap is running, finish or refund it from the old file if you still can. From 1.0.33 a restored wallet never reuses an earlier swap's secret, keys or outputs.</li>
           <li><b>Lost the password but have the phrase?</b> Restore from the phrase and choose a new password. <b>Lost the phrase but have the file and password?</b> Show the phrase (Security tab, or <code>krypton-wallet-cli show-phrase</code>) and write it down now.</li>

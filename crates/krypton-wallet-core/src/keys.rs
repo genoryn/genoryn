@@ -9,6 +9,12 @@
 //! hybrid KEM seed (X25519 + ML-KEM-1024), ML-DSA-87 signing seed.
 //!
 //! Legacy 24-word BIP-39 phrases (256-bit entropy) remain restorable.
+//!
+//! Wallets show each word with its position (1 to 24), and people write that down too.
+//! A phrase typed with those positions (`1. orbit-42 2. coral-07 ...`, `1 abandon 2
+//! ability ...`, one per line, separated by commas) is read as the 24 words alone. A
+//! position is dropped only when all 24 are there, in order, so no word is ever taken
+//! for one.
 
 use anyhow::{Result, anyhow, ensure};
 use krypton_core::Network;
@@ -81,7 +87,14 @@ fn decode_v2(phrase: &str) -> Result<Zeroizing<[u8; ENTROPY_LEN]>> {
         let (w, n) = t
             .rsplit_once('-')
             .or_else(|| t.find(|c: char| c.is_ascii_digit()).map(|p| t.split_at(p)))
-            .ok_or_else(|| anyhow!("word {} ({t}) needs its two-digit number", i + 1))?;
+            .ok_or_else(|| {
+                anyhow!(
+                    "word {} ({t}) has no number. A Krypton phrase has a number with every word \
+                     (orbit-42); a phrase of 24 words without numbers (from Genoryn Mainnet 1.0 \
+                     or another wallet) is entered as its words alone",
+                    i + 1
+                )
+            })?;
         let idx = bip39::Language::English
             .find_word(w)
             .ok_or_else(|| anyhow!("word {} ({w}) is not in the word list", i + 1))?;
@@ -113,14 +126,72 @@ fn is_v2(phrase: &str) -> bool {
     phrase.chars().any(|c| c.is_ascii_digit())
 }
 
+/// A position as the wallets show it next to a word: `7`, `07`, `7.`, `7)`, `7:`.
+fn position(t: &str) -> Option<usize> {
+    let n = t.trim_end_matches(['.', ')', ':']);
+    (t.len() - n.len() <= 1 && (1..=2).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| n.parse().ok())
+        .flatten()
+}
+
+/// The phrase without the positions it was written down with, if it has them: either
+/// 48 tokens alternating `1` `word` `2` `word` ..., or 24 tokens `1.word` `2.word` ....
+/// Only the exact sequence 1 to 24 counts as positions; anything else is left as it is.
+fn without_positions(tokens: &[Zeroizing<String>]) -> Option<Vec<Zeroizing<String>>> {
+    if tokens.len() == 2 * PHRASE_WORDS
+        && tokens
+            .iter()
+            .step_by(2)
+            .enumerate()
+            .all(|(i, t)| position(t) == Some(i + 1))
+    {
+        return Some(tokens.iter().skip(1).step_by(2).cloned().collect());
+    }
+    if tokens.len() == PHRASE_WORDS {
+        let mut out = Vec::with_capacity(PHRASE_WORDS);
+        for (i, t) in tokens.iter().enumerate() {
+            let digits = t.bytes().take_while(u8::is_ascii_digit).count();
+            let rest = t[digits..]
+                .strip_prefix(['.', ')', ':'])
+                .unwrap_or(&t[digits..]);
+            if !(1..=2).contains(&digits)
+                || t[..digits].parse::<usize>().ok() != Some(i + 1)
+                || !rest.starts_with(|c: char| c.is_ascii_alphabetic())
+            {
+                return None;
+            }
+            out.push(Zeroizing::new(rest.to_string()));
+        }
+        return Some(out);
+    }
+    None
+}
+
+/// Lowercase words separated by single spaces, without commas or written-down positions.
+/// Every copy of a word made on the way is wiped when it is dropped.
 fn clean(phrase: &str) -> Zeroizing<String> {
-    Zeroizing::new(
-        phrase
-            .split_whitespace()
-            .map(|w| w.to_lowercase())
-            .collect::<Vec<_>>()
-            .join(" "),
-    )
+    let tokens: Vec<Zeroizing<String>> = phrase
+        .split(|c: char| c.is_whitespace() || c == ',' || c == ';')
+        .filter(|w| !w.is_empty())
+        .map(|w| Zeroizing::new(w.to_lowercase()))
+        .collect();
+    let tokens = without_positions(&tokens).unwrap_or(tokens);
+    let mut out = Zeroizing::new(String::with_capacity(
+        tokens.iter().map(|t| t.len() + 1).sum(),
+    ));
+    for (i, t) in tokens.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str(t);
+    }
+    out
+}
+
+/// Whether a phrase is a 24-word phrase without numbers (BIP-39), as Genoryn Mainnet 1.0
+/// and other wallets made them, rather than a Krypton phrase.
+pub fn is_legacy(m: &str) -> bool {
+    !is_v2(&clean(m))
 }
 
 /// A fresh Krypton phrase v2 (384-bit entropy).
@@ -131,6 +202,8 @@ pub fn new_mnemonic() -> Zeroizing<String> {
 }
 
 pub fn validate_mnemonic(m: &str) -> Result<()> {
+    let m = clean(m);
+    let m = m.as_str();
     if is_v2(m) {
         decode_v2(m).map(|_| ())
     } else {
@@ -143,6 +216,8 @@ pub fn validate_mnemonic(m: &str) -> Result<()> {
 
 /// Canonical form of a phrase (lowercase, single spaces, `word-NN`).
 pub fn normalize(m: &str) -> Result<Zeroizing<String>> {
+    let m = clean(m);
+    let m = m.as_str();
     if is_v2(m) {
         Ok(Zeroizing::new(encode_v2(&*decode_v2(m)?)))
     } else {
@@ -152,6 +227,8 @@ pub fn normalize(m: &str) -> Result<Zeroizing<String>> {
 }
 
 fn seed_of(m: &str, passphrase: &str) -> Result<Zeroizing<Vec<u8>>> {
+    let m = clean(m);
+    let m = m.as_str();
     if is_v2(m) {
         let e = decode_v2(m)?;
         let mut ikm = Zeroizing::new(e.to_vec());
@@ -276,5 +353,69 @@ mod tests {
         let a = Keys::from_mnemonic(legacy, "", Network::Mainnet, 0).unwrap();
         let b = Keys::from_mnemonic(&legacy.to_uppercase(), "", Network::Mainnet, 0).unwrap();
         assert_eq!(a.address(), b.address());
+        assert!(is_legacy(legacy));
+    }
+
+    #[test]
+    fn phrases_written_down_with_their_positions_restore() {
+        let legacy = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+        let want = Keys::from_mnemonic(legacy, "", Network::Mainnet, 0)
+            .unwrap()
+            .address();
+        let words: Vec<&str> = legacy.split(' ').collect();
+        let fmt = |f: &dyn Fn(usize, &str) -> String, sep: &str| {
+            words
+                .iter()
+                .enumerate()
+                .map(|(i, w)| f(i + 1, w))
+                .collect::<Vec<_>>()
+                .join(sep)
+        };
+        for written in [
+            fmt(&|i, w| format!("{i}. {w}"), " "),
+            fmt(&|i, w| format!("{i} {w}"), "\n"),
+            fmt(&|i, w| format!("{i:02}) {w}"), "  "),
+            fmt(&|i, w| format!("{i}.{w}"), " "),
+            fmt(&|i, w| format!("{i}:{w}"), ", "),
+            words.join(", "),
+        ] {
+            assert!(is_legacy(&written), "{written}");
+            validate_mnemonic(&written).unwrap();
+            assert_eq!(*normalize(&written).unwrap(), *legacy);
+            assert_eq!(
+                Keys::from_mnemonic(&written, "", Network::Mainnet, 0)
+                    .unwrap()
+                    .address(),
+                want
+            );
+        }
+        // A Krypton phrase written down the way the wallet shows it.
+        let m = new_mnemonic();
+        let shown: String = m
+            .split(' ')
+            .enumerate()
+            .map(|(i, w)| format!("{} {w}\n", i + 1))
+            .collect();
+        assert!(!is_legacy(&shown));
+        assert_eq!(*normalize(&shown).unwrap(), *m);
+        // Positions out of order, or missing one, are not positions: nothing is dropped.
+        let swapped = fmt(
+            &|i, w| {
+                format!(
+                    "{} {w}",
+                    if i == 3 {
+                        4
+                    } else if i == 4 {
+                        3
+                    } else {
+                        i
+                    }
+                )
+            },
+            " ",
+        );
+        assert!(validate_mnemonic(&swapped).is_err());
+        let short = fmt(&|i, w| format!("{i}. {w}"), " ").replacen("24. ", "", 1);
+        assert!(validate_mnemonic(&short).is_err());
     }
 }

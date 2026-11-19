@@ -480,7 +480,7 @@ header{padding:14px 30px}
         <div class="row-flex"><button class="btn btn-primary" onclick="createWallet()">Create new wallet</button><button class="btn" onclick="show('restoreBox');hide('createBox')">Restore from recovery phrase</button></div>
       </div>
       <div id="restoreBox" class="hidden">
-        <label for="restoreWords">Recovery phrase: 24 words with their numbers (e.g. <code>orbit-42</code>); older 24-word phrases work too</label><textarea id="restoreWords"></textarea>
+        <label for="restoreWords">Recovery phrase: 24 words with their numbers (e.g. <code>orbit-42</code>). A phrase of 24 words without numbers (Genoryn Mainnet 1.0, other wallets) works too: type its words as they are. Positions you wrote next to the words (1, 2, 3 …) may stay.</label><textarea id="restoreWords"></textarea>
         <label for="restorePass">Password</label><input id="restorePass" type="password" autocomplete="new-password"><div class="pw-meter" data-for="restorePass"><i><s></s></i><span></span></div>
         <label for="restoreBirthday">Scan from block (0 = full history)</label><input id="restoreBirthday" type="number" value="0">
         <div class="row-flex"><button class="btn btn-primary" onclick="restoreWallet()">Restore</button><button class="btn" onclick="hide('restoreBox');show('createBox')">Back</button></div>
@@ -551,7 +551,7 @@ header{padding:14px 30px}
           <div><label for="addPass">Password for this wallet (12+ characters)</label><input id="addPass" type="password" autocomplete="new-password"><div class="pw-meter" data-for="addPass"><i><s></s></i><span></span></div></div>
         </div>
         <div id="addRestore" class="hidden">
-          <label for="addWords">Recovery phrase: 24 words with their numbers (older 24-word phrases work too)</label><textarea id="addWords"></textarea>
+          <label for="addWords">Recovery phrase: 24 words with their numbers (e.g. <code>orbit-42</code>). A phrase of 24 words without numbers (Genoryn Mainnet 1.0, other wallets) works too: type its words as they are. Positions you wrote next to the words (1, 2, 3 …) may stay.</label><textarea id="addWords"></textarea>
           <label for="addBirthday">Scan from block (0 = full history)</label><input id="addBirthday" type="number" value="0" min="0">
         </div>
         <div class="row-flex"><button class="btn btn-primary" id="addBtn" onclick="addWallet()">Create new wallet</button><button class="btn" id="addMode" onclick="toggleRestore()">Restore from recovery phrase</button><button class="btn" onclick="toggleAdd(false)">Cancel</button></div>
@@ -1231,7 +1231,12 @@ function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>$
 let adding=false, restoreMode=false, W=null;
 const onbName = () => $('newName').value.trim() || 'Main wallet';
 async function createWallet(){ const p=$('newPass').value; if(p.length<12) return toast('Use at least 12 characters', true); window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:p}); $('newPass').value=''; await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
-async function restoreWallet(){ window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0)}); ['restorePass','restoreWords'].forEach(i=>$(i).value=''); await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+async function restoreWallet(){ window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0)}); ['restorePass','restoreWords'].forEach(i=>$(i).value=''); await afterAdd(r, name, adding); legacyNote(r); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+/* A phrase without numbers is a BIP-39 phrase: from Genoryn Mainnet 1.0, an earlier and
+   separate chain, or from another wallet. Say plainly what that means for its coins. */
+function legacyNote(r){ if(!r||!r.legacy) return;
+  ask({title:'Restored from a 24-word phrase without numbers', icon:'wallet', ok:'OK', hideCancel:true, body:`<p class="mtext">The wallet was made from these words. It finds every GNR they received <b>on Genoryn Krypton</b>, and the sync shows it.</p>
+  <p class="mtext">If the words came from <b>Genoryn Mainnet 1.0</b> (the earlier chain, before 6 November 2026): that chain was separate, and its coins are not on Genoryn Krypton. A wallet from those words starts empty here unless it was also used on Krypton. Why, and the project's policy: issue #1 on GitHub.</p>`}); }
 async function afterAdd(r, name, activate){
   if(activate) await api('/api/wallets/use',{id:r.id}).catch(()=>{});
   adding=false;
@@ -1345,7 +1350,7 @@ async function removeW(id){
 function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?'Restore wallet':'Create new wallet'; $('addMode').textContent=restoreMode?'Create a new one instead':'Restore from recovery phrase'; }
 async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass').value; if(!name) return toast('Give the wallet a name', true); if(p.length<12) return toast('Use at least 12 characters for the password', true);
   const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
-  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); }catch(e){ toast(e.message,true) }
+  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); const was=restoreMode; if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); if(was) legacyNote(r); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ const r=await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; await refresh(); weakWarn(r, (S.active&&S.active.name)?'“'+S.active.name+'”':''); }catch(e){ toast(e.message,true) } }
 const FEE={speed:'normal', opts:null, t:0};

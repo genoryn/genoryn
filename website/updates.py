@@ -15,6 +15,14 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.45", "date": "2026-11-19", "title": "Old 24-word recovery phrases restore as people wrote them down",
+     "tags": ["Wallet"],
+     "items": [
+         "A recovery phrase written down with the positions the wallets show next to each word (1. abandon, 2. ability …) restores as it is, one word per line or on one line, with or without commas. Before, the positions made the wallet expect a numbered Krypton phrase and refuse it.",
+         "A phrase of 24 words without numbers, as Genoryn Mainnet 1.0 and other wallets made them, restores as before, and the wallet now says what that means: it finds what those words received on Genoryn Krypton. Mainnet 1.0 was a separate chain and its coins are not on Krypton.",
+         "When a phrase mixes words with and without numbers, the wallet explains the two kinds of phrase instead of only asking for a number.",
+         "No change to the rules of the chain or to swaps.",
+     ]},
     {"v": "1.0.44", "date": "2026-11-19", "title": "A console in the wallet, offers that follow the market, a market price that rests on bitcoin really paid",
      "tags": ["Wallet", "Swap", "Site"],
      "items": [

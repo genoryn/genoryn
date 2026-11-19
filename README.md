@@ -253,7 +253,9 @@ automatically in parallel rounds (one block per round) and then pays.
 A new wallet shows **24 words, each with a two-digit number** (`orbit-42 river-07 …`): an
 English BIP-39 word and a number 00–63 per token, 17 bits each, 408 bits in total that carry
 **384 bits of entropy** and a 24-bit SHA3 checksum. The checksum catches any wrong word or
-number on restore; older 24-word phrases still restore.
+number on restore. A phrase of 24 words without numbers (BIP-39, as Genoryn Mainnet 1.0
+and other wallets made them) restores too, typed as it is; positions written next to the
+words (`1.`, `2.` …) and commas may stay. Coins of Mainnet 1.0 are not on this chain.
 
 * **Write it on paper** (or metal), in order, with the numbers. Never type it into a website,
   chat, email or photo: whoever has it owns the coins.
