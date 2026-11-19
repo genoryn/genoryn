@@ -857,7 +857,7 @@ footer { padding: 80px 0 72px; font-size: 15px; }
 .nav-menu a em { font-style: normal; font-weight: 400; font-size: 13px; color: var(--text-tertiary); }
 @media (max-width: 1600px) { .nav-links > a > .ni, .nav-dd-btn > .ni { display: none; } }
 @media (max-width: 1400px) { .nav-dd-btn { padding: 10px 9px; font-size: 14px; } .nav-dd-btn .caret { margin-left: 3px; } }
-@media (max-width: 1140px) { .nav-links, .nav-cta .hide-sm { display: none; } .menu-btn { display: inline-flex; } }
+@media (max-width: 1240px) { .nav-links, .nav-cta .hide-sm { display: none; } .menu-btn { display: inline-flex; } }
 .drawer { overflow-y: auto; overscroll-behavior: contain; }
 .drawer-h { margin: 14px 12px 2px; font: 600 11.5px var(--font-sans); letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-tertiary); }
 footer .cols { grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr; }

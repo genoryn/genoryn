@@ -54,6 +54,16 @@
 			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
 		}
 	}
+	# Genoryn Talks, the community forum and live chat: a service of its own on this
+	# machine. It sets its own security headers and budgets requests by the client address.
+	@talks path /talks /talks/*
+	handle @talks {
+		reverse_proxy 127.0.0.1:30400 {
+			flush_interval -1
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		}
+	}
 	handle {
 		# Clean addresses: /market, not /market.html (old links move permanently).
 		redir /coins /tokens 301
