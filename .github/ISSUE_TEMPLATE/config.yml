@@ -3,6 +3,9 @@ contact_links:
   - name: Report a vulnerability (private)
     url: https://github.com/genoryn/genoryn/security/advisories/new
     about: Never post a vulnerability in a public issue.
+  - name: Genoryn Talks: forum and live chat
+    url: https://genoryn.io/talks
+    about: Ask the community, share mining results, talk swaps and the market. No sign-up e-mail needed.
   - name: FAQ
     url: https://genoryn.io/faq
     about: What Genoryn Krypton is, quantum security, mining, swaps, wallets.

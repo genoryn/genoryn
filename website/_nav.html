@@ -28,7 +28,7 @@
 </svg>
 <header class="nav float" id="nav">
   <div class="wrap">
-    <a class="logo" href="/"><img src="/assets/genoryn-mark-dark.svg" width="32" height="32" alt="">Genoryn Krypton</a>
+    <a class="logo" href="/"><img src="/assets/genoryn-mark-dark.svg" width="32" height="32" alt=""><span>Genoryn<span class="logo-k"> Krypton</span></span></a>
     <nav class="nav-links" aria-label="Main">
       <div class="nav-dd" data-pages="features validation privacy quantum requirements interface network">
         <button type="button" class="nav-dd-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menu-features"><svg class="ni" aria-hidden="true"><use href="#n-star"/></svg>Features<svg class="caret" aria-hidden="true"><use href="#n-caret"/></svg></button>
@@ -66,11 +66,12 @@
           <a href="/help#support"><svg class="ni" aria-hidden="true"><use href="#n-people"/></svg><span><b>Tech support</b><em>Answer other people's questions</em></span></a>
         </div>
       </div>
-      <a href="/talks" data-page="talks"><svg class="ni" aria-hidden="true"><use href="#n-people"/></svg>Talks</a>
+      <a href="/talks" data-page="talks" class="nav-talks" title="Genoryn Talks: the forum and live chat"><span class="dot live" aria-hidden="true"></span>Talks</a>
       <a href="/updates" data-page="updates"><svg class="ni" aria-hidden="true"><use href="#n-news"/></svg>News</a>
     </nav>
     <div class="nav-cta">
-      <button class="btn icon-btn" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button>
+      <button class="btn icon-btn nav-theme" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button>
+      <a class="btn nav-talks-sm" href="/talks" title="Genoryn Talks: the forum and live chat"><span class="dot live" aria-hidden="true"></span>Talks</a>
       <a class="btn btn-primary hide-sm" href="/get"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Get GNR</a>
       <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" data-act="drawer-open">☰</button>
     </div>
@@ -78,7 +79,8 @@
 </header>
 <div id="drawerBackdrop" class="modal-backdrop hidden" data-act="drawer-close"></div>
 <aside id="drawer" class="drawer float" aria-label="Menu">
-  <button class="btn icon-btn" type="button" aria-label="Close menu" data-act="drawer-close" style="align-self:flex-end">✕</button>
+  <div class="drawer-top"><button class="btn icon-btn" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button><button class="btn icon-btn" type="button" aria-label="Close menu" data-act="drawer-close">✕</button></div>
+  <a class="drawer-talks" href="/talks"><span class="dot live" aria-hidden="true"></span><span><b>Genoryn Talks</b><em>The forum and live chat</em></span></a>
   <a href="/"><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg>Home</a>
   <a href="/explorer"><svg class="ni" aria-hidden="true"><use href="#n-explorer"/></svg>Explorer</a>
   <a href="/mining"><svg class="ni" aria-hidden="true"><use href="#n-mining"/></svg>Mining</a>
@@ -86,7 +88,6 @@
   <a href="/tokens"><svg class="ni" aria-hidden="true"><use href="#n-coins"/></svg>Quantum tokens (planned)</a>
   <a href="/get"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Get GNR</a>
   <a href="/download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Download</a>
-  <a href="/talks"><svg class="ni" aria-hidden="true"><use href="#n-people"/></svg>Genoryn Talks (forum and chat)</a>
   <a href="/updates"><svg class="ni" aria-hidden="true"><use href="#n-news"/></svg>News</a>
   <span class="drawer-h">Features</span>
   <a href="/features"><svg class="ni" aria-hidden="true"><use href="#n-star"/></svg>Overview</a>
@@ -106,6 +107,6 @@
   <a href="/bug-reports"><svg class="ni" aria-hidden="true"><use href="#n-bug"/></svg>Bug reports</a>
   <a href="/contribute"><svg class="ni" aria-hidden="true"><use href="#n-github"/></svg>Code, documentation, translations</a>
   <a href="https://github.com/genoryn/genoryn" rel="noopener"><svg class="ni" aria-hidden="true"><use href="#n-github"/></svg>GitHub</a>
-  <a class="btn btn-primary" href="/get" style="margin-top:12px">Get GNR</a>
-  <a class="btn" href="/download" style="margin-top:8px">Get the wallet</a>
+  <a class="btn btn-primary drawer-btn" href="/get" style="margin-top:12px"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Get GNR</a>
+  <a class="btn drawer-btn" href="/download" style="margin-top:8px"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Get the wallet</a>
 </aside>

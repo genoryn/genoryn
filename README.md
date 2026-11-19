@@ -8,6 +8,7 @@
 <p align="center">
   <a href="https://github.com/genoryn/genoryn/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/genoryn/genoryn?style=flat-square&label=release&labelColor=000000&color=ffffff"></a>
   <a href="https://genoryn.io/explorer"><img alt="Network" src="https://img.shields.io/badge/mainnet-live-ffffff?style=flat-square&labelColor=000000"></a>
+  <a href="https://genoryn.io/talks"><img alt="Community: Genoryn Talks" src="https://img.shields.io/badge/community-Genoryn%20Talks-34d399?style=flat-square&labelColor=000000"></a>
   <img alt="Supply" src="https://img.shields.io/badge/supply-21%2C000%2C000%20GNR-ffffff?style=flat-square&labelColor=000000">
   <img alt="Premine" src="https://img.shields.io/badge/premine-none-ffffff?style=flat-square&labelColor=000000">
   <img alt="License" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-ffffff?style=flat-square&labelColor=000000">
@@ -17,6 +18,7 @@
   <a href="https://github.com/genoryn/genoryn/releases/latest"><b>Download for Windows</b></a> ·
   <a href="https://github.com/genoryn/genoryn/releases/latest"><b>Linux (.deb / .tar.gz)</b></a> ·
   <a href="https://genoryn.io">genoryn.io</a> ·
+  <a href="https://genoryn.io/talks"><b>Genoryn Talks</b> (forum and live chat)</a> ·
   <a href="https://genoryn.io/explorer">Explorer</a> ·
   <a href="https://genoryn.io/docs">Docs</a> ·
   <a href="https://genoryn.io/faq">FAQ</a> ·
@@ -148,8 +150,9 @@ themselves, and trading with bitcoin without an exchange.
 25. [Security and audits](#security-and-audits)
 26. [Troubleshooting](#troubleshooting)
 27. [FAQ](#faq)
-28. [Author and governance](#author-and-governance)
-29. [License](#license)
+28. [Community: Genoryn Talks](#community-genoryn-talks)
+29. [Author and governance](#author-and-governance)
+30. [License](#license)
 
 The same material, with more detail, is on [genoryn.io/docs](https://genoryn.io/docs).
 
@@ -936,6 +939,28 @@ Yes, in a future release: quantum tokens are designed and tested but not active 
 [Quantum tokens](#quantum-tokens-planned).
 </details>
 
+## Community: Genoryn Talks
+
+<p align="center">
+  <a href="https://genoryn.io/talks"><img alt="Join Genoryn Talks" src="https://img.shields.io/badge/Join%20the%20community-genoryn.io%2Ftalks-34d399?style=for-the-badge&labelColor=000000"></a>
+</p>
+
+**[Genoryn Talks](https://genoryn.io/talks)** is the community's forum and live chat, on
+genoryn.io itself:
+
+- **Boards** for development, mining, wallets and nodes, atomic swaps and the market, quantum
+  security and cryptography, ideas, and boards by language, with announcements from Zarazi Sokani.
+- **Live chat** with rooms by theme (General, Mining, Swaps & Market, Development, ქართული) and
+  replies to any message.
+- **Ranks and merit** as on the oldest Bitcoin forum: good posts earn merit, and merit and
+  activity raise a member from Newbie to Legendary.
+- **No advertising**: links to other sites, contact details, promotions and referral codes are
+  blocked by themselves. Signing up takes a name and a password: no e-mail, no phone number.
+
+Nobody on Talks will ever need your recovery phrase, your password or your wallet file. Bugs and
+feature requests still belong in [GitHub issues](https://github.com/genoryn/genoryn/issues/new/choose);
+vulnerabilities go [privately](SECURITY.md).
+
 ## Author and governance
 
 Genoryn Krypton was created by the pseudonymous author **Zarazi Sokani**, whose identity is
@@ -952,7 +977,8 @@ consensus. Contributions are judged on their merits, in public.
 
 Contributions and reviews are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), the
 [code of conduct](CODE_OF_CONDUCT.md) and [SUPPORT.md](SUPPORT.md). Report vulnerabilities
-privately ([SECURITY.md](SECURITY.md)). More answers: [genoryn.io/faq](https://genoryn.io/faq).
+privately ([SECURITY.md](SECURITY.md)). More answers: [genoryn.io/faq](https://genoryn.io/faq), and
+the community on [Genoryn Talks](https://genoryn.io/talks).
 
 ## License
 
