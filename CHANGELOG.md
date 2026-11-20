@@ -4,6 +4,31 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.47](https://github.com/genoryn/genoryn/releases/tag/v1.0.47) · 2026-11-20: The wallet and genoryn.io in ten languages, Hive OS for mining rigs
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one.
+
+### Added
+
+- The wallet and genoryn.io in ten languages: English, Deutsch, Français, Español, Português, Русский, Türkçe, 简体中文, 日本語 and 한국어. Choose the wallet's language in the new Settings tab. Recovery-phrase words, addresses and swap codes are never translated. The translations are machine translations for now; corrections are welcome.
+- Hive OS: a custom miner package for GPU rigs that checks the miner's SHA-256 checksum before it starts, with a setup guide. Reports from real rigs are welcome.
+- Check your miner on genoryn.io/mining: enter your address to see whether its shares are reaching the network, an estimate of its hashrate, the rewards accruing and the next payout.
+- The wallet's Mining tab shows rejected shares, the last share, how long the miner has been running and its average hashrate over 24 hours.
+- The miner accepts the short address (gnrs1…) as its payout address and checks it against the full address the node returns; its JSON output includes its version, uptime and the time of the last share.
+
+### Changed
+
+- Display and connection settings moved from the Network tab to the new Settings tab.
+
+### Fixed
+
+- About one swap in 256 could not start ("lock commitment mismatch"); such swaps now start like any other. No coins were at risk: nothing was locked.
+- On phones, the Network tab no longer scrolls sideways.
+
+### Documentation
+
+- Guides for miners: how native rewards work and are calculated, mining compared with pools, security and a FAQ. A contributing guide for translations and mining integrations, a security policy with response times, and a roadmap.
+
 ## [1.0.46](https://github.com/genoryn/genoryn/releases/tag/v1.0.46) · 2026-11-20: Quick Swap: buy or sell any amount of GNR in one click
 
 - Quick Swap, at the top of the Swap tab: say how much you want to buy or sell, in dollars, bitcoin or GNR, and press one button. The wallet finds the best prices on the board and swaps exactly that amount across up to three offers whose makers are online, each part its own atomic swap. The seller's GNR is still locked on chain before any bitcoin moves.

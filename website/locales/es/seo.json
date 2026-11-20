@@ -26,6 +26,7 @@
  "6377a06e81": "Sí, exactamente igual que GNR: el token, el importe, el remitente y el destinatario quedarán ocultos mediante una prueba de conocimiento cero. Solo la creación y la destrucción de tokens serán públicas.",
  "377ed0c796": "No. Ningún emisor podrá quitar tokens, ver saldos ni congelar a un solo titular; todo lo que un emisor pueda hacer se declarará antes de que exista el token.",
  "c914a0c430": "No. Mantén tu billetera actualizada; su pestaña Tokens se activa sola cuando se activan los tokens.",
+ "5571f9479e": "Genoryn Krypton 1.0.47: La billetera y genoryn.io en diez idiomas, Hive OS para equipos de minería",
  "6fcd32855d": "Genoryn Krypton 1.0.46: Quick Swap: compra o vende cualquier cantidad de GNR con un clic",
  "93a46c858e": "Genoryn Krypton 1.0.45: las frases de recuperación antiguas de 24 palabras se restauran tal como la gente las anotó",
  "0e9d7447da": "Genoryn Krypton 1.0.44: una consola en la billetera, ofertas que siguen al mercado y un precio de mercado basado en bitcoin realmente pagado",
@@ -42,6 +43,5 @@
  "35179132ee": "Genoryn Krypton 1.0.33: correcciones de seguridad, un precio de mercado justo, precios de oferta libres",
  "068001f0f6": "Genoryn Krypton 1.0.32: modelos de escasez en Mining",
  "030dc140e5": "Genoryn Krypton 1.0.31: lo que minarían tus ordenadores",
- "9391bc9c31": "Genoryn Krypton 1.0.30: la calculadora de minería pasa a Mining",
- "7192462dcc": "Genoryn Krypton 1.0.29: las GPU que no van a minar explican por qué"
+ "9391bc9c31": "Genoryn Krypton 1.0.30: la calculadora de minería pasa a Mining"
 }

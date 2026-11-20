@@ -611,6 +611,69 @@ fn atomic_swap_lock_claim_and_refund() {
     );
 }
 
+/// About one swap in 256 has a claim output whose byte lands on the coin marker inside
+/// the lock memo; such a lock is created, recovered from the phrase and claimed like any other.
+#[test]
+fn a_lock_whose_claim_output_meets_the_coin_marker() {
+    use krypton_core::address::{COIN_AT, COIN_MARKER};
+    use krypton_core::lock::sha256;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let phrase_a = keys::new_mnemonic();
+    let mut a = new_wallet(dir.path(), "gnr-seller.wallet", &phrase_a);
+    let mut b = new_wallet(dir.path(), "btc-seller.wallet", &keys::new_mnemonic());
+    let addr_a = a.address();
+    for _ in 0..12 {
+        mine(&src, &addr_a);
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+
+    let (value, fee) = (2_000_000, DEFAULT_FEE);
+    let (swap, claim_outputs) = (1..100_000u32)
+        .map(|n| (n, b.claim_outputs(n, value, fee).unwrap()))
+        .find(|(_, c)| c[1].0[COIN_AT - 88] == COIN_MARKER)
+        .expect("a swap number with the marker byte");
+    let secret = [0x3c; 32];
+    let (_, terms) = a
+        .lock_funds(
+            &src,
+            swap,
+            sha256(&secret),
+            chain.tip().height() + 60,
+            claim_outputs,
+            value,
+            fee,
+            DEFAULT_FEE,
+            None,
+        )
+        .unwrap();
+    let cm = b.watch_lock(swap, terms.clone(), value, fee).unwrap();
+    mine(&src, &addr_a);
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.locked_balance(), value);
+
+    let mut restored = new_wallet(dir.path(), "restored.wallet", &phrase_a);
+    restored.sync(&src, |_, _| {}).unwrap();
+    let rec = restored
+        .locks()
+        .iter()
+        .find(|l| l.cm == cm)
+        .expect("lock recovered from the phrase");
+    assert_eq!(rec.terms, terms);
+
+    let b_before = b.balance().total;
+    b.claim_lock(&src, &cm, secret).unwrap();
+    mine(&src, &addr_a);
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(b.balance().total, b_before + value - fee);
+}
+
 #[test]
 fn expired_sends_release_their_notes() {
     let dir = tempfile::tempdir().unwrap();

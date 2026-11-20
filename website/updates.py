@@ -17,6 +17,20 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.47", "date": "2026-11-20", "title": "The wallet and genoryn.io in ten languages, Hive OS for mining rigs",
+     "tags": ["Wallet", "Mining", "Site"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one.",
+         ("Added", "The wallet and genoryn.io in ten languages: English, Deutsch, Français, Español, Português, Русский, Türkçe, 简体中文, 日本語 and 한국어. Choose the wallet's language in the new Settings tab. Recovery-phrase words, addresses and swap codes are never translated. The translations are machine translations for now; corrections are welcome."),
+         ("Added", "Hive OS: a custom miner package for GPU rigs that checks the miner's SHA-256 checksum before it starts, with a setup guide. Reports from real rigs are welcome."),
+         ("Added", "Check your miner on genoryn.io/mining: enter your address to see whether its shares are reaching the network, an estimate of its hashrate, the rewards accruing and the next payout."),
+         ("Added", "The wallet's Mining tab shows rejected shares, the last share, how long the miner has been running and its average hashrate over 24 hours."),
+         ("Added", "The miner accepts the short address (gnrs1…) as its payout address and checks it against the full address the node returns; its JSON output includes its version, uptime and the time of the last share."),
+         ("Changed", "Display and connection settings moved from the Network tab to the new Settings tab."),
+         ("Fixed", "About one swap in 256 could not start (\"lock commitment mismatch\"); such swaps now start like any other. No coins were at risk: nothing was locked."),
+         ("Fixed", "On phones, the Network tab no longer scrolls sideways."),
+         ("Documentation", "Guides for miners: how native rewards work and are calculated, mining compared with pools, security and a FAQ. A contributing guide for translations and mining integrations, a security policy with response times, and a roadmap."),
+     ]},
     {"v": "1.0.46", "date": "2026-11-20", "title": "Quick Swap: buy or sell any amount of GNR in one click",
      "tags": ["Swap", "Wallet", "Site"],
      "items": [

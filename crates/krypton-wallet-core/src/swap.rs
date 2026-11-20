@@ -11,7 +11,7 @@
 //! refunder, so a refund can always be finished from the recovery phrase.
 
 use super::*;
-use krypton_core::address::encrypt_note_for;
+use krypton_core::address::{COIN_AT, COIN_MARKER, encrypt_note_for};
 use krypton_core::lock::{HexCm, LockMode, LockSpend, LockTerms, sha256};
 use krypton_core::types::{MEMO_LEN, TX_VERSION_LOCK};
 
@@ -635,22 +635,26 @@ impl Wallet {
     /// A note encrypted to us under another owner: our own lock note if its memo
     /// carries terms that rebuild exactly this commitment.
     pub(crate) fn recover_lock(&mut self, note: &NotePlain, cm: &Hash32, height: u64) {
-        let m = &note.memo;
-        if &m[..4] != MEMO_TAG || self.state.locks.iter().any(|l| l.cm == *cm) {
+        let Some(memo) = read_lock_memo(&note.memo) else {
+            return;
+        };
+        if self.state.locks.iter().any(|l| l.cm == *cm) {
             return;
         }
-        let u32_at = |i: usize| u32::from_le_bytes(m[i..i + 4].try_into().expect("4"));
-        let u64_at = |i: usize| u64::from_le_bytes(m[i..i + 8].try_into().expect("8"));
-        let h32 = |i: usize| -> [u8; 32] { m[i..i + 32].try_into().expect("32") };
-        let swap = u32_at(4);
-        let refund_fee = u64_at(16);
+        let LockMemo {
+            swap,
+            refund_height,
+            refund_fee,
+            hash,
+            claim_outputs,
+        } = memo;
         let Ok(refund_outputs) = self.refund_outputs(swap, note.value, refund_fee) else {
             return;
         };
         let terms = LockTerms {
-            hash: h32(24),
-            refund_height: u64_at(8),
-            claim_outputs: [HexCm(h32(56)), HexCm(h32(88))],
+            hash,
+            refund_height,
+            claim_outputs,
             refund_outputs,
         };
         if terms.commitment(note.value) != *cm || note.rcm != terms.rcm() {
@@ -672,8 +676,17 @@ impl Wallet {
     }
 }
 
+/// Where a claim-output byte equal to the coin marker is kept instead of at `COIN_AT`
+/// (in the original layout this byte is always zero).
+const MOVED_MARKER_AT: usize = 120;
+const _: () = assert!(COIN_AT >= 88 && COIN_AT < MOVED_MARKER_AT && MOVED_MARKER_AT < MEMO_LEN);
+
 /// Memo of a lock note (120 of 128 bytes): tag, swap number, refund height, refund
 /// fee, hash, claim outputs. The refund outputs follow from the seed.
+///
+/// Byte `COIN_AT` falls inside the second claim output. If it equals the coin marker the
+/// note would read as a coin note and commit to another asset, so that byte moves to
+/// `MOVED_MARKER_AT`; every other lock memo is unchanged.
 fn lock_memo(swap: u32, t: &LockTerms, refund_fee: u64) -> [u8; MEMO_LEN] {
     let mut m = [0u8; MEMO_LEN];
     m[..4].copy_from_slice(MEMO_TAG);
@@ -683,5 +696,92 @@ fn lock_memo(swap: u32, t: &LockTerms, refund_fee: u64) -> [u8; MEMO_LEN] {
     m[24..56].copy_from_slice(&t.hash);
     m[56..88].copy_from_slice(&t.claim_outputs[0].0);
     m[88..120].copy_from_slice(&t.claim_outputs[1].0);
+    if m[COIN_AT] == COIN_MARKER {
+        m[COIN_AT] = 0;
+        m[MOVED_MARKER_AT] = COIN_MARKER;
+    }
     m
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct LockMemo {
+    swap: u32,
+    refund_height: u64,
+    refund_fee: u64,
+    hash: [u8; 32],
+    claim_outputs: [HexCm; 2],
+}
+
+/// The terms a [`lock_memo`] carries, or None if `memo` is not one.
+fn read_lock_memo(memo: &[u8; MEMO_LEN]) -> Option<LockMemo> {
+    if &memo[..4] != MEMO_TAG {
+        return None;
+    }
+    let mut m = *memo;
+    if m[MOVED_MARKER_AT] == COIN_MARKER {
+        m[COIN_AT] = COIN_MARKER;
+    }
+    let u32_at = |i: usize| u32::from_le_bytes(m[i..i + 4].try_into().expect("4"));
+    let u64_at = |i: usize| u64::from_le_bytes(m[i..i + 8].try_into().expect("8"));
+    let h32 = |i: usize| -> [u8; 32] { m[i..i + 32].try_into().expect("32") };
+    Some(LockMemo {
+        swap: u32_at(4),
+        refund_height: u64_at(8),
+        refund_fee: u64_at(16),
+        hash: h32(24),
+        claim_outputs: [HexCm(h32(56)), HexCm(h32(88))],
+    })
+}
+
+#[cfg(test)]
+mod memo_tests {
+    use super::*;
+
+    fn terms(second: [u8; 32]) -> LockTerms {
+        LockTerms {
+            hash: [7; 32],
+            refund_height: 1234,
+            claim_outputs: [HexCm([1; 32]), HexCm(second)],
+            refund_outputs: [HexCm([3; 32]), HexCm([4; 32])],
+        }
+    }
+
+    fn note(memo: [u8; MEMO_LEN]) -> NotePlain {
+        NotePlain {
+            value: 5,
+            rcm: digest_from_uniform(&[9; 32]),
+            memo,
+        }
+    }
+
+    #[test]
+    fn a_lock_memo_is_never_read_as_a_coin_note() {
+        for b in 0..=255u8 {
+            let mut second = [0x5a; 32];
+            second[COIN_AT - 88] = b;
+            let t = terms(second);
+            let m = lock_memo(42, &t, 1000);
+            assert!(note(m).coin().is_none(), "byte {b:#x}");
+            assert_eq!(
+                read_lock_memo(&m),
+                Some(LockMemo {
+                    swap: 42,
+                    refund_height: 1234,
+                    refund_fee: 1000,
+                    hash: [7; 32],
+                    claim_outputs: t.claim_outputs,
+                }),
+                "byte {b:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn other_lock_memos_keep_the_original_layout() {
+        let t = terms([0x5a; 32]);
+        let m = lock_memo(42, &t, 1000);
+        assert_eq!(&m[88..120], &t.claim_outputs[1].0);
+        assert!(m[MOVED_MARKER_AT..].iter().all(|&b| b == 0));
+        assert_eq!(read_lock_memo(&[0; MEMO_LEN]), None);
+    }
 }
