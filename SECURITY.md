@@ -21,6 +21,19 @@ Do not open a public issue for vulnerabilities. Use GitHub's private vulnerabili
 description, impact and reproduction steps. Never test against other people's funds or nodes;
 use devnet or your own testnet node.
 
+What to expect (targets, not promises, for a project without a company behind it):
+
+| Step | Target |
+|---|---|
+| Acknowledgement of your report | within 3 days |
+| First assessment (confirmed or not, and how severe) | within 14 days |
+| Fix and release | as fast as a safe, tested fix allows; you are told the plan |
+| Public disclosure | after a fixed release is available, agreed with you; credit if you want it |
+
+In scope: the node, the miner, the wallets, the swap engine and offer board, the light client,
+the release signatures, the Hive OS package and genoryn.io. Reports about the infrastructure
+behind genoryn.io go through the same private channel; this policy does not describe it.
+
 ## Threat model in short
 
 * Quantum adversary: spends rely on hashes only; note encryption and peer links use hybrid

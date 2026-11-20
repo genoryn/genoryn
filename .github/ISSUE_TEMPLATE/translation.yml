@@ -1,0 +1,32 @@
+name: Translation
+description: A wrong, unclear or missing translation on genoryn.io or in the wallet.
+labels: [translation]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options: [Deutsch, Français, Español, Português, Русский, Türkçe, 简体中文, 日本語, 한국어, Another language]
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The page address (for example https://genoryn.io/de/mining), or the wallet tab.
+    validations:
+      required: true
+  - type: textarea
+    id: text
+    attributes:
+      label: What it says, and what it should say
+      description: Copy the sentence as it is shown, then your correction. Guide and glossary are in docs/localization.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before sending
+      options:
+        - label: The text contains no recovery phrase, password, key or private address.
+          required: true

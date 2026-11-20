@@ -7,6 +7,8 @@ To record an update, add an entry at the top of UPDATES and run `python website/
 * a change to the site or the repository only: the same without "v".
 
 Write what changed for the person using it, in plain words, one fact per item. Dates are UTC.
+An item may name its kind, ("Fixed", "text"), from CATEGORIES; CHANGELOG.md then groups the
+items of that update under those headings. Entries written before categories stay as they were.
 """
 import datetime
 import html as _html
@@ -281,6 +283,13 @@ UPDATES = [
 ]
 
 
+CATEGORIES = ["Added", "Changed", "Fixed", "Security", "Performance", "Documentation"]
+
+
+def _text(i):
+    return i[1] if isinstance(i, tuple) else i
+
+
 def _date(s):
     return datetime.date.fromisoformat(s)
 
@@ -322,7 +331,7 @@ def page_html():
             out.append(f'    <section class="up-day" id="{u["date"]}">\n      <h2><time datetime="{u["date"]}">{_long(d)}</time></h2>')
         tags = "".join(f"<i>{_html.escape(t)}</i>" for t in u.get("tags", []))
         badge = f'<span class="up-v">{u["v"]}</span>' if "v" in u else '<span class="up-v up-site">Site</span>'
-        items = "".join(f"<li>{_inline(i)}</li>" for i in u["items"])
+        items = "".join(f"<li>{_inline(_text(i))}</li>" for i in u["items"])
         link = (f'<a class="up-link" href="{RELEASES}{u["v"]}" rel="noopener">Release notes and downloads'
                 '<svg class="ic" aria-hidden="true"><use href="#u-arrow"/></svg></a>') if "v" in u else ""
         out.append(f'      <article class="glass up" id="{_anchor(u)}"><header>{badge}<h3>{_inline(u["title"])}</h3>'
@@ -349,8 +358,13 @@ def markdown():
         head = f"[{u['v']}]({RELEASES}{u['v']})" if "v" in u else "Site"
         out.append(f"## {head} · {u['date']}: {u['title']}")
         out.append("")
-        out += [f"- {i}" for i in u["items"]]
-        out.append("")
+        plain = [f"- {i}" for i in u["items"] if not isinstance(i, tuple)]
+        if plain:
+            out += plain + [""]
+        for c in CATEGORIES:
+            kind = [_text(i) for i in u["items"] if isinstance(i, tuple) and i[0] == c]
+            if kind:
+                out += [f"### {c}", ""] + [f"- {t}" for t in kind] + [""]
     return "\n".join(out)
 
 
@@ -359,7 +373,7 @@ def atom():
     def entry(u):
         url = f"{SITE}/updates#{_anchor(u)}"
         title = (f"Genoryn Krypton {u['v']}: " if "v" in u else "") + u["title"]
-        body = "<ul>" + "".join(f"<li>{_inline(i)}</li>" for i in u["items"]) + "</ul>"
+        body = "<ul>" + "".join(f"<li>{_inline(_text(i))}</li>" for i in u["items"]) + "</ul>"
         return (f"<entry><title>{_html.escape(title)}</title><link href=\"{url}\"/><id>{url}</id>"
                 f"<updated>{u['date']}T00:00:00Z</updated><content type=\"html\">{_html.escape(body)}</content></entry>")
     return ('<?xml version="1.0" encoding="utf-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom">'

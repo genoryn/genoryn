@@ -1,0 +1,30 @@
+name: Mining integration
+description: Hive OS, other mining systems, monitoring or listing sites.
+labels: [mining]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What it is about
+      options: [Hive OS package, Another mining system, Monitoring or statistics, Listing or calculator site, Something else]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what you propose
+      description: For a problem, include the miner version, the hardware and the last lines of the miner's log (they never contain secrets).
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: krypton-miner version, package version, and the system (for example Hive OS 0.6-230 on Ubuntu 20.04).
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before sending
+      options:
+        - label: Nothing here contains a recovery phrase, password or key. Mining never needs them.
+          required: true
