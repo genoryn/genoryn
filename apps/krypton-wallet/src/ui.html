@@ -1054,13 +1054,16 @@ header{padding:14px 30px}
         <div class="row">Hashrate<b id="mRate">-</b></div>
         <div class="row">Your share of the network<b id="mFrac">-</b></div>
         <div class="row">Expected earnings<b id="mDay">-</b></div>
-        <div class="row">Shares found<b id="mShares">0</b></div><div class="row">Blocks found<b id="mBlocks">0</b></div>
+        <div class="row">Shares found<b id="mShares">0</b></div><div class="row">Rejected<b id="mRej">-</b></div><div class="row">Blocks found<b id="mBlocks">0</b></div>
+        <div class="row">Last share<b id="mLastSh">-</b></div><div class="row">Running for<b id="mUp">-</b></div>
+        <div class="row">Average hashrate, 24 h<b id="mAvg">-</b></div>
         <p class="hero-note">While the miner runs, closing the window keeps mining in the background; the desktop icon opens the wallet again. <b>Quit</b> stops everything.</p>
       </div>
       <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Rewards</h2>
         <div class="big"><span id="rUnpaid" class="num">0</span> <small>GNR accruing</small></div>
         <div class="row">Next payout<b id="rNext">-</b></div>
         <div class="row">Your shares, last <span id="rBlocks">60</span> blocks<b id="rRecent">-</b></div>
+        <div class="row">Last payout<b id="rLast">-</b></div>
         <p class="hero-note">Every miner is paid in proportion to its work: each share (about <span id="shareRatio">32</span> per block network-wide) earns an equal slice of the reward pool, so 1 % of the hashrate earns about 1 % of all rewards. Earnings accrue and are paid as one note every <span id="pInt">360</span> blocks, spendable <span id="mat"></span> blocks later. Keep the miner online: shares only count once they reach the network.</p>
       </div>
       </div>
@@ -1515,8 +1518,7 @@ function spark(host, vals){ if(!host) return; vals=vals.filter(v=>isFinite(v)); 
   const W=120,H=26,mn=Math.min(...vals),mx=Math.max(...vals),r=(mx-mn)||1; const p=vals.map((v,i)=>[(i/(vals.length-1))*W, H-2-((v-mn)/r)*(H-4)]);
   const d=p.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1)).join('');
   host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="a" d="${d}L${W},${H}L0,${H}Z"/><path class="l" d="${d}"/></svg>`; }
-function ago(t){ const s=Math.max(0,Math.round(Date.now()/1000-t)); return s<60?s+' s ago':s<3600?Math.floor(s/60)+' min ago':Math.floor(s/3600)+' h ago'; }
-function initOverview(){ if(OV.started) return; OV.started=true;
+function ago(t){ const s=Math.max(0,Math.round(Date.now()/1000-t)); return s<60?s+' s ago':s<3600?Math.floor(s/60)+' min ago':Math.floor(s/3600)+' h ago'; }function initOverview(){ if(OV.started) return; OV.started=true;
   document.querySelectorAll('#ovRange button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#ovRange button').forEach(x=>x.classList.toggle('on',x===b)); OV.range=b.dataset.range; loadOvStats(true); });
   const go=()=>{ loadOvStats(); loadOvBlocks(); $('overview').classList.add('ready'); };
   (window.requestIdleCallback||((f)=>setTimeout(f,400)))(go,{timeout:1500});
@@ -2526,6 +2528,13 @@ async function refresh(){
   if(S.update && S.update.version!==seen && !modalDone && !(S.settings&&S.settings.auto_update) && !S.working && !S.busy) offerUpdate(S.update,false); $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
   const m=S.miner||{}; $('mStat').textContent=m.running?'mining':(m.error?'stopped: '+m.error:'stopped'); $('mStat').title=m.error||''; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||'the wallet active when mining started'):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
+  const rej=Number(m.rejected||0), tried=rej+Number(m.shares||0);
+  $('mRej').textContent=m.running?(rej?fmtN(rej)+' ('+(rej/tried*100).toFixed(rej/tried<0.01?2:1)+' %)':'none'):'-';
+  $('mLastSh').textContent=m.running?(m.last_share_at?ago(m.last_share_at):'none yet this run'):'-';
+  $('mUp').textContent=m.running&&m.uptime_secs?dur(m.uptime_secs):'-';
+  const day=MN.hist.filter(p=>p.v>0&&p.t>Date.now()/1000-86400);
+  $('mAvg').textContent=day.length?rate(day.reduce((a,p)=>a+p.v,0)/day.length):'-';
+  $('mAvg').title='Mean of the once-a-minute samples while the miner ran';
   $('mFrac').textContent=m.running&&m.hashrate>0?(m.network_fraction*100).toFixed(m.network_fraction<0.01?3:2)+' %':'-';
   const dayUsd=VAL.show&&perGnr()!=null&&m.expected_per_day?' ('+GKValue.approx(m.expected_per_day*perGnr())+' at the market price)':'';
   $('mDay').textContent=m.running&&m.hashrate>0?'≈ '+Number(m.expected_per_day||0).toLocaleString(undefined,{maximumFractionDigits:2})+' GNR / day'+dayUsd:'-';
@@ -2533,6 +2542,7 @@ async function refresh(){
   $('rUnpaid').textContent=gnr(rw?rw.unpaid:0); fitBig($('rUnpaid'));
   $('rNext').textContent=rw&&rw.next_payout_height?('block '+rw.next_payout_height+(tip?' (in ~'+Math.max(0,rw.next_payout_height-tip.height)+' min)':'')):'with your next share';
   $('rRecent').textContent=rw?rw.shares_recent:'-'; $('rBlocks').textContent=rw?rw.shares_recent_blocks||60:60;
+  const lp=MN.pays[0]; $('rLast').textContent=lp?gnr(lp.amount)+' GNR · block '+fmtN(lp.height)+' · '+ago(lp.time):(MN.t?'none yet':'-');
   mnSample(); renderMining();
   renderValue();
   if(!settingsLoaded && S.settings){ $('showVal').checked=VAL.show; }

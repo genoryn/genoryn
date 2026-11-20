@@ -34,7 +34,8 @@ struct Args {
     /// Node API URL
     #[arg(long, default_value = "http://127.0.0.1:30334", env = "KRYPTON_NODE")]
     node: String,
-    /// Payout address (full gnr1/tgnr1... address)
+    /// Payout address: the full gnr1... address, or its short form gnrs1... (resolved
+    /// through the node and checked against its hash here)
     #[arg(long, env = "KRYPTON_MINER_ADDRESS")]
     address: Option<String>,
     /// Read the payout address from a file
@@ -68,6 +69,54 @@ struct Shared {
     shares: AtomicU64,
     rejected: AtomicU64,
     height: AtomicU64,
+    /// When the node last accepted a share or block (unix seconds; 0: not yet).
+    last_share: AtomicU64,
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// The full address behind the short address `short`, as a node's directory returned it
+/// (`full`). The short form is a hash of the full address, so nothing a node returns can
+/// stand in for another address.
+fn checked_full(short: &str, full: &str) -> Result<String> {
+    use krypton_core::address::Address;
+    let (network, id) = Address::parse_short(short).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let a = Address::decode(full).map_err(|e| anyhow::anyhow!("payout address: {e}"))?;
+    if a.short_id() != id || a.network != network {
+        bail!("the node returned another address for {short}: refusing to mine");
+    }
+    Ok(a.encode())
+}
+
+/// The payout address to mine to: a full address as given, or the full address of a short
+/// one, from the node's directory (waiting for the node if it cannot be reached yet).
+fn payout_address(input: &str, base: &str, http: &reqwest::blocking::Client) -> Result<String> {
+    let s = input.trim();
+    if krypton_core::address::Address::parse_short(s).is_err() {
+        krypton_core::address::Address::decode(s)
+            .map_err(|e| anyhow::anyhow!("payout address: {e}"))?;
+        return Ok(s.to_string());
+    }
+    loop {
+        let r = http.get(format!("{base}/v1/address/{s}")).send();
+        match r {
+            Ok(r) if r.status().as_u16() == 404 => bail!(
+                "the node does not know the short address {s}: open the wallet once while it is online (it publishes the address), or pass the full address"
+            ),
+            Ok(r) if r.status().is_success() => {
+                let v: Value = r.json()?;
+                return checked_full(s, v["address"].as_str().context("node answer")?);
+            }
+            Ok(r) => eprintln!("waiting for node: {}", r.status()),
+            Err(e) => eprintln!("waiting for node: {e}"),
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    }
 }
 
 #[derive(Clone)]
@@ -358,6 +407,17 @@ fn pick_engine(a: &Args) -> Result<Engine> {
     })
 }
 
+/// How many devices the engine mines on (CPU: 1).
+fn engine_devices(e: &Engine) -> usize {
+    match e {
+        Engine::Cpu { .. } => 1,
+        #[cfg(feature = "cuda")]
+        Engine::Cuda(m) => m.len(),
+        #[cfg(feature = "opencl")]
+        Engine::Opencl(m) => m.len(),
+    }
+}
+
 fn reasons(why: &[String]) -> String {
     if why.is_empty() {
         "no GPU of this kind was found (see --list-devices)".into()
@@ -372,18 +432,22 @@ fn main() -> Result<()> {
         list_devices(a.json);
         return Ok(());
     }
-    let address = match (&a.address, &a.address_file) {
+    let input = match (&a.address, &a.address_file) {
         (Some(x), _) => x.trim().to_string(),
         (None, Some(f)) => std::fs::read_to_string(f)?.trim().to_string(),
         _ => bail!("pass --address <your address> (create one with `krypton-wallet-cli new`)"),
     };
+    let base = a.node.trim_end_matches('/').to_string();
+    let http = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()?;
+    let address = payout_address(&input, &base, &http)?;
     let client = Client {
-        base: a.node.trim_end_matches('/').to_string(),
-        http: reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(60))
-            .build()?,
+        base,
+        http,
         address,
     };
+    let started = Instant::now();
     let mut engine = pick_engine(&a)?;
     let shared = Arc::new(Shared {
         hashes: AtomicU64::new(0),
@@ -391,6 +455,7 @@ fn main() -> Result<()> {
         shares: AtomicU64::new(0),
         rejected: AtomicU64::new(0),
         height: AtomicU64::new(0),
+        last_share: AtomicU64::new(0),
     });
     let net = Arc::new(std::sync::Mutex::new(NetView::default()));
     {
@@ -430,6 +495,15 @@ fn main() -> Result<()> {
         desc,
         client.base
     );
+    if a.json {
+        let short = krypton_core::address::Address::decode(&client.address)
+            .map(|x| x.short())
+            .unwrap_or_default();
+        println!(
+            "{}",
+            json!({"event": "start", "version": env!("CARGO_PKG_VERSION"), "device": desc, "devices": engine_devices(&engine), "node": client.base, "address": short})
+        );
+    }
 
     {
         let s = shared.clone();
@@ -456,7 +530,7 @@ fn main() -> Result<()> {
                 if json_out {
                     println!(
                         "{}",
-                        json!({"event": "status", "hashrate_hs": rate, "hashes": h, "accepted_blocks": acc, "accepted_shares": shares, "rejected": rej, "height": height, "device": desc, "network_hashrate_hs": nv.hashrate, "network_fraction": frac, "expected_gnr_per_day": per_day, "unpaid": nv.unpaid})
+                        json!({"event": "status", "version": env!("CARGO_PKG_VERSION"), "uptime_secs": started.elapsed().as_secs(), "last_share_at": s.last_share.load(Ordering::Relaxed), "hashrate_hs": rate, "hashes": h, "accepted_blocks": acc, "accepted_shares": shares, "rejected": rej, "height": height, "device": desc, "network_hashrate_hs": nv.hashrate, "network_fraction": frac, "expected_gnr_per_day": per_day, "unpaid": nv.unpaid})
                     );
                 } else {
                     eprintln!(
@@ -542,6 +616,7 @@ fn main() -> Result<()> {
                         shared.accepted.fetch_add(1, Ordering::Relaxed);
                     }
                     shared.shares.fetch_add(1, Ordering::Relaxed);
+                    shared.last_share.store(unix_now(), Ordering::Relaxed);
                     if a.json {
                         println!(
                             "{}",
@@ -758,5 +833,23 @@ mod tests {
         let mut other = job(&h);
         other["network"] = json!("mainnet");
         assert!(verify_work(&other, &me.encode()).is_err());
+    }
+
+    /// A short address is resolved by a node, but only the full address it is the hash of
+    /// is accepted: a node cannot make the miner pay anyone else.
+    #[test]
+    fn a_short_address_resolves_only_to_its_own_full_address() {
+        let me = address(1);
+        let thief = address(2);
+        assert_eq!(
+            checked_full(&me.short(), &me.encode()).unwrap(),
+            me.encode()
+        );
+        assert!(checked_full(&me.short(), &thief.encode()).is_err());
+        assert!(checked_full(&me.short(), "gnr1nonsense").is_err());
+        assert!(checked_full("not-an-address", &me.encode()).is_err());
+        // The short form is short enough for any mining dashboard's wallet field.
+        assert!(me.short().len() < 80, "{}", me.short().len());
+        assert!(me.encode().len() > 1000);
     }
 }

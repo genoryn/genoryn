@@ -105,6 +105,11 @@ struct MinerStats {
     hashrate: f64,
     blocks: u64,
     shares: u64,
+    /// Solutions the node refused this run (stale work, or a node that could not check them).
+    rejected: u64,
+    uptime_secs: u64,
+    /// Unix time of the last share the node accepted, 0 before the first.
+    last_share_at: u64,
     device: String,
     last: String,
     /// This miner's fraction of the network hashrate and the GNR/day it implies.
@@ -1501,6 +1506,9 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
                                     s.hashrate = v["hashrate_hs"].as_f64().unwrap_or(0.0);
                                     s.blocks = v["accepted_blocks"].as_u64().unwrap_or(0);
                                     s.shares = v["accepted_shares"].as_u64().unwrap_or(0);
+                                    s.rejected = v["rejected"].as_u64().unwrap_or(0);
+                                    s.uptime_secs = v["uptime_secs"].as_u64().unwrap_or(0);
+                                    s.last_share_at = v["last_share_at"].as_u64().unwrap_or(0);
                                     s.device = v["device"].as_str().unwrap_or("").to_string();
                                     s.network_fraction =
                                         v["network_fraction"].as_f64().unwrap_or(0.0);

@@ -25,6 +25,12 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo test --release -p krypton-zk
+  hiveos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The package's scripts in Ubuntu 20.04, the oldest base Hive OS uses.
+      - run: bash integrations/hiveos/tests/run.sh
   audit:
     runs-on: ubuntu-latest
     # The audit action reports its result as a check run.

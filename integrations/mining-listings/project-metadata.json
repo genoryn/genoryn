@@ -1,0 +1,75 @@
+{
+  "name": "Genoryn Krypton",
+  "ticker": "GNR",
+  "consensus": "Proof of Work",
+  "algorithm": "KryptoHash v1",
+  "algorithm_notes": "BLAKE3-based, memory-bound: 64 random 128-byte reads per hash from a dataset of 2 GiB at launch, growing 4 MiB every 16,384 blocks, capped at 12 GiB. Verification uses a 16 MiB cache.",
+  "mining_hardware": ["NVIDIA GPU (CUDA)", "AMD GPU (OpenCL)", "Intel GPU (OpenCL)", "CPU"],
+  "miner": {
+    "name": "krypton-miner",
+    "source": "https://github.com/genoryn/genoryn/tree/main/apps/krypton-miner",
+    "downloads": "https://github.com/genoryn/genoryn/releases/latest",
+    "hiveos": "https://github.com/genoryn/genoryn/tree/main/integrations/hiveos",
+    "protocol": "HTTP JSON to a node (POST /v1/mining/template, POST /v1/mining/submit); no Stratum"
+  },
+  "block_time_seconds": 60,
+  "difficulty_adjustment": "LWMA-1, 90-block window, every block",
+  "block_reward": {
+    "current_gnr": 5,
+    "halving_interval_blocks": 2100000,
+    "variable_per_block": false,
+    "to_miners_percent": 100,
+    "to_developers_percent": 0,
+    "to_masternodes_percent": 0
+  },
+  "reward_distribution": "Native consensus shares: share difficulty = block difficulty / 32; each block credits the shares of the last 32 blocks from a consensus-held reward pool; accounts are paid every 360 blocks as one note.",
+  "pool_fee_percent": 0,
+  "dev_fee_percent": 0,
+  "premine": 0,
+  "max_supply_gnr": 21000000,
+  "atomic_units_per_gnr": 100000000,
+  "coinbase_maturity_blocks": 100,
+  "merged_mining": false,
+  "genesis": {
+    "hash": "3c10136cd72a74d673257249752522e0102b6268f5b8c348ba34ae36740ca3b3",
+    "time_utc": "2026-11-03T20:43:11Z",
+    "bitcoin_anchor_height": 974438
+  },
+  "network": {
+    "chain_id": "genoryn-krypton-mainnet-1",
+    "p2p_port": 30333,
+    "api_port": 30334
+  },
+  "links": {
+    "website": "https://genoryn.io",
+    "source": "https://github.com/genoryn/genoryn",
+    "explorer": "https://genoryn.io/explorer",
+    "mining_guide": "https://genoryn.io/mining",
+    "community": "https://genoryn.io/talks",
+    "license": "MIT OR Apache-2.0"
+  },
+  "public_api": {
+    "base": "https://genoryn.io",
+    "network_stats": "/v1/info",
+    "fields": {
+      "height": "height",
+      "difficulty": "difficulty (string, integer)",
+      "network_hashrate_hs": "hashrate",
+      "supply_atomic": "supply",
+      "max_supply_atomic": "max_supply",
+      "next_block_subsidy_atomic": "next_subsidy",
+      "miners_last_24h": "stats.miners_24h"
+    },
+    "supply": "/v1/supply",
+    "blocks": "/v1/blocks",
+    "block": "/v1/block/{height or hash}",
+    "miner_account": "/v1/miner/{address}",
+    "market": "/v1/swap/market"
+  },
+  "markets": {
+    "centralized_exchanges": [],
+    "atomic_swaps": "BTC <-> GNR peer to peer, through the wallet and the public offer board at https://genoryn.io/market"
+  },
+  "mining_pools": [],
+  "mining_pools_note": "None needed and none known: the protocol itself pays every miner by shares."
+}

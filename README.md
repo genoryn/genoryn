@@ -437,7 +437,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
 |---|---|
 | `--backend` | `auto` (best GPU, else CPU), `cuda`, `opencl` or `cpu` |
 | `--node` | Node API to get work from (default `http://127.0.0.1:30334`) |
-| `--address` / `--address-file` | Where rewards go (the full address) |
+| `--address` / `--address-file` | Where rewards go: the full `gnr1...` address, or the short `gnrs1...` one (resolved by the node and checked against its hash) |
 | `--max-cpu` / `--threads` | CPU threads as a percentage of the cores, or an exact count |
 | `--devices` | GPU indices as in `--list-devices`, e.g. `0,2` |
 | `--batch` | Nonces per GPU launch (auto-tuned by default) |
@@ -467,6 +467,20 @@ Earnings are paid as one note every 360 blocks, at most 64 payouts per block, sp
 100 blocks; payout notes are built by consensus from public data and verified by light wallets.
 Keep the miner online: shares count once they reach the network. Rules:
 [docs/spec/rewards.md](docs/spec/rewards.md).
+
+**No external pools. No pool fees. Every miner is rewarded directly by the blockchain in
+proportion to their valid shares.** Guides: [for miners](docs/mining/for-miners.md) ·
+[how rewards are calculated](docs/mining/reward-calculation.md) ·
+[compared with pools](docs/mining/vs-pools.md) · [fairness and security](docs/mining/security-fairness.md) ·
+[mining FAQ](docs/mining/faq.md) · [for developers](docs/mining/native-rewards.md).
+
+### Hive OS
+
+A custom miner package for Hive OS ships with each release (`genoryn-<version>.tar.gz`): add
+it as a Custom miner in a Flight Sheet with your `gnrs1...` address as the wallet and
+`https://genoryn.io` (or your farm's own node) as the pool URL. The package checks the miner's
+SHA-256 before every start and reports hashrate and shares to the Hive dashboard.
+Guide: [docs/hiveos](docs/hiveos/README.md).
 
 ## Mining and price calculator
 
