@@ -1977,7 +1977,7 @@ async fn serve(
     dir: PathBuf,
     ready: std::sync::mpsc::Sender<Result<(String, Arc<App>)>>,
 ) -> Result<()> {
-    let settings: Settings = std::fs::read(dir.join("wallet-settings.json"))
+    let mut settings: Settings = std::fs::read(dir.join("wallet-settings.json"))
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(Settings {
@@ -1991,6 +1991,7 @@ async fn serve(
             accept_peers: None,
             language: None,
         });
+    settings.language = settings.language.filter(|l| i18n::known(l));
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
     let app = Arc::new(App {

@@ -26,7 +26,7 @@
     var status = pending > 0 || since <= 5
       ? '<span class="ok"><span class="dot live ok"></span> <b>' + gk.esc(T("Mining")) + "</b>: " + gk.esc(T("its shares are reaching the network")) + "</span>"
       : last
-        ? '<span class="warn"><b>' + gk.esc(T("No recent shares")) + "</b>: " + T("the last was {block} ({ago} ago)", { block: block(last), ago: gk.esc(minutes(since)) }) + "</span>"
+        ? '<span class="warn"><b>' + gk.esc(T("No recent shares")) + "</b>: " + gk.esc(T("the last was {block} ({ago} ago)", { block: "{block}", ago: minutes(since) })).replace("{block}", block(last)) + "</span>"
         : '<span class="warn"><b>' + gk.esc(T("No shares yet")) + "</b> " + gk.esc(T("from this address")) + "</span>";
     var nph = nm(m.next_payout_height), paid = pays.reduce(function (s, p) { return s + nm(p.value); }, 0);
     var perDay = frac * 1440 * nm(info.next_subsidy);
