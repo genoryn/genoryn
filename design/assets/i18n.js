@@ -12,7 +12,9 @@
   var cat = {}, rules = null, dom = {}, rust = [];
   function setRules() { try { rules = new Intl.PluralRules(lang); } catch (e) { rules = null; } }
   function fill(s, v) {
-    return v ? String(s).replace(/\{(\w+)\}/g, function (m, k) { return v[k] != null ? v[k] : m; }) : String(s);
+    // A value given but missing (null, undefined) is left out, as plain concatenation showed it;
+    // a {name} that was never given stays visible, so a mistake can be seen.
+    return v ? String(s).replace(/\{(\w+)\}/g, function (m, k) { return Object.prototype.hasOwnProperty.call(v, k) ? (v[k] == null ? "" : v[k]) : m; }) : String(s);
   }
   setRules();
   window.GKI18N = {

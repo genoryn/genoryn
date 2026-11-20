@@ -1793,7 +1793,8 @@ mod tests {
         e.validate().unwrap();
         assert!(e.data.len() > 2 * MAX_MESSAGE_BYTES);
         assert!(
-            !pow_ok("Krypton/board/msg", &e.body(), e.nonce, LARGE_POW_BITS + 6),
+            // 20 more bits: a nonce meets them by chance once in a million runs (6 was 1 in 64).
+            !pow_ok("Krypton/board/msg", &e.body(), e.nonce, LARGE_POW_BITS + 20),
             "sanity: not absurdly lucky"
         );
         let (_, got) = open(&b, &e.data).unwrap();

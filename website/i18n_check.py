@@ -34,6 +34,15 @@ def check_lang(lang, names, strict, root=None, fallback=None):
     root = root or i18n.LOCALES
     fallback = fallback or {}
     en_dir, dir_ = root / "en", root / lang
+    # The build uses one dictionary per language: a text translated in any of its files counts.
+    merged = {}
+    for f in sorted(dir_.glob("*.json")) if dir_.is_dir() else []:
+        if not f.stem.startswith("_"):
+            try:
+                merged.update(json.loads(f.read_text(encoding="utf-8-sig")))
+            except json.JSONDecodeError:
+                pass
+    fallback = {**fallback, **merged}
     attrs = set(json.loads((en_dir / "_attrs.json").read_text(encoding="utf-8"))) if (en_dir / "_attrs.json").exists() else set()
     total = done = 0
     for f in sorted(en_dir.glob("*.json")):

@@ -30,6 +30,7 @@ mod assets;
 mod board;
 mod coins;
 mod console;
+mod i18n;
 mod swaps;
 mod update;
 mod vault;
@@ -96,6 +97,9 @@ struct Settings {
     /// node then only connects out, so nothing on the internet can reach this computer.
     #[serde(default)]
     accept_peers: Option<bool>,
+    /// Language of the page ("en", "de", ...); None until the first start has chosen one.
+    #[serde(default)]
+    language: Option<String>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -1335,6 +1339,48 @@ async fn recent_blocks(
     }
 }
 
+#[derive(Deserialize)]
+struct LanguageReq {
+    language: String,
+}
+
+/// The language of the page; the next page load uses it (nothing else restarts).
+async fn set_language(State(app): S, h: HeaderMap, Json(r): Json<LanguageReq>) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    if !i18n::known(&r.language) {
+        return err("unknown language");
+    }
+    app.settings.lock().language = Some(r.language);
+    match app.save_settings() {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// A language's catalog (the same that is embedded in the page), for tools and tests.
+async fn language_catalog(
+    State(app): S,
+    h: HeaderMap,
+    axum::extract::Path(lang): axum::extract::Path<String>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    match i18n::catalog(&lang) {
+        Some(j) => ([(header::CONTENT_TYPE, "application/json")], j).into_response(),
+        None if lang == "en" => {
+            Json(json!({"lang": "en", "dom": {}, "js": {}, "rust": []})).into_response()
+        }
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "unknown language"})),
+        )
+            .into_response(),
+    }
+}
+
 async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
@@ -1368,6 +1414,7 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
         s.btc_backend = cur.btc_backend.clone();
         s.btc_network = cur.btc_network.clone();
         s.share_prices = cur.share_prices;
+        s.language = cur.language.clone();
         if s.accept_peers.is_none() {
             s.accept_peers = cur.accept_peers;
         }
@@ -1942,6 +1989,7 @@ async fn serve(
             btc_network: None,
             share_prices: None,
             accept_peers: None,
+            language: None,
         });
     let token = hex::encode(rand::random::<[u8; 24]>());
     let vault = vault::Vault::new(&dir);
@@ -2100,14 +2148,22 @@ async fn serve(
     });
 
     let page: &'static str = Box::leak(
-        UI.replace("<!--FX_HEAD-->", assets::FX_HEAD)
+        UI.replace("<!--FX_HEAD-->", &format!("<!--I18N-->{}", assets::FX_HEAD))
             .into_boxed_str(),
     );
     let router = Router::new()
         .route(
             "/",
-            get(move || async move { ([(header::CACHE_CONTROL, "no-store")], Html(page)) }),
+            get(move |State(app): S| async move {
+                let lang = app.settings.lock().language.clone().unwrap_or_default();
+                (
+                    [(header::CACHE_CONTROL, "no-store")],
+                    Html(i18n::page(page, &lang)),
+                )
+            }),
         )
+        .route("/api/language", post(set_language))
+        .route("/api/i18n/{lang}", get(language_catalog))
         .route("/assets/{*path}", get(asset))
         .route("/api/state", get(state))
         .route("/api/create", post(create))

@@ -32,11 +32,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # The English catalogs must match the pages.
+      # The English catalogs must match the pages, the wallet's built catalogs its sources.
       - run: python website/build.py
       - run: python website/i18n.py extract && git diff --exit-code -- website/locales/en
+      - run: python website/i18n_wallet.py extract && python website/i18n_wallet.py build && git diff --exit-code -- apps/krypton-wallet/locales
       # Translations: no error in any language, and every localized page and link exists.
       - run: python website/i18n_check.py --dist
+      - run: python website/i18n_check.py --wallet
   hiveos:
     runs-on: ubuntu-latest
     steps:
