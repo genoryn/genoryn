@@ -8,10 +8,20 @@
   function short(h) { h = hx(h); return h ? h.slice(0, 10) + "…" + h.slice(-8) : ""; }
   function kv(rows) { return '<div class="kv">' + rows.map(function (r) { return "<div>" + r[0] + "</div><div>" + r[1] + "</div>"; }).join("") + "</div>"; }
   function err(m) { view.innerHTML = card('<p style="padding:18px" class="err-site">' + gk.esc(m) + "</p>"); }
+  function h2(text, first) { return '<h2 style="font-size:20px;margin:' + (first ? "8px" : "22px") + ' 0 12px">' + gk.esc(text) + "</h2>"; }
+  function kb(bytes) { return T("{n} KB", { n: GKI18N.num(nm(bytes) / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }); }
+  function utc(t) { return T("{time} UTC", { time: new Date(nm(t) * 1000).toISOString().replace("T", " ").slice(0, 19) }); }
+  /* Table labels (also shown on phones through data-label). */
+  var L = {
+    height: T("Height"), hash: T("Hash"), age: T("Age"), shares: T("Shares"), txs: T("Transactions"), reward: T("Reward"), size: T("Size"),
+    txid: T("Txid"), kind: T("Kind"), fee: T("Fee"), proof: T("Proof"), share: T("Share"), minedOn: T("Mined on block"), miner: T("Miner"),
+    paid: T("Paid"), block: T("Block"), amount: T("Amount"), spendable: T("Spendable")
+  };
+  Object.keys(L).forEach(function (k) { L[k] = gk.esc(L[k]); });
 
   function stats() {
     gk.api("/v1/info").then(function (i) {
-      document.getElementById("sHeight").textContent = Number(i.height).toLocaleString("en-US");
+      document.getElementById("sHeight").textContent = GKI18N.num(i.height);
       document.getElementById("sSupply").textContent = gk.gnr(i.supply, 0);
       document.getElementById("sRate").textContent = gk.rate(i.hashrate);
       document.getElementById("sPool").textContent = i.mempool;
@@ -27,8 +37,8 @@
       var avg = function (k) { return pts.length ? pts.reduce(function (a, p) { return a + Number(p[k] || 0); }, 0) / pts.length : 0; };
       kpi("hashrate", gk.rate(s.hashrate));
       kpi("difficulty", GKCharts.fmtNum(last.difficulty || 0));
-      kpi("block_time", avg("block_time").toFixed(0) + " s avg");
-      kpi("shares", avg("shares").toFixed(1) + " avg");
+      kpi("block_time", T("{n} s avg", { n: avg("block_time").toFixed(0) }));
+      kpi("shares", T("{n} avg", { n: GKI18N.num(avg("shares"), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }));
       kpi("miners", String(s.estimated_miners || 0));
       kpi("issued", gk.gnr(s.issued, 0) + " GNR");
       kpi("issued2", gk.gnr(s.issued, 0) + " GNR");
@@ -41,14 +51,14 @@
   function home() {
     gk.api("/v1/blocks?count=25").then(function (bs) {
       var rows = bs.map(function (b) {
-        return '<tr><td data-label="Height"><a href="#/block/' + nm(b.height) + '">' + nm(b.height) + '</a></td><td data-label="Hash" class="mono"><a href="#/block/' + hx(b.hash) + '">' + short(b.hash) +
-          '</a></td><td data-label="Age">' + gk.ago(b.timestamp) + '</td><td data-label="Shares" class="num">' + nm(b.shares) + '</td><td data-label="Transactions" class="num">' + nm(b.txs) +
-          '</td><td data-label="Reward" class="num">' + gk.gnr((b.subsidy || 0) + (b.fees || 0)) +
-          '</td><td data-label="Size" class="num">' + (nm(b.size) / 1024).toFixed(1) + " KB</td></tr>";
+        return '<tr><td data-label="' + L.height + '"><a href="#/block/' + nm(b.height) + '">' + nm(b.height) + '</a></td><td data-label="' + L.hash + '" class="mono"><a href="#/block/' + hx(b.hash) + '">' + short(b.hash) +
+          '</a></td><td data-label="' + L.age + '">' + gk.ago(b.timestamp) + '</td><td data-label="' + L.shares + '" class="num">' + nm(b.shares) + '</td><td data-label="' + L.txs + '" class="num">' + nm(b.txs) +
+          '</td><td data-label="' + L.reward + '" class="num">' + gk.gnr((b.subsidy || 0) + (b.fees || 0)) +
+          '</td><td data-label="' + L.size + '" class="num">' + kb(b.size) + "</td></tr>";
       }).join("");
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Latest blocks</h2>' + card('<table class="data"><thead><tr><th>Height</th><th>Hash</th><th>Age</th><th class="num">Shares</th><th class="num">Txs</th><th class="num">Reward GNR</th><th class="num">Size</th></tr></thead><tbody>' + rows + "</tbody></table>") +
-        '<p class="muted" style="margin-top:12px;font-size:13.5px">Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.</p>';
-    }).catch(function () { err("The node API is not reachable right now."); });
+      view.innerHTML = h2(T("Latest blocks"), true) + card('<table class="data"><thead><tr><th>' + L.height + "</th><th>" + L.hash + "</th><th>" + L.age + '</th><th class="num">' + L.shares + '</th><th class="num">' + gk.esc(T("Txs")) + '</th><th class="num">' + gk.esc(T("Reward GNR")) + '</th><th class="num">' + L.size + "</th></tr></thead><tbody>" + rows + "</tbody></table>") +
+        '<p class="muted" style="margin-top:12px;font-size:13.5px">' + gk.esc(T("Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.")) + "</p>";
+    }).catch(function () { err(T("The node API is not reachable right now.")); });
   }
 
   function block(id) {
@@ -57,52 +67,55 @@
       // Krypton coins: issues, burns, deploys and pauses are public; transfers stay private
       // (a pausable coin's transfer shows only which coin moved).
       var coinKind = function (c) {
-        if (!c) return gk.esc("private transfer");
+        if (!c) return gk.esc(T("private transfer"));
         var who = c.ticker ? gk.esc(c.ticker) : c.coin ? '<span class="mono">' + gk.esc(String(c.coin).slice(0, 8)) + "…</span>" : "";
-        if (c.op === "transfer") return who ? "coin transfer · " + who : "private transfer";
-        if (c.op === "issue") return "coin issue · " + who + " · " + nm(c.issue).toLocaleString("en-US") + " units";
-        if (c.op === "burn") return "coin burn · " + who + " · " + nm(c.burn).toLocaleString("en-US") + " units";
-        return "coin " + gk.esc(c.op) + (who ? " · " + who : "");
+        if (c.op === "transfer") return who ? gk.esc(T("coin transfer")) + " · " + who : gk.esc(T("private transfer"));
+        if (c.op === "issue") return gk.esc(T("coin issue")) + " · " + who + " · " + gk.esc(T("{n} units", { n: GKI18N.num(nm(c.issue)) }));
+        if (c.op === "burn") return gk.esc(T("coin burn")) + " · " + who + " · " + gk.esc(T("{n} units", { n: GKI18N.num(nm(c.burn)) }));
+        return gk.esc(T("coin {op}", { op: c.op })) + (who ? " · " + who : "");
       };
       var txs = b.txs.map(function (t) {
-        return '<tr><td data-label="Txid" class="mono"><a href="#/tx/' + hx(t.txid) + '">' + short(t.txid) + '</a></td><td data-label="Kind">' + coinKind(t.coin) + '</td><td data-label="Fee" class="num">' + gk.gnr(t.fee) +
-          '</td><td data-label="Proof" class="num">' + (nm(t.proof_bytes) / 1024).toFixed(1) + " KB</td></tr>";
-      }).join("") || '<tr><td colspan="4" class="muted">No transactions</td></tr>';
+        return '<tr><td data-label="' + L.txid + '" class="mono"><a href="#/tx/' + hx(t.txid) + '">' + short(t.txid) + '</a></td><td data-label="' + L.kind + '">' + coinKind(t.coin) + '</td><td data-label="' + L.fee + '" class="num">' + gk.gnr(t.fee) +
+          '</td><td data-label="' + L.proof + '" class="num">' + kb(t.proof_bytes) + "</td></tr>";
+      }).join("") || '<tr><td colspan="4" class="muted">' + gk.esc(T("No transactions")) + "</td></tr>";
       var shares = (b.shares || []).map(function (s) {
-        return '<tr><td data-label="Share" class="mono">' + short(s.hash) + '</td><td data-label="Mined on block" class="num">' + nm(s.height) + '</td><td data-label="Miner" class="mono">' + short(s.miner) + "</td></tr>";
-      }).join("") || '<tr><td colspan="3" class="muted">Only the block itself was credited</td></tr>';
+        return '<tr><td data-label="' + L.share + '" class="mono">' + short(s.hash) + '</td><td data-label="' + L.minedOn + '" class="num">' + nm(s.height) + '</td><td data-label="' + L.miner + '" class="mono">' + short(s.miner) + "</td></tr>";
+      }).join("") || '<tr><td colspan="3" class="muted">' + gk.esc(T("Only the block itself was credited")) + "</td></tr>";
       var payouts = (b.payouts || []).map(function (p) {
-        return '<tr><td data-label="Miner" class="mono">' + short(p.owner) + '</td><td data-label="Paid" class="num">' + gk.gnr(p.value) + " GNR</td></tr>";
+        return '<tr><td data-label="' + L.miner + '" class="mono">' + short(p.owner) + '</td><td data-label="' + L.paid + '" class="num">' + gk.gnr(p.value) + " GNR</td></tr>";
       }).join("");
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Block ' + nm(h.height) + "</h2>" + card(kv([
-        ["Hash", '<span class="mono">' + hx(b.hash) + "</span>"], ["Previous", '<a class="mono" href="#/block/' + hx(h.prev) + '">' + hx(h.prev) + "</a>"],
-        ["Time", new Date(nm(h.timestamp) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"], ["Confirmations", nm(b.confirmations)],
-        ["Difficulty", Number(h.difficulty).toLocaleString("en-US")], ["Nonce", gk.esc(h.nonce)],
-        ["Reward to the pool", gk.gnr((b.subsidy || 0) + (b.fees || 0)) + " GNR"], ["Found by", '<span class="mono">' + short(b.miner) + "</span>"],
-        ["Shares credited", (b.shares || []).length + 1], ["Payouts made", (b.payouts || []).length],
-        ["Note tree root", '<span class="mono">' + hx(h.note_root) + "</span>"], ["MMR root (light clients)", '<span class="mono">' + hx(h.mmr_root) + "</span>"], ["Size", (nm(b.size) / 1024).toFixed(1) + " KB"]
+      var e = gk.esc;
+      view.innerHTML = h2(T("Block {h}", { h: nm(h.height) }), true) + card(kv([
+        [L.hash, '<span class="mono">' + hx(b.hash) + "</span>"], [e(T("Previous")), '<a class="mono" href="#/block/' + hx(h.prev) + '">' + hx(h.prev) + "</a>"],
+        [e(T("Time")), e(utc(h.timestamp))], [e(T("Confirmations")), nm(b.confirmations)],
+        [e(T("Difficulty")), GKI18N.num(h.difficulty)], [e(T("Nonce")), gk.esc(h.nonce)],
+        [e(T("Reward to the pool")), gk.gnr((b.subsidy || 0) + (b.fees || 0)) + " GNR"], [e(T("Found by")), '<span class="mono">' + short(b.miner) + "</span>"],
+        [e(T("Shares credited")), (b.shares || []).length + 1], [e(T("Payouts made")), (b.payouts || []).length],
+        [e(T("Note tree root")), '<span class="mono">' + hx(h.note_root) + "</span>"], [e(T("MMR root (light clients)")), '<span class="mono">' + hx(h.mmr_root) + "</span>"], [L.size, e(kb(b.size))]
       ])) +
-        (payouts ? '<h2 style="font-size:20px;margin:22px 0 12px">Payouts</h2>' + card('<table class="data"><thead><tr><th>Miner</th><th class="num">Paid</th></tr></thead><tbody>' + payouts + "</tbody></table>") : "") +
-        '<h2 style="font-size:20px;margin:22px 0 12px">Shares</h2>' + card('<table class="data"><thead><tr><th>Share</th><th class="num">Mined on block</th><th>Miner</th></tr></thead><tbody>' + shares + "</tbody></table>") +
-        '<h2 style="font-size:20px;margin:22px 0 12px">Transactions</h2>' + card('<table class="data"><thead><tr><th>Txid</th><th>Kind</th><th class="num">Fee</th><th class="num">Proof</th></tr></thead><tbody>' + txs + "</tbody></table>");
-    }).catch(function () { err("Block not found."); });
+        (payouts ? h2(T("Payouts")) + card('<table class="data"><thead><tr><th>' + L.miner + '</th><th class="num">' + L.paid + "</th></tr></thead><tbody>" + payouts + "</tbody></table>") : "") +
+        h2(T("Shares")) + card('<table class="data"><thead><tr><th>' + L.share + '</th><th class="num">' + L.minedOn + "</th><th>" + L.miner + "</th></tr></thead><tbody>" + shares + "</tbody></table>") +
+        h2(T("Transactions")) + card('<table class="data"><thead><tr><th>' + L.txid + "</th><th>" + L.kind + '</th><th class="num">' + L.fee + '</th><th class="num">' + L.proof + "</th></tr></thead><tbody>" + txs + "</tbody></table>");
+    }).catch(function () { err(T("Block not found.")); });
   }
 
   function tx(id) {
     gk.api("/v1/tx/" + encodeURIComponent(id)).then(function (t) {
-      var rows = [["Transaction", '<span class="mono">' + hx(t.txid) + "</span>"], ["Status", t.status === "confirmed" ? '<span class="ok">confirmed</span>' : '<span class="warn">pending</span>']];
-      if (t.height != null) rows.push(["Block", '<a href="#/block/' + nm(t.height) + '">' + nm(t.height) + "</a>"], ["Confirmations", nm(t.confirmations)]);
-      if (t.fee != null) rows.push(["Fee", gk.gnr(t.fee) + " GNR"]);
-      rows.push(["Privacy", "Sender, recipient and amount are hidden by a zk-STARK proof."]);
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Transaction</h2>' + card(kv(rows));
-    }).catch(function () { err("Transaction not found."); });
+      var e = gk.esc;
+      var rows = [[e(T("Transaction")), '<span class="mono">' + hx(t.txid) + "</span>"], [e(T("Status")), t.status === "confirmed" ? '<span class="ok">' + e(T("confirmed")) + "</span>" : '<span class="warn">' + e(T("pending")) + "</span>"]];
+      if (t.height != null) rows.push([L.block, '<a href="#/block/' + nm(t.height) + '">' + nm(t.height) + "</a>"], [e(T("Confirmations")), nm(t.confirmations)]);
+      if (t.fee != null) rows.push([L.fee, gk.gnr(t.fee) + " GNR"]);
+      rows.push([e(T("Privacy")), e(T("Sender, recipient and amount are hidden by a zk-STARK proof."))]);
+      view.innerHTML = h2(T("Transaction"), true) + card(kv(rows));
+    }).catch(function () { err(T("Transaction not found.")); });
   }
 
   function nullifier(id) {
     gk.api("/v1/nullifier/" + encodeURIComponent(id)).then(function (n) {
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Nullifier</h2>' + card(kv([["Nullifier", '<span class="mono">' + gk.esc(id) + "</span>"],
-        ["Spent", n.spent_height != null ? '<span class="ok">yes</span>, in block <a href="#/block/' + nm(n.spent_height) + '">' + nm(n.spent_height) + "</a>" : "not spent"]]));
-    }).catch(function () { err("Invalid nullifier."); });
+      var e = gk.esc, at = nm(n.spent_height);
+      view.innerHTML = h2(T("Nullifier"), true) + card(kv([[e(T("Nullifier")), '<span class="mono">' + gk.esc(id) + "</span>"],
+        [e(T("Spent")), n.spent_height != null ? '<span class="ok">' + e(T("yes")) + "</span>, " + e(T("in block {h}", { h: at })).replace(String(at), '<a href="#/block/' + at + '">' + at + "</a>") : e(T("not spent"))]]));
+    }).catch(function () { err(T("Invalid nullifier.")); });
   }
 
   function post(p, body) {
@@ -111,65 +124,70 @@
   }
 
   function proofForm(prefillAddress) {
-    return card('<div style="padding:18px"><h3 class="xh">Verify a payment proof</h3>' +
-      '<p class="muted" style="margin:6px 0 12px">Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.</p>' +
-      '<label for="pf" class="sr-only">Payment proof</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
-      '<label for="pfa" class="sr-only">Recipient address (optional)</label><input id="pfa" placeholder="Recipient full address (optional, confirms the recipient)" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
-      '<button class="btn btn-primary" type="button" data-act="proof" style="margin-top:10px">Verify</button><div id="pfr" style="margin-top:14px"></div></div>');
+    var e = gk.esc;
+    return card('<div style="padding:18px"><h3 class="xh">' + e(T("Verify a payment proof")) + "</h3>" +
+      '<p class="muted" style="margin:6px 0 12px">' + e(T("Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.")) + "</p>" +
+      '<label for="pf" class="sr-only">' + e(T("Payment proof")) + '</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
+      '<label for="pfa" class="sr-only">' + e(T("Recipient address (optional)")) + '</label><input id="pfa" placeholder="' + e(T("Recipient full address (optional, confirms the recipient)")) + '" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
+      '<button class="btn btn-primary" type="button" data-act="proof" style="margin-top:10px">' + e(T("Verify")) + '</button><div id="pfr" style="margin-top:14px"></div></div>');
   }
 
   window.exProof = function () {
-    var out = document.getElementById("pfr");
-    out.innerHTML = '<p class="muted">Checking…</p>';
+    var out = document.getElementById("pfr"), e = gk.esc;
+    out.innerHTML = '<p class="muted">' + e(T("Checking…")) + "</p>";
     post("/v1/verify-payment", { proof: document.getElementById("pf").value.trim(), address: document.getElementById("pfa").value.trim() || null }).then(function (r) {
       var txid = /^[0-9a-f]{64}$/.test(r.txid) ? r.txid : "", h = Number(r.height) || 0;
+      var say = function (cls, title, text) { return '<p class="' + cls + '"><b>' + e(title) + "</b> " + e(text) + "</p>"; };
       var head = r.pending
-        ? '<p class="warn"><b>Payment pending.</b> The payment was sent and is waiting in the mempool, but it is not in a block yet. Check again after the next block (about a minute): only a confirmed payment is final.</p>'
+        ? say("warn", T("Payment pending."), T("The payment was sent and is waiting in the mempool, but it is not in a block yet. Check again after the next block (about a minute): only a confirmed payment is final."))
         : r.recipient_confirmed === false
-        ? '<p class="bad"><b>Not a payment to that address.</b> The transaction exists, but it did not pay the address you entered.</p>'
+        ? say("bad", T("Not a payment to that address."), T("The transaction exists, but it did not pay the address you entered."))
         : r.recipient_verified
-          ? '<p class="ok"><b>Valid payment proof.</b> The payment below went to the recipient shown.</p>'
-          : '<p class="warn"><b>Real payment, recipient not verified.</b> The amount below was paid on chain, but the recipient short address was written by the sender and nothing confirms it. Paste the recipient\'s full address above, or ask them to publish their short address, then check again.</p>';
+          ? say("ok", T("Valid payment proof."), T("The payment below went to the recipient shown."))
+          : say("warn", T("Real payment, recipient not verified."), T("The amount below was paid on chain, but the recipient short address was written by the sender and nothing confirms it. Paste the recipient's full address above, or ask them to publish their short address, then check again."));
       out.innerHTML = head + kv([
-        ["Amount", "<b>" + gk.gnr(r.value) + " GNR</b>"],
-        ["Recipient", '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === false ? ' <span class="bad">· does not match</span>' : r.recipient_verified ? ' <span class="ok">· verified</span>' : ' <span class="warn">· unverified</span>')],
-        ["Memo", gk.esc(r.memo) || "—"], ["Transaction", '<a class="mono" href="#/tx/' + txid + '">' + short(txid) + "</a>"],
-        r.pending ? ["Block", '<span class="warn">pending · waiting in the mempool</span>'] : ["Block", '<a href="#/block/' + h + '">' + h + "</a> · " + (Number(r.confirmations) || 0) + " confirmations"],
-        ["Time", r.pending ? "not mined yet" : new Date(Number(r.time) * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"]
+        [L.amount, "<b>" + gk.gnr(r.value) + " GNR</b>"],
+        [e(T("Recipient")), '<span class="mono">' + gk.esc(r.recipient) + "</span>" + (r.recipient_confirmed === false ? ' <span class="bad">· ' + e(T("does not match")) + "</span>" : r.recipient_verified ? ' <span class="ok">· ' + e(T("verified")) + "</span>" : ' <span class="warn">· ' + e(T("unverified")) + "</span>")],
+        [e(T("Memo")), gk.esc(r.memo) || "—"], [e(T("Transaction")), '<a class="mono" href="#/tx/' + txid + '">' + short(txid) + "</a>"],
+        r.pending ? [L.block, '<span class="warn">' + e(T("pending · waiting in the mempool")) + "</span>"] : [L.block, '<a href="#/block/' + h + '">' + h + "</a> · " + e(Tn(Number(r.confirmations) || 0, "{n} confirmation", "{n} confirmations"))],
+        [e(T("Time")), r.pending ? e(T("not mined yet")) : e(utc(r.time))]
       ]);
-    }).catch(function (e) { out.innerHTML = '<p class="bad"><b>Not valid:</b> ' + gk.esc(e.message) + "</p>"; });
+    }).catch(function (x) { out.innerHTML = '<p class="bad"><b>' + e(T("Not valid:")) + "</b> " + gk.esc(x.message) + "</p>"; });
   };
 
   function address(id) {
     view.innerHTML = '<p class="muted">Looking up…</p>';
     gk.api("/v1/address-info/" + encodeURIComponent(id)).then(function (a) {
-      var rows = [["Status", '<span class="ok"><b>Valid ' + gk.esc(a.network) + " address</b></span>"], ["Short address", '<span class="mono wrap-any">' + gk.esc(a.short) + "</span>"]];
-      var priv = '<p class="muted" style="margin:14px 0 0">Transfers are shielded: incoming and outgoing payments never appear in any explorer, for this or any other address. To show that a payment really happened, ask the sender for a <b>payment proof</b> and check it below.</p>';
+      var e = gk.esc;
+      var rows = [[e(T("Status")), '<span class="ok"><b>' + e(T("Valid {network} address", { network: a.network })) + "</b></span>"], [e(T("Short address")), '<span class="mono wrap-any">' + gk.esc(a.short) + "</span>"]];
+      var priv = '<p class="muted" style="margin:14px 0 0">' + e(T("Transfers are shielded: incoming and outgoing payments never appear in any explorer, for this or any other address. To show that a payment really happened, ask the sender for a payment proof and check it below.")) + "</p>";
       if (a.kind === "short") {
-        rows.push(["Full address", a.published ? "published" : '<span class="warn">not published on this node</span>']);
-        view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Address</h2>' + card('<div style="padding:4px 0">' + kv(rows) + '</div><div style="padding:0 18px 18px">' +
-          '<p class="muted">The short form is correct, but its owner has not published the full address here, so it cannot be resolved. In the wallet: <b>Wallet → Receive → Publish short form</b>, or search with the full address.</p>' + priv + "</div>") + proofForm();
+        rows.push([e(T("Full address")), a.published ? e(T("published")) : '<span class="warn">' + e(T("not published on this node")) + "</span>"]);
+        view.innerHTML = h2(T("Address"), true) + card('<div style="padding:4px 0">' + kv(rows) + '</div><div style="padding:0 18px 18px">' +
+          '<p class="muted">' + e(T("The short form is correct, but its owner has not published the full address here, so it cannot be resolved. In the wallet: Wallet → Receive → Publish short form, or search with the full address.")) + "</p>" + priv + "</div>") + proofForm();
         return;
       }
       var m = a.mining || {}, act = m.activity || {}, pays = act.payouts || [];
-      rows.push(["Published", a.published ? "yes, the short form resolves on this node" : 'no (Wallet → Receive → Publish short form)'], ["Owner tag", '<span class="mono wrap-any">' + gk.esc(a.owner) + "</span>"], ["Cryptography", gk.esc(a.crypto)]);
+      rows.push([e(T("Published")), a.published ? e(T("yes, the short form resolves on this node")) : e(T("no (Wallet → Receive → Publish short form)"))], [e(T("Owner tag")), '<span class="mono wrap-any">' + gk.esc(a.owner) + "</span>"], [e(T("Cryptography")), gk.esc(a.crypto)]);
       var paid = pays.reduce(function (s, p) { return s + Number(p.value); }, 0);
-      var nph = Number(m.next_payout_height) || 0, eta = nph ? nph + " (in ~" + Math.max(0, nph - Number(a.height)) + " min)" : "—";
+      var nph = Number(m.next_payout_height) || 0;
+      var eta = nph ? e(T("block {h} (in ~{n} min)", { h: nph, n: Math.max(0, nph - Number(a.height)) })) : "—";
+      var blockLink = function (h) { return '<a href="#/block/' + h + '">' + e(T("block {h}", { h: h })) + "</a>"; };
       var mining = kv([
-        ["Rewards accruing", "<b>" + gk.gnr(m.unpaid) + " GNR</b>"], ["Next payout", "block " + eta],
-        ["Paid so far", gk.gnr(paid) + " GNR in " + pays.length + " payout" + (pays.length === 1 ? "" : "s")],
-        ["Blocks found", String(Number(act.blocks_found) || 0)], ["Blocks with its shares", String(Number(act.blocks_with_shares) || 0)],
-        ["Mining since", act.first_seen ? '<a href="#/block/' + Number(act.first_seen) + '">block ' + Number(act.first_seen) + "</a>" : "—"], ["Last share", act.last_seen ? '<a href="#/block/' + Number(act.last_seen) + '">block ' + Number(act.last_seen) + "</a>" : "—"]
+        [e(T("Rewards accruing")), "<b>" + gk.gnr(m.unpaid) + " GNR</b>"], [e(T("Next payout")), eta],
+        [e(T("Paid so far")), e(Tn(pays.length, "{gnr} GNR in {n} payout", "{gnr} GNR in {n} payouts", { gnr: gk.gnr(paid) }))],
+        [e(T("Blocks found")), String(Number(act.blocks_found) || 0)], [e(T("Blocks with its shares")), String(Number(act.blocks_with_shares) || 0)],
+        [e(T("Mining since")), act.first_seen ? blockLink(Number(act.first_seen)) : "—"], [e(T("Last share")), act.last_seen ? blockLink(Number(act.last_seen)) : "—"]
       ]);
       var payRows = pays.slice().reverse().map(function (p) {
         var ph = Number(p.height), spend = ph + (Number(m.maturity) || 100);
-        return '<tr><td data-label="Block"><a href="#/block/' + ph + '">' + ph + '</a></td><td data-label="Amount" class="num">' + gk.gnr(p.value) + ' GNR</td><td data-label="Spendable">' + (Number(a.height) >= spend ? '<span class="ok">yes</span>' : "from block " + spend) + "</td></tr>";
+        return '<tr><td data-label="' + L.block + '"><a href="#/block/' + ph + '">' + ph + '</a></td><td data-label="' + L.amount + '" class="num">' + gk.gnr(p.value) + ' GNR</td><td data-label="' + L.spendable + '">' + (Number(a.height) >= spend ? '<span class="ok">' + e(T("yes")) + "</span>" : e(T("from block {h}", { h: spend }))) + "</td></tr>";
       }).join("");
-      view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Address</h2>' + card(kv(rows)) +
-        '<h2 style="font-size:20px;margin:22px 0 12px">Mining</h2>' + card(mining) +
-        (payRows ? '<h2 style="font-size:20px;margin:22px 0 12px">Payouts</h2>' + card('<table class="data"><thead><tr><th>Block</th><th class="num">Amount</th><th>Spendable</th></tr></thead><tbody>' + payRows + "</tbody></table>") : "") +
+      view.innerHTML = h2(T("Address"), true) + card(kv(rows)) +
+        h2(T("Mining")) + card(mining) +
+        (payRows ? h2(T("Payouts")) + card('<table class="data"><thead><tr><th>' + L.block + '</th><th class="num">' + L.amount + "</th><th>" + L.spendable + "</th></tr></thead><tbody>" + payRows + "</tbody></table>") : "") +
         card('<div style="padding:0 18px 16px">' + priv + "</div>") + proofForm(id);
-    }).catch(function (e) { err("Not a valid Genoryn Krypton address: " + e.message); });
+    }).catch(function (x) { err(T("Not a valid Genoryn Krypton address: {why}", { why: x.message })); });
   }
 
   window.exSearch = function (e) {
@@ -182,7 +200,7 @@
       gk.api("/v1/block/" + q).then(function () { location.hash = "#/block/" + q; }).catch(function () {
         gk.api("/v1/tx/" + q).then(function () { location.hash = "#/tx/" + q; }).catch(function () { location.hash = "#/nullifier/" + q; });
       });
-    } else err("Enter a block height, a 64-character hash or id, an address (gnr1… / gnrs1…) or a payment proof (gnrpay1…).");
+    } else err(T("Enter a block height, a 64-character hash or id, an address (gnr1… / gnrs1…) or a payment proof (gnrpay1…)."));
     return false;
   };
 
@@ -191,8 +209,8 @@
     if (p[0] === "block" && p[1]) block(p[1]);
     else if (p[0] === "tx" && p[1]) tx(p[1]);
     else if (p[0] === "nullifier" && p[1]) nullifier(p[1]);
-    else if (p[0] === "address" && p[1]) { var a = null; try { a = decodeURIComponent(p[1]); } catch (e) {} if (a) address(a); else err("Not a valid address."); }
-    else if (p[0] === "proof") { view.innerHTML = '<h2 style="font-size:20px;margin:8px 0 12px">Payment proof</h2>' + proofForm(); }
+    else if (p[0] === "address" && p[1]) { var a = null; try { a = decodeURIComponent(p[1]); } catch (e) {} if (a) address(a); else err(T("Not a valid address.")); }
+    else if (p[0] === "proof") { view.innerHTML = h2(T("Payment proof"), true) + proofForm(); }
     else home();
     var isHome = !p[0];
     if (dashEl) dashEl.style.display = isHome ? "" : "none";

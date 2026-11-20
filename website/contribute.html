@@ -30,7 +30,7 @@
       <a class="glass pg-card" href="#code"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-github"/></svg></span><h3>Code</h3><p>Fix a bug, add a test, review a change. The node, the wallet, the miner and this website are all in one repository.</p><span class="pg-go">Build and test <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
       <a class="glass pg-card" href="#review"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Review</h3><p>Read the code that guards people's money and try to break it. There has been no independent audit yet; careful eyes are worth more than anything.</p><span class="pg-go">Where to look <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
       <a class="glass pg-card" href="#documentation"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-docs"/></svg></span><h3>Documentation</h3><p>If a page confused you, it will confuse the next person. Say so, or fix it.</p><span class="pg-go">Improve the docs <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
-      <a class="glass pg-card" href="#translations"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-lang"/></svg></span><h3>Translations</h3><p>The wallet and this site are in English only today. Here is where that stands and what would help.</p><span class="pg-go">Translations <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
+      <a class="glass pg-card" href="#translations"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-lang"/></svg></span><h3>Translations</h3><p>The wallet and this site speak ten languages, nine of them machine-translated. Help check and correct yours.</p><span class="pg-go">Translations <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
       <a class="glass pg-card" href="/help#support"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-people"/></svg></span><h3>Tech support</h3><p>Answer a newcomer's question. If you have mined for a week, you know things they are stuck on.</p><span class="pg-go">Help someone <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
       <a class="glass pg-card" href="/full-node"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>Run a node</h3><p>No skills needed, and it makes the network stronger from the first hour.</p><span class="pg-go">The full-node guide <svg aria-hidden="true"><use href="#n-arrow"/></svg></span></a>
     </div>
@@ -112,14 +112,14 @@ python website/build.py                                 <span class="c"># this w
   <section class="pg-sec" id="translations">
     <span class="eyebrow">Translations</span>
     <h2>Where they stand</h2>
-    <p>Honestly: <b>the wallet and this website exist in English only today</b>, and the wallet has no system yet for showing itself in other languages. Its texts are written into the page it displays, so a translation cannot simply be dropped in.</p>
-    <p>That is worth changing. Money that only English speakers can read the warnings of is not money for everyone. What would help, in the order it has to happen:</p>
+    <p>This website and the wallet speak ten languages: English, German, French, Spanish, Portuguese, Russian, Turkish, Simplified Chinese, Japanese and Korean. English is written by the project; <b>the other nine are machine translations</b> that no person has checked yet. They are marked as such at the bottom of every page.</p>
+    <p>A wallet's words are instructions about money, so this is where help matters most:</p>
     <ol class="pg-steps">
-      <li><h3>Say which language you would use it in</h3><p>Open an <a href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener">issue</a> or add your voice to an existing one. Which languages come first should follow who is there to keep them current.</p></li>
-      <li><h3>The wallet has to learn languages</h3><p>Its texts need to move out of the page into one file per language, with English as the fallback. That is a code change, and a welcome one: see <a href="#code">Code</a>.</p></li>
-      <li><h3>Then translate, and keep translating</h3><p>A wallet's words are instructions about money. A translation has to be exact, has to keep words like <i>recovery phrase</i> and <i>refund</i> the same throughout, and has to be updated with every release. A language without someone to maintain it is worse than no translation.</p></li>
+      <li><h3>Read a page in your language</h3><p>If a sentence is wrong, unclear or sounds unnatural, open an <a href="https://github.com/genoryn/genoryn/issues/new/choose" rel="noopener">issue</a> with the page and the sentence, or fix it yourself.</p></li>
+      <li><h3>Fix it in the catalog</h3><p>Every language is a set of files in <code>website/locales</code> and <code>apps/krypton-wallet/locales</code>. The <a href="https://github.com/genoryn/genoryn/blob/main/docs/localization/README.md" rel="noopener">translation guide</a> explains them, and the <a href="https://github.com/genoryn/genoryn/blob/main/docs/localization/glossary.md" rel="noopener">glossary</a> keeps words like <i>recovery phrase</i> and <i>refund</i> the same throughout. A checker catches broken links and markup before anything is merged.</p></li>
+      <li><h3>Keep it current</h3><p>When the English changes, its translations are shown in English until someone translates the new text. A language with people who keep it current can lose the machine-translation mark.</p></li>
     </ol>
-    <p>Until then, translations of the documentation, written and kept by people who speak the language, are welcome as pages of their own. Mark clearly which version they describe, and link the English original.</p>
+    <p>A language that is not here yet can be added the same way: start with the guide and open a pull request.</p>
   </section>
 
   <div class="glass pg-cta">

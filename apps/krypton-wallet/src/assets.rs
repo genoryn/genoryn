@@ -17,6 +17,7 @@ const FILES: &[(&str, &[u8])] = &[
     asset!("fx.js"),
     asset!("charts.js"),
     asset!("theme-init.js"),
+    asset!("i18n.js"),
     asset!("value.js"),
     asset!("noise.webp"),
     asset!("genoryn-mark-dark.svg"),
@@ -34,6 +35,11 @@ const FILES: &[(&str, &[u8])] = &[
     asset!("fonts/space-grotesk-600.woff2"),
     asset!("fonts/space-grotesk-700.woff2"),
     asset!("fonts/jetbrains-mono-400.woff2"),
+    asset!("fonts/inter-latin-ext.woff2"),
+    asset!("fonts/inter-cyrillic.woff2"),
+    asset!("fonts/space-grotesk-latin-ext.woff2"),
+    asset!("fonts/jetbrains-mono-latin-ext.woff2"),
+    asset!("fonts/jetbrains-mono-cyrillic.woff2"),
 ];
 
 pub fn get(path: &str) -> Option<(&'static [u8], &'static str)> {

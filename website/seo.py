@@ -318,9 +318,21 @@ def graph(page):
     return json.dumps({"@context": "https://schema.org", "@graph": items}, ensure_ascii=False, separators=(",", ":"))
 
 
-def head(page):
+def local_url(path, lang):
+    return SITE + (path if lang == "en" else f"/{lang}" + ("/" if path == "/" else path))
+
+
+def alternates(page, langs):
+    import i18n
+    path = PAGES[page]["path"]
+    out = [f'<link rel="alternate" hreflang="{i18n.INFO[c]["lang"]}" href="{local_url(path, c)}">' for c in langs]
+    return out + [f'<link rel="alternate" hreflang="x-default" href="{SITE + path}">']
+
+
+def head(page, lang="en", langs=("en",)):
+    import i18n
     p = PAGES[page]
-    url = SITE + p["path"]
+    url = local_url(p["path"], lang)
     t = lambda s: s.replace("&", "&amp;").replace('"', "&quot;")
     return "\n".join([
         f'<link rel="canonical" href="{url}">',
@@ -330,14 +342,14 @@ def head(page):
         '<meta name="application-name" content="Genoryn Krypton">',
         '<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">',
         '<meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">',
-        f'<link rel="alternate" hreflang="en" href="{url}">',
-        f'<link rel="alternate" hreflang="x-default" href="{url}">',
+        *alternates(page, langs),
         '<link rel="manifest" href="/site.webmanifest">',
         '<link rel="icon" href="/favicon.ico" sizes="any">',
         '<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">',
         f'<meta property="og:type" content="{p.get("type", "website")}">',
         f'<meta property="og:site_name" content="{NAME}">',
-        '<meta property="og:locale" content="en_US">',
+        f'<meta property="og:locale" content="{i18n.INFO[lang]["og"]}">',
+        *[f'<meta property="og:locale:alternate" content="{i18n.INFO[c]["og"]}">' for c in langs if c != lang],
         f'<meta property="og:url" content="{url}">',
         f'<meta property="og:title" content="{t(p["og_title"])}">',
         f'<meta property="og:description" content="{t(p["og_desc"])}">',
@@ -360,9 +372,11 @@ _IMAGES = {"home": ["/assets/og.png", "/assets/shots/wallet-1440.webp", "/assets
            "download": ["/assets/shots/wallet-1440.webp"], "mining": ["/assets/shots/mining-1440.webp"]}
 
 
-def lastmod(key):
+def lastmod(key, lang="en"):
     """The day the page's own source last changed (search engines ignore a date that is always today)."""
     files = [_HERE / PAGES[key]["file"]]
+    if lang != "en":
+        files += list((_HERE / "locales" / lang).glob("*.json"))
     if key in ("faq", "quantum"):
         files.append(_HERE / "seo.py")
     if key in ("updates", "home"):
@@ -371,14 +385,19 @@ def lastmod(key):
     return datetime.datetime.fromtimestamp(t, datetime.timezone.utc).date().isoformat()
 
 
-def sitemap():
+def sitemap(langs=("en",)):
+    import i18n
     urls = ""
     for key, p in PAGES.items():
         imgs = "".join(f"<image:image><image:loc>{SITE}{i}</image:loc></image:image>"
                        for i in _IMAGES.get(key, []) if (_HERE / i.lstrip("/")).exists() or (_HERE.parent / "design" / i.lstrip("/")).exists())
-        urls += (f"<url><loc>{SITE}{p['path']}</loc><lastmod>{lastmod(key)}</lastmod>"
-                 f"<changefreq>{p['freq']}</changefreq><priority>{p['priority']}</priority>{imgs}</url>")
+        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{i18n.INFO[c]["lang"]}" href="{local_url(p["path"], c)}"/>' for c in langs)
+        alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{SITE}{p["path"]}"/>' if len(langs) > 1 else ""
+        for c in langs:
+            urls += (f"<url><loc>{local_url(p['path'], c)}</loc><lastmod>{lastmod(key, c)}</lastmod>"
+                     f"<changefreq>{p['freq']}</changefreq><priority>{p['priority']}</priority>{alts}{imgs if c == 'en' else ''}</url>")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+            'xmlns:xhtml="http://www.w3.org/1999/xhtml" '
             f'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">{urls}</urlset>\n')
 
 

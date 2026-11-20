@@ -1,0 +1,19 @@
+{
+ "_review": "machine",
+ "ae06e11309": "Explorateur Genoryn Krypton : blocs, émission et hashrate de GNR",
+ "69fea69648": "Explorateur en direct",
+ "81e952d2ec": "Tout ce qui est public se trouve ici. Les montants, expéditeurs et destinataires des transferts sont protégés et n'apparaissent que sous forme d'engagements et de nullifiers.",
+ "a1659fcc05": "Recherchez par hauteur, hash de bloc, identifiant de transaction, nullifier, adresse ou preuve de paiement",
+ "bfe2eca401": "Hauteur",
+ "5e9e11f65d": "GNR émis",
+ "fe6b267f21": "Hashrate",
+ "7a102d4dfb": "Transactions en attente",
+ "1744b96470": "Réseau",
+ "965d440b64": "Shares par bloc",
+ "b00c455984": "GNR émis au fil du temps",
+ "f63503e330": "<0>Comment les mineurs sont comptés.</0> La chaîne connaît des adresses de paiement, pas des personnes ni des ordinateurs. Les « adresses de minage » sont les adresses distinctes créditées d'au moins un share au cours des 360 derniers blocs (environ 6 heures) ; sur 24 heures, davantage d'adresses apparaissent, car tout le monde ne mine pas toute la journée. Une adresse peut recevoir les paiements de nombreux ordinateurs, et une personne peut utiliser plusieurs adresses : le nombre de machines n'est donc connu de personne. Le hashrate est mesuré à partir des shares que crédite chaque bloc (environ 32 par bloc), et les équivalents GPU le divisent par celui d'une RTX 5090 (environ 74 MH/s).",
+ "1518c4e036": "Explorateur de blocs Genoryn Krypton : blocs, transactions, émission, hashrate et mineurs en direct. Les transferts protégés ne révèlent ni montants ni adresses.",
+ "bce4aec647": "Explorateur Genoryn Krypton : blocs et statistiques du réseau en direct",
+ "bd170ce6b8": "Blocs, transactions, émission et hashrate de Genoryn Krypton en direct. Les transferts protégés ne révèlent ni montants ni adresses.",
+ "6973f8ac23": "Bloc, hash, transaction, adresse (gnr1… / gnrs1…) ou preuve de paiement"
+}

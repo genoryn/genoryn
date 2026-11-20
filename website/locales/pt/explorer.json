@@ -1,0 +1,19 @@
+{
+ "_review": "machine",
+ "ae06e11309": "Explorador do Genoryn Krypton: blocos, oferta e hashrate do GNR",
+ "69fea69648": "Explorador ao vivo",
+ "81e952d2ec": "Tudo o que é público está aqui. Valores, remetentes e destinatários das transferências são protegidos e aparecem apenas como commitments e nullifiers.",
+ "a1659fcc05": "Pesquise por altura, hash de bloco, id de transação, nullifier, endereço ou comprovante de pagamento",
+ "bfe2eca401": "Altura",
+ "5e9e11f65d": "GNR emitido",
+ "fe6b267f21": "Hashrate",
+ "7a102d4dfb": "Transações pendentes",
+ "1744b96470": "Rede",
+ "965d440b64": "Shares por bloco",
+ "b00c455984": "GNR emitido ao longo do tempo",
+ "f63503e330": "<0>Como os mineradores são contados.</0> A cadeia conhece endereços de pagamento, não pessoas nem computadores. “Endereços de mineração” são os endereços distintos creditados com pelo menos um share nos últimos 360 blocos (cerca de 6 horas); em 24 horas aparecem mais endereços, porque nem todo mundo minera o dia inteiro. Um endereço pode receber por muitos computadores, e uma pessoa pode usar vários endereços, então ninguém sabe o número de máquinas. O hashrate é medido a partir dos shares que cada bloco credita (cerca de 32 por bloco), e os equivalentes em GPU o dividem pelo de uma RTX 5090 (cerca de 74 MH/s).",
+ "1518c4e036": "Explorador de blocos do Genoryn Krypton: blocos, transações, oferta, hashrate e mineradores ao vivo. Transferências protegidas não revelam valores nem endereços.",
+ "bce4aec647": "Explorador do Genoryn Krypton: blocos e estatísticas da rede ao vivo",
+ "bd170ce6b8": "Blocos, transações, oferta e hashrate do Genoryn Krypton ao vivo. Transferências protegidas não revelam valores nem endereços.",
+ "6973f8ac23": "Bloco, hash, transação, endereço (gnr1… / gnrs1…) ou comprovante de pagamento"
+}

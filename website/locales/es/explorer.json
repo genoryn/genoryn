@@ -1,0 +1,19 @@
+{
+ "_review": "machine",
+ "ae06e11309": "Explorador de Genoryn Krypton: bloques, emisión y hashrate de GNR",
+ "69fea69648": "Explorador en directo",
+ "81e952d2ec": "Aquí está todo lo público. Los importes, remitentes y destinatarios de las transferencias están protegidos y solo aparecen como compromisos y anuladores.",
+ "a1659fcc05": "Busca por altura, hash de bloque, identificador de transacción, anulador, dirección o prueba de pago",
+ "bfe2eca401": "Altura",
+ "5e9e11f65d": "GNR emitidos",
+ "fe6b267f21": "Hashrate",
+ "7a102d4dfb": "Transacciones pendientes",
+ "1744b96470": "Red",
+ "965d440b64": "Shares por bloque",
+ "b00c455984": "GNR emitidos a lo largo del tiempo",
+ "f63503e330": "<0>Cómo se cuentan los mineros.</0> La cadena conoce direcciones de pago, no personas ni ordenadores. Las «direcciones de minería» son las distintas direcciones a las que se ha acreditado al menos un share en los últimos 360 bloques (unas 6 horas); en 24 horas aparecen más direcciones, porque no todo el mundo mina todo el día. Una dirección puede cobrar por muchos ordenadores, y una persona puede usar varias direcciones, así que nadie conoce el número de máquinas. El hashrate se mide a partir de los shares que acredita cada bloque (unos 32 por bloque), y los equivalentes en GPU lo dividen entre una RTX 5090 (unos 74 MH/s).",
+ "1518c4e036": "Explorador de bloques de Genoryn Krypton: bloques, transacciones, emisión, hashrate y mineros en directo. Las transferencias protegidas no revelan importes ni direcciones.",
+ "bce4aec647": "Explorador de Genoryn Krypton: bloques y estadísticas de la red en directo",
+ "bd170ce6b8": "Bloques, transacciones, emisión y hashrate de Genoryn Krypton en directo. Las transferencias protegidas no revelan importes ni direcciones.",
+ "6973f8ac23": "Bloque, hash, transacción, dirección (gnr1… / gnrs1…) o prueba de pago"
+}

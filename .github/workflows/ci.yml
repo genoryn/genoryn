@@ -25,6 +25,18 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo test --release -p krypton-zk
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The English catalogs must match the pages.
+      - run: python website/build.py
+      - run: python website/i18n.py extract && git diff --exit-code -- website/locales/en
+      # Translations: no error in any language, and every localized page and link exists.
+      - run: python website/i18n_check.py --dist
   hiveos:
     runs-on: ubuntu-latest
     steps:

@@ -5,16 +5,96 @@ copies the shared design assets and writes sitemap.xml, robots.txt and the manif
 Run: python website/build.py
 """
 import hashlib
+import json
 import pathlib
 import re
 import shutil
 
+import i18n
 import seo
 import updates
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DESIGN = ROOT.parent / "design"
 DIST = ROOT / "dist"
+JS_FILES = [ROOT / "site.js", ROOT / "explorer.js", ROOT / "market.js", ROOT / "miner-check.js",
+            DESIGN / "assets" / "value.js", DESIGN / "assets" / "charts.js"]
+_TR = {}
+
+
+def built_langs():
+    """English, and every language with a catalog."""
+    return ["en"] + [c for c in i18n.OTHER if (i18n.LOCALES / c).is_dir() and any((i18n.LOCALES / c).glob("*.json"))]
+
+
+def translations(lang):
+    if lang not in _TR:
+        _TR[lang] = i18n.load(lang)
+    return _TR[lang]
+
+
+def lang_menu(key, lang, langs, drawer=False):
+    """Links to this page in every language, each named in its own language."""
+    path = seo.PAGES[key]["path"] if key else "/"
+    links = "".join(
+        f'<a href="{i18n.local_path(c, path)}" hreflang="{i18n.INFO[c]["lang"]}" lang="{i18n.INFO[c]["lang"]}" data-lang="{c}"'
+        + (' aria-current="true" class="on"' if c == lang else "") + f'>{i18n.INFO[c]["name"]}</a>' for c in langs)
+    if drawer:
+        return f'<span class="drawer-h">Language</span><div class="drawer-langs" translate="no">{links}</div>'
+    code = "中" if lang == "zh-cn" else lang.upper()
+    return ('<div class="nav-dd nav-lang">'
+            '<button type="button" class="btn icon-btn nav-dd-btn nav-lang-btn" aria-expanded="false" aria-haspopup="true" '
+            f'aria-controls="menu-lang" aria-label="Language" title="Language"><svg class="ni" aria-hidden="true"><use href="#n-lang"/></svg><span translate="no">{code}</span></button>'
+            f'<div class="nav-menu nav-lang-menu" id="menu-lang" translate="no">{links}</div></div>')
+
+
+def i18n_note(lang):
+    if lang == "en":
+        return ""
+    return f'<p class="i18n-note">{i18n.NOTE} <a href="/contribute#translations">{i18n.NOTE_LINK}</a>.</p>'
+
+
+def assemble(page, key, lang, langs, head, nav, foot):
+    """The English page with its shared parts, its head written for `lang`."""
+    html = page.read_text(encoding="utf-8")
+    scripts = "" if lang == "en" else f'\n<script src="/assets/i18n/{lang}.js"></script>'
+    html = html.replace("<!--FX_HEAD-->", head + scripts).replace("<!--NAV-->", nav).replace("<!--FOOTER-->", foot)
+    html = html.replace("<!--LANG-->", lang_menu(key, lang, langs)).replace("<!--LANG_DRAWER-->", lang_menu(key, lang, langs, True))
+    html = html.replace("<!--I18N_NOTE-->", i18n_note(lang))
+    if lang != "en":
+        html = html.replace("<html ", f'<html data-path-prefix="/{lang}" ', 1)
+    for k in seo.PAGES:
+        html = html.replace(f"<!--SEO:{k}-->", seo.head(k, lang, langs))
+    # Questions and answers come from seo.py, so the page and its JSON-LD never differ.
+    html = html.replace("<!--FAQ:all-->", seo.faq_page_html())
+    html = html.replace("<!--FAQ:quantum-->", seo.faq_html(seo.QUANTUM_FAQ))
+    # Every update since the launch comes from updates.py: the page, the home page's
+    # line about the latest one, the feed and the repository's CHANGELOG.md.
+    html = html.replace("<!--UPDATES-->", updates.page_html())
+    html = html.replace("<!--LATEST_UPDATE-->", updates.latest_html())
+    # Guides name the files of the current release.
+    return html.replace("<!--VERSION-->", seo.VERSION)
+
+
+def extract():
+    """locales/en/*.json from the English pages as built (python website/i18n.py extract)."""
+    head = (DESIGN / "fx-head.html").read_text(encoding="utf-8")
+    nav = (ROOT / "_nav.html").read_text(encoding="utf-8")
+    foot = (ROOT / "_footer.html").read_text(encoding="utf-8")
+    langs = ["en"] + i18n.OTHER
+    tmp = ROOT / "dist-extract"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir()
+    for k, p in seo.PAGES.items():
+        (tmp / p["file"]).write_text(assemble(ROOT / p["file"], k, "en", langs, head, nav, foot), encoding="utf-8")
+    snippets = [nav.replace("<!--LANG-->", lang_menu("home", "de", langs)).replace("<!--LANG_DRAWER-->", lang_menu("home", "de", langs, True)),
+                foot.replace("<!--I18N_NOTE-->", i18n_note("de"))]
+    files = i18n.extract(tmp, seo.PAGES, snippets, i18n.js_strings(JS_FILES))
+    shutil.rmtree(tmp)
+    words = {n: sum(len(re.sub(r"<[^>]+>", " ", v if isinstance(v, str) else " ".join(v.values())).split()) for v in c.values()) for n, c in files.items()}
+    for n in sorted(words, key=words.get, reverse=True):
+        print(f"{n:14} {len(files[n]):5} texts {words[n]:7} words")
+    print(f"{'total':14} {sum(len(c) for c in files.values()):5} texts {sum(words.values()):7} words")
 
 
 def llms_full():
@@ -45,31 +125,36 @@ def main():
             h.update(f.read_bytes())
     ver = h.hexdigest()[:10]
     asset_ref = re.compile(r'((?:href|src)="|srcset="|, )(/(?:assets/[^"\s,?]+|site\.css|site\.js|explorer\.js|market\.js|miner-check\.js))')
-    for page in ROOT.glob("*.html"):
+    langs = built_langs()
+    by_file = {p["file"]: k for k, p in seo.PAGES.items()}
+    en_js = i18n.js_strings(JS_FILES)
+    report = []
+    for page in sorted(ROOT.glob("*.html")):
         if page.name.startswith("_"):
             continue
-        html = page.read_text(encoding="utf-8")
-        html = html.replace("<!--FX_HEAD-->", head).replace("<!--NAV-->", nav).replace("<!--FOOTER-->", foot)
-        for key in seo.PAGES:
-            html = html.replace(f"<!--SEO:{key}-->", seo.head(key))
-        # Questions and answers come from seo.py, so the page and its JSON-LD never differ.
-        html = html.replace("<!--FAQ:all-->", seo.faq_page_html())
-        html = html.replace("<!--FAQ:quantum-->", seo.faq_html(seo.QUANTUM_FAQ))
-        # Every update since the launch comes from updates.py: the page, the home page's
-        # line about the latest one, the feed and the repository's CHANGELOG.md.
-        html = html.replace("<!--UPDATES-->", updates.page_html())
-        html = html.replace("<!--LATEST_UPDATE-->", updates.latest_html())
-        # Guides name the files of the current release.
-        html = html.replace("<!--VERSION-->", seo.VERSION)
-        html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
-        html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
-        (DIST / page.name).write_text(html, encoding="utf-8")
+        key = by_file.get(page.name)
+        for lang in langs if key else ["en"]:
+            html = assemble(page, key, lang, langs, head, nav, foot)
+            if lang != "en":
+                html = i18n.localize(html, lang, translations(lang), report, key, seo.PAGES)
+            html = asset_ref.sub(lambda m: f"{m.group(1)}{m.group(2)}?v={ver}", html)
+            html = html.replace('data-base="/assets/"', f'data-base="/assets/" data-v="{ver}"')
+            out = DIST / (page.name if lang == "en" else f"{lang}/{page.name}")
+            out.parent.mkdir(exist_ok=True)
+            out.write_text(html, encoding="utf-8")
+    (DIST / "assets" / "i18n").mkdir(exist_ok=True)
+    for lang in langs[1:]:
+        cat = json.dumps(i18n.js_catalog(lang, en_js), ensure_ascii=False, separators=(",", ":"))
+        (DIST / "assets" / "i18n" / f"{lang}.js").write_text(f"GKI18N.add({cat});\n", encoding="utf-8")
+    if report:
+        missing = sum(1 for r in report if r[3] == "missing")
+        print(f"translations: {missing} missing, {len(report) - missing} refused (English shown); details: python website/i18n_check.py")
     for f in ["site.css", "site.js", "explorer.js", "market.js", "miner-check.js"]:
         shutil.copy(ROOT / f, DIST / f)
     # The project's signed list of verified Krypton coins (wallets check the signature).
     for f in ["verified-assets.json", "verified-assets.json.sig"]:
         shutil.copy(ROOT.parent / "docs" / f, DIST / f)
-    (DIST / "sitemap.xml").write_text(seo.sitemap(), encoding="utf-8")
+    (DIST / "sitemap.xml").write_text(seo.sitemap(langs), encoding="utf-8")
     (DIST / "robots.txt").write_text(seo.ROBOTS, encoding="utf-8")
     (DIST / "site.webmanifest").write_text(seo.MANIFEST, encoding="utf-8")
     # For language models: the summary, and the full README with absolute links.

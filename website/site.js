@@ -8,6 +8,16 @@
   }
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+  // Menus are longer in some languages: when they do not fit in one row, the header uses the
+  // drawer, as on smaller screens.
+  var navRow = nav.querySelector(".wrap");
+  function fitNav() {
+    nav.classList.remove("nav-compact");
+    if (navRow && navRow.scrollWidth > navRow.clientWidth + 1) nav.classList.add("nav-compact");
+  }
+  fitNav();
+  window.addEventListener("resize", fitNav);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNav);
   var page = document.body.getAttribute("data-page");
   document.querySelectorAll(".nav-links a[data-page]").forEach(function (a) {
     if (a.getAttribute("data-page") === page) { a.classList.add("on", "rail"); a.setAttribute("aria-current", "page"); }
@@ -99,21 +109,46 @@
 
   window.gk = {
     api: function (p) { return fetch(p, { headers: { accept: "application/json" } }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); },
-    gnr: function (v, d) { return (Number(v || 0) / 1e8).toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 8 : d }); },
+    gnr: function (v, d) { return GKI18N.num(Number(v || 0) / 1e8, { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 8 : d }); },
     rate: function (r) { r = Number(r || 0); return r >= 1e15 ? (r / 1e15).toFixed(2) + " PH/s" : r >= 1e12 ? (r / 1e12).toFixed(2) + " TH/s" : r >= 1e9 ? (r / 1e9).toFixed(2) + " GH/s" : r >= 1e6 ? (r / 1e6).toFixed(2) + " MH/s" : r >= 1e3 ? (r / 1e3).toFixed(1) + " kH/s" : r.toFixed(0) + " H/s"; },
     esc: function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); },
-    ago: function (t) { var s = Math.max(0, Math.floor(Date.now() / 1000 - t)); return s < 60 ? s + " s ago" : s < 3600 ? Math.floor(s / 60) + " min ago" : Math.floor(s / 3600) + " h ago"; },
+    ago: function (t) {
+      var s = Math.max(0, Math.floor(Date.now() / 1000 - t));
+      return s < 60 ? T("{n} s ago", { n: s }) : s < 3600 ? T("{n} min ago", { n: Math.floor(s / 60) }) : T("{n} h ago", { n: Math.floor(s / 3600) });
+    },
     miners: function (st) {
       var m = document.getElementById("sMiners"), g = document.getElementById("sGpus");
       if (!m || !st) return;
-      m.textContent = Number(st.estimated_miners || 0).toLocaleString("en-US");
+      m.textContent = GKI18N.num(st.estimated_miners || 0);
       var eq = Number(st.gpu_equivalents || 0);
       // An address is counted when it earned a share in the last six hours. Over a day
       // more addresses mine, and one address can stand for many computers.
       var day = Number(st.miners_24h || 0);
-      if (g) g.textContent = (day > Number(st.estimated_miners || 0) ? day.toLocaleString("en-US") + " in 24 h · " : "") + "≈ " + (eq < 10 ? eq.toFixed(1) : Math.round(eq).toLocaleString("en-US")) + " GPU" + (eq >= 1.05 || eq < 0.95 ? "s" : "");
+      var gpus = eq < 10 ? GKI18N.num(eq, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : GKI18N.num(Math.round(eq));
+      if (g) g.textContent = (day > Number(st.estimated_miners || 0) ? T("{n} in 24 h", { n: GKI18N.num(day) }) + " · " : "") + "≈ " +
+        Tn(eq >= 0.95 && eq < 1.05 ? 1 : 2, "{n} GPU", "{n} GPUs", { n: gpus });
     }
   };
+  // The language picked by hand wins; the browser's language is used once, on the home page.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest("a[data-lang]") : null;
+    if (a) try { localStorage.setItem("gk-lang", a.getAttribute("data-lang")); } catch (x) {}
+  });
+  (function () {
+    if (location.pathname !== "/" || /bot|crawl|spider|slurp|lighthouse/i.test(navigator.userAgent) || navigator.webdriver) return;
+    var chosen = null, asked = null;
+    try { chosen = localStorage.getItem("gk-lang"); asked = localStorage.getItem("gk-lang-auto"); } catch (x) { return; }
+    var have = Array.prototype.map.call(document.querySelectorAll(".nav-lang-menu a[data-lang]"), function (a) { return a.getAttribute("data-lang"); });
+    if (chosen) { if (chosen !== "en" && have.indexOf(chosen) >= 0) location.replace("/" + chosen + "/"); return; }
+    if (asked) return;
+    try { localStorage.setItem("gk-lang-auto", "1"); } catch (x) { return; }
+    var want = (navigator.languages || [navigator.language || ""]).map(function (l) { return String(l).toLowerCase(); });
+    for (var i = 0; i < want.length; i++) {
+      var w = want[i], code = w.indexOf("zh") === 0 ? (/tw|hk|mo|hant/.test(w) ? "" : "zh-cn") : w.split("-")[0];
+      if (code === "en") return;
+      if (code && have.indexOf(code) >= 0) { location.replace("/" + code + "/"); return; }
+    }
+  })();
 
   // The GNR price: the offer board's market price, nothing else.
   gk.value = function (info) {
@@ -122,26 +157,28 @@
     var mk = gk.mk || {}, btc = Number(gk.btcUsd) || 0, sat = GKValue.btc;
     var usd = GKValue.market(mk.price, btc);
     var dollars = function (p) { var v = GKValue.market(p, btc); return v != null ? " (" + GKValue.usd(v) + ")" : ""; };
-    put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) : "no swaps yet");
+    put("[data-mk-price]", mk.price ? sat(mk.price) + dollars(mk.price) : T("no swaps yet"));
     put("[data-mk-book]", (mk.best_ask ? sat(mk.best_ask) : "—") + " / " + (mk.best_bid ? sat(mk.best_bid) : "—"));
     put("[data-mk-ask]", mk.best_ask ? sat(mk.best_ask) : "—");
     put("[data-mk-bid]", mk.best_bid ? sat(mk.best_bid) : "—");
-    put("[data-mk-last]", mk.last_price ? sat(mk.last_price) : "no swap yet");
-    put("[data-mk-swaps]", (mk.trades || 0) + " done · " + (mk.pending || 0) + " in progress");
-    put("[data-mk-usd]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : "no swaps yet");
-    put("[data-mk-sat]", mk.price ? sat(mk.price) + " per GNR" : "be the first to make an offer");
+    put("[data-mk-last]", mk.last_price ? sat(mk.last_price) : T("no swap yet"));
+    put("[data-mk-swaps]", T("{done} done · {running} in progress", { done: GKI18N.num(mk.trades || 0), running: GKI18N.num(mk.pending || 0) }));
+    put("[data-mk-usd]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : T("no swaps yet"));
+    put("[data-mk-sat]", mk.price ? T("{price} per GNR", { price: sat(mk.price) }) : T("be the first to make an offer"));
     var np = Number(mk.priced) || 0;
-    put("[data-mk-src]", mk.price ? "average of " + np + " completed swap" + (np === 1 ? "" : "s") : "set by the first completed swap");
+    put("[data-mk-src]", mk.price ? Tn(np, "average of {n} completed swap", "average of {n} completed swaps") : T("set by the first completed swap"));
     var conf = Number(mk.confidence) || 0;
-    put("[data-ix-conf]", mk.price ? (mk.depth || (conf >= 0.8 ? "deep" : conf >= 0.4 ? "moderate" : "thin")) + " · " + Math.round(conf * 100) + " %" : "—");
+    var depth = { deep: T("deep"), moderate: T("moderate"), thin: T("thin") };
+    var dk = mk.depth || (conf >= 0.8 ? "deep" : conf >= 0.4 ? "moderate" : "thin");
+    put("[data-ix-conf]", mk.price ? (depth[dk] || dk) + " · " + Math.round(conf * 100) + " %" : "—");
     document.querySelectorAll("[data-ix-bar]").forEach(function (el) { el.style.width = Math.max(2, Math.round(conf * 100)) + "%"; });
     put("[data-main]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : "—");
-    put("[data-vlabel]", "GNR price");
+    put("[data-vlabel]", T("GNR price"));
     // What one GPU mines a day, and what that is worth at the market price.
     var g = info ? GKValue.perGpu(info.hashrate, info.next_subsidy) : null;
     if (g != null) {
-      put("[data-gpu-gnr]", "≈ " + g.toLocaleString("en-US", { maximumFractionDigits: g < 10 ? 2 : 0 }) + " GNR a day");
-      put("[data-gpu-value]", usd != null ? GKValue.usd(g * usd) + " a day at the market price" : "no market price yet");
+      put("[data-gpu-gnr]", "≈ " + T("{gnr} GNR a day", { gnr: GKI18N.num(g, { maximumFractionDigits: g < 10 ? 2 : 0 }) }));
+      put("[data-gpu-value]", usd != null ? T("{usd} a day at the market price", { usd: GKValue.usd(g * usd) }) : T("no market price yet"));
     }
   };
   // Home: the price of every completed swap, oldest first (one point per swap).
@@ -153,7 +190,7 @@
     var btc = Number(gk.btcUsd) || 0;
     var series = (gk.mkRecent || []).slice().sort(function (a, b) { return at(a) - at(b); })
       .map(function (x) { return { t: at(x), v: Number(x.price) || 0, h: x.claim ? x.claim.height : null }; });
-    var opts = { kind: "area", straight: true, points: true, height: 190, label: "Price per GNR of every completed swap",
+    var opts = { kind: "area", straight: true, points: true, height: 190, label: T("Price per GNR of every completed swap"),
       fmt: function (v, axis) { var u = GKValue.market(v, btc); return axis ? GKCharts.fmtNum(v) + " sat" : GKValue.btc(v) + (u != null ? " · ≈ " + GKValue.usd(u) : ""); } };
     if (homePriceChart) homePriceChart.update(series, opts); else homePriceChart = GKCharts.chart(host, series, opts);
   };
@@ -185,7 +222,7 @@
         calc.update();
         var px = GKValue.market(liveMk.price, liveBtc);
         document.querySelectorAll("[data-usd-gnr]").forEach(function (el) {
-          el.textContent = px != null ? "≈ " + GKValue.usd(Number(el.getAttribute("data-usd-gnr")) * px) : "no market price yet";
+          el.textContent = px != null ? "≈ " + GKValue.usd(Number(el.getAttribute("data-usd-gnr")) * px) : T("no market price yet");
         });
       });
     };
@@ -199,7 +236,7 @@
       gk.api("/v1/stats?range=24h").then(function (s) {
         var series = (s.points || []).map(function (p) { return { t: p.t, v: p.hashrate, h: p.h }; });
         if (homeChart) homeChart.update(series);
-        else homeChart = GKCharts.chart(document.getElementById("homeChart"), series, { kind: "area", fmt: GKCharts.fmtRate, label: "Network hashrate, last 24 hours", height: 170 });
+        else homeChart = GKCharts.chart(document.getElementById("homeChart"), series, { kind: "area", fmt: GKCharts.fmtRate, label: T("Network hashrate, last 24 hours"), height: 170 });
         var sm = s.summary || {};
         document.getElementById("homeRate").textContent = gk.rate(sm.hashrate);
         document.getElementById("homeIssued").textContent = gk.gnr(sm.issued, 0);
@@ -219,7 +256,7 @@
       var avg = function (k) { return pts.length ? pts.reduce(function (a, p) { return a + Number(p[k] || 0); }, 0) / pts.length : 0; };
       hk("hashrate", gk.rate(s.hashrate));
       hk("miners", String(s.estimated_miners || 0));
-      hk("block_time", avg("block_time").toFixed(0) + " s avg");
+      hk("block_time", T("{n} s avg", { n: avg("block_time").toFixed(0) }));
       hk("difficulty", GKCharts.fmtNum(last.difficulty || 0));
       hk("issued", gk.gnr(s.issued, 0) + " GNR");
       hk("remaining", gk.gnr(s.remaining, 0) + " GNR");
@@ -233,8 +270,8 @@
       gk.api("/v1/blocks?count=6").then(function (bs) {
         homeBlocks.innerHTML = bs.map(function (b) {
           var h = Number(b.height), tx = Number(b.txs) || 0, sh = Number(b.shares) || 0;
-          return '<a href="/explorer#/block/' + h + '"><b>#' + h.toLocaleString("en-US") + "</b><span>" + gk.ago(b.timestamp) + "</span><span>" + sh + " share" + (sh === 1 ? "" : "s") +
-            "</span><span>" + tx + " tx</span><em>" + gk.gnr((Number(b.subsidy) || 0) + (Number(b.fees) || 0), 2) + " GNR</em></a>";
+          return '<a href="' + GKI18N.path("/explorer") + "#/block/" + h + '"><b>#' + GKI18N.num(h) + "</b><span>" + gk.ago(b.timestamp) + "</span><span>" + Tn(sh, "{n} share", "{n} shares") +
+            "</span><span>" + T("{n} tx", { n: tx }) + "</span><em>" + gk.gnr((Number(b.subsidy) || 0) + (Number(b.fees) || 0), 2) + " GNR</em></a>";
         }).join("");
       }).catch(function () {});
     };
@@ -247,17 +284,17 @@
   if (h) {
     var load = function () {
       gk.api("/v1/info").then(function (i) {
-        h.textContent = Number(i.height).toLocaleString("en-US");
+        h.textContent = GKI18N.num(i.height);
         document.getElementById("sSupply").textContent = gk.gnr(i.supply, 0);
         document.getElementById("sRate").textContent = gk.rate(i.hashrate);
         gk.miners(i.stats);
         var lt = document.getElementById("liveText");
-        if (lt) lt.textContent = (i.network === "mainnet" ? "Mainnet" : "Testnet") + " is live · block " + Number(i.height).toLocaleString("en-US");
+        if (lt) lt.textContent = (i.network === "mainnet" ? T("Mainnet is live · block {h}", { h: GKI18N.num(i.height) }) : T("Testnet is live · block {h}", { h: GKI18N.num(i.height) }));
       }).catch(function () {
         var d = document.getElementById("liveDot");
         if (d) { d.classList.remove("ok", "live"); d.classList.add("warn"); }
         var lt = document.getElementById("liveText");
-        if (lt) lt.textContent = "Network status unavailable";
+        if (lt) lt.textContent = T("Network status unavailable");
       });
     };
     load();

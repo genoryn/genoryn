@@ -1,0 +1,18 @@
+{
+ "ae06e11309": "Genoryn Krypton Explorer: GNR Blocks, Supply and Hashrate",
+ "69fea69648": "Live explorer",
+ "81e952d2ec": "Everything public is here. Amounts, senders and recipients of transfers are shielded and appear only as commitments and nullifiers.",
+ "a1659fcc05": "Search by height, block hash, transaction id, nullifier, address or payment proof",
+ "bfe2eca401": "Height",
+ "5e9e11f65d": "GNR issued",
+ "fe6b267f21": "Hashrate",
+ "7a102d4dfb": "Pending transactions",
+ "1744b96470": "Network",
+ "965d440b64": "Shares per block",
+ "b00c455984": "GNR issued over time",
+ "f63503e330": "<0>How miners are counted.</0> The chain knows payout addresses, not people or computers. \"Mining addresses\" are the distinct addresses credited with at least one share in the last 360 blocks (about 6 hours); over 24 hours more addresses appear, because not everyone mines all day. One address may pay for many computers, and one person may use several addresses, so the number of machines is not known to anyone. The hashrate is measured from the shares every block credits (about 32 per block), and GPU equivalents divide it by one RTX 5090 (about 74 MH/s).",
+ "1518c4e036": "Genoryn Krypton block explorer: live blocks, transactions, supply, hashrate and miners. Shielded transfers reveal no amounts or addresses.",
+ "bce4aec647": "Genoryn Krypton explorer: live blocks and network stats",
+ "bd170ce6b8": "Live Genoryn Krypton blocks, transactions, supply and hashrate. Shielded transfers reveal no amounts or addresses.",
+ "6973f8ac23": "Block, hash, transaction, address (gnr1… / gnrs1…) or payment proof"
+}

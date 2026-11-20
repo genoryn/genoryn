@@ -1,0 +1,19 @@
+{
+ "_review": "machine",
+ "ae06e11309": "Genoryn Krypton Blok Gezgini: GNR Blokları, Arz ve Hashrate",
+ "69fea69648": "Canlı blok gezgini",
+ "81e952d2ec": "Herkese açık olan her şey burada. Transferlerin tutarları, göndericileri ve alıcıları korumalıdır ve yalnızca taahhütler ve nullifier'lar olarak görünür.",
+ "a1659fcc05": "Yükseklik, blok hash'i, işlem kimliği, nullifier, adres veya ödeme kanıtıyla arayın",
+ "bfe2eca401": "Yükseklik",
+ "5e9e11f65d": "Çıkarılan GNR",
+ "fe6b267f21": "Hashrate",
+ "7a102d4dfb": "Bekleyen işlemler",
+ "1744b96470": "Ağ",
+ "965d440b64": "Blok başına share",
+ "b00c455984": "Zaman içinde çıkarılan GNR",
+ "f63503e330": "<0>Madenciler nasıl sayılır.</0> Zincir insanları veya bilgisayarları değil, ödeme adreslerini bilir. “Madencilik adresleri”, son 360 blokta (yaklaşık 6 saat) en az bir share ile alacaklandırılmış farklı adreslerdir; 24 saatlik sürede daha fazla adres görünür, çünkü herkes bütün gün madencilik yapmaz. Bir adres birçok bilgisayar için ödeme alabilir ve bir kişi birden fazla adres kullanabilir; bu nedenle makine sayısını kimse bilemez. Hashrate, her bloğun alacaklandırdığı share'lerden (blok başına yaklaşık 32) ölçülür; GPU eşdeğerleri ise bunun bir RTX 5090'a (yaklaşık 74 MH/s) bölünmesiyle bulunur.",
+ "1518c4e036": "Genoryn Krypton blok gezgini: canlı bloklar, işlemler, arz, hashrate ve madenciler. Korumalı transferler hiçbir tutarı veya adresi açığa çıkarmaz.",
+ "bce4aec647": "Genoryn Krypton blok gezgini: canlı bloklar ve ağ istatistikleri",
+ "bd170ce6b8": "Canlı Genoryn Krypton blokları, işlemleri, arzı ve hashrate'i. Korumalı transferler hiçbir tutarı veya adresi açığa çıkarmaz.",
+ "6973f8ac23": "Blok, hash, işlem, adres (gnr1… / gnrs1…) veya ödeme kanıtı"
+}

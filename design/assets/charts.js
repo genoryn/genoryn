@@ -21,10 +21,11 @@
     for (var v = lo; v <= hi + step / 2; v += step) out.push(v);
     return out;
   }
+  function lang() { return window.GKI18N ? GKI18N.lang : undefined; }
   function timeLabel(t, span) {
     var d = new Date(t * 1000);
-    if (span <= 2 * 86400) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    if (span <= 2 * 86400) return d.toLocaleTimeString(lang(), { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString(lang(), { month: "short", day: "numeric" });
   }
   // Catmull-Rom to cubic Bezier, clamped so the curve never overshoots the data range.
   function smooth(pts) {
@@ -58,7 +59,7 @@
       var svg = el("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": o.label || "chart" });
       host.insertBefore(svg, tip);
       if (!data.length) {
-        el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "gk-empty" }, svg).textContent = "No data in this range yet";
+        el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "gk-empty" }, svg).textContent = T("No data in this range yet");
         return;
       }
       var padL = 54, padR = 10, padT = 12, padB = 26, iw = W - padL - padR, ih = H - padT - padB;
@@ -127,7 +128,7 @@
         var p = pts[best], d = data[best];
         cross.setAttribute("x1", p[0]); cross.setAttribute("x2", p[0]); cross.setAttribute("visibility", "visible");
         dot.setAttribute("cx", p[0]); dot.setAttribute("cy", p[1]); dot.setAttribute("visibility", "visible");
-        tip.innerHTML = "<b>" + (o.fmt || String)(d.v) + "</b><span>" + new Date(d.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (d.h != null && isFinite(d.h) ? " · block " + Number(d.h) : "") + "</span>";
+        tip.innerHTML = "<b>" + (o.fmt || String)(d.v) + "</b><span>" + new Date(d.t * 1000).toLocaleString(lang(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (d.h != null && isFinite(d.h) ? " · " + TE("block {h}", { h: Number(d.h) }) : "") + "</span>";
         tip.classList.remove("hidden");
         var left = (p[0] / W) * r.width;
         tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left - tip.offsetWidth / 2)) + "px";
@@ -166,7 +167,7 @@
     }
     host.querySelectorAll(".gk-disc-fill").forEach(function (c) { c.style.strokeDasharray = Math.max(frac * 1000, 2) + " 1000"; });
     host.querySelector(".gk-disc-label b").textContent = (frac * 100).toFixed(frac < 0.01 ? 4 : 2) + "%";
-    host.querySelector(".gk-disc-label span").textContent = "issued";
+    host.querySelector(".gk-disc-label span").textContent = T("issued");
   }
 
   /* Subtle 3D tilt with a moving glare for cards on pointer devices. */
@@ -205,13 +206,13 @@
   function dashboard(root, fetchStats, onSummary) {
     var charts = {}, current = root.getAttribute("data-default-range") || "24h";
     var defs = {
-      hashrate: { kind: "area", fmt: fmtRate, label: "Network hashrate" },
-      difficulty: { kind: "line", fmt: fmtNum, label: "Difficulty", zero: false },
-      block_time: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0) + " s"; }, target: 60, targetLabel: "target 60 s", label: "Block time" },
-      shares: { kind: "area", fmt: function (v) { return v.toFixed(1); }, target: 32, targetLabel: "expected 32", label: "Shares per block" },
-      miners: { kind: "bars", fmt: function (v) { return String(Math.round(v)); }, integer: true, label: "Active miners" },
-      txs: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0); }, label: "Transactions per block" },
-      issued: { kind: "area", fmt: function (v, axis) { v = v / 1e8; return axis ? fmtNum(v) : v.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " GNR"; }, label: "GNR issued" }
+      hashrate: { kind: "area", fmt: fmtRate, label: T("Network hashrate") },
+      difficulty: { kind: "line", fmt: fmtNum, label: T("Difficulty"), zero: false },
+      block_time: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0) + " s"; }, target: 60, targetLabel: T("target 60 s"), label: T("Block time") },
+      shares: { kind: "area", fmt: function (v) { return v.toFixed(1); }, target: 32, targetLabel: T("expected 32"), label: T("Shares per block") },
+      miners: { kind: "bars", fmt: function (v) { return String(Math.round(v)); }, integer: true, label: T("Active miners") },
+      txs: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0); }, label: T("Transactions per block") },
+      issued: { kind: "area", fmt: function (v, axis) { v = v / 1e8; return axis ? fmtNum(v) : GKI18N.num(v, { maximumFractionDigits: 0 }) + " GNR"; }, label: T("GNR issued") }
     };
     function load(range) {
       current = range;
