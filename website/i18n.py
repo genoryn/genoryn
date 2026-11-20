@@ -478,10 +478,10 @@ def extract(dist, pages, snippets, js_strings):
         if old.stem not in files and not old.stem.startswith("_"):
             old.unlink()
     for name, cat in files.items():
-        (out / f"{name}.json").write_text(json.dumps(cat, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        (out / f"{name}.json").write_text(json.dumps(cat, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
     # Attribute texts (and JSON-LD strings) may not contain " < >; the checker needs to know which.
     attr_keys |= set(files["seo"])
-    (out / "_attrs.json").write_text(json.dumps(sorted(attr_keys), indent=0) + "\n", encoding="utf-8")
+    (out / "_attrs.json").write_text(json.dumps(sorted(attr_keys), indent=0) + "\n", encoding="utf-8", newline="\n")
     return files
 
 

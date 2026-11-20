@@ -9,3 +9,5 @@ design/assets/coins/*.svg -text
 *.sh text eol=lf
 deploy/** text eol=lf
 integrations/hiveos/** text eol=lf
+website/locales/** text eol=lf
+apps/krypton-wallet/locales/** text eol=lf

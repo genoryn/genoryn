@@ -145,11 +145,11 @@ def maintain(a):
             ordered.update({k: cat[k] for k in en[name] if k in cat})
             if len(ordered) > 1 or (root / lang / f"{name}.json").exists():
                 (root / lang).mkdir(parents=True, exist_ok=True)
-                (root / lang / f"{name}.json").write_text(json.dumps(ordered, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+                (root / lang / f"{name}.json").write_text(json.dumps(ordered, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
         if a.todo:
             out = pathlib.Path(a.todo)
             out.mkdir(parents=True, exist_ok=True)
-            (out / f"{lang}.json").write_text(json.dumps(todo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+            (out / f"{lang}.json").write_text(json.dumps(todo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
         print(f"{lang:6} {sum(len(v) for v in todo.values())} texts still to translate")
 
 
