@@ -4,6 +4,17 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.46](https://github.com/genoryn/genoryn/releases/tag/v1.0.46) · 2026-11-20: Quick Swap: buy or sell any amount of GNR in one click
+
+- Quick Swap, at the top of the Swap tab: say how much you want to buy or sell, in dollars, bitcoin or GNR, and press one button. The wallet finds the best prices on the board and swaps exactly that amount across up to three offers whose makers are online, each part its own atomic swap. The seller's GNR is still locked on chain before any bitcoin moves.
+- A part that cannot start (someone else took that offer a moment earlier, or its maker went offline) is replaced by another offer, never at a worse price than the one you accepted.
+- Your Bitcoin balance for Quick Swap: an address of the wallet's own, from your 24 words. Buying pays from it at once, selling is paid into it, and you can send bitcoin out of it at any time.
+- Quick Swap offers: tick Quick Swap when you publish, and anyone can buy (or sell you) any part of the offer, from its smallest part up to all of it, at your price. It is listed as up to three lots so several people can swap at once, and after a part the rest goes back on the board by itself.
+- The board adds up what a buyer's deposit is promised to across all sellers, so bitcoin for one swap cannot have the GNR of many sellers locked at once.
+- Buying at the market price is clearer: you set only the bitcoin you spend, and the wallet shows the GNR you get now and the least you get at your limit.
+- genoryn.io/market shows Quick Swap live: what can be bought and sold right now, how many parts are swapping, and what an amount would get.
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one, and see Quick Swap offers as ordinary offers.
+
 ## [1.0.45](https://github.com/genoryn/genoryn/releases/tag/v1.0.45) · 2026-11-19: Old 24-word recovery phrases restore as people wrote them down
 
 - A recovery phrase written down with the positions the wallets show next to each word (1. abandon, 2. ability …) restores as it is, one word per line or on one line, with or without commas. Before, the positions made the wallet expect a numbered Krypton phrase and refuse it.

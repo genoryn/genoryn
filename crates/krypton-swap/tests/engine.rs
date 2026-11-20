@@ -1079,7 +1079,7 @@ fn an_unsold_deposit_goes_back_and_a_short_one_is_not_spent() {
     btc.pay(&dep, 40_000);
     btc.mine();
     btc.pay(&dep, 11_000);
-    let e = b.engine(&src, &btc, &chain);
+    let mut e = b.engine(&src, &btc, &chain);
     assert!(e.sweep_deposit(7, "not an address").is_err());
     let id = e.sweep_deposit(7, &home.to_string()).unwrap();
     assert!(id.is_some());

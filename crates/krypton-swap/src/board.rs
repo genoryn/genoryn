@@ -435,9 +435,15 @@ pub fn open(me: &kem::SecretKey, data_hex: &str) -> Result<(kem::PublicKey, Vec<
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Note {
-    /// A seller of GNR takes a buy offer: the maker answers with a request.
+    /// A seller of GNR takes a buy offer: the maker answers with a request. From 1.0.46
+    /// it may name a part of a Quick Swap offer ([`Auto`]): the GNR it sells and the
+    /// bitcoin it asks for them ([`part_ok`]). Without them it takes the whole offer.
     Take {
         offer: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        gnr: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sats: Option<u64>,
     },
     /// A swap code (request, accept or deposit).
     Code {
@@ -1140,6 +1146,188 @@ pub fn market(
     }
 }
 
+// Quick Swap (1.0.46).
+//
+// An Auto-swap offer is one its maker's wallet sells (or buys) in parts, to anyone, by
+// itself: a taker names how much of it, at the offer's price, and the maker's wallet
+// swaps exactly that. The offer stands for what it always did (GNR proven to the board,
+// or bitcoin deposited): a part takes some of it, and the maker's wallet lists the rest
+// again once its coins are back in a block. A taker's wallet buys or sells any amount
+// across up to [`MAX_PARTS`] such offers at once, each part its own atomic swap.
+
+/// What the board shows of an Auto-swap offer next to it.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Auto {
+    /// The least GNR (krypton) one part may be for. The whole offer can always be taken.
+    pub min: u64,
+}
+
+/// The most offers one Quick Swap is spread over.
+pub const MAX_PARTS: usize = 3;
+/// The least bitcoin a part may be for (a smaller swap would pay most of itself in fees).
+pub const MIN_PART_SATS: u64 = 10_000;
+/// The least GNR a part may be for: more than its two fees.
+pub const MIN_PART_GNR: u64 = 3 * krypton_wallet_core::DEFAULT_FEE;
+
+/// Whether `a` is a sensible Auto-swap setting for `o`.
+pub fn auto_ok(o: &Offer, a: &Auto) -> Result<()> {
+    ensure!(
+        a.min >= MIN_PART_GNR && a.min <= o.gnr,
+        "the smallest part must be at least a few fees and at most the whole offer"
+    );
+    Ok(())
+}
+
+/// The bitcoin for `gnr` of the offer `o` at its price, in whole sat: rounded up when
+/// the maker sells (it never gets less than its price) and down when it buys (it never
+/// pays more). `None` for more GNR than the offer has.
+pub fn part_sats(o: &Offer, gnr: u64) -> Option<u64> {
+    if gnr == 0 || gnr > o.gnr || o.gnr == 0 {
+        return None;
+    }
+    if gnr == o.gnr {
+        return Some(o.sats);
+    }
+    let num = gnr as u128 * o.sats as u128;
+    let d = o.gnr as u128;
+    let s = match o.side {
+        Side::SellGnr => num.div_ceil(d),
+        Side::BuyGnr => num / d,
+    };
+    u64::try_from(s).ok()
+}
+
+/// Whether a request for `gnr` GNR and `sats` bitcoin is a part of the Auto-swap offer
+/// `o` that its maker's wallet swaps: the whole offer, or at least its smallest part, at
+/// no worse a price for the maker than the offer's own.
+pub fn part_ok(o: &Offer, a: Option<&Auto>, gnr: u64, sats: u64) -> Result<()> {
+    if (gnr, sats) == (o.gnr, o.sats) {
+        return Ok(());
+    }
+    let a = a.context("this offer is taken whole only")?;
+    ensure!(gnr > 0 && gnr < o.gnr, "a part is more than the offer");
+    ensure!(
+        sats <= o.sats,
+        "a part asks for more bitcoin than the offer"
+    );
+    ensure!(
+        gnr >= a.min.max(MIN_PART_GNR),
+        "a part smaller than the offer's smallest part"
+    );
+    ensure!(sats >= MIN_PART_SATS, "a part of less than 10,000 sat");
+    let (s, g) = (sats as u128 * o.gnr as u128, gnr as u128 * o.sats as u128);
+    match o.side {
+        Side::SellGnr => ensure!(s >= g, "a part below the offer's price"),
+        Side::BuyGnr => ensure!(s <= g, "a part above the offer's price"),
+    }
+    Ok(())
+}
+
+/// One part of a Quick Swap: an offer and how much of it.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Part {
+    pub id: String,
+    pub gnr: u64,
+    pub sats: u64,
+}
+
+/// What a Quick Swap is for: GNR, or bitcoin (to spend when buying, to receive when
+/// selling).
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Want {
+    Gnr(u64),
+    Sats(u64),
+}
+
+/// The best way to buy (from the sell offers among `offers`, `buying`) or sell (to the
+/// buy offers) `want` across at most `max_parts` Auto-swap offers: best price first,
+/// whole offers where they fit, and one part each. Offers whose smallest part is more
+/// than what is left are passed over. The plan comes short of `want` when there is not
+/// enough on the board.
+pub fn plan(offers: &[(Offer, Auto)], buying: bool, want: Want, max_parts: usize) -> Vec<Part> {
+    let mut v: Vec<&(Offer, Auto)> = offers
+        .iter()
+        .filter(|(o, a)| o.gnr > 0 && o.sats > 0 && auto_ok(o, a).is_ok())
+        .filter(|(o, _)| (o.side == Side::SellGnr) == buying)
+        .collect();
+    // Best first: cheapest to buy from, dearest to sell to. Larger offers first at the
+    // same price, so fewer parts are needed.
+    v.sort_by(|a, b| {
+        let (pa, pb) = (a.0.price(), b.0.price());
+        let by = if buying {
+            pa.total_cmp(&pb)
+        } else {
+            pb.total_cmp(&pa)
+        };
+        by.then(b.0.gnr.cmp(&a.0.gnr))
+    });
+    let mut left = match want {
+        Want::Gnr(g) | Want::Sats(g) => g,
+    };
+    let mut parts = Vec::new();
+    for (o, a) in v {
+        if parts.len() >= max_parts || left == 0 {
+            break;
+        }
+        // The GNR of this part: all that is left of what is wanted, at most the offer.
+        let gnr = match want {
+            Want::Gnr(_) => left.min(o.gnr),
+            Want::Sats(_) if left >= o.sats => o.gnr,
+            Want::Sats(_) => {
+                // As much GNR as `left` sat pay for (buying) or bring (selling).
+                let mut g = (left as u128 * o.gnr as u128 / o.sats as u128) as u64;
+                while g > 0 && part_sats(o, g).is_some_and(|s| s > left) {
+                    g -= 1;
+                }
+                g
+            }
+        };
+        let Some(sats) = part_sats(o, gnr) else {
+            continue;
+        };
+        if part_ok(o, Some(a), gnr, sats).is_err() {
+            continue;
+        }
+        left -= match want {
+            Want::Gnr(_) => gnr,
+            Want::Sats(_) => sats.min(left),
+        };
+        parts.push(Part {
+            id: o.id.clone(),
+            gnr,
+            sats,
+        });
+    }
+    parts
+}
+
+/// What a seller's wallet shows the board about a buyer's deposit before it locks GNR
+/// for that buyer (1.0.46): the buyer's own signed word from the request
+/// (`engine::Prepaid`), so the board can add up what one deposit address is promised to
+/// across all sellers. A buyer with bitcoin for one swap then cannot have the GNR of many
+/// sellers locked for it. `release` is the hash of a secret only the seller's wallet
+/// knows; it takes the promise back when the swap is paid or over.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Promise {
+    pub id: String,
+    pub gnr: u64,
+    pub sats: u64,
+    pub refund_pub: String,
+    pub btc_network: String,
+    pub key: String,
+    pub sig: String,
+    pub release: String,
+}
+
+/// How long a board counts a promise: a GNR-first swap is paid within two hours of its
+/// lock, which confirms within the first hour.
+pub const PROMISE_SECS: u64 = 4 * 3600;
+
+pub fn release_hash(secret: &[u8; 32]) -> String {
+    hex::encode(tagged("Krypton/board/promise-release", secret))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1660,5 +1848,188 @@ mod tests {
         assert!((coin_market(&old, now).unwrap().0 - 10.0).abs() < 1e-9);
         let only_old = vec![(coin_trade(500, 10), 0)];
         assert!((coin_market(&only_old, now).unwrap().0 - 50.0).abs() < 1e-9);
+    }
+}
+
+#[cfg(test)]
+mod quick_tests {
+    use super::*;
+
+    const GNR: u64 = 100_000_000;
+
+    fn offer(id: &str, side: Side, gnr: u64, sats: u64) -> Offer {
+        Offer {
+            id: id.into(),
+            network: "devnet".into(),
+            btc_network: "regtest".into(),
+            side,
+            gnr,
+            sats,
+            key: String::new(),
+            expires: 0,
+            cancel: String::new(),
+            nonce: 0,
+        }
+    }
+
+    fn auto(min: u64) -> Auto {
+        Auto { min }
+    }
+
+    #[test]
+    fn a_part_is_priced_in_the_makers_favour() {
+        // 3 GNR for 100,001 sat: a third of the GNR.
+        let sell = offer("s", Side::SellGnr, 3 * GNR, 100_001);
+        let buy = offer("b", Side::BuyGnr, 3 * GNR, 100_001);
+        assert_eq!(part_sats(&sell, GNR), Some(33_334), "the seller rounds up");
+        assert_eq!(part_sats(&buy, GNR), Some(33_333), "the buyer rounds down");
+        assert_eq!(
+            part_sats(&sell, 3 * GNR),
+            Some(100_001),
+            "the whole offer is exact"
+        );
+        assert_eq!(part_sats(&sell, 3 * GNR + 1), None);
+        assert_eq!(part_sats(&sell, 0), None);
+        // No overflow with the largest amounts.
+        let big = offer("x", Side::SellGnr, 21_000_000 * GNR, MAX_OFFER_SATS);
+        assert_eq!(part_sats(&big, 21_000_000 * GNR - 1), Some(MAX_OFFER_SATS));
+    }
+
+    #[test]
+    fn a_maker_swaps_parts_only_at_its_price_and_size() {
+        let a = auto(GNR / 2);
+        let sell = offer("s", Side::SellGnr, 4 * GNR, 400_000);
+        let buy = offer("b", Side::BuyGnr, 4 * GNR, 400_000);
+        // The whole offer, Auto-swap or not.
+        assert!(part_ok(&sell, None, 4 * GNR, 400_000).is_ok());
+        // Parts only of Auto-swap offers.
+        assert!(part_ok(&sell, None, GNR, 100_000).is_err());
+        assert!(part_ok(&sell, Some(&a), GNR, 100_000).is_ok());
+        assert!(part_ok(&buy, Some(&a), GNR, 100_000).is_ok());
+        // A seller does not sell cheaper, a buyer does not pay more.
+        assert!(part_ok(&sell, Some(&a), GNR, 99_999).is_err());
+        assert!(part_ok(&sell, Some(&a), GNR, 100_001).is_ok());
+        assert!(part_ok(&buy, Some(&a), GNR, 100_001).is_err());
+        assert!(part_ok(&buy, Some(&a), GNR, 99_999).is_ok());
+        // Not below the smallest part, not below 10,000 sat, never more than the offer.
+        assert!(part_ok(&sell, Some(&a), GNR / 2 - 1, 50_000).is_err());
+        assert!(part_ok(&sell, Some(&a), GNR / 2, 50_000).is_ok());
+        let cheap = offer("c", Side::SellGnr, 4 * GNR, 40_000);
+        assert!(part_ok(&cheap, Some(&a), GNR, 10_000).is_ok());
+        assert!(part_ok(&cheap, Some(&a), GNR / 2, 5_000).is_err());
+        assert!(part_ok(&sell, Some(&a), 5 * GNR, 500_000).is_err());
+        assert!(part_ok(&sell, Some(&a), 4 * GNR - 1, 400_001).is_err());
+        assert!(part_ok(&sell, Some(&a), 0, 0).is_err());
+        // The setting itself: a few fees at least, the offer at most.
+        assert!(auto_ok(&sell, &auto(MIN_PART_GNR - 1)).is_err());
+        assert!(auto_ok(&sell, &auto(4 * GNR + 1)).is_err());
+        assert!(auto_ok(&sell, &auto(4 * GNR)).is_ok());
+    }
+
+    #[test]
+    fn a_quick_swap_takes_the_best_prices_first_in_at_most_three_parts() {
+        let book = vec![
+            (offer("dear", Side::SellGnr, 10 * GNR, 2_000_000), auto(GNR)),
+            (
+                offer("cheap", Side::SellGnr, 2 * GNR, 200_000),
+                auto(GNR / 10),
+            ),
+            (
+                offer("mid", Side::SellGnr, 3 * GNR, 450_000),
+                auto(GNR / 10),
+            ),
+            (offer("bid", Side::BuyGnr, 50 * GNR, 500_000), auto(GNR)),
+            (offer("tiny", Side::SellGnr, GNR, 120_000), auto(GNR)),
+        ];
+        let p = plan(&book, true, Want::Gnr(4 * GNR), MAX_PARTS);
+        assert_eq!(
+            p,
+            vec![
+                Part {
+                    id: "cheap".into(),
+                    gnr: 2 * GNR,
+                    sats: 200_000
+                },
+                Part {
+                    id: "tiny".into(),
+                    gnr: GNR,
+                    sats: 120_000
+                },
+                Part {
+                    id: "mid".into(),
+                    gnr: GNR,
+                    sats: 150_000
+                },
+            ]
+        );
+        // More than three parts are never planned: the plan comes short.
+        let p = plan(&book, true, Want::Gnr(20 * GNR), MAX_PARTS);
+        assert_eq!(p.len(), 3);
+        assert_eq!(p.iter().map(|x| x.gnr).sum::<u64>(), 6 * GNR);
+        // Spending bitcoin: as much GNR as it buys, never more bitcoin than given.
+        let p = plan(&book, true, Want::Sats(250_000), MAX_PARTS);
+        assert_eq!(
+            p[0],
+            Part {
+                id: "cheap".into(),
+                gnr: 2 * GNR,
+                sats: 200_000
+            }
+        );
+        let spent: u64 = p.iter().map(|x| x.sats).sum();
+        assert!(spent <= 250_000 && spent > 240_000, "{p:?}");
+        // A rest smaller than every offer's smallest part is left out.
+        let p = plan(&book, true, Want::Gnr(2 * GNR + 1), MAX_PARTS);
+        assert_eq!(p.len(), 1);
+        // Selling goes to the buy offers only, dearest first.
+        let p = plan(&book, false, Want::Gnr(2 * GNR), MAX_PARTS);
+        assert_eq!(
+            p,
+            vec![Part {
+                id: "bid".into(),
+                gnr: 2 * GNR,
+                sats: 20_000
+            }]
+        );
+        // Every planned part is one its maker swaps.
+        for (want, buying) in [
+            (Want::Gnr(7 * GNR + 12_345), true),
+            (Want::Sats(777_777), true),
+            (Want::Sats(123_456), false),
+        ] {
+            for x in plan(&book, buying, want, MAX_PARTS) {
+                let (o, a) = book.iter().find(|(o, _)| o.id == x.id).unwrap();
+                assert!(part_ok(o, Some(a), x.gnr, x.sats).is_ok(), "{x:?}");
+            }
+        }
+        assert!(plan(&[], true, Want::Gnr(GNR), MAX_PARTS).is_empty());
+    }
+
+    #[test]
+    fn a_take_without_amounts_reads_as_before() {
+        let old: Note = serde_json::from_str(r#"{"kind":"take","offer":"ab"}"#).unwrap();
+        assert_eq!(
+            old,
+            Note::Take {
+                offer: "ab".into(),
+                gnr: None,
+                sats: None
+            }
+        );
+        let new = Note::Take {
+            offer: "ab".into(),
+            gnr: Some(5),
+            sats: Some(10_000),
+        };
+        let s = serde_json::to_string(&new).unwrap();
+        assert_eq!(serde_json::from_str::<Note>(&s).unwrap(), new);
+        // A wallet before 1.0.46 reads the take as one for the whole offer.
+        #[derive(Deserialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum OldNote {
+            Take { offer: String },
+        }
+        let OldNote::Take { offer } = serde_json::from_str::<OldNote>(&s).unwrap();
+        assert_eq!(offer, "ab");
     }
 }

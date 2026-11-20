@@ -69,9 +69,11 @@ impl Class {
             | (true, "/v1/swap/progress") => Class::Address,
             // Sealed swap messages (up to 256 KB each) and coin offers: a swap needs a
             // handful, never hundreds a minute.
-            (true, "/v1/swap/inbox") | (true, "/v1/swap/coins") | (true, "/v1/swap/coin-trade") => {
-                Class::Board
-            }
+            (true, "/v1/swap/inbox")
+            | (true, "/v1/swap/coins")
+            | (true, "/v1/swap/coin-trade")
+            | (true, "/v1/swap/promise")
+            | (true, "/v1/swap/promise/release") => Class::Board,
             (true, "/v1/mining/template") => Class::Template,
             (true, "/v1/mining/submit") => Class::Submit,
             (true, _) => Class::Rpc,
@@ -239,7 +241,13 @@ mod tests {
     fn writes_have_their_own_budgets() {
         let post = Method::POST;
         assert!(matches!(Class::of(&post, "/v1/tx"), Class::Tx));
-        for p in ["/v1/swap/inbox", "/v1/swap/coins", "/v1/swap/coin-trade"] {
+        for p in [
+            "/v1/swap/inbox",
+            "/v1/swap/coins",
+            "/v1/swap/coin-trade",
+            "/v1/swap/promise",
+            "/v1/swap/promise/release",
+        ] {
             assert!(matches!(Class::of(&post, p), Class::Board), "{p}");
         }
         assert!(matches!(

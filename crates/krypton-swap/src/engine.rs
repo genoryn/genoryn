@@ -111,6 +111,68 @@ pub fn prepaid_address(code: &str, network: bitcoin::Network) -> Result<Option<A
         network,
     )))
 }
+/// What a seller's wallet shows the board of the deposit a request names
+/// ([`crate::board::Promise`]); `None` when it names none.
+pub fn promise_of(code: &str, release: String) -> Result<Option<crate::board::Promise>> {
+    let Msg::Request2 {
+        id,
+        btc_network,
+        gnr,
+        sats,
+        refund_pub,
+        prepaid: Some(p),
+        ..
+    } = Msg::decode(code)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(crate::board::Promise {
+        id,
+        gnr,
+        sats,
+        refund_pub,
+        btc_network,
+        key: p.key,
+        sig: p.sig,
+        release,
+    }))
+}
+
+/// The deposit address a promise is for, when that address's key signed the request it
+/// comes from.
+pub fn promise_address(p: &crate::board::Promise) -> Result<Address> {
+    use bitcoin::secp256k1::{Message, PublicKey as Key, Secp256k1, ecdsa::Signature};
+    ensure!(
+        p.id.len() <= 64 && p.refund_pub.len() <= 80 && p.btc_network.len() <= 16,
+        "bad promise"
+    );
+    ensure!(
+        p.key.len() == 66 && p.sig.len() == 128 && p.release.len() == 64,
+        "bad promise"
+    );
+    ensure!(
+        p.sats > 0 && p.sats <= crate::board::MAX_OFFER_SATS,
+        "bad promise amount"
+    );
+    let network = parse_net(&p.btc_network)?;
+    let key = Key::from_slice(&hex::decode(&p.key)?).context("bad deposit key")?;
+    let sig = Signature::from_compact(&hex::decode(&p.sig)?).context("bad deposit signature")?;
+    Secp256k1::verification_only()
+        .verify_ecdsa(
+            &Message::from_digest(prepaid_digest(
+                &p.id,
+                p.gnr,
+                p.sats,
+                &p.refund_pub,
+                &p.btc_network,
+            )),
+            &sig,
+            &key,
+        )
+        .map_err(|_| anyhow!("the promise is not signed by its deposit"))?;
+    Ok(Address::p2wpkh(&bitcoin::CompressedPublicKey(key), network))
+}
+
 const STORE_KEY: &str = "swaps";
 /// A swap whose bitcoin deposit has not arrived this long after it started is given up.
 pub const DEPOSIT_TIMEOUT_SECS: u64 = 3 * 3600;
@@ -271,6 +333,11 @@ pub struct Swap {
     /// the buyer's wallet knows it of its own swaps, the seller's wallet looked it up.
     #[serde(default)]
     pub prepaid: bool,
+    /// BTC seller paying from a deposit (1.0.46): what is left after the payment goes to
+    /// this deposit address of the wallet, not to `btc_address` (a Quick Swap offer
+    /// keeps the rest of its bitcoin there, for the rest of the offer).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change_to: Option<u32>,
 }
 
 /// GNR this wallet locked in a swap that this copy of the wallet has no record of: the
@@ -388,6 +455,39 @@ pub fn load(w: &Wallet) -> Vec<Swap> {
 
 pub fn save(w: &mut Wallet, swaps: &[Swap]) -> Result<()> {
     w.set_app_data(STORE_KEY, serde_json::to_value(swaps)?)
+}
+
+/// Outputs of this wallet's deposit addresses that it spent itself, with when (1.0.46).
+/// A Bitcoin server may still list them as unspent for a moment after the spend, and a
+/// second payment from them would replace the first (they signal replace-by-fee).
+const SPENT_KEY: &str = "btc_spent";
+/// Long enough for every Bitcoin server to have seen the spend. A coin it still lists
+/// as unspent after that was not spent after all (the transaction was dropped).
+const SPENT_KEEP_SECS: u64 = 15 * 60;
+
+fn spent_list(w: &Wallet) -> Vec<(String, u64)> {
+    w.app_data(SPENT_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
+fn spent_coins(w: &Wallet) -> std::collections::HashSet<String> {
+    let t = now();
+    spent_list(w)
+        .into_iter()
+        .filter(|(_, at)| at + SPENT_KEEP_SECS > t)
+        .map(|(o, _)| o)
+        .collect()
+}
+
+fn note_spent(w: &mut Wallet, tx: &bitcoin::Transaction) {
+    let t = now();
+    let mut v = spent_list(w);
+    v.retain(|(_, at)| at + SPENT_KEEP_SECS > t);
+    v.extend(tx.input.iter().map(|i| (i.previous_output.to_string(), t)));
+    if let Ok(x) = serde_json::to_value(&v) {
+        let _ = w.set_app_data(SPENT_KEY, x);
+    }
 }
 
 /// A lock this wallet funded that none of its swap records knows: unspent, and no swap
@@ -545,6 +645,23 @@ impl<G: ChainSource> Engine<'_, G> {
         refund_address: &str,
         fund: Option<u32>,
     ) -> Result<Swap> {
+        self.request_with(gnr, sats, refund_address, fund, None)
+    }
+
+    /// [`Engine::request_from`] whose payment leaves its change at deposit address
+    /// `change_to` of this wallet.
+    pub fn request_with(
+        &mut self,
+        gnr: u64,
+        sats: u64,
+        refund_address: &str,
+        fund: Option<u32>,
+        change_to: Option<u32>,
+    ) -> Result<Swap> {
+        ensure!(
+            change_to.is_none() || fund.is_some(),
+            "change goes to a deposit only from a deposit"
+        );
         self.check_active()?;
         btc_address(refund_address, self.btc_network)?;
         ensure!(sats >= 10_000, "swap at least 10,000 sat");
@@ -614,6 +731,7 @@ impl<G: ChainSource> Engine<'_, G> {
             paid_tx: None,
             lock_blocks: None,
             prepaid: fund.is_some(),
+            change_to,
         };
         s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
@@ -771,6 +889,7 @@ impl<G: ChainSource> Engine<'_, G> {
             paid_tx: None,
             lock_blocks: Some(lock_blocks),
             prepaid,
+            change_to: None,
         };
         s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
@@ -1238,9 +1357,15 @@ impl<G: ChainSource> Engine<'_, G> {
     }
 
     /// The bitcoin at deposit address `n` that has not been spent: every payment to it,
-    /// confirmed or not.
+    /// confirmed or not, less what this wallet spent itself moments ago.
     pub fn deposit_coins(&self, n: u32) -> Result<Vec<Utxo>> {
-        let mut coins = self.btc.unspent(&self.deposit_address(n))?;
+        let spent = spent_coins(self.wallet);
+        let mut coins: Vec<Utxo> = self
+            .btc
+            .unspent(&self.deposit_address(n))?
+            .into_iter()
+            .filter(|c| !spent.contains(&c.outpoint.to_string()))
+            .collect();
         // Anyone can pay an address: dust sent to it must not stand in the way. One
         // transaction spends the largest outputs; a later one takes the rest.
         coins.sort_by_key(|c| std::cmp::Reverse(c.value));
@@ -1248,9 +1373,17 @@ impl<G: ChainSource> Engine<'_, G> {
         Ok(coins)
     }
 
+    /// Broadcasts `tx`, which spends outputs of this wallet's deposit addresses, and
+    /// remembers them as spent.
+    fn broadcast_spend(&mut self, tx: &bitcoin::Transaction) -> Result<Txid> {
+        let id = self.btc.broadcast(tx)?;
+        note_spent(self.wallet, tx);
+        Ok(id)
+    }
+
     /// Sends everything at deposit address `n` to `dest` (the buyer's own address): the
     /// bitcoin of a buy offer that ended unsold goes back. `None` if nothing is there.
-    pub fn sweep_deposit(&self, n: u32, dest: &str) -> Result<Option<Txid>> {
+    pub fn sweep_deposit(&mut self, n: u32, dest: &str) -> Result<Option<Txid>> {
         let dest = btc_address(dest, self.btc_network)?.script_pubkey();
         let coins = self.deposit_coins(n)?;
         if coins.is_empty() {
@@ -1258,7 +1391,36 @@ impl<G: ChainSource> Engine<'_, G> {
         }
         let key = crate::deposit::key(self.wallet.swap_seed(), n);
         let tx = crate::deposit::spend(&coins, &key, None, &dest, self.btc.fee_rate()?)?;
-        Ok(Some(self.btc.broadcast(&tx)?))
+        Ok(Some(self.broadcast_spend(&tx)?))
+    }
+
+    /// Pays `to` (address, sat) from deposit address `n`; what is left goes to deposit
+    /// address `rest` (the same address when it is `n`). The amounts are exact; the fee
+    /// comes out of what is left.
+    pub fn pay_from(&mut self, n: u32, to: &[(Address, u64)], rest: u32) -> Result<Txid> {
+        ensure!(!to.is_empty(), "nothing to pay");
+        let coins = self.deposit_coins(n)?;
+        let key = crate::deposit::key(self.wallet.swap_seed(), n);
+        let scripts: Vec<(bitcoin::ScriptBuf, Amount)> = to
+            .iter()
+            .map(|(a, s)| (a.script_pubkey(), Amount::from_sat(*s)))
+            .collect();
+        let pay: Vec<(&bitcoin::Script, Amount)> =
+            scripts.iter().map(|(s, a)| (s.as_script(), *a)).collect();
+        let tx = crate::deposit::spend_many(
+            &coins,
+            &key,
+            &pay,
+            &self.deposit_address(rest).script_pubkey(),
+            self.btc.fee_rate()?,
+        )?;
+        for (i, (s, a)) in scripts.iter().enumerate() {
+            ensure!(
+                tx.output[i].script_pubkey == *s && tx.output[i].value == *a,
+                "the payment would not match"
+            );
+        }
+        self.broadcast_spend(&tx)
     }
 
     /// The buyer's wallet pays the contract from the bitcoin deposited for the offer. The
@@ -1298,7 +1460,10 @@ impl<G: ChainSource> Engine<'_, G> {
             Amount::from_sat(have).to_btc(),
             Amount::from_sat(s.sats).to_btc()
         );
-        let back = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
+        let back = match s.change_to {
+            Some(d) => self.deposit_address(d).script_pubkey(),
+            None => btc_address(&s.btc_address, self.btc_network)?.script_pubkey(),
+        };
         let key = crate::deposit::key(self.wallet.swap_seed(), n);
         let tx = crate::deposit::spend(
             &coins,
@@ -1313,7 +1478,7 @@ impl<G: ChainSource> Engine<'_, G> {
                 && tx.output[0].value.to_sat() == s.sats,
             "the payment would not match the contract"
         );
-        let id = self.btc.broadcast(&tx)?;
+        let id = self.broadcast_spend(&tx)?;
         s.paid_tx = Some(id.to_string());
         s.say(format!(
             "The seller's GNR is locked for you, and your wallet paid {} BTC into the contract from the bitcoin you deposited ({id}).",
@@ -1918,5 +2083,61 @@ mod tests {
         let a = derive_secret(&seed, new_index(std::iter::empty()));
         let b = derive_secret(&seed, new_index(std::iter::empty()));
         assert_ne!(a.hash(), b.hash());
+    }
+
+    #[test]
+    fn a_promise_names_the_deposit_that_signed_its_request() {
+        let seed = [3u8; 64];
+        let refund = public_key(&derive_key(&seed, 9)).to_string();
+        let digest = prepaid_digest("req1", 5_000_000, 40_000, &refund, "regtest");
+        let p = sign_prepaid(digest, &crate::deposit::key(&seed, crate::deposit::BALANCE));
+        let code = Msg::Request2 {
+            id: "req1".into(),
+            gnr_network: Network::Devnet,
+            btc_network: "regtest".into(),
+            gnr: 5_000_000,
+            sats: 40_000,
+            claim_fee: DEFAULT_FEE,
+            claim_outputs: [HexCm([1; 32]), HexCm([2; 32])],
+            refund_pub: refund,
+            v: PROTOCOL,
+            prepaid: Some(p),
+        }
+        .encode();
+        let promise = promise_of(&code, "ab".repeat(32)).unwrap().unwrap();
+        let address = promise_address(&promise).unwrap();
+        assert_eq!(
+            address,
+            crate::deposit::address(&seed, crate::deposit::BALANCE, bitcoin::Network::Regtest)
+        );
+        // Any other amount, request or key is not what the deposit signed.
+        for change in [
+            |p: &mut crate::board::Promise| p.sats += 1,
+            |p: &mut crate::board::Promise| p.gnr -= 1,
+            |p: &mut crate::board::Promise| p.id = "req2".into(),
+            |p: &mut crate::board::Promise| {
+                let flip = if p.key.starts_with("02") { "03" } else { "02" };
+                p.key = format!("{flip}{}", &p.key[2..])
+            },
+        ] {
+            let mut q = promise.clone();
+            change(&mut q);
+            assert!(promise_address(&q).is_err());
+        }
+        // A request without a deposit makes no promise.
+        let bare = Msg::Request2 {
+            id: "req3".into(),
+            gnr_network: Network::Devnet,
+            btc_network: "regtest".into(),
+            gnr: 5_000_000,
+            sats: 40_000,
+            claim_fee: DEFAULT_FEE,
+            claim_outputs: [HexCm([1; 32]), HexCm([2; 32])],
+            refund_pub: public_key(&derive_key(&seed, 9)).to_string(),
+            v: PROTOCOL,
+            prepaid: None,
+        }
+        .encode();
+        assert!(promise_of(&bare, String::new()).unwrap().is_none());
     }
 }

@@ -95,7 +95,30 @@ struct Inner {
     /// all of them, and per hash lock (start of its hour, lookups in it).
     lookups: VecDeque<u64>,
     lookups_of: HashMap<String, (u64, u32)>,
+    /// Quick Swap offers (1.0.46): their makers' wallets swap parts of them by themselves.
+    auto: HashMap<String, board::Auto>,
+    /// Swaps in progress that are a part of their offer: the part's GNR and bitcoin.
+    part: HashMap<String, (u64, u64)>,
+    /// What buyers' deposit addresses are promised to (`board::Promise`): by address,
+    /// each promise's request id, bitcoin, release hash and when it was made.
+    promises: HashMap<String, Vec<Promised>>,
 }
+
+/// Kept on disk with the board: a restart must not let one deposit be promised again.
+#[derive(Clone, serde::Serialize, Deserialize)]
+struct Promised {
+    id: String,
+    offer: String,
+    sats: u64,
+    release: String,
+    at: u64,
+}
+
+/// At most this many promises in all, on one deposit address, and for one offer (one
+/// swap at a time runs per offer; a few more cover swaps that ended unpaid lately).
+const MAX_PROMISES: usize = 25_000;
+const MAX_PROMISES_EACH: usize = 64;
+const MAX_PROMISES_AN_OFFER: usize = 4;
 
 /// Lookups of swap payments on the Bitcoin chain: this many a minute in all, and this
 /// many an hour for one swap. Each needs a proof signed by a key of the contract it
@@ -194,6 +217,8 @@ impl Inner {
         self.backing.remove(id);
         self.deposits.remove(id);
         self.prepaid.remove(id);
+        self.auto.remove(id);
+        self.part.remove(id);
         if !self.coin_offers.contains_key(id) {
             self.seen.remove(id);
         }
@@ -259,6 +284,14 @@ impl Board {
         i.deposits
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
         i.prepaid.retain(|id| offers.contains_key(id));
+        // Kept while a part of the offer runs: the part is checked against it.
+        i.auto
+            .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
+        i.part.retain(|id, _| pending.contains_key(id));
+        i.promises.retain(|_, v| {
+            v.retain(|p| p.at + board::PROMISE_SECS > t);
+            !v.is_empty()
+        });
         let ids: std::collections::HashSet<String> = i
             .offers
             .keys()
@@ -323,7 +356,15 @@ impl Board {
                 i.backing = s.backing.into_iter().collect();
                 i.deposits = s.deposits.into_iter().collect();
                 i.prepaid = s.prepaid.into_iter().collect();
+                i.auto = s.auto.into_iter().collect();
             }
+            i.part = s
+                .part
+                .into_iter()
+                .map(|(id, g, sats)| (id, (g, sats)))
+                .collect();
+            // What deposits were promised to stays counted (old ones expire below).
+            i.promises = s.promises.into_iter().collect();
             i.funded = s.funded.into_iter().collect();
             i.coin_offers = s
                 .coin_offers
@@ -421,6 +462,17 @@ impl Board {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
             prepaid: i.prepaid.iter().cloned().collect(),
+            auto: i.auto.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            part: i
+                .part
+                .iter()
+                .map(|(k, (g, s))| (k.clone(), *g, *s))
+                .collect(),
+            promises: i
+                .promises
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
         };
         if let Ok(b) = serde_json::to_vec(&s) {
             Board::write(&p.with_file_name("swap-board.json"), b);
@@ -446,6 +498,12 @@ struct Saved {
     deposits: Vec<(String, String)>,
     #[serde(default)]
     prepaid: Vec<String>,
+    #[serde(default)]
+    auto: Vec<(String, board::Auto)>,
+    #[serde(default)]
+    part: Vec<(String, u64, u64)>,
+    #[serde(default)]
+    promises: Vec<(String, Vec<Promised>)>,
 }
 
 fn hash32(s: &str) -> Option<Hash32> {
@@ -601,13 +659,20 @@ pub async fn offers(State(node): S) -> Response {
             x["deposited"] = json!(i.deposits.contains_key(&o.id));
             // The seller locks GNR only for a buyer whose bitcoin is deposited.
             x["prepaid"] = json!(i.prepaid.contains(&o.id));
+            // A Quick Swap offer: its maker's wallet swaps parts of it by itself.
+            if let Some(a) = i.auto.get(&o.id) {
+                x["auto"] = json!(a);
+            }
             x
         })
         .collect();
     let mut p: Vec<Value> = i
         .pending
         .values()
-        .map(|(o, at)| json!({"id": o.id, "side": o.side, "gnr": o.gnr, "sats": o.sats, "since": at, "funded": i.funded.contains(&o.id)}))
+        .map(|(o, at)| {
+            let (g, s) = i.part.get(&o.id).copied().unwrap_or((o.gnr, o.sats));
+            json!({"id": o.id, "side": o.side, "gnr": g, "sats": s, "since": at, "funded": i.funded.contains(&o.id), "part": i.part.contains_key(&o.id)})
+        })
         .collect();
     p.sort_by_key(|x| std::cmp::Reverse(x["since"].as_u64()));
     Json(json!({"offers": v, "in_progress": p, "now": now()})).into_response()
@@ -624,6 +689,9 @@ pub struct ProgressReq {
     /// The bitcoin of this swap has been paid into its contract (wallets from 1.0.40).
     #[serde(default)]
     funded: bool,
+    /// The swap is for a part of a Quick Swap offer (1.0.46): its GNR and bitcoin.
+    #[serde(default)]
+    part: Option<board::Part>,
 }
 
 /// The maker of a taken offer moves it to "in progress" (shown, no longer takeable), and
@@ -647,12 +715,25 @@ pub async fn post_progress(State(node): S, Json(r): Json<ProgressReq>) -> Respon
         .offers
         .get(&id)
         .or_else(|| i.pending.get(&id).map(|x| &x.0));
-    match stored {
+    let part = match stored {
         None => return bad("no such offer on the board"),
         Some(o) if o.cancel != board::cancel_hash(&secret) => return bad("wrong cancel secret"),
-        Some(_) => {}
-    }
+        // A part is no more than its offer, at no other price than the offer's.
+        // Only a Quick Swap offer has parts.
+        Some(o) => match &r.part {
+            Some(p) => {
+                if p.id != id || board::part_ok(o, i.auto.get(&id), p.gnr, p.sats).is_err() {
+                    return bad("this part does not fit the offer");
+                }
+                Some((p.gnr, p.sats))
+            }
+            None => None,
+        },
+    };
     i.start(&id, t);
+    if let Some(p) = part {
+        i.part.insert(id.clone(), p);
+    }
     if r.funded {
         i.funded.insert(id.clone());
     }
@@ -677,11 +758,19 @@ pub struct OfferPost {
     /// checks that itself; the board only shows it).
     #[serde(default)]
     prepaid: bool,
+    /// A Quick Swap offer (1.0.46): sold or bought in parts of at least this size.
+    #[serde(default)]
+    auto: Option<board::Auto>,
 }
 
 pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
     let o = p.offer;
     if let Err(e) = o.validate(node.chain.params.network.as_str(), now()) {
+        return bad(e);
+    }
+    if let Some(a) = &p.auto
+        && let Err(e) = board::auto_ok(&o, a)
+    {
         return bad(e);
     }
     // What needs no work is refused first.
@@ -788,6 +877,9 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
     }
     if prepaid {
         i.prepaid.insert(id.clone());
+    }
+    if let Some(a) = p.auto {
+        i.auto.insert(id.clone(), a);
     }
     let marked = deposit.is_some_and(|a| i.deposited(&id, a));
     node.board.save_board(&i);
@@ -1127,9 +1219,64 @@ fn current_market(i: &Inner, t: u64) -> board::Market {
         .pending
         .values()
         .filter(|(o, _)| i.funded.contains(&o.id))
-        .cloned()
+        .map(|(o, at)| {
+            // A part of an offer counts for what it is, not for the whole offer.
+            let mut o = o.clone();
+            if let Some((g, s)) = i.part.get(&o.id) {
+                (o.gnr, o.sats) = (*g, *s);
+            }
+            (o, *at)
+        })
         .collect();
     board::market(&i.trades, &i.verified(), &offers, &pending, t)
+}
+
+/// What Quick Swap can do right now: the Quick Swap offers whose makers are online and
+/// whose coins are there (sell offers: GNR proven and unmoved; buy offers: bitcoin found
+/// at the deposit), on each side.
+fn quick(i: &Inner, t: u64) -> Value {
+    let live = |o: &&Offer| {
+        i.auto.contains_key(&o.id)
+            && i.seen.get(&o.id).is_some_and(|s| s + ONLINE_SECS > t)
+            && match o.side {
+                Side::SellGnr => i.backing.contains_key(&o.id),
+                Side::BuyGnr => i.deposits.contains_key(&o.id),
+            }
+    };
+    let side = |s: Side| {
+        let v: Vec<&Offer> = i
+            .offers
+            .values()
+            .filter(live)
+            .filter(|o| o.side == s)
+            .collect();
+        let best = match s {
+            Side::SellGnr => v.iter().map(|o| o.price()).min_by(f64::total_cmp),
+            Side::BuyGnr => v.iter().map(|o| o.price()).max_by(f64::total_cmp),
+        };
+        let min = v
+            .iter()
+            .filter_map(|o| i.auto.get(&o.id).map(|a| a.min))
+            .min();
+        json!({
+            "offers": v.len(),
+            "gnr": v.iter().map(|o| o.gnr).sum::<u64>(),
+            "sats": v.iter().map(|o| o.sats).sum::<u64>(),
+            "best": best,
+            "min_gnr": min,
+        })
+    };
+    let busy = i
+        .pending
+        .keys()
+        .filter(|id| i.part.contains_key(*id))
+        .count();
+    json!({
+        "sell": side(Side::SellGnr),
+        "buy": side(Side::BuyGnr),
+        "parts_in_progress": busy,
+        "max_parts": board::MAX_PARTS,
+    })
 }
 
 pub async fn market(State(node): S) -> Response {
@@ -1159,8 +1306,121 @@ pub async fn market(State(node): S) -> Response {
         })
         .collect();
     let taken = i.pending.len() - i.pending.keys().filter(|id| i.funded.contains(*id)).count();
-    Json(json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS, "taken_unpaid": taken}))
+    let q = quick(&i, t);
+    Json(json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS, "taken_unpaid": taken, "quick": q, "now": t}))
         .into_response()
+}
+
+#[derive(Deserialize)]
+pub struct ReleaseReq {
+    id: String,
+    secret: String,
+}
+
+/// A promise as a wallet posts it, with the offer it belongs to.
+#[derive(Deserialize)]
+pub struct PromisePost {
+    #[serde(flatten)]
+    promise: board::Promise,
+    offer: String,
+    /// The offer's cancel secret, when its maker posts the promise.
+    #[serde(default)]
+    secret: Option<String>,
+}
+
+/// A seller's wallet, before it locks GNR for a buyer whose bitcoin waits at a deposit:
+/// the buyer's signed word, counted against that deposit. The answer is what the
+/// deposit is promised to in all, this promise included; the seller compares that with
+/// what the Bitcoin chain shows at the address, and locks only if it is covered. Seen
+/// and counted in one step under the board's lock, so two sellers asked at the same
+/// moment both see each other.
+pub async fn post_promise(State(node): S, Json(r): Json<PromisePost>) -> Response {
+    let p = r.promise;
+    let address = match krypton_swap::engine::promise_address(&p) {
+        Ok(a) => a.to_string(),
+        Err(e) => return bad(e),
+    };
+    if hex::decode(&p.release).is_err() {
+        return bad("bad release hash");
+    }
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let t = now();
+    Board::expire(&mut i, t);
+    // A promise belongs to an offer on this board: the seller's own (proven with the
+    // offer's cancel secret), or a buy offer whose deposit it is. So there are never more
+    // of them than offers allow, whoever posts them.
+    let Some(o) = i
+        .offers
+        .get(&r.offer)
+        .or_else(|| i.pending.get(&r.offer).map(|x| &x.0))
+    else {
+        return bad("no such offer on the board");
+    };
+    let maker = r
+        .secret
+        .as_deref()
+        .and_then(|s| hex::decode(s).ok())
+        .and_then(|b| <[u8; 32]>::try_from(b).ok())
+        .is_some_and(|s| board::cancel_hash(&s) == o.cancel);
+    let its_deposit = o.side == Side::BuyGnr && i.deposits.get(&r.offer) == Some(&address);
+    if !maker && !its_deposit {
+        return bad("this promise is not for an offer on this board");
+    }
+    let of_offer = i
+        .promises
+        .values()
+        .flatten()
+        .filter(|x| x.offer == r.offer)
+        .count();
+    let total: usize = i.promises.values().map(Vec::len).sum();
+    let v = i.promises.entry(address).or_default();
+    if !v.iter().any(|x| x.id == p.id) {
+        if v.len() >= MAX_PROMISES_EACH
+            || of_offer >= MAX_PROMISES_AN_OFFER
+            || total >= MAX_PROMISES
+        {
+            return bad("too many promises; try again later");
+        }
+        v.push(Promised {
+            id: p.id,
+            offer: r.offer,
+            sats: p.sats,
+            release: p.release,
+            at: t,
+        });
+    }
+    let (sum, n) = (
+        v.iter().fold(0u64, |a, x| a.saturating_add(x.sats)),
+        v.len(),
+    );
+    node.board.save_board(&i);
+    Json(json!({"ok": true, "promised": sum, "promises": n})).into_response()
+}
+
+/// Takes a promise back (its swap was paid, or ended), proven with the secret of its
+/// release hash.
+pub async fn release_promise(State(node): S, Json(r): Json<ReleaseReq>) -> Response {
+    let Some(secret) = hex::decode(&r.secret)
+        .ok()
+        .and_then(|b| <[u8; 32]>::try_from(b).ok())
+    else {
+        return bad("bad secret");
+    };
+    let h = board::release_hash(&secret);
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let mut gone = false;
+    i.promises.retain(|_, v| {
+        let n = v.len();
+        v.retain(|x| !(x.id == r.id && x.release == h));
+        gone |= v.len() < n;
+        !v.is_empty()
+    });
+    if gone {
+        node.board.save_board(&i);
+    }
+    Json(json!({"ok": true, "released": gone})).into_response()
 }
 
 pub async fn coin_offers(State(node): S) -> Response {

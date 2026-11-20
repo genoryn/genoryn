@@ -18,6 +18,33 @@
   <div class="page-head"><span class="eyebrow">Market · live</span><h1 class="h2 glow">GNR market</h1>
     <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p></div>
 
+  <section class="glass qx" id="quick" aria-labelledby="qx-h">
+    <div class="qx-head">
+      <div><span class="eyebrow qx-eye"><span class="qx-bolt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Quick Swap · live</span>
+        <h2 id="qx-h" class="h3">Buy or sell any amount of GNR, in one click</h2>
+        <p class="muted">The wallet finds the best prices on the board and swaps exactly the amount you want, across up to three offers whose makers are online right now. Each part is its own atomic swap: the seller's GNR is locked on chain before any bitcoin moves.</p></div>
+      <span class="qx-live" id="qxLiveBox"><i></i><b id="qxLive">Reading the board…</b></span>
+    </div>
+    <div class="qx-grid">
+      <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>Ready to buy now</span><b id="qxSell"><span class="qx-skel"></span></b><em id="qxSellN">&nbsp;</em></div>
+      <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Ready to buy your GNR</span><b id="qxBuy"><span class="qx-skel"></span></b><em id="qxBuyN">&nbsp;</em></div>
+      <div class="qx-stat"><span class="qx-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Quick Swaps running</span><b id="qxRun"><span class="qx-skel"></span></b><em>parts swapping right now</em></div>
+      <div class="qx-calc">
+        <div class="qx-row"><div class="qx-seg" id="qxSide" role="group" aria-label="Buy or sell"><button type="button" data-s="buy" class="on">Buy GNR</button><button type="button" data-s="sell">Sell GNR</button></div>
+          <div class="qx-seg qx-units" id="qxUnit" role="group" aria-label="Unit"><button type="button" data-u="usd" class="on">USD</button><button type="button" data-u="btc">BTC</button><button type="button" data-u="gnr">GNR</button></div></div>
+        <label class="qx-in"><span id="qxInL">You pay</span><input id="qxAmt" inputmode="decimal" placeholder="100" autocomplete="off" aria-label="Amount"></label>
+        <div class="qx-out"><span id="qxOutL">You would get about</span><b id="qxOut">—</b><em id="qxOutN">Type an amount to see what the board gives for it now.</em></div>
+        <a class="btn btn-primary qx-go" href="/download">Swap in the wallet</a>
+      </div>
+    </div>
+    <ol class="qx-steps">
+      <li><b>Type how much.</b> In dollars, bitcoin or GNR, in the wallet's Swap tab.</li>
+      <li><b>Best prices first.</b> Up to three offers, each at its own price, none beyond the price you accepted.</li>
+      <li><b>Locked before paid.</b> Every part is an atomic swap; both sides are paid or both keep their coins.</li>
+      <li><b>About 15 minutes,</b> mostly the bitcoin confirmation. Buying pays from your wallet's Bitcoin balance.</li>
+    </ol>
+  </section>
+
   <section class="glass card mk-why" aria-labelledby="why-h">
     <div><span class="eyebrow">Why swap bitcoin for GNR</span>
       <h2 id="why-h" class="h3">Move bitcoin's value into a quantum-resistant system.</h2>

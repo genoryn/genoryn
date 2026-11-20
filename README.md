@@ -559,6 +559,23 @@ two wallets of a swap; it never sees keys, codes or coins.
 | Limits | Up to 5,000 offers, mailboxes of 100 messages kept a day, per-client rate limits |
 | Anonymity | Each offer has its own one-time X25519 + ML-KEM-1024 key, never your address |
 
+### Quick Swap
+
+Quick Swap (wallet 1.0.46) buys or sells any amount of GNR in one step, at the top of the Swap
+tab. You say how much, in dollars, bitcoin or GNR; the wallet finds the best prices on the board
+and swaps exactly that amount.
+
+| | |
+|---|---|
+| Parts | Up to 3 offers at once, best price first, each part its own atomic swap with its own contract. The seller's GNR is locked on chain before any bitcoin moves, as in every swap |
+| Which offers | Quick Swap offers whose makers are online, with their GNR proven (sell) or their bitcoin found deposited (buy) |
+| Price | A part costs its offer's price, rounded in the maker's favour to the sat. A part that does not start (taken by someone else a moment earlier, maker gone silent for 2 minutes) is replaced, never at more than 1 % above the worst price you were shown (or below it, when selling) |
+| Bitcoin balance | An address of the wallet's own, from the 24 words. Buying pays from it at once, once it has one confirmation; selling is paid into it; it can be sent out at any time, except what running Quick Swaps still need |
+| Quick Swap offers | Tick Quick Swap when you publish. Anyone can then swap any part of the offer, from its smallest part (at least 10,000 sat) up to all of it. It is listed as up to 3 lots so several people can swap at once; after a part, the rest goes back on the board by itself (sell: after the next block, from the change of the lock; buy: once the change of the payment has one confirmation). A buy offer is paid from the Bitcoin balance |
+| Promises | Before a seller's wallet locks GNR for a buyer whose bitcoin waits at a deposit, it shows the board the buyer's signed word. The board adds up what that deposit is promised to across all sellers; a seller locks only if the deposit covers it all. Only an offer's maker (or a buy offer's own deposit) can make a promise, so the board cannot be flooded with them |
+| Time | About 10 to 20 minutes for a small part, mostly the bitcoin confirmation |
+| Older versions | See Quick Swap offers as ordinary offers and can take them whole. No change to the rules of the chain |
+
 ## Market price
 
 The GNR price shown by the wallet and genoryn.io is the board's market price and nothing else:

@@ -21,7 +21,7 @@
     return list.map(function (o) {
       var p = price(o), off = o.online === false, w = Math.max(2, Math.round(o.gnr / big * 100));
       return "<tr class=\"" + (off ? "mk-off" : "") + "\" style=\"--depth:" + w + "%\">" +
-        "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline: it cannot be taken until the maker's wallet is back" : "Maker online: the swap starts within seconds") + "\"></span><div>" + cell(sat(p), usd(p)) + "</div></div></td>" +
+        "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + (off ? "Maker offline: it cannot be taken until the maker's wallet is back" : "Maker online: the swap starts within seconds") + "\"></span><div>" + cell(sat(p) + (o.auto ? "<span class=\"mk-qtag\" title=\"Quick Swap: anyone can swap any part of it, in one click\">Quick</span>" : ""), usd(p)) + "</div></div></td>" +
         "<td class=\"num\">" + cell(gnr(o.gnr) + (o.backed ? "<i class=\"mk-ok\" title=\"The seller's GNR is set aside and proven to the board\">✓</i>" : ""), kind === "pend" ? (o.funded ? "bitcoin paid" : "taken, not paid yet") : "") + "</td>" +
         "<td class=\"num\">" + cell(btc(o.sats) + " BTC" + (o.deposited ? "<i class=\"mk-ok\" title=\"The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself\">✓</i>" : ""), dollars(o.sats)) + "</td>" +
         "<td class=\"num\">" + when(o) + "</td></tr>";
@@ -161,6 +161,86 @@
         (c ? "<p>The secret hashes to the lock, and the same secret unlocked the bitcoin side. The GNR could only have been refunded to the seller from block #" + Number(c.refund_height).toLocaleString("en-US") + "; it was claimed before that.</p>" : "<p>Counted once its claim is on chain.</p>") +
       "</details></article>";
   }
+  // Quick Swap: what the board can swap right now, and what an amount would get. The plan is
+  // the wallet's own (best price first, whole offers where they fit, at most three parts).
+  var qx = { side: "buy", unit: "usd" };
+  var MIN_PART_SATS = 10000, MIN_PART_GNR = 3 * 2560;
+  function quickOffers(buying) {
+    return data.offers.filter(function (o) {
+      return o.auto && o.online !== false && o.side === (buying ? "sell_gnr" : "buy_gnr") && (buying ? o.backed : o.deposited);
+    });
+  }
+  // Bitcoin for g GNR of an offer at its price, rounded for its maker (BigInt: no overflow).
+  function partSats(o, g) {
+    if (g <= 0 || g > o.gnr) return null;
+    if (g === o.gnr) return o.sats;
+    var n = BigInt(Math.round(g)) * BigInt(o.sats), d = BigInt(o.gnr);
+    return Number(o.side === "sell_gnr" ? (n + d - 1n) / d : n / d);
+  }
+  function plan(buying, want, inSats) {
+    var v = quickOffers(buying).slice().sort(function (a, b) {
+      return (buying ? price(a) - price(b) : price(b) - price(a)) || b.gnr - a.gnr;
+    });
+    var left = want, parts = [];
+    for (var i = 0; i < v.length && parts.length < 3 && left > 0; i++) {
+      var o = v[i], g;
+      if (!inSats) g = Math.min(left, o.gnr);
+      else if (left >= o.sats) g = o.gnr;
+      else { g = Math.floor(left * o.gnr / o.sats); while (g > 0 && partSats(o, g) > left) g--; }
+      var s = partSats(o, g);
+      if (s == null) continue;
+      var whole = g === o.gnr;
+      if (!whole && (g < Math.max((o.auto && o.auto.min) || 0, MIN_PART_GNR) || s < MIN_PART_SATS)) continue;
+      left -= inSats ? Math.min(s, left) : g;
+      parts.push({ gnr: g, sats: s });
+    }
+    return parts;
+  }
+  function quick() {
+    if (!$("qxSell")) return;
+    var k = data.quick || null;
+    var s = (k && k.sell) || {}, b = (k && k.buy) || {}, n = (s.offers || 0) + (b.offers || 0);
+    $("qxLiveBox").classList.toggle("off", !n);
+    $("qxLive").textContent = !k ? "Quick Swap starts with wallet 1.0.46" : n ? n + " offer" + (n === 1 ? "" : "s") + " online, updated " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "No Quick Swap offer online right now";
+    tween($("qxSell"), s.offers ? gnr(s.gnr) + " GNR" : "—");
+    $("qxSellN").textContent = s.offers ? "from " + sat(s.best) + (usd(s.best) ? " · " + usd(s.best) : "") + " per GNR · " + s.offers + " offer" + (s.offers === 1 ? "" : "s") : "no sell offer online";
+    tween($("qxBuy"), b.offers ? (dollars(b.sats) || btc(b.sats) + " BTC") : "—");
+    $("qxBuyN").textContent = b.offers ? btc(b.sats) + " BTC · up to " + sat(b.best) + " per GNR · " + b.offers + " offer" + (b.offers === 1 ? "" : "s") : "no buy offer online";
+    tween($("qxRun"), k ? String(Number(k.parts_in_progress || 0)) : "—");
+    qcalc();
+  }
+  // Numbers that change glow once.
+  function tween(el, text) {
+    if (el.textContent === text) return;
+    el.textContent = text;
+    el.classList.remove("qx-bump"); void el.offsetWidth; el.classList.add("qx-bump");
+  }
+  function qcalc() {
+    if (!$("qxAmt")) return;
+    var buy = qx.side === "buy", raw = Number(String($("qxAmt").value).replace(/,/g, ""));
+    var gUnit = qx.unit === "gnr";
+    $("qxInL").textContent = gUnit ? (buy ? "You get" : "You sell") : (buy ? "You pay" : "You receive");
+    $("qxOutL").textContent = gUnit ? (buy ? "You would pay about" : "You would receive about") : (buy ? "You would get about" : "You would sell about");
+    $("qxAmt").placeholder = qx.unit === "usd" ? "100" : qx.unit === "btc" ? "0.001" : "100";
+    if (!(raw > 0)) { $("qxOut").textContent = "—"; $("qxOutN").textContent = "Type an amount to see what the board gives for it now."; return; }
+    var want = gUnit ? Math.round(raw * 1e8) : qx.unit === "btc" ? Math.round(raw * 1e8) : data.btc > 0 ? Math.round(raw / data.btc * 1e8) : 0;
+    if (!want) { $("qxOut").textContent = "—"; $("qxOutN").textContent = "The bitcoin price could not be read; use BTC or GNR."; return; }
+    var p = plan(buy, want, !gUnit);
+    var g = p.reduce(function (a, x) { return a + x.gnr; }, 0), s = p.reduce(function (a, x) { return a + x.sats; }, 0);
+    if (!p.length) { $("qxOut").textContent = "—"; $("qxOutN").textContent = quickOffers(buy).length ? "That is less than the smallest part of the offers online (at least 10,000 sat)." : "No Quick Swap offer is online on this side right now."; return; }
+    $("qxOut").textContent = gUnit ? btc(s) + " BTC" : gnr(g) + " GNR";
+    var short = gUnit ? g < want : s + MIN_PART_SATS < want;
+    $("qxOutN").textContent = sat(s / (g / 1e8)) + " per GNR on average" + (dollars(s) ? " · ≈ " + dollars(s) : "") + " · " + p.length + " part" + (p.length === 1 ? "" : "s") +
+      (short ? " · the board has less than that right now" : "") + ". Plus the bitcoin network fee.";
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("#qxSide button, #qxUnit button") : null;
+    if (!t) return;
+    if (t.dataset.s) { qx.side = t.dataset.s; document.querySelectorAll("#qxSide button").forEach(function (x) { x.classList.toggle("on", x === t); }); }
+    if (t.dataset.u) { qx.unit = t.dataset.u; document.querySelectorAll("#qxUnit button").forEach(function (x) { x.classList.toggle("on", x === t); }); }
+    qcalc();
+  });
+  if ($("qxAmt")) $("qxAmt").addEventListener("input", qcalc);
   function load() {
     Promise.all([
       gk.api("/v1/swap/offers").catch(function () { return { offers: [], now: Date.now() / 1000 }; }),
@@ -169,9 +249,10 @@
       gk.api("/v1/info").catch(function () { return null; })
     ]).then(function (r) {
       data.offers = r[0].offers || []; data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
-      data.market = r[1].market || {}; data.recent = r[1].recent || [];
+      data.market = r[1].market || {}; data.recent = r[1].recent || []; data.quick = r[1].quick || null;
       data.btc = Number(r[2].USD) || 0;
       render();
+      quick();
     });
   }
   document.addEventListener("click", function (e) {
@@ -189,6 +270,6 @@
   });
   load();
   hashrate();
-  setInterval(function () { if (!document.hidden) load(); }, 30000);
+  setInterval(function () { if (!document.hidden) load(); }, 15000);
   setInterval(function () { if (!document.hidden) hashrate(); }, 300000);
 })();

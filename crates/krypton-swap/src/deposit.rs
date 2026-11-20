@@ -33,6 +33,12 @@ const MIN_RELAY_SAT_VB: u64 = 1;
 const FEE_CEILING_SAT: u64 = 3_000;
 /// The most outputs one transaction spends (the largest first).
 pub const MAX_COINS: usize = 50;
+/// The number of the wallet's Bitcoin balance (1.0.46): one address of the wallet's own
+/// that it keeps bitcoin at for Quick Swaps. Buying pays from it, selling is paid to it,
+/// and a Quick Swap buy offer is funded from it. Outside the numbers of offer deposits.
+pub const BALANCE: u32 = 0xB000_0000;
+/// The most payments one transaction from a deposit makes.
+pub const MAX_PAYMENTS: usize = 8;
 
 /// The key of deposit number `n` of a wallet.
 pub fn key(seed: &[u8], n: u32) -> SecretKey {
@@ -74,6 +80,17 @@ pub fn spend(
     rest: &Script,
     rate: FeeRate,
 ) -> Result<Transaction> {
+    spend_many(coins, key, pay.as_slice(), rest, rate)
+}
+
+/// [`spend`] with up to [`MAX_PAYMENTS`] exact payments, in this order, before the rest.
+pub fn spend_many(
+    coins: &[Utxo],
+    key: &SecretKey,
+    pay: &[(&Script, Amount)],
+    rest: &Script,
+    rate: FeeRate,
+) -> Result<Transaction> {
     ensure!(
         !coins.is_empty(),
         "there is no bitcoin at the deposit address"
@@ -82,11 +99,19 @@ pub fn spend(
         coins.len() <= MAX_COINS,
         "too many separate payments at the deposit address"
     );
+    ensure!(pay.len() <= MAX_PAYMENTS, "too many payments at once");
+    ensure!(
+        pay.iter().all(|(s, a)| *a >= s.minimal_non_dust()),
+        "a payment that small cannot be sent"
+    );
     let total = coins
         .iter()
         .try_fold(Amount::ZERO, |a, c| a.checked_add(c.value))
         .context("amount overflow")?;
-    let paid = pay.map(|p| p.1).unwrap_or(Amount::ZERO);
+    let paid = pay
+        .iter()
+        .try_fold(Amount::ZERO, |a, p| a.checked_add(p.1))
+        .context("amount overflow")?;
     ensure!(
         total > paid,
         "the deposit holds {total}, the payment is {paid}: nothing is left for the network fee"
@@ -98,7 +123,7 @@ pub fn spend(
     let want = rate.fee_vb(vsize).context("fee overflow")?.min(ceiling);
     let floor = Amount::from_sat(MIN_RELAY_SAT_VB * vsize);
     let left = total - paid;
-    let fee = if pay.is_some() {
+    let fee = if !pay.is_empty() {
         // Never less than the payment itself: the fee gives way first.
         want.min(left)
     } else {
@@ -110,7 +135,7 @@ pub fn spend(
     if fee < floor {
         bail!(
             "the deposit holds {total}: not enough for {} and a network fee of at least {floor}",
-            if pay.is_some() {
+            if !pay.is_empty() {
                 format!("the payment of {paid}")
             } else {
                 "an output of its own".to_string()
@@ -123,7 +148,7 @@ pub fn spend(
 fn signed(
     coins: &[Utxo],
     key: &SecretKey,
-    pay: Option<(&Script, Amount)>,
+    pay: &[(&Script, Amount)],
     rest: &Script,
     fee: Amount,
 ) -> Result<Transaction> {
@@ -133,15 +158,15 @@ fn signed(
         .iter()
         .try_fold(Amount::ZERO, |a, c| a.checked_add(c.value))
         .context("amount overflow")?;
-    let mut output = Vec::with_capacity(2);
+    let mut output = Vec::with_capacity(pay.len() + 1);
     let mut left = total;
-    if let Some((script, amount)) = pay {
+    for (script, amount) in pay {
         left = left
-            .checked_sub(amount)
+            .checked_sub(*amount)
             .context("the deposit is smaller than the payment")?;
         output.push(TxOut {
-            value: amount,
-            script_pubkey: script.to_owned(),
+            value: *amount,
+            script_pubkey: (*script).to_owned(),
         });
     }
     let left = left
@@ -351,6 +376,50 @@ mod tests {
         let coins = [coin(1, 20_000)];
         let tx = spend(&coins, &k, None, &back, rate(2_000)).unwrap();
         assert_eq!(tx.output[0].value, Amount::from_sat(17_000));
+    }
+
+    #[test]
+    fn several_exact_payments_and_the_rest_in_one_transaction() {
+        let k = key(SEED, BALANCE);
+        let coins = [coin(1, 500_000)];
+        let (a, b, back) = (dest(1), dest(2), dest(8));
+        let tx = spend_many(
+            &coins,
+            &k,
+            &[
+                (&a, Amount::from_sat(120_000)),
+                (&b, Amount::from_sat(80_000)),
+            ],
+            &back,
+            rate(3),
+        )
+        .unwrap();
+        assert!(valid(&tx, &coins, BALANCE));
+        assert_eq!(tx.output[0].script_pubkey, a);
+        assert_eq!(tx.output[0].value, Amount::from_sat(120_000));
+        assert_eq!(tx.output[1].script_pubkey, b);
+        assert_eq!(tx.output[1].value, Amount::from_sat(80_000));
+        assert_eq!(tx.output[2].script_pubkey, back);
+        let fee = 500_000 - 200_000 - tx.output[2].value.to_sat();
+        assert!(fee >= 3 * tx.vsize() as u64 && fee < 3_000);
+        // Never more than there is, never dust, never too many at once.
+        assert!(
+            spend_many(
+                &coins,
+                &k,
+                &[(&a, Amount::from_sat(500_000))],
+                &back,
+                rate(1)
+            )
+            .is_err()
+        );
+        assert!(spend_many(&coins, &k, &[(&a, Amount::from_sat(100))], &back, rate(1)).is_err());
+        let many: Vec<(&Script, Amount)> = (0..=MAX_PAYMENTS)
+            .map(|_| (a.as_script(), Amount::from_sat(10_000)))
+            .collect();
+        assert!(spend_many(&coins, &k, &many, &back, rate(1)).is_err());
+        // The balance has its own key, apart from every offer's deposit.
+        assert!((0..1000).all(|n| key(SEED, n) != k));
     }
 
     #[test]
