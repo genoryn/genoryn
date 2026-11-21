@@ -8,12 +8,23 @@
   }
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
-  // Menus are longer in some languages: when they do not fit in one row, the header uses the
-  // drawer, as on smaller screens.
-  var navRow = nav.querySelector(".wrap");
+  // Menus are longer in some languages. When the row does not fit, it first tightens step by
+  // step (fit1..fit4 in site.css); only if it still does not fit does the header use the
+  // drawer, as on smaller screens. The row is measured by its visible items: the closed
+  // dropdown panels are laid out too and would count in scrollWidth.
+  var navRow = nav.querySelector(".wrap"), navLinks = nav.querySelector(".nav-links"), navCta = nav.querySelector(".nav-cta");
+  var FITS = ["fit1", "fit2", "fit3", "fit4"];
+  function navOver() {
+    if (!navRow || !navLinks || !navCta || getComputedStyle(navLinks).display === "none") return false;
+    var row = navRow.getBoundingClientRect(), pad = parseFloat(getComputedStyle(navRow).paddingRight) || 0;
+    var last = navLinks.lastElementChild.getBoundingClientRect().right, cta = navCta.getBoundingClientRect();
+    return last > cta.left - 6 || cta.right > row.right - pad + 1;
+  }
   function fitNav() {
     nav.classList.remove("nav-compact");
-    if (navRow && navRow.scrollWidth > navRow.clientWidth + 1) nav.classList.add("nav-compact");
+    FITS.forEach(function (c) { nav.classList.remove(c); });
+    for (var i = 0; i < FITS.length && navOver(); i++) nav.classList.add(FITS[i]);
+    if (navOver()) nav.classList.add("nav-compact");
   }
   fitNav();
   window.addEventListener("resize", fitNav);

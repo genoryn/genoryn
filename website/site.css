@@ -874,7 +874,19 @@ footer { padding: 80px 0 72px; font-size: 15px; }
 .i18n-note { margin-top: 10px; color: var(--text-tertiary); font-size: 13px; }
 @media (max-width: 1400px) { .nav-dd-btn { padding: 10px 9px; font-size: 14px; } .nav-dd-btn .caret { margin-left: 3px; } }
 @media (max-width: 1240px) { .nav-links, .nav-cta .hide-sm { display: none; } .menu-btn { display: inline-flex; } }
-/* The same when the menu does not fit in one row (longer words in some languages; site.js). */
+/* A row that does not fit tightens step by step (site.js adds fit1, then fit2...). */
+.nav.fit1 .nav-links > a > .ni, .nav.fit1 .nav-dd-btn > .ni { display: none; }
+.nav.fit2 .nav-links { margin-left: 0; gap: 0; }
+.nav.fit2 .nav-links a, .nav.fit2 .nav-dd-btn { padding: 10px 8px; font-size: 14px; }
+.nav.fit2 .nav-dd-btn .caret { margin-left: 2px; width: 13px; height: 13px; }
+.nav.fit2 .wrap { gap: 12px; }
+.nav.fit3 .logo-k, .nav.fit3 .nav-soon { display: none; }
+.nav.fit3 .nav-links a.nav-talks { margin: 0 2px; }
+.nav.fit4 .nav-links a, .nav.fit4 .nav-dd-btn { padding: 10px 6px; font-size: 13.5px; }
+.nav.fit4 .nav-cta { gap: 6px; }
+.nav.fit4 .nav-cta .btn-primary .ni { display: none; }
+.nav.fit4 .nav-lang .nav-lang-btn { padding: 0 8px; }
+/* The drawer when even the tightest row does not fit (longer words in some languages). */
 .nav.nav-compact .nav-links, .nav.nav-compact .nav-cta .hide-sm { display: none; }
 .nav.nav-compact .menu-btn { display: inline-flex; }
 .nav.nav-compact .nav-talks-sm { display: inline-flex; align-items: center; }
