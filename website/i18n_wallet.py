@@ -27,6 +27,8 @@ RUST = (sorted((WALLET / "src").rglob("*.rs")) + sorted((ROOT / "crates" / "kryp
 # Where a Rust string reaches the screen: messages, statuses and errors.
 RUST_SITES = re.compile(r'(?:\bsay\(|\bbail!\(|\banyhow!\(|\bensure!\([^;]*?,|\.context\(|\.with_context\(\|\|\s*|\b(?:status|note|last|message|error|why|text)\s*[:=]\s*(?:format!\()?|\bErr\()\s*(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"', re.S)
 RUST_PH = re.compile(r"\{\{|\}\}|\{[^{}]*\}")
+# Messages chosen in a branch: `why = if .. { "..".into() } else ..` and `match side { A => "..", }`.
+RUST_MORE = re.compile(r'"((?:[^"\\]|\\.){12,})"\s*\.into\(\)|=>\s*"((?:[^"\\]|\\.){12,})"')
 
 
 def rust_template(lit):
@@ -50,10 +52,12 @@ def rust_strings():
             continue
         text = f.read_text(encoding="utf-8")
         text = re.sub(r"#\[cfg\(test\)\]\s*mod tests\s*\{.*", "", text, flags=re.S)
-        for m in RUST_SITES.finditer(text):
-            t = rust_template(m.group(1)).strip()
+        found = [(m.group(1), 2) for m in RUST_SITES.finditer(text)]
+        found += [(m.group(1) or m.group(2), 4) for m in RUST_MORE.finditer(text)]
+        for lit, least in found:
+            t = rust_template(lit).strip()
             words = re.findall(r"[A-Za-z]{2,}", t)
-            if len(words) < 2 or len(t) > 600 or re.search(r"::|https?:|/v1/|\.rs\b|^\{\d\}$|[=<>]{2}|_[a-z]+_", t):
+            if len(words) < least or len(t) > 600 or re.search(r"::|https?:|/v1/|\.rs\b|^\{\d\}$|[=<>]{2}|_[a-z]+_|charset=", t):
                 continue
             out.setdefault(i18n.key(t), t)
     return out

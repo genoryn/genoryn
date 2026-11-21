@@ -163,6 +163,8 @@
  "068deca46a": "{n} h",
  "913185ba21": "{n} min",
  "91647badc3": "1 año",
+ "d4056c9c4e": "A más del 25 % del precio de mercado: Quick Swap nunca la toma y no cuenta como lista para intercambiar",
+ "b0c6a6075a": "lejos del mercado",
  "7365075e93": "Creador desconectado: no se puede aceptar hasta que vuelva la billetera del creador",
  "bc79e086c0": "Creador en línea: el intercambio empieza en segundos",
  "09247d9fe7": "Quick Swap: cualquiera puede intercambiar cualquier parte, con un clic",
@@ -175,6 +177,8 @@
  "98ca0d5189": "aún ninguno",
  "27f8f698aa": "Aún no hay ofertas de venta. Publica una en la pestaña Intercambio de la billetera.",
  "d98b16d898": "Aún no hay ofertas de compra. Publica una en la pestaña Intercambio de la billetera.",
+ "f5fd5ffef3": "en formación",
+ "65bcf3ec42": "alcanzando los últimos intercambios",
  "b1f1da8f12": "después del primer intercambio completado",
  "fb4876cca4": "{n} en curso",
  "4a3b16f102": "{n} pagados y en curso",
@@ -188,6 +192,8 @@
  "e6ef42054e": "no hay ofertas de venta",
  "33170bcd78": "no hay ofertas de compra",
  "6990fba430": "ninguno ahora mismo",
+ "ae6b502de1": "{amount} BTC depositados",
+ "180ca561ce": "Cerca del precio de mercado (ofertas en línea: GNR a la venta · bitcoin ofrecido)",
  "bb3fea050e": "GNR negociados en cada intercambio",
  "0e9f7d5376": "Bitcoin pagado en cada intercambio",
  "fa78ffc590": "último {price}",
@@ -212,6 +218,8 @@
  "7b9af1e1b1": "El hash del secreto coincide con el bloqueo, y el mismo secreto desbloqueó el lado de bitcoin. Los GNR solo podrían haberse reembolsado al vendedor a partir del bloque #{h}; se reclamaron antes.",
  "0a8d1125b3": "Se cuenta en cuanto su reclamación está en la cadena.",
  "9f3ed84e96": "Quick Swap empieza con la billetera 1.0.46",
+ "6841d7d3a3": "En pausa: el precio está alcanzando los últimos intercambios",
+ "01e95f9100": "Nada cerca del precio de mercado ahora mismo",
  "1b9916931f": "No hay ninguna oferta Quick Swap en línea ahora mismo",
  "999e3abca4": "desde {price} por GNR",
  "b14f947697": "ninguna oferta de venta en línea",
@@ -228,10 +236,12 @@
  "a53d80f163": "Escribe una cantidad para ver lo que el tablón da por ella ahora.",
  "92fc06fca5": "No se pudo leer el precio de bitcoin; usa BTC o GNR.",
  "43a5384b95": "Eso es menos que la parte más pequeña de las ofertas en línea (al menos 10,000 sat).",
+ "f1b1f8b0c4": "Todas las ofertas Quick Swap en línea están más lejos del precio de mercado de lo que Quick Swap acepta ({pct} %). Aún se pueden tomar a mano en el tablón de ofertas.",
  "bcc86c5158": "No hay ninguna oferta Quick Swap en línea en este lado ahora mismo.",
  "d7104f9725": "{price} por GNR de promedio",
  "8cbcb23d9f": "el tablón tiene menos que eso ahora mismo",
  "a17cce4a43": "Más la comisión de la red de bitcoin.",
+ "a50bbae6e1": "Ninguna parte está a más del {pct} % del precio de mercado.",
  "8d525e5f15": "Copiado",
  "18c80a2d0a": {
   "one": "{n} día",
@@ -247,6 +257,11 @@
   "one": "{n} oferta",
   "many": "{n} ofertas",
   "other": "{n} ofertas"
+ },
+ "4de697cf7f": {
+  "one": "mediana de {n} intercambio verificado",
+  "many": "mediana de {n} intercambios verificados",
+  "other": "mediana de {n} intercambios verificados"
  },
  "4221acbc41": {
   "one": "promedio de {n} intercambio",
@@ -267,6 +282,11 @@
   "one": "{n} oferta de compra",
   "many": "{n} ofertas de compra",
   "other": "{n} ofertas de compra"
+ },
+ "9f108be4d8": {
+  "one": "{n} lejos del mercado, descartada",
+  "many": "{n} lejos del mercado, descartadas",
+  "other": "{n} lejos del mercado, descartadas"
  },
  "3ec3996136": {
   "one": "{n} oferta en línea, actualizado {time}",

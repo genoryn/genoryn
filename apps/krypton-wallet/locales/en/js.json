@@ -356,6 +356,11 @@
  "6990fba430": "none right now",
  "6e346bf5ac": "{n} taken, not paid yet",
  "7fa43eaab4": "no swaps yet",
+ "ae6b502de1": "{amount} BTC deposited",
+ "180ca561ce": "Near the market price (online offers: GNR for sale · bitcoin bid)",
+ "d4056c9c4e": "More than 25 % from the market price: Quick Swap never takes it, and it is not counted as ready to swap",
+ "b0c6a6075a": "far from market",
+ "09247d9fe7": "Quick Swap: anyone can swap any part of it, in one click",
  "7c41b09542": "The bitcoin is in its contract: the swap is running",
  "90210503cb": "bitcoin paid",
  "1f293b48f4": "The offer was taken and the GNR is locked, but no bitcoin has been paid yet",
@@ -417,6 +422,10 @@
  "ca15ebc05a": "For",
  "e187023220": "Never sell below (per GNR)",
  "b3aeccc856": "Never pay more than (per GNR)",
+ "51ce9a8a96": "Above the market price by (negative: below)",
+ "36a3fadb68": "Below the market price by (negative: above)",
+ "52ce8c2c92": "Take it down if the market price falls to (optional)",
+ "c32c41ceb4": "Take it down if the market price rises to (optional)",
  "1e65be33e0": "For {btc} BTC you get about {gnr} GNR at the price now, and never less than {min} GNR (at your limit).",
  "9c662b40eb": "For {btc} BTC you get about {gnr} GNR at the price now.",
  "94bdb93d49": "The bitcoin is what you pay; the GNR moves with the market.",
@@ -425,6 +434,12 @@
  "c616f91ec6": "The offer starts at the market price, {price}.",
  "3d5cdfb03f": "When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never below your limit.",
  "14f90e4c1a": "When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never above your limit.",
+ "f63a95ea6e": "The offer stands {pct} % above the market price.",
+ "5283163b6a": "The offer stands {pct} % below the market price.",
+ "b43ab3ec6a": "If the market price falls to {price}, the wallet takes the offer off the board by itself.",
+ "3d0ee0b1a8": "If the market price rises to {price}, the wallet takes the offer off the board by itself.",
+ "f4ca6e0e5f": "That trigger price is not below the market price: the offer would come down at once.",
+ "cb9276639b": "That trigger price is not above the market price: the offer would come down at once.",
  "ef71b395a9": "Listed as up to three lots, so several people can buy at once. Each lot sets its GNR aside and proves it, like any sell offer; it is sold only to buyers whose bitcoin is already there. After a part is sold, the rest is listed again by itself after the next block. Leave the smallest part empty for the least that 10,000 sat buy.",
  "4c5b44bf81": "Paid from your Bitcoin balance ({btc} BTC free and confirmed), in up to three lots so several people can sell to you at once. A seller's GNR is always locked for you before your wallet pays. After a part, the rest is listed again once its change has one confirmation.",
  "18b21fdad5": "Say the lowest price the offer may go to",
@@ -551,6 +566,7 @@
  "11a2b46fb0": "Buy GNR",
  "3f20ff0e42": "Sell GNR",
  "cb1a3925b8": "Type an amount: the wallet finds the best prices on the board, across up to three offers.",
+ "b5ef2cc9b7": "Price guard: no part more than {pct} % from the market price.",
  "a10c98d164": "{pct}% vs market",
  "4504b0fd8b": "about {n}",
  "0e800e235d": "Price per GNR",
@@ -558,6 +574,7 @@
  "7894bf6106": "One atomic swap with one offer",
  "eb46e4954e": "Part {n}: {amount} GNR at {price}",
  "6c27578942": "The board has less than that at this moment: this swaps {amount}. Swap again later for the rest.",
+ "f63042989f": "This is more than half of what Quick Swap can swap near the market price right now, so its last parts cost more. A smaller amount gets a price closer to the market.",
  "c9e4af4b18": "Nothing to swap with right now.",
  "9c0e74e6c0": "Buy now",
  "26fc32b063": "Sell now",
@@ -576,6 +593,7 @@
  "9288122cdf": "Nothing for sale right now",
  "daa04c3b3f": "{amount} BTC ready to pay",
  "5ce93dc65a": "No buyer right now",
+ "01e95f9100": "Nothing near the market price right now",
  "1b9916931f": "No Quick Swap offer online right now",
  "7936f4b76d": "from {price}",
  "c5864ebdbd": "none online",
@@ -870,6 +888,10 @@
   "one": "Sent to {address} in {n} transaction:",
   "other": "Sent to {address} in {n} transactions:"
  },
+ "66a305593e": {
+  "one": "{n} offer ({amount} GNR) further away is left out.",
+  "other": "{n} offers ({amount} GNR) further away are left out."
+ },
  "e9b666e84e": {
   "one": "{price} per GNR on average{usd}, in {n} part.",
   "other": "{price} per GNR on average{usd}, in {n} parts."
@@ -877,6 +899,10 @@
  "7a44caeb3c": {
   "one": "Quick Swap started: {n} part. Follow it below.",
   "other": "Quick Swap started: {n} parts. Follow it below."
+ },
+ "9f108be4d8": {
+  "one": "{n} far from the market, left out",
+  "other": "{n} far from the market, left out"
  },
  "76a32604e3": {
   "one": "{n} coin on chain",

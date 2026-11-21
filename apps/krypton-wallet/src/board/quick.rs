@@ -17,6 +17,118 @@ pub(super) struct Listed {
     raw: Value,
     offer: Offer,
     auto: board::Auto,
+    /// Its price is beyond the price guard: Quick Swap never takes it.
+    far: bool,
+}
+
+/// The Quick Swap price guard (1.0.48): a part is never more than this much worse for the
+/// taker than the market price (dearer when buying GNR, cheaper when selling it), when the
+/// price rests on enough verified swaps. Anyone can post an offer at any price; one click
+/// must not buy at a price far from what GNR trades at.
+pub const QUICK_GUARD: f64 = 0.20;
+/// The guard while the price is still forming or the market is thin.
+pub const QUICK_GUARD_THIN: f64 = 0.10;
+
+/// The guard for the board's market `m` (`/v1/swap/market` → `market`).
+pub(super) fn guard_band(m: &Value) -> f64 {
+    if m["status"] == "verified" && m["depth"] != "thin" {
+        QUICK_GUARD
+    } else {
+        QUICK_GUARD_THIN
+    }
+}
+
+/// Whether the board says the swaps are running away from the published price: Quick Swap
+/// waits until the price has caught up (the offer board works as usual meanwhile).
+pub(super) fn paused(m: &Value) -> bool {
+    m["volatile"].as_bool().unwrap_or(false)
+}
+
+/// The worst price (sat per GNR) Quick Swap takes from offers of `side`: the market price,
+/// or without one the best of `prices` (that side's offers), `band` worse for the taker.
+/// `None` when there is nothing to measure against.
+pub(super) fn guard_limit(
+    side: Side,
+    market: Option<f64>,
+    prices: &[f64],
+    band: f64,
+) -> Option<f64> {
+    let ok = prices.iter().copied().filter(|p| p.is_finite() && *p > 0.0);
+    let best = match side {
+        Side::SellGnr => ok.min_by(f64::total_cmp),
+        Side::BuyGnr => ok.max_by(f64::total_cmp),
+    };
+    let reference = market.filter(|m| m.is_finite() && *m > 0.0).or(best)?;
+    Some(match side {
+        Side::SellGnr => reference * (1.0 + band),
+        Side::BuyGnr => reference * (1.0 - band),
+    })
+}
+
+/// Whether an offer of `side` at `price` is within the guard `limit`.
+pub(super) fn near(side: Side, price: f64, limit: Option<f64>) -> bool {
+    limit.is_none_or(|l| match side {
+        Side::SellGnr => price <= l * (1.0 + 1e-9),
+        Side::BuyGnr => price >= l * (1.0 - 1e-9),
+    })
+}
+
+/// Marks the offers of `book` beyond the price guard of their side.
+fn mark_far(book: &mut [Listed], market: Option<f64>, band: f64) {
+    for side in [Side::SellGnr, Side::BuyGnr] {
+        let prices: Vec<f64> = book
+            .iter()
+            .filter(|l| l.offer.side == side)
+            .map(|l| l.offer.price())
+            .collect();
+        let limit = guard_limit(side, market, &prices, band);
+        for l in book.iter_mut().filter(|l| l.offer.side == side) {
+            l.far = !near(side, l.offer.price(), limit);
+        }
+    }
+}
+
+/// The board's Quick Swap summary (`/v1/swap/market` → `quick`) with the price guard
+/// applied: each side counts only the offers Quick Swap takes, and says how many it leaves
+/// out. `offers` is the board's listing (`/v1/swap/offers` → `offers`).
+pub(super) fn guard_summary(quick: &mut Value, offers: &[Value], market: Option<f64>, band: f64) {
+    /// An offer as the summary counts it: GNR, sat, price.
+    type Live = (u64, u64, f64);
+    for (key, side) in [("sell", Side::SellGnr), ("buy", Side::BuyGnr)] {
+        let live: Vec<Live> = offers
+            .iter()
+            .filter(|o| o["auto"].is_object() && o["online"].as_bool().unwrap_or(false))
+            .filter(|o| serde_json::from_value::<Side>(o["side"].clone()).ok() == Some(side))
+            .filter(|o| match side {
+                Side::SellGnr => o["backed"].as_bool().unwrap_or(false),
+                Side::BuyGnr => o["deposited"].as_bool().unwrap_or(false),
+            })
+            .filter_map(|o| {
+                let (g, s) = (o["gnr"].as_u64()?, o["sats"].as_u64()?);
+                (g > 0).then(|| (g, s, price_of(g, s)))
+            })
+            .collect();
+        let prices: Vec<f64> = live.iter().map(|x| x.2).collect();
+        let limit = guard_limit(side, market, &prices, band);
+        let (ok, far): (Vec<Live>, Vec<Live>) =
+            live.into_iter().partition(|x| near(side, x.2, limit));
+        let best = match side {
+            Side::SellGnr => ok.iter().map(|x| x.2).min_by(f64::total_cmp),
+            Side::BuyGnr => ok.iter().map(|x| x.2).max_by(f64::total_cmp),
+        };
+        let s = &mut quick[key];
+        if !s.is_object() {
+            *s = json!({});
+        }
+        s["offers"] = json!(ok.len());
+        s["gnr"] = json!(ok.iter().map(|x| x.0).sum::<u64>());
+        s["sats"] = json!(ok.iter().map(|x| x.1).sum::<u64>());
+        s["best"] = json!(best);
+        s["far_offers"] = json!(far.len());
+        s["far_gnr"] = json!(far.iter().map(|x| x.0).sum::<u64>());
+        s["guard"] = json!(limit);
+    }
+    quick["guard_pct"] = json!((band * 100.0).round());
 }
 
 /// The Quick Swap offers that can be swapped with right now: their makers are online,
@@ -38,7 +150,7 @@ fn plan_in(
 ) -> Vec<board::Part> {
     let v: Vec<(Offer, board::Auto)> = book
         .iter()
-        .filter(|l| !skip.contains(&l.offer.id))
+        .filter(|l| !l.far && !skip.contains(&l.offer.id))
         .map(|l| (l.offer.clone(), l.auto.clone()))
         .collect();
     board::plan(&v, buying, want, max)
@@ -516,6 +628,7 @@ pub(super) fn list_rests(e: &mut Engine<'_, Multi>, st: &mut State, swaps: &[eng
             rest_deposit: None,
             rest_done: false,
             promise: None,
+            stopped: None,
         };
         if r.viable {
             if let (Some(cm), Some(res)) = (r.hold, r.reserve.take()) {
@@ -651,22 +764,40 @@ fn quote_json(
                 Some(a) => a.min(x),
             })
         });
-    let side = book
-        .iter()
-        .filter(|l| (l.offer.side == Side::SellGnr) == buying);
-    let (av_gnr, av_sats, av_n) = side.fold((0u64, 0u64, 0usize), |(g, s, n), l| {
-        (g + l.offer.gnr, s + l.offer.sats, n + 1)
-    });
+    let side = || {
+        book.iter()
+            .filter(|l| (l.offer.side == Side::SellGnr) == buying)
+    };
+    let (av_gnr, av_sats, av_n) = side()
+        .filter(|l| !l.far)
+        .fold((0u64, 0u64, 0usize), |(g, s, n), l| {
+            (g + l.offer.gnr, s + l.offer.sats, n + 1)
+        });
+    let (far_gnr, far_n) = side()
+        .filter(|l| l.far)
+        .fold((0u64, 0usize), |(g, n), l| (g + l.offer.gnr, n + 1));
+    let kind = if buying { Side::SellGnr } else { Side::BuyGnr };
+    let prices: Vec<f64> = side().map(|l| l.offer.price()).collect();
     let fee = btc_fee(e);
     let fees = fee * plan.len() as u64;
-    let market = market_price(&cached_market()["market"]);
+    let m = cached_market()["market"].clone();
+    let market = market_price(&m);
+    let band = guard_band(&m);
+    let guard = guard_limit(kind, market, &prices, band);
     let price = price_of(gnr, sats);
     let timing = &e.timing;
     let biggest = plan.iter().map(|p| p.sats).max().unwrap_or(0);
     let minutes = timing.gnr_confs_for(biggest) + 10 * timing.btc_confs_for(biggest) as u64 + 3;
     let (mut can, mut why) = (!plan.is_empty(), String::new());
-    if plan.is_empty() {
-        why = if av_n == 0 {
+    if paused(&m) {
+        can = false;
+        why = "Swaps are trading far from the market price right now, and the price is catching up. Quick Swap waits until it has; the offer board works as usual.".into();
+    } else if plan.is_empty() {
+        why = if av_n == 0 && far_n > 0 && buying {
+            "Every Quick Swap offer online asks more above the market price than Quick Swap accepts, so none is bought in one click. Take an offer on the board if you accept its price.".into()
+        } else if av_n == 0 && far_n > 0 {
+            "Every Quick Swap offer online pays more below the market price than Quick Swap accepts, so none is sold in one click. Take an offer on the board if you accept its price.".into()
+        } else if av_n == 0 {
             "No Quick Swap offer is online on this side right now.".into()
         } else {
             "The amount is smaller than the smallest part the offers take (at least 10,000 sat)."
@@ -724,6 +855,11 @@ fn quote_json(
         "vs_market": market.filter(|m| *m > 0.0 && price > 0.0).map(|m| (price / m - 1.0) * 100.0),
         "short": short,
         "available": {"offers": av_n, "gnr": av_gnr, "sats": av_sats, "gnr_text": format_amount(av_gnr), "btc_text": btc_text(av_sats)},
+        "far": {"offers": far_n, "gnr": far_gnr, "gnr_text": format_amount(far_gnr)},
+        "guard": {"pct": (band * 100.0).round(), "limit": guard},
+        "paused": paused(&m),
+        // More than half of what is there near the market price: the last parts cost more.
+        "big": gnr > 0 && gnr * 2 > av_gnr,
         "fee": fees, "fee_text": btc_text(fees),
         "minutes": minutes,
         "can": can, "why": why,
@@ -772,7 +908,7 @@ fn book_from(e: &Engine<'_, Multi>, v: &Value, st: &State) -> Vec<Listed> {
     let t = now();
     let net = e.wallet.network().as_str().to_string();
     let btc = e.btc_network.to_core_arg().to_string();
-    v["offers"]
+    let mut book: Vec<Listed> = v["offers"]
         .as_array()
         .into_iter()
         .flatten()
@@ -795,9 +931,13 @@ fn book_from(e: &Engine<'_, Multi>, v: &Value, st: &State) -> Vec<Listed> {
                 raw: raw.clone(),
                 offer,
                 auto,
+                far: false,
             })
         })
-        .collect()
+        .collect();
+    let m = &cached_market()["market"];
+    mark_far(&mut book, market_price(m), guard_band(m));
+    book
 }
 
 #[derive(Deserialize)]
@@ -823,6 +963,10 @@ pub async fn start(
         crate::confirm_password(&a, &r.password)?;
         let (buying, want) = want_from(&r.q)?;
         ensure!(r.limit.is_finite() && r.limit > 0.0, "no price to swap at");
+        ensure!(
+            !paused(&cached_market()["market"]),
+            "Swaps are trading far from the market price right now, and the price is catching up. Quick Swap waits until it has; the offer board works as usual."
+        );
         with_engine(&a, true, |e, base| {
             let st = load(e.wallet);
             let b = book(e, base, &st)?;
@@ -1031,5 +1175,94 @@ pub async fn btc_send(
     {
         Ok(v) => Json(v).into_response(),
         Err(e) => err(e),
+    }
+}
+
+#[cfg(test)]
+mod guard_tests {
+    use super::*;
+
+    #[test]
+    fn the_guard_is_a_band_around_the_market_worse_for_the_taker() {
+        assert_eq!(
+            guard_limit(Side::SellGnr, Some(100.0), &[500.0], 0.2),
+            Some(120.0)
+        );
+        assert_eq!(
+            guard_limit(Side::BuyGnr, Some(100.0), &[10.0], 0.2),
+            Some(80.0)
+        );
+        // Without a market price: the best offer of the side.
+        assert_eq!(
+            guard_limit(Side::SellGnr, None, &[150.0, 140.0, 9e9], 0.1),
+            Some(154.0)
+        );
+        assert_eq!(
+            guard_limit(Side::BuyGnr, None, &[90.0, 100.0, 1.0], 0.1),
+            Some(90.0)
+        );
+        assert_eq!(guard_limit(Side::SellGnr, None, &[], 0.2), None);
+        assert_eq!(guard_limit(Side::SellGnr, Some(f64::NAN), &[], 0.2), None);
+        assert!(
+            near(Side::SellGnr, 120.0, Some(120.0)) && !near(Side::SellGnr, 120.1, Some(120.0))
+        );
+        assert!(near(Side::BuyGnr, 80.0, Some(80.0)) && !near(Side::BuyGnr, 79.9, Some(80.0)));
+        assert!(near(Side::SellGnr, 1e12, None));
+        // 20 % once the price rests on enough verified swaps; 10 % while it forms or is thin.
+        assert_eq!(
+            guard_band(&json!({"status": "verified", "depth": "deep"})),
+            0.2
+        );
+        assert_eq!(
+            guard_band(&json!({"status": "verified", "depth": "moderate"})),
+            0.2
+        );
+        assert_eq!(
+            guard_band(&json!({"status": "verified", "depth": "thin"})),
+            0.1
+        );
+        assert_eq!(
+            guard_band(&json!({"status": "forming", "depth": "deep"})),
+            0.1
+        );
+        assert_eq!(guard_band(&json!({})), 0.1, "a board before 1.0.48");
+        assert!(paused(&json!({"volatile": true})) && !paused(&json!({})));
+    }
+
+    fn offer(side: &str, gnr: f64, btc: f64, quick: bool, online: bool) -> Value {
+        json!({
+            "side": side, "gnr": (gnr * 1e8).round() as u64, "sats": (btc * 1e8).round() as u64,
+            "auto": if quick { json!({"min": 100_000}) } else { Value::Null },
+            "online": online, "backed": side == "sell_gnr", "deposited": side == "buy_gnr",
+        })
+    }
+
+    /// The board of 21 November 2026: 201 GNR of Quick Swap sell offers, of which 100 GNR
+    /// at the market price and the rest at 400 and 68,000 times it.
+    #[test]
+    fn far_offers_are_not_counted_as_ready() {
+        let mut offers = vec![
+            offer("sell_gnr", 100.0, 0.00014681, true, true),
+            offer("sell_gnr", 100.0, 0.000137, false, true),
+            offer("sell_gnr", 50.0, 0.0095, true, false),
+        ];
+        for _ in 0..3 {
+            offers.push(offer("sell_gnr", 33.333_333_33, 0.02, true, true));
+            offers.push(offer("sell_gnr", 0.333_333_33, 0.033_333_34, true, true));
+        }
+        let mut q = json!({"sell": {"offers": 7, "gnr": 20_100_000_000u64}, "buy": {"offers": 0}});
+        guard_summary(&mut q, &offers, Some(146.81), 0.1);
+        assert_eq!(q["sell"]["offers"], 1);
+        assert_eq!(q["sell"]["gnr"], 10_000_000_000u64);
+        assert_eq!(q["sell"]["far_offers"], 6);
+        assert_eq!(q["sell"]["best"].as_f64().map(|p| p.round()), Some(147.0));
+        assert_eq!(q["buy"]["offers"], 0);
+        assert_eq!(q["guard_pct"], 10.0);
+        // Without a market price the best Quick Swap offer is the measure: the same result.
+        guard_summary(&mut q, &offers, None, 0.2);
+        assert_eq!(
+            (q["sell"]["offers"].clone(), q["sell"]["far_offers"].clone()),
+            (json!(1), json!(6))
+        );
     }
 }

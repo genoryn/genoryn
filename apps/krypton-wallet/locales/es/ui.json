@@ -128,6 +128,8 @@
  "4dccac6210": "Usar el precio de mercado",
  "98b7663e33": "Seguir el precio de mercado: el precio de la oferta se mueve con el mercado por sí solo",
  "e187023220": "Nunca vender por debajo de (por GNR)",
+ "51ce9a8a96": "Por encima del precio de mercado en (negativo: por debajo)",
+ "52ce8c2c92": "Retirarla si el precio de mercado baja a (opcional)",
  "849affa4de": "Fija el precio que quieras: tu oferta puede establecer el primer precio de mercado.",
  "3633fb7c20": "Tu dirección de Bitcoin para recibir el bitcoin",
  "44717647db": "<0>Quick Swap</0>: intercámbialo por partes con cualquiera, de forma automática. Otros compran (o venden) exactamente la cantidad que quieren con un clic.",

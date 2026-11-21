@@ -128,6 +128,8 @@
  "4dccac6210": "Marktpreis verwenden",
  "98b7663e33": "Dem Marktpreis folgen: Der Preis des Angebots bewegt sich selbstständig mit dem Markt",
  "e187023220": "Nie verkaufen unter (pro GNR)",
+ "51ce9a8a96": "Über dem Marktpreis um (negativ: darunter)",
+ "52ce8c2c92": "Herunternehmen, wenn der Marktpreis fällt auf (optional)",
  "849affa4de": "Leg einen beliebigen Preis fest: Dein Angebot kann den ersten Marktpreis setzen.",
  "3633fb7c20": "Deine Bitcoin-Adresse zum Empfangen der Bitcoin",
  "44717647db": "<0>Quick Swap</0>: in Teilen mit jedem tauschen, selbstständig. Andere kaufen (oder verkaufen) mit einem Klick genau den Betrag, den sie wollen.",

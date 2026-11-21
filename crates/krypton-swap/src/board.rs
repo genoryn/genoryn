@@ -872,6 +872,17 @@ pub struct Market {
     pub best_ask: Option<f64>,
     pub best_bid: Option<f64>,
     pub offers: usize,
+    /// `verified`: the price is the published one of [`reference`] (enough verified swaps
+    /// of at least [`MIN_PRICE_SATS`]); `forming`: not yet, the price is as before 1.0.48.
+    #[serde(default)]
+    pub status: String,
+    /// What the swaps of the last 72 hours say right now; the price moves toward it by at
+    /// most [`MAX_MOVE_PER_HOUR`].
+    #[serde(default)]
+    pub target: Option<f64>,
+    /// The swaps are more than [`VOLATILE_GAP`] away from the price: it is catching up.
+    #[serde(default)]
+    pub volatile: bool,
 }
 
 /// Volume-weighted median of (price, weight): robust against a few odd entries. With
@@ -1030,18 +1041,27 @@ pub fn priced_swaps<'a>(
         .filter(|(_, w)| *w > 0.0)
         .collect();
     let by_volume = proven.len() >= MIN_VERIFIED;
-    let mut v: Vec<(&Trade, f64)> = if by_volume {
-        proven
-    } else {
-        all.into_iter().map(|t| (t, 1.0)).collect()
-    };
+    if by_volume {
+        return (by_bitcoin(proven), true);
+    }
+    let mut v: Vec<(&Trade, f64)> = all.into_iter().map(|t| (t, 1.0)).collect();
+    if v.len() >= 3
+        && let Some(m) = weighted_median_f(v.iter().map(|(t, w)| (t.price(), *w)).collect())
+    {
+        v.retain(|(t, _)| t.price() <= m * OUTLIER_FACTOR && t.price() >= m / OUTLIER_FACTOR);
+    }
+    (v, false)
+}
+
+/// Verified swaps weighted by their bitcoin, as the price uses them: no share above
+/// [`MAX_SHARE`], swaps more than [`OUTLIER_FACTOR`] from the median left out (once there
+/// are three), and none weighing more than its GNR is worth at that median.
+fn by_bitcoin(mut v: Vec<(&Trade, f64)>) -> Vec<(&Trade, f64)> {
     // The going price is taken with the shares already capped: one huge swap at an odd
     // price cannot make itself the yardstick and the others the outliers.
     let capped = |v: &[(&Trade, f64)]| -> Vec<f64> {
         let mut w: Vec<f64> = v.iter().map(|x| x.1).collect();
-        if by_volume {
-            cap_shares(&mut w);
-        }
+        cap_shares(&mut w);
         w
     };
     if v.len() >= 3
@@ -1053,17 +1073,113 @@ pub fn priced_swaps<'a>(
         )
     {
         v.retain(|(t, _)| t.price() <= m * OUTLIER_FACTOR && t.price() >= m / OUTLIER_FACTOR);
-        if by_volume {
-            for (t, w) in v.iter_mut() {
-                *w = w.min(t.gnr as f64 / 1e8 * m);
-            }
+        for (t, w) in v.iter_mut() {
+            *w = w.min(t.gnr as f64 / 1e8 * m);
         }
     }
     let w = capped(&v);
     for (x, w) in v.iter_mut().zip(w) {
         x.1 = w;
     }
-    (v, by_volume)
+    v
+}
+
+/// The least bitcoin a verified swap must have moved to count for the published price
+/// (1.0.48): many tiny swaps between one's own wallets cannot carry it.
+pub const MIN_PRICE_SATS: u64 = 100_000;
+/// The published price moves at most this much per hour, up or down. A real move shows
+/// within hours; one burst of swaps cannot jump it.
+pub const MAX_MOVE_PER_HOUR: f64 = 0.10;
+/// How much less a swap weighs at the end of the window than a new one (linearly): a swap
+/// of 72 hours ago weighs half as much. More would let a fresh burst outweigh days of swaps.
+pub const TIME_DECAY: f64 = 0.5;
+/// The swaps of the last 72 hours are further than this from the published price: the
+/// market is moving faster than the price may follow (`Market::volatile`).
+pub const VOLATILE_GAP: f64 = 0.15;
+/// How far back the published price is rebuilt, hour by hour, from the swaps themselves:
+/// anyone with the same swaps gets the same price, and a restart changes nothing.
+pub const REFERENCE_HOURS: u64 = 7 * 24;
+
+/// What the swaps of the window ending at `tau` say the price is: the volume-weighted
+/// median of the verified swaps of at least [`MIN_PRICE_SATS`] (newer ones weighing
+/// more), with their count and GNR. `None` with fewer than [`MIN_VERIFIED`] of them.
+fn target_at(q: &[(&Trade, u64, u64)], tau: u64) -> Option<(f64, usize, f64)> {
+    let v: Vec<(&Trade, f64)> = q
+        .iter()
+        .filter(|(_, at, _)| *at <= tau && *at + MARKET_WINDOW_SECS > tau)
+        .map(|(t, at, sats)| {
+            let age = (tau - at) as f64 / MARKET_WINDOW_SECS as f64;
+            (*t, *sats as f64 * (1.0 - TIME_DECAY * age))
+        })
+        .collect();
+    if v.len() < MIN_VERIFIED {
+        return None;
+    }
+    let v = by_bitcoin(v);
+    let p = weighted_median_f(v.iter().map(|(t, w)| (t.price(), *w)).collect())?;
+    Some((p, v.len(), v.iter().map(|(t, _)| t.gnr as f64 / 1e8).sum()))
+}
+
+/// The published market price and what is behind it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Reference {
+    /// Sat per GNR.
+    pub price: f64,
+    /// What the swaps of the last 72 hours say right now (`None`: too few of them; the
+    /// price stays where it was).
+    pub target: Option<f64>,
+    /// The swaps and GNR behind `target`.
+    pub priced: usize,
+    pub gnr: f64,
+}
+
+/// The published market price (1.0.48): rebuilt hour by hour over the last
+/// [`REFERENCE_HOURS`] from the verified swaps of at least [`MIN_PRICE_SATS`]. Each hour
+/// it moves toward what the swaps of the 72 hours before say ([`target_at`]), by at most
+/// [`MAX_MOVE_PER_HOUR`]; an hour without enough swaps leaves it where it was and does
+/// not save up a larger move for later. `None` until there are [`MIN_VERIFIED`] such
+/// swaps in one window.
+pub fn reference(
+    trades: &[(Trade, u64)],
+    verified: &std::collections::HashMap<String, u64>,
+    now: u64,
+) -> Option<Reference> {
+    let mut q: Vec<(&Trade, u64, u64)> = trades
+        .iter()
+        .filter(|(t, _)| t.price().is_finite() && t.price() > 0.0)
+        .filter_map(|(t, at)| {
+            let sats = verified.get(&t.hash).map(|s| (*s).min(t.sats))?;
+            (sats >= MIN_PRICE_SATS && *at <= now).then_some((t, *at, sats))
+        })
+        .collect();
+    if q.len() < MIN_VERIFIED {
+        return None;
+    }
+    q.sort_by_key(|x| x.1);
+    let start = (now / 3600).saturating_sub(REFERENCE_HOURS) * 3600;
+    let (mut price, mut last) = (None::<f64>, start);
+    for tau in (start..=now).step_by(3600).chain(std::iter::once(now)) {
+        if let Some((t, ..)) = target_at(&q, tau) {
+            price = Some(match price {
+                None => t,
+                Some(p) => {
+                    let h = (tau - last) as f64 / 3600.0;
+                    t.clamp(
+                        p * (1.0 - MAX_MOVE_PER_HOUR).powf(h),
+                        p * (1.0 + MAX_MOVE_PER_HOUR).powf(h),
+                    )
+                }
+            });
+        }
+        last = tau;
+    }
+    let now_t = target_at(&q, now);
+    price.map(|p| Reference {
+        price: p,
+        target: now_t.map(|x| x.0),
+        priced: now_t.map_or(0, |x| x.1),
+        gnr: now_t.map_or(0.0, |x| x.2),
+    })
 }
 
 /// The market price, from completed swaps (each one's claim is on the GNR chain).
@@ -1104,14 +1220,20 @@ pub fn market(
         .map(Offer::price)
         .max_by(f64::total_cmp);
     let (swaps, by_volume) = priced_swaps(trades, verified, now);
-    let price = if swaps.is_empty() {
+    let published = reference(trades, verified, now);
+    let price = if let Some(r) = &published {
+        Some(r.price)
+    } else if swaps.is_empty() {
         None
     } else if by_volume {
         weighted_median_f(swaps.iter().map(|(t, w)| (t.price(), *w)).collect())
     } else {
         Some(swaps.iter().map(|(t, _)| t.price()).sum::<f64>() / swaps.len() as f64)
     };
-    let w: f64 = swaps.iter().map(|(t, _)| t.gnr as f64 / 1e8).sum();
+    let w: f64 = match &published {
+        Some(r) => r.gnr,
+        None => swaps.iter().map(|(t, _)| t.gnr as f64 / 1e8).sum(),
+    };
     let confidence = if w > 0.0 { w / (w + DEPTH_GNR) } else { 0.0 };
     let proven: Vec<u64> = window(trades, now)
         .iter()
@@ -1119,7 +1241,25 @@ pub fn market(
         .collect();
     Market {
         price,
-        source: price.map(|_| if by_volume { "verified swaps" } else { "swaps" }.to_string()),
+        source: price.map(|_| {
+            if by_volume || published.is_some() {
+                "verified swaps"
+            } else {
+                "swaps"
+            }
+            .to_string()
+        }),
+        status: if published.is_some() {
+            "verified"
+        } else {
+            "forming"
+        }
+        .into(),
+        target: published.as_ref().and_then(|r| r.target),
+        volatile: published.as_ref().is_some_and(|r| {
+            r.target
+                .is_some_and(|t| (t / r.price - 1.0).abs() > VOLATILE_GAP)
+        }),
         confidence: (confidence * 1000.0).round() / 1000.0,
         depth: if confidence >= 0.8 {
             "deep"
@@ -1137,7 +1277,10 @@ pub fn market(
         pending: pending.len(),
         pending_gnr: pending.iter().map(|(o, _)| o.gnr).sum(),
         last_price: last,
-        priced: swaps.len(),
+        priced: published
+            .as_ref()
+            .filter(|r| r.priced > 0)
+            .map_or(swaps.len(), |r| r.priced),
         verified: proven.len(),
         verified_sats: proven.iter().sum(),
         best_ask: ask,
@@ -1525,8 +1668,8 @@ mod tests {
         assert_eq!(market(&trades, &seen, &[], &[], now).price, Some(fair));
 
         // One real swap of 1 BTC for 2 GNR (a hundred times the price): it is left out as
-        // an outlier; at three times the price it stays, but weighs only what its 2 GNR
-        // are worth at the going price, not its bitcoin.
+        // an outlier. One of 30,000 sat is below the smallest swap the price counts
+        // (MIN_PRICE_SATS, 1.0.48), whatever its price.
         let (far, far_seen) = swap(60, 100_000_000, 2 * g);
         let (odd, odd_seen) = swap(61, 30_000, 2 * g);
         let mut with = trades.clone();
@@ -1534,6 +1677,14 @@ mod tests {
         with.push((far, now - 10));
         with.push((odd, now - 10));
         seen_with.extend([far_seen, odd_seen]);
+        let m = market(&with, &seen_with, &[], &[], now);
+        assert_eq!((m.priced, m.status.as_str()), (5, "verified"));
+        assert!((4_900.0..=5_100.0).contains(&m.price.unwrap()), "{m:?}");
+        // At three times the price a swap stays, but weighs only what its GNR is worth at
+        // the going price, not its bitcoin.
+        let (odd3, odd3_seen) = swap(62, 3_000_000, 200 * g);
+        with.push((odd3, now - 9));
+        seen_with.insert(odd3_seen.0, odd3_seen.1);
         let m = market(&with, &seen_with, &[], &[], now);
         assert_eq!(m.priced, 6);
         assert!((4_900.0..=5_100.0).contains(&m.price.unwrap()), "{m:?}");
@@ -1581,6 +1732,114 @@ mod tests {
         let same = [(d.clone(), now), (d.clone(), now), (d, now)];
         let (v, by_volume) = priced_swaps(&same, &[sd].into_iter().collect(), now);
         assert!(by_volume && v.iter().all(|(_, w)| *w <= 5_000.0));
+    }
+
+    /// `n` verified swaps at `price` sat per GNR of `sats` each, ending at `end`, one every
+    /// `every` seconds, numbered from `from`.
+    fn run(
+        from: u32,
+        n: u32,
+        price: u64,
+        sats: u64,
+        end: u64,
+        every: u64,
+    ) -> Vec<(Trade, u64, (String, u64))> {
+        (0..n)
+            .map(|i| {
+                let mut t = trade(sats, sats * 100_000_000 / price);
+                t.hash = format!("{:064x}", from + i);
+                let seen = (t.hash.clone(), sats);
+                (t, end - (n - 1 - i) as u64 * every, seen)
+            })
+            .collect()
+    }
+
+    fn split(
+        v: &[(Trade, u64, (String, u64))],
+    ) -> (Vec<(Trade, u64)>, std::collections::HashMap<String, u64>) {
+        (
+            v.iter().map(|x| (x.0.clone(), x.1)).collect(),
+            v.iter().map(|x| x.2.clone()).collect(),
+        )
+    }
+
+    #[test]
+    fn the_published_price_moves_at_most_ten_percent_an_hour() {
+        let now = 1_000 * 3600;
+        // Three days of honest swaps at 5,000 sat per GNR, one every two hours.
+        let mut all = run(0, 36, 5_000, 200_000, now - 3600, 7_200);
+        let (t, s) = split(&all);
+        let m = market(&t, &s, &[], &[], now);
+        assert_eq!(m.status, "verified");
+        assert!(close(m.price, 5_000.0) && !m.volatile, "{m:?}");
+        // Half an hour ago a burst of large swaps at twice the price, outweighing the rest:
+        // the price is one hour's step above where it was an hour ago, no more.
+        all.extend(run(100, 30, 10_000, 1_000_000, now - 1_800, 30));
+        let (t, s) = split(&all);
+        let m = market(&t, &s, &[], &[], now);
+        assert!(close(m.price, 5_500.0), "{m:?}");
+        assert!(m.volatile && m.target.unwrap() > 9_000.0, "{m:?}");
+        // If those swaps are real and stay, the price follows, 10 % an hour.
+        let later = market(&t, &s, &[], &[], now + 4 * 3600).price.unwrap();
+        assert!(
+            (5_000.0 * 1.1f64.powi(5) - 0.01..=5_000.0 * 1.1f64.powi(5) + 0.01).contains(&later),
+            "{later}"
+        );
+        let caught = market(&t, &s, &[], &[], now + 10 * 3600);
+        assert!(
+            close(caught.price, caught.target.unwrap()) && !caught.volatile,
+            "{caught:?}"
+        );
+    }
+
+    #[test]
+    fn small_swaps_do_not_count_and_quiet_hours_save_no_move() {
+        let now = 2_000 * 3600;
+        // A thousand verified swaps of 0.0009 BTC at 50 times the price: none counts.
+        let mut all = run(0, 1_000, 250_000, 90_000, now - 60, 60);
+        let (t, s) = split(&all);
+        assert_eq!(market(&t, &s, &[], &[], now).status, "forming");
+        assert_eq!(reference(&t, &s, now), None);
+        // Swaps at 5,000 two days ago, then none for 47 hours, then a cluster at 8,000.
+        all = run(5_000, 6, 5_000, 300_000, now - 48 * 3600, 600);
+        all.extend(run(6_000, 6, 8_000, 3_000_000, now - 600, 60));
+        let (t, s) = split(&all);
+        let p = market(&t, &s, &[], &[], now).price.unwrap();
+        // The quiet hours did not let it jump: one hour's worth at most.
+        assert!(p <= 5_000.0 * 1.1 + 0.01, "{p}");
+        // The same swaps give the same price on any board and after any restart.
+        assert_eq!(reference(&t, &s, now), reference(&t, &s, now));
+    }
+
+    /// What moving the published price costs. Honest verified swaps of 0.36 BTC over 72
+    /// hours at 5,000 sat per GNR; one swapper trading with himself at twice the price, in
+    /// swaps of 0.001 to 0.5 BTC. Paying less than half the honest bitcoin through swap
+    /// contracts on the Bitcoin chain does not move what the swaps say at all; paying any
+    /// amount moves the published price by at most one hour's step.
+    #[test]
+    fn an_attacker_needs_more_bitcoin_than_everyone_else_and_still_only_moves_it_slowly() {
+        let now = 3_000 * 3600;
+        let honest = run(0, 72, 5_000, 500_000, now - 60, 3_600);
+        let honest_sats: u64 = honest.iter().map(|x| x.0.sats).sum();
+        for (attack_sats, n) in [
+            (100_000u64, 3u32),
+            (100_000, 150),
+            (5_000_000, 6),
+            (100_000, 300),
+            (50_000_000, 10),
+        ] {
+            let mut all = honest.clone();
+            all.extend(run(10_000, n, 10_000, attack_sats, now - 30, 1));
+            let (t, s) = split(&all);
+            let m = market(&t, &s, &[], &[], now);
+            assert!(m.price.unwrap() <= 5_500.01, "{attack_sats}×{n}: {m:?}");
+            if attack_sats * n as u64 * 2 < honest_sats {
+                assert!(
+                    close(m.target, 5_000.0) && close(m.price, 5_000.0),
+                    "{attack_sats}×{n}: {m:?}"
+                );
+            }
+        }
     }
 
     #[test]

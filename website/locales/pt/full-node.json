@@ -70,7 +70,7 @@
  "9d3ff6d06f": "Em sistemas mais antigos, ou para rodar exatamente o que você leu. Você precisa do Rust 1.89 ou mais recente e de nada mais:",
  "d5aecbd8ab": "<0>Verifique também a assinatura.</0> <1/> é assinado com a chave de lançamento híbrida pós-quântica do projeto (ML-DSA-87 + SLH-DSA, impressão digital <2/>). Com o código-fonte em mãos, <3/> faz a verificação. O atualizador da carteira faz isso sozinho antes de instalar qualquer coisa.",
  "4b05a902f9": "O jeito fácil: a carteira",
- "aa78aa34e2": "Baixe <0>GenorynKrypton-1.0.47-Windows-x64-Setup.exe</0> em <1>Download</1> e execute-o. Ele é instalado só para você e não pede direitos de administrador. O nó vem junto.",
+ "4ba0f471f1": "Baixe <0>GenorynKrypton-1.0.48-Windows-x64-Setup.exe</0> em <1>Download</1> e execute-o. Ele é instalado só para você e não pede direitos de administrador. O nó vem junto.",
  "d2ad01f336": "Crie ou abra uma carteira",
  "0cac70b994": "Escolha uma senha e anote as 24 palavras em papel.",
  "eb3260a856": "Mude para nó completo",

@@ -17,6 +17,17 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.48", "date": "2026-11-21", "title": "Quick Swap stays near the market price, and a burst of swaps cannot jump the price",
+     "tags": ["Swap", "Wallet", "Site"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Added", "Price guard: Quick Swap takes no offer more than 20 % from the market price (10 % while the price is forming or the market is thin), and waits while the price is catching up with fast swaps. Offers further away stay on the board, marked far from the market, and can still be taken by hand."),
+         ("Changed", "The market price comes only from swaps whose bitcoin was found on the Bitcoin chain, of at least 0.001 BTC each, newer ones weighing more, and it moves at most 10 % an hour. Until there are three such swaps it is shown as forming."),
+         ("Added", "Quick Swap offers follow the market price by default: at the market price or a margin above or below it, never past your limit, and taken off the board by themselves when the market reaches a trigger price you set."),
+         ("Added", "The offer board shows how far each offer is from the market price, how much can be swapped within 2, 5, 10 and 20 % of it, and the bitcoin buyers have deposited."),
+         ("Fixed", "\"Ready to buy\" counts only what Quick Swap can really swap near the market price, not offers at many times the price."),
+         ("Fixed", "More of the wallet's messages are translated (Quick Swap, offers, passwords, updates)."),
+     ]},
     {"v": "1.0.47", "date": "2026-11-20", "title": "The wallet and genoryn.io in ten languages, Hive OS for mining rigs",
      "tags": ["Wallet", "Mining", "Site"],
      "items": [

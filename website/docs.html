@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.47</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.48</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -393,6 +393,8 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
         <p>At the top of the Swap tab (wallet 1.0.46). Say how much you want to buy or sell, in dollars, bitcoin or GNR, and press one button. The wallet finds the best prices among the <b>Quick Swap offers</b> whose makers are online and whose coins are there, and swaps exactly that amount across up to three of them. Each part is its own swap as described above: the seller's GNR is locked first, and either both sides are paid or both keep their coins. See it live on the <a href="/market#quick">market page</a>.</p>
         <ul>
           <li><b>The price you accepted is the worst you get.</b> A part costs its offer's price. If a part cannot start (someone else took that offer a moment earlier, or its maker stopped answering for two minutes), the wallet replaces it with another offer, never more than 1&nbsp;% beyond the worst price you were shown.</li>
+          <li><b>Never far from the market price</b> (wallet 1.0.48). Quick Swap takes no offer more than 20&nbsp;% from the market price, or 10&nbsp;% while the price is still forming or the market is thin. Offers further away stay on the board, marked far from the market, and can still be taken by hand. While the board says the price is catching up with recent swaps, Quick Swap waits.</li>
+          <li><b>Offers that follow the market.</b> A Quick Swap offer follows the market price by default: it stands at the market price, or a margin above or below it, never past your limit, and comes off the board by itself if the market reaches the trigger price you set.</li>
           <li><b>Your Bitcoin balance.</b> One address of the wallet's own, from your 24 words. Buying pays from it at once (once it has one confirmation); selling is paid into it; send bitcoin out of it whenever you like, except what running Quick Swaps still need.</li>
           <li><b>Publishing a Quick Swap offer.</b> Tick Quick Swap when you publish: anyone can swap any part of it, from its smallest part (at least 10,000&nbsp;sat) up to all of it, at your price. It is listed as up to three lots so several people can swap at once, and after a part the rest of the lot goes back on the board by itself. A Quick Swap buy offer is paid from your Bitcoin balance.</li>
           <li><b>Bitcoin promised once.</b> Before a seller's wallet locks GNR for a buyer whose bitcoin waits at a deposit, the board adds up what that deposit is already promised to other sellers. A seller locks only if the deposit covers it all, so bitcoin for one swap cannot tie up the GNR of many sellers.</li>

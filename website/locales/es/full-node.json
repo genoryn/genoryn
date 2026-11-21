@@ -70,7 +70,7 @@
  "9d3ff6d06f": "En sistemas más antiguos, o para ejecutar exactamente lo que has leído. Necesitas Rust 1.89 o posterior y nada más:",
  "d5aecbd8ab": "<0>Comprueba también la firma.</0> <1/> está firmado con la clave de publicación híbrida poscuántica del proyecto (ML-DSA-87 + SLH-DSA, huella <2/>). Con el código fuente a mano, <3/> la comprueba. El actualizador de la billetera lo hace por sí solo antes de instalar nada.",
  "4b05a902f9": "La forma fácil: la billetera",
- "aa78aa34e2": "Descarga <0>GenorynKrypton-1.0.47-Windows-x64-Setup.exe</0> desde <1>Descargar</1> y ejecútalo. Se instala solo para ti y no pide permisos de administrador. El nodo viene incluido.",
+ "4ba0f471f1": "Descarga <0>GenorynKrypton-1.0.48-Windows-x64-Setup.exe</0> desde <1>Descargar</1> y ejecútalo. Se instala solo para ti y no pide permisos de administrador. El nodo viene incluido.",
  "d2ad01f336": "Crea o abre una billetera",
  "0cac70b994": "Elige una contraseña y escribe las 24 palabras en papel.",
  "eb3260a856": "Cambia a nodo completo",

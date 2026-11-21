@@ -462,6 +462,10 @@ header{padding:14px 30px}
 .qs-parts i{font-style:normal;font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--text-secondary);animation:fadeUp .4s ease backwards}
 .qs-parts i:nth-child(2){animation-delay:.06s}.qs-parts i:nth-child(3){animation-delay:.12s}
 .qs-why{grid-column:1/-1;margin:6px 0 0;padding:9px 12px;border-radius:10px;border:1px dashed var(--line-strong);color:var(--text-primary);font-size:12.5px;line-height:1.45}
+.swt-depth{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;margin:2px 4px 0;font-size:12.5px;color:var(--text-secondary)}.swt-depth:empty{display:none}.swt-depth em{font-style:normal;color:var(--text-tertiary);flex-basis:100%}.swt-depth b{color:var(--text-primary);font-weight:600;margin-right:4px}
+.qs-guard{grid-column:1/-1;margin:6px 0 0;color:var(--text-tertiary);font-size:12px;line-height:1.45}
+.bd-far,.bd-q{font-style:normal;font-size:10px;font-weight:600;letter-spacing:.04em;border:1px dashed var(--line-strong);border-radius:99px;padding:1px 6px;margin-left:6px;color:var(--text-tertiary);white-space:nowrap;vertical-align:1px}
+.bd-q{border-style:solid;color:var(--text-secondary)}
 .qs-skel{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--bg-inset) 0%,var(--bg-raised) 40%,var(--bg-inset) 80%);background-size:200% 100%;animation:qsShimmer 1.2s linear infinite}
 .qs-skel+.qs-skel{margin-top:9px}.qs-bal .qs-skel{height:30px;width:60%}
 @keyframes qsShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
@@ -790,6 +794,7 @@ header{padding:14px 30px}
         <div class="glass card swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="swtBuy">-</b><em id="swtBuyN">buy offers</em></div>
         <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>In progress</span><b id="swtProg">-</b><em id="swtProgN">swaps running</em></div>
         <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
+        <p class="swt-depth" id="swtDepth"></p>
       </section>
       <section class="glass card sw-why">
         <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
@@ -836,6 +841,10 @@ header{padding:14px 30px}
             <div class="bd-fol hidden" id="bdFolBox">
               <label for="bdLim" id="bdLimL">Never sell below (per GNR)</label>
               <div class="unit-in"><input id="bdLim" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
+              <label for="bdMar" id="bdMarL">Above the market price by (negative: below)</label>
+              <div class="unit-in"><input id="bdMar" inputmode="decimal" placeholder="0" autocomplete="off"><span>%</span></div>
+              <label for="bdTrig" id="bdTrigL">Take it down if the market price falls to (optional)</label>
+              <div class="unit-in"><input id="bdTrig" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
               <p id="bdFolNote"></p>
             </div>
             <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
@@ -1935,7 +1944,18 @@ function swTotals(){
   put('swtProg', paid, 'swap', wait?'':T("none right now"));
   if(wait) $('swtProgN').textContent+=(paid.length?' · ':'')+T("{n} taken, not paid yet", {n: wait});
   put('swtDone', (BD.market&&BD.market.recent)||[], 'swap', T("no swaps yet"));
+  // Bitcoin buyers have really deposited (the board found it on the Bitcoin chain).
+  const dep=all.filter(o=>o.side==='buy_gnr'&&o.deposited), ds=sum(dep,'sats');
+  if(dep.length) $('swtBuyN').textContent+=' · '+T("{amount} BTC deposited", {amount: btcFmt(ds/1e8)});
+  $('swtDepth').innerHTML=bdDepth(all.filter(o=>o.online!==false), bdMkt().price);
 }
+/* How much can be swapped near the market price: GNR offered within 2, 5, 10 and 20 % of
+   it, and bitcoin bid within the same (the depth that trackers use to judge a market). */
+function bdDepth(list, mp){ if(!mp) return '';
+  const band=(side,pct)=>list.filter(o=>o.side===side&&Math.abs(o.price/mp-1)<=pct/100);
+  const cells=[2,5,10,20].map(p=>{ const a=band('sell_gnr',p), b=band('buy_gnr',p);
+    return `<span><b>±${p} %</b> ${gnrShort(a.reduce((x,o)=>x+o.gnr,0))} GNR · ${btcFmt(b.reduce((x,o)=>x+o.sats,0)/1e8)} BTC</span>`; }).join('');
+  return `<em>${TE("Near the market price (online offers: GNR for sale · bitcoin bid)")}</em>${cells}`; }
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
@@ -1957,7 +1977,9 @@ function renderBook(){
   const two=BDV.tab==='book'; $('bdTwo').classList.toggle('hidden',!two); $('bdOne').classList.toggle('hidden',two);
   const list=bdList(), pages=Math.max(1,Math.ceil((two?Math.max(bdOffers('sell_gnr').length,bdOffers('buy_gnr').length):list.length)/BDV.per)); BDV.page=Math.min(BDV.page,pages-1);
   const rows=list.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), mp=bdMkt().price;
-  const vs=p=>{ if(!mp) return '-'; const d=(p/mp-1)*100; return `<span class="${d>=0?'bd-up':'bd-dn'}">${d>=0?'+':''}${d.toFixed(1)}%</span>`; };
+  const vs=p=>{ if(!mp) return '-'; const d=(p/mp-1)*100;
+    return `<span class="${d>=0?'bd-up':'bd-dn'}">${d>=0?'+':''}${d.toFixed(1)}%</span>${Math.abs(d)>25?' <em class="bd-far" title="'+TE("More than 25 % from the market price: Quick Swap never takes it, and it is not counted as ready to swap")+'">'+TE("far from market")+'</em>':''}`; };
+  const qtag=o=>o.auto?'<em class="bd-q" title="'+TE("Quick Swap: anyone can swap any part of it, in one click")+'">Quick</em>':'';
   const act=o=>{
     if(o.pending) return o.funded?'<span class="pill ok" title="'+TE("The bitcoin is in its contract: the swap is running")+'">'+TE("bitcoin paid")+'</span>':'<span class="pill" title="'+TE("The offer was taken and the GNR is locked, but no bitcoin has been paid yet")+'">'+TE("taken, not paid yet")+'</span>';
     if(BDV.tab==='mine'&&o.fund&&o.fund.closed) return '<span class="pill">'+TE("ended")+'</span>';
@@ -1974,19 +1996,21 @@ function renderBook(){
   const okB=o=>o.deposited?'<i class="bd-ok" title="'+TE("The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself")+'">✓</i>':'';
   if(two){
     const side=(s,id,empty)=>{ const l=bdOffers(s), r=l.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), bg=Math.max(1,...r.map(o=>o.gnr));
-      $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="${TE("Expires in {time}", {time: bdAgo(o.expires_in)})}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}${o.prepaid?' · <em title="'+TE("The seller locks GNR only for a buyer whose bitcoin is deposited first")+'">'+TE("pay first")+'</em>':''}</span></td><td class="mono r">${esc(o.gnr_text)}${ok(o)}</td><td class="mono r">${esc(o.btc_text)}${okB(o)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
+      $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="${TE("Expires in {time}", {time: bdAgo(o.expires_in)})}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}${qtag(o)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}${o.prepaid?' · <em title="'+TE("The seller locks GNR only for a buyer whose bitcoin is deposited first")+'">'+TE("pay first")+'</em>':''}</span></td><td class="mono r">${esc(o.gnr_text)}${ok(o)}</td><td class="mono r">${esc(o.btc_text)}${okB(o)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
     const n=side('sell_gnr','bdAskRows',TE("No sell offers yet. Publish one: it sets the first price."))+side('buy_gnr','bdBidRows',TE("No buy offers yet."));
     $('bdPager').innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">${TE("‹ Previous")}</button><span>${TE("Page {page} of {pages}", {page: BDV.page+1, pages})} · ${esc(Tn(n, "{n} offers", "{n} offers", {n}))}</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">${TE("Next ›")}</button>`:(n?`<span>${esc(Tn(n, "{n} offer", "{n} offers", {n}))}</span>`:'');
     return;
   }
-  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtPx(o.price)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?TE("started {time} ago", {time: bdAgo(o.age||0)}):o.expired?'-':o.preparing?'<span class="muted">'+TE("not listed yet")+'</span>':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>${(o.preparing||(o.fund&&o.fund.closed))&&o.status?`<tr class="bd-note"><td colspan="6">${esc(TR(o.status))}</td></tr>`:''}`).join('')
+  $('bdRows').innerHTML=rows.length?rows.map(o=>`<tr class="${o.online===false&&!o.pending&&BDV.tab!=='mine'?'bd-off':''}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/big*100))}%"></i><b>${live(o)}${fmtPx(o.price)}${qtag(o)}</b><span>${usd(o.price)}</span></td><td class="mono r">${esc(o.gnr_text)}</td><td class="mono r">${esc(o.btc_text)}</td><td class="mono r">${vs(o.price)}</td><td class="r">${o.pending?TE("started {time} ago", {time: bdAgo(o.age||0)}):o.expired?'-':o.preparing?'<span class="muted">'+TE("not listed yet")+'</span>':bdAgo(o.expires_in)}</td><td>${act(o)}</td></tr>${(o.preparing||(o.fund&&o.fund.closed))&&o.status?`<tr class="bd-note"><td colspan="6">${esc(TR(o.status))}</td></tr>`:''}`).join('')
     :`<tr><td colspan="6" class="muted">${BDV.tab==='mine'?TE("You have no offers. Publish one on the right."):(BD.offers||[]).length?TE("No offers match the filter."):TE("No offers yet. Publish the first one: it sets the first market price.")}</td></tr>`;
   const pg=$('bdPager'); pg.innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">${TE("‹ Previous")}</button><span>${TE("Page {page} of {pages}", {page: BDV.page+1, pages})} · ${esc(Tn(list.length, "{n} offers", "{n} offers", {n: list.length}))}</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">${TE("Next ›")}</button>`:(list.length?`<span>${esc(Tn(list.length, "{n} offer", "{n} offers", {n: list.length}))}</span>`:'');
 }
 function renderMine(){
   const open=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired);
+  const stopped=(BD.my_offers||[]).filter(o=>o.stopped&&o.cancelled&&!o.taken&&!o.expired).slice(0,3);
   const cool=S.cooling||[];
   $('bdMine').innerHTML=(open.length?`<label>${TE("Your open offers")}</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?TE("Selling {amount} GNR", {amount: o.gnr_text}):TE("Buying {amount} GNR", {amount: o.gnr_text})} · ${fmtPx(o.price)}${o.follow?'<em>'+(o.side==='sell_gnr'?TE("Follows the market, never below {price}", {price: fmtPx(o.follow.limit)}):TE("Follows the market, never above {price}", {price: fmtPx(o.follow.limit)}))+(o.follow.moves?' · '+esc(Tn(o.follow.moves, "price moved {n} time", "price moved {n} times", {n: o.follow.moves})):'')+'</em>':''}${o.preparing?'<em>'+esc(TR(o.status)||T("Preparing."))+'</em>':''}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">${TE("Cancel")}</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">${TE("and {n} more under Mine", {n: open.length-3})}</button>`:''):'')
+    +stopped.map(o=>`<div class="bd-cool"><b>${o.side==='sell_gnr'?TE("Selling {amount} GNR", {amount: o.gnr_text}):TE("Buying {amount} GNR", {amount: o.gnr_text})}</b><em>${esc(TR(o.stopped))}</em></div>`).join('')
     +(cool.length?`<div class="bd-cool"><b>${TE("{amount} GNR committed by ended offers", {amount: gnrShort(cool.reduce((a,c)=>a+Number(c.value||0),0))})}</b>${cool.slice(0,3).map(c=>`<span>${gnrShort(c.value)} GNR · ${TE("free {time}", {time: fmtTime(c.until)})}</span>`).join('')}<em>${TE("You can put it into a new offer now.")}</em></div>`:'');
 }
 document.querySelectorAll('#bdTab button').forEach(b=>b.onclick=()=>{ BDV.tab=b.dataset.t; BDV.page=0; document.querySelectorAll('#bdTab button').forEach(x=>x.classList.toggle('on',x===b)); renderBook(); });
@@ -2009,7 +2033,9 @@ function bdPer(){
 /* An offer far from the market (3× above or below) is most likely a typo. */
 function bdFar(p){ const mp=bdMkt().price; if(!mp||!p) return null; const r=p/mp; return r>=3||r<=1/3 ? r : null; }
 function bdUseMarket(){ const mp=bdMkt().price, g=Number($('bdGnr').value); if(!mp) return toast(T("There is no market price yet: you set the first one"),true); if(!(g>0)) return toast(T("Enter the GNR amount first"),true); $('bdBtc').value=(g*mp/1e8).toFixed(8).replace(/0+$/,'').replace(/\.$/,''); bdPer(); }
-$('bdGnr').oninput=()=>{ bdFolFill(); bdPer(); }; $('bdBtc').oninput=()=>{ bdFolFill(); bdPer(); }; $('bdLim').oninput=bdFolFill;
+$('bdGnr').oninput=()=>{ bdFolFill(); bdPer(); }; $('bdBtc').oninput=()=>{ bdFolFill(); bdPer(); }; $('bdLim').oninput=bdFolFill; $('bdMar').oninput=bdFolFill; $('bdTrig').oninput=bdFolFill;
+/* A following offer's margin from the market (a fraction; the field is in percent, at most 25). */
+const bdMargin=()=>{ const m=Number(String($('bdMar').value).replace(',','.'))/100; return isFinite(m)?Math.max(-0.25,Math.min(0.25,m)):0; };
 /* An offer that follows the market: a sell offer names its GNR, a buy offer its bitcoin; the
    other amount comes from the market price, now and whenever that price moves. */
 const bdFol=()=>$('bdFol').checked;
@@ -2022,20 +2048,33 @@ function bdFolSet(fresh){ const on=bdFol(), sell=bdSide==='sell_gnr', mp=bdMkt()
   $('bdGnrL').classList.toggle('hidden', on&&!sell); $('bdGnrBox').classList.toggle('hidden', on&&!sell);
   $('bdBtcL').textContent=on&&!sell?T("You spend"):T("For");
   $('bdLimL').textContent=sell?T("Never sell below (per GNR)"):T("Never pay more than (per GNR)");
+  $('bdMarL').textContent=sell?T("Above the market price by (negative: below)"):T("Below the market price by (negative: above)");
+  $('bdTrigL').textContent=sell?T("Take it down if the market price falls to (optional)"):T("Take it down if the market price rises to (optional)");
   if(on&&(fresh||!$('bdLim').value)) $('bdLim').value=btcIn(mp*(sell?0.9:1.1)/1e8);
   bdFolFill(); }
-function bdFolPrice(){ const mp=bdMkt().price, l=Number($('bdLim').value)*1e8; if(!mp) return null; if(!(l>0)) return mp; return bdSide==='sell_gnr'?Math.max(mp,l):Math.min(mp,l); }
+function bdFolPrice(){ const mp=bdMkt().price, l=Number($('bdLim').value)*1e8, sell=bdSide==='sell_gnr'; if(!mp) return null;
+  const at=mp*(1+(sell?1:-1)*bdMargin()); if(!(l>0)) return at; return sell?Math.max(at,l):Math.min(at,l); }
 function bdFolFill(){ if(!bdFol()) return; const p=bdFolPrice(), sell=bdSide==='sell_gnr', f=BD.follow||{}, mp=bdMkt().price, l=Number($('bdLim').value)*1e8;
   if(p){ if(sell){ const g=Number($('bdGnr').value); $('bdBtc').value=g>0?btcIn(g*p/1e8):''; } else { const b=Number($('bdBtc').value); $('bdGnr').value=b>0?btcIn(b*1e8/p):''; } }
   const held=l>0&&(sell?l>mp:l<mp);
   const n=Number(bdMkt().priced)||0, b=Number($('bdBtc').value);
   const gets=!sell&&b>0&&p?(l>0?T("For {btc} BTC you get about {gnr} GNR at the price now, and never less than {min} GNR (at your limit).", {btc: btcIn(b), gnr: gnrShort(Math.round(b*1e16/p)), min: gnrShort(Math.round(b*1e16/l))}):T("For {btc} BTC you get about {gnr} GNR at the price now.", {btc: btcIn(b), gnr: gnrShort(Math.round(b*1e16/p))}))+' '+T("The bitcoin is what you pay; the GNR moves with the market.")+' ':'';
   $('bdFolNote').textContent=gets+(n<3?Tn(n, "The market price rests on {n} completed swap right now, so it can move a lot: set your limit with care.", "The market price rests on {n} completed swaps right now, so it can move a lot: set your limit with care.", {n})+' ':'')+(held?(sell?T("The market price ({price}) is below your limit, so the offer stands at your limit until the market comes to it.", {price: fmtPx(mp)}):T("The market price ({price}) is above your limit, so the offer stands at your limit until the market comes to it.", {price: fmtPx(mp)}))+' ':T("The offer starts at the market price, {price}.", {price: fmtPx(mp)})+' ')
-    +(v=>sell?T("When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never below your limit.", v):T("When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never above your limit.", v))({move: Math.round((f.min_move||0.01)*100), mins: Math.round((f.every_secs||600)/60), step: Math.round((f.max_step||0.05)*100)}); }
+    +(v=>sell?T("When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never below your limit.", v):T("When the market has moved by {move}% or more, the wallet lists the offer again at the new price: at most every {mins} minutes, by at most {step}% at a time, and never above your limit.", v))({move: Math.round((f.min_move||0.01)*100), mins: Math.round((f.every_secs||600)/60), step: Math.round((f.max_step||0.05)*100)})+bdFolMore(sell, mp); }
+/* What the margin and the trigger price mean for the offer being written. */
+function bdFolMore(sell, mp){ const mg=bdMargin(), tr=Number($('bdTrig').value)*1e8; let s='';
+  if(mg){ const above=sell?mg>0:mg<0, pct=GKI18N.num(Math.abs(mg*100), {maximumFractionDigits: 1});
+    s+=' '+(above?T("The offer stands {pct} % above the market price.", {pct}):T("The offer stands {pct} % below the market price.", {pct})); }
+  if(tr>0) s+=' '+((sell?tr<mp:tr>mp)?(sell?T("If the market price falls to {price}, the wallet takes the offer off the board by itself.", {price: fmtPx(tr)}):T("If the market price rises to {price}, the wallet takes the offer off the board by itself.", {price: fmtPx(tr)}))
+    :(sell?T("That trigger price is not below the market price: the offer would come down at once."):T("That trigger price is not above the market price: the offer would come down at once.")));
+  return s; }
 /* A Quick Swap offer: listed as a few lots and swapped in parts by itself; a buy offer is paid from the Bitcoin balance. */
 const bdAuto=()=>$('bdAuto').checked;
 function bdAutoSet(){ const on=bdAuto(), sell=bdSide==='sell_gnr';
   $('bdAutoBox').classList.toggle('hidden', !on);
+  // A Quick Swap offer follows the market by default, so it stays near the price people swap at.
+  const mp=bdMkt().price, f=BD.follow||{};
+  if(on&&!bdFol()&&mp&&Number(bdMkt().priced)>=(f.min_swaps||1)){ $('bdFol').checked=true; bdFolSet(true); }
   if(on&&sell){ $('bdPre').checked=true; } $('bdPre').disabled=on&&sell;
   $('bdDepRow').classList.toggle('hidden', sell||on);
   const b=QS.bal, free=b?Math.max(0,(b.confirmed||0)-(b.committed||0)):0;
@@ -2053,7 +2092,7 @@ async function boardPublish(){
   const farMsg=far?`<p class="mtext warn"><b>${TE("Check the price:")}</b> ${far>=1?TE("{price} per GNR is {n}× the market price ({market}).", {price: fmtPx(per), n: GKI18N.num(Math.round(far)), market: fmtPx(bdMkt().price)}):TE("{price} per GNR is {n}× below the market price ({market}).", {price: fmtPx(per), n: GKI18N.num(Math.round(1/far)), market: fmtPx(bdMkt().price)})} ${sell?TE("Buyers are unlikely to take it."):TE("You would pay far more than the market.")}</p>`:'';
   const okP=await ask({pass:true, title:fol?(sell?T("Sell {gnr} GNR at the market price?", {gnr: g}):T("Buy GNR for {btc} BTC at the market price?", {btc: b})):(sell?T("Sell {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}):T("Buy {gnr} GNR for {btc} BTC?", {gnr: g, btc: b})), icon:'globe', ok:far?T("Publish anyway"):T("Publish"), danger:!!far,
     body:`<p class="mtext">${(v=>fol?TE("Now {price} per GNR{usd}, {btc} BTC{usd2} for {gnr} GNR, on the board for {time} or until someone takes it.", v):TE("{price} per GNR{usd}, {btc} BTC{usd2} in total, on the board for {time} or until someone takes it.", v))({price: fmtPx(per), usd: u?' ('+GKValue.usd(per*u/1e8)+')':'', btc: btcFmt(Number(b)), usd2: u?' ≈ '+GKValue.usd(Number(b)*u):'', gnr: g, time: durText(hours)})}</p>${farMsg}${soon}${fol?bdRulesFollow(sell,lim):''}${auto?bdRulesAuto(sell):''}${sell?bdRulesSell(g):dep?bdRulesBuyDep(b,a):auto?'':bdRulesBuy()}${when}`}); const pw=takePass(); if(!okP) return;
-  try{ toast(sell?T("Setting your GNR aside…"):dep?T("Preparing your offer…"):auto?T("Paying the lots from your Bitcoin balance…"):T("Publishing (a moment of proof of work)…")); const r=await api('/api/board/publish',Object.assign({side:bdSide, gnr:g, btc:b, address:a, hours, password:pw, deposit:dep, prepaid_only:sell&&$('bdPre').checked}, fol?{follow:true, limit:lim}:{}, auto?{auto:true, min:$('bdAutoMin').value.trim()}:{}));
+  try{ toast(sell?T("Setting your GNR aside…"):dep?T("Preparing your offer…"):auto?T("Paying the lots from your Bitcoin balance…"):T("Publishing (a moment of proof of work)…")); const r=await api('/api/board/publish',Object.assign({side:bdSide, gnr:g, btc:b, address:a, hours, password:pw, deposit:dep, prepaid_only:sell&&$('bdPre').checked}, fol?{follow:true, limit:lim, margin:(sell?1:-1)*bdMargin()*100, trigger:Number($('bdTrig').value)*1e8||0}:{}, auto?{auto:true, min:$('bdAutoMin').value.trim()}:{}));
     if(r.auto){ toast(Tn(r.lots, "Quick Swap offer saved as {n} lot.", "Quick Swap offer saved as {n} lots.", {n: r.lots})+' '+(sell?T("They appear on the board by themselves, one after another, usually within a few minutes."):T("They appear on the board once the payment from your balance has one confirmation."))); $('bdAuto').checked=false; bdAutoSet(); btcLoad(true); }
     else if(r.fund&&r.listed===false){ toast(T("Offer saved. It is published by itself once your bitcoin has one confirmation; see it under Mine.")); showDeposit(r.fund); }
     else toast(r.listed===false?T("Your GNR is being set aside. The offer appears on the board by itself, usually after the next block; see it under Mine."):T("Offer published"));
@@ -2186,6 +2225,10 @@ function qsAsk(){ clearTimeout(QS.t); const v=$('qsAmt').value.trim();
 async function qsQuote(){ const my=++QS.seq, v=$('qsAmt').value.trim();
   let q; try{ q=await api('/api/quick/quote',{side:QS.side, amount:v, unit:QS.unit}); }catch(e){ if(my!==QS.seq) return; QS.q=null; $('qsOutBox').classList.remove('wait'); $('qsQuote').innerHTML=`<div class="qs-why">${esc(e.message)}</div>`; return; }
   if(my!==QS.seq) return; QS.q=q; qsShow(); }
+/* The price guard: how far from the market price Quick Swap goes, and what it left out. */
+function qsGuardNote(q){ const g=q.guard||{}, f=q.far||{};
+  if(!g.pct) return '';
+  return `<div class="qs-guard">${TE("Price guard: no part more than {pct} % from the market price.", {pct: g.pct})}${f.offers?' '+esc(Tn(f.offers, "{n} offer ({amount} GNR) further away is left out.", "{n} offers ({amount} GNR) further away are left out.", {n: f.offers, amount: f.gnr_text})):''}</div>`; }
 function qsShow(){ const q=QS.q; if(!q) return; const w=qsWant(), u=Number(q.btc_usd)||btcUsd();
   $('qsOutBox').classList.remove('wait');
   const out=w.outC==='gnr'?gnrShort(q.gnr):btcFmt(q.sats/1e8);
@@ -2196,8 +2239,10 @@ function qsShow(){ const q=QS.q; if(!q) return; const w=qsWant(), u=Number(q.btc
   $('qsQuote').innerHTML=q.parts.length?`<div class="qs-q">${row(TE("Price per GNR"), fmtPx(q.price)+(u?' · '+GKValue.usd(q.price*u/1e8):''))}${row(q.buying?TE("You pay"):TE("You receive"), btcFmt(q.sats/1e8)+' BTC')}${row(q.buying?TE("You get"):TE("You sell"), gnrShort(q.gnr)+' GNR')}${row(TE("Bitcoin network fee"), '≈ '+btcFmt(q.fee/1e8)+' BTC')}
     <div class="qs-parts">${q.parts.map((p,i)=>`<i title="${TE("One atomic swap with one offer")}">${TE("Part {n}: {amount} GNR at {price}", {n: i+1, amount: p.gnr_text, price: fmtPx(p.price)})}</i>`).join('')}</div>
     ${q.short?`<div class="qs-why">${TE("The board has less than that at this moment: this swaps {amount}. Swap again later for the rest.", {amount: q.buying?gnrShort(q.gnr)+' GNR':btcFmt(q.sats/1e8)+' BTC'})}</div>`:''}
+    ${q.big?`<div class="qs-why">${TE("This is more than half of what Quick Swap can swap near the market price right now, so its last parts cost more. A smaller amount gets a price closer to the market.")}</div>`:''}
+    ${qsGuardNote(q)}
     ${!q.can&&q.why?`<div class="qs-why">${esc(TR(q.why))}</div>`:''}</div>`
-    :`<div class="qs-why">${esc(TR(q.why)||T("Nothing to swap with right now."))}</div>`;
+    :`<div class="qs-why">${esc(TR(q.why)||T("Nothing to swap with right now."))}</div>${qsGuardNote(q)}`;
   $('qsGo').disabled=!(q.can&&SW.active&&!QS.busy); }
 $('qsGo').onclick=async()=>{ const q=QS.q; if(!q||!q.can) return; if(!SW.active) return bdNotYet();
   const u=Number(q.btc_usd)||btcUsd(), buy=q.buying, lim=q.limit;
@@ -2217,11 +2262,12 @@ $('qsGo').onclick=async()=>{ const q=QS.q; if(!q||!q.can) return; if(!SW.active)
 function qsBoard(){ const k=(BD.market&&BD.market.quick)||null, u=btcUsd();
   const money=s=>u?GKValue.usd(s*u/1e8):btcFmt(s/1e8)+' BTC';
   if(!k){ $('qsLive').textContent=T("The board does not offer Quick Swap yet"); $('qsLiveBox').classList.add('off'); return; }
-  const s=k.sell||{}, b=k.buy||{}, n=(s.offers||0)+(b.offers||0);
+  const s=k.sell||{}, b=k.buy||{}, n=(s.offers||0)+(b.offers||0), far=(s.far_offers||0)+(b.far_offers||0);
+  const left=x=>x.far_offers?' · '+Tn(x.far_offers, "{n} far from the market, left out", "{n} far from the market, left out", {n: x.far_offers}):'';
   $('qsLiveBox').classList.toggle('off', !n);
-  $('qsLive').textContent=n?(QS.side==='buy'?(s.offers?T("{amount} GNR ready to buy", {amount: gnrShort(s.gnr)}):T("Nothing for sale right now")):(b.offers?T("{amount} BTC ready to pay", {amount: btcFmt(b.sats/1e8)}):T("No buyer right now"))):T("No Quick Swap offer online right now");
-  $('qsDSell').textContent=s.offers?gnrShort(s.gnr)+' GNR':'-'; $('qsDSellN').textContent=s.offers?Tn(s.offers, "{n} offer", "{n} offers", {n: s.offers})+' · '+T("from {price}", {price: fmtPx(s.best)})+(u?' · '+GKValue.usd(s.best*u/1e8):''):T("none online");
-  $('qsDBuy').textContent=b.offers?money(b.sats):'-'; $('qsDBuyN').textContent=b.offers?btcFmt(b.sats/1e8)+' BTC · '+Tn(b.offers, "{n} offer", "{n} offers", {n: b.offers})+' · '+T("up to {price}", {price: fmtPx(b.best)}):T("none online");
+  $('qsLive').textContent=n?(QS.side==='buy'?(s.offers?T("{amount} GNR ready to buy", {amount: gnrShort(s.gnr)}):T("Nothing for sale right now")):(b.offers?T("{amount} BTC ready to pay", {amount: btcFmt(b.sats/1e8)}):T("No buyer right now"))):far?T("Nothing near the market price right now"):T("No Quick Swap offer online right now");
+  $('qsDSell').textContent=s.offers?gnrShort(s.gnr)+' GNR':'-'; $('qsDSellN').textContent=(s.offers?Tn(s.offers, "{n} offer", "{n} offers", {n: s.offers})+' · '+T("from {price}", {price: fmtPx(s.best)})+(u?' · '+GKValue.usd(s.best*u/1e8):''):T("none online"))+left(s);
+  $('qsDBuy').textContent=b.offers?money(b.sats):'-'; $('qsDBuyN').textContent=(b.offers?btcFmt(b.sats/1e8)+' BTC · '+Tn(b.offers, "{n} offer", "{n} offers", {n: b.offers})+' · '+T("up to {price}", {price: fmtPx(b.best)}):T("none online"))+left(b);
   $('qsDRun').textContent=Number(k.parts_in_progress||0); }
 /* The steps of one Quick Swap part, as a bar. */
 const QS_STEPS_BUY=[TE("Matched"),TE("GNR locked"),TE("You paid"),TE("Seller took"),TE("You got GNR")], QS_STEPS_SELL=[TE("Matched"),TE("GNR locked"),TE("Buyer paid"),TE("You took"),TE("Done")];

@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Genoryn Krypton (GNR) Dokümantasyonu: Cüzdan, Madencilik, Takaslar, API",
- "6054f94b63": "Dokümantasyon · ana ağ · sürüm 1.0.47",
+ "14ef51c49e": "Dokümantasyon · ana ağ · sürüm 1.0.48",
  "503bc1b9c1": "Genoryn Krypton dokümantasyonu",
  "be0c07c7b6": "Genoryn Krypton'u kullanmak, madenciliğini yapmak, alıp satmak, çalıştırmak, entegre etmek ve denetlemek için ihtiyacınız olan her şey: adil başlangıçlı, 21,000,000 GNR üst sınırlı ve bitcoin ile atomik takas imkânı sunan, kuantuma dayanıklı ve varsayılan olarak gizli para. Hızlı başlangıçla başlayın veya içindekiler bölümünden istediğiniz konuya geçin.",
  "437aea62a5": "İçindekiler",
@@ -242,6 +242,8 @@
  "f20c91b2a2": "Quick Swap: istediğiniz tutar, tek tıklamayla",
  "e22f911be4": "Takas sekmesinin en üstünde (cüzdan 1.0.46). Dolar, bitcoin veya GNR cinsinden ne kadar almak ya da satmak istediğinizi belirtin ve tek bir düğmeye basın. Cüzdan, sahipleri çevrimiçi olan ve coinleri hazır bulunan <0>Quick Swap tekliflerinin</0> arasından en iyi fiyatları bulur ve tam o tutarı en fazla üç teklif üzerinden takas eder. Her parça, yukarıda anlatıldığı gibi ayrı bir takastır: önce satıcının GNR'si kilitlenir ve ya iki tarafa da ödeme yapılır ya da iki taraf da coinlerini korur. Bunu <1>piyasa sayfasında</1> canlı olarak görün.",
  "d087e120c4": "<0>Kabul ettiğiniz fiyat, alacağınız en kötü fiyattır.</0> Bir parça, teklifinin fiyatına mal olur. Bir parça başlayamazsa (başka biri o teklifi bir an önce aldıysa veya teklif sahibi iki dakika boyunca yanıt vermediyse), cüzdan onu başka bir teklifle değiştirir; ancak size gösterilen en kötü fiyatın asla yüzde&nbsp;1'den fazla ötesine geçmez.",
+ "821e82def0": "<0>Piyasa fiyatından asla uzak değil</0> (cüzdan 1.0.48). Quick Swap piyasa fiyatından %20'den, fiyat hâlâ oluşurken veya piyasa sığken %10'dan fazla uzak hiçbir teklifi almaz. Daha uzak teklifler panoda piyasadan uzak olarak işaretli kalır ve yine elle alınabilir. Pano fiyatın son takasları yakaladığını söylerken Quick Swap bekler.",
+ "28552af887": "<0>Piyasayı izleyen teklifler.</0> Bir Quick Swap teklifi varsayılan olarak piyasa fiyatını izler: piyasa fiyatında veya onun üstünde ya da altında bir payla durur, sınırınızı asla aşmaz ve piyasa belirlediğiniz tetik fiyatına ulaşırsa panodan kendiliğinden kalkar.",
  "5a42edd697": "<0>Bitcoin bakiyeniz.</0> Cüzdanın 24 kelimenizden türetilmiş kendine ait bir adresi. Alım işlemleri ödemeyi hemen buradan yapar (bir onay aldıktan sonra); satışların ödemesi buraya yapılır; çalışmakta olan Quick Swap'lerin hâlâ ihtiyaç duyduğu miktar dışında, istediğiniz zaman buradan bitcoin gönderebilirsiniz.",
  "fb22facf30": "<0>Quick Swap teklifi yayınlama.</0> Yayınlarken Quick Swap seçeneğini işaretleyin: herkes, teklifin en küçük parçasından (en az 10,000&nbsp;sat) tamamına kadar herhangi bir kısmını sizin fiyatınızdan takas edebilir. Teklif en fazla üç lot olarak listelenir, böylece birden fazla kişi aynı anda takas yapabilir; bir parça takas edildikten sonra lotun geri kalanı kendiliğinden panoya geri döner. Bir Quick Swap alış teklifinin ödemesi Bitcoin bakiyenizden yapılır.",
  "1fe36b3fdf": "<0>Bitcoin yalnızca bir kez taahhüt edilir.</0> Bir satıcının cüzdanı, bitcoin'i bir depozito adresinde bekleyen bir alıcı için GNR kilitlemeden önce pano, bu depozitonun diğer satıcılara zaten ne kadar taahhüt edildiğini toplar. Satıcı yalnızca depozito bunların tamamını karşılıyorsa kilitler; böylece tek bir takasın bitcoin'i birçok satıcının GNR'sini bağlayamaz.",

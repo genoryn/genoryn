@@ -82,6 +82,10 @@ struct MyOffer {
     /// request's id and the secret that takes the promise back.
     #[serde(default)]
     promise: Option<(String, String)>,
+    /// From 1.0.48: why the wallet took the offer off the board by itself (its trigger
+    /// price was reached).
+    #[serde(default)]
+    stopped: Option<String>,
 }
 
 /// A Quick Swap offer's setting: the least GNR one part may be for, and the group of
@@ -112,6 +116,27 @@ struct Follow {
     at: u64,
     #[serde(default)]
     moves: u32,
+    /// From 1.0.48: where the offer stands against the market price, as a fraction (0.02:
+    /// two percent above it; -0.01: one percent below).
+    #[serde(default)]
+    margin: f64,
+    /// From 1.0.48: the market price (sat per GNR) at which the offer is taken off the
+    /// board by itself: a sell offer when the market falls to it, a buy offer when it
+    /// rises to it.
+    #[serde(default)]
+    trigger: Option<f64>,
+}
+
+/// How far from the market price a following offer may stand (1.0.48): further out it
+/// would be marked far from the market and Quick Swap would not take it.
+const FOLLOW_MAX_MARGIN: f64 = 0.25;
+
+/// Whether the market price `market` has reached the trigger of an offer of `side`.
+fn triggered(side: Side, f: &Follow, market: f64) -> bool {
+    f.trigger.is_some_and(|t| match side {
+        Side::SellGnr => market <= t,
+        Side::BuyGnr => market >= t,
+    })
 }
 
 /// A following offer's price is looked at this often, moved only when the market is at
@@ -131,11 +156,16 @@ fn market_price(m: &Value) -> Option<f64> {
     (m["priced"].as_u64().unwrap_or(0) >= FOLLOW_MIN_SWAPS && p.is_finite() && p > 0.0).then_some(p)
 }
 
-/// The price (sat per GNR) a following offer of `side` may stand at, given the market.
+/// The price (sat per GNR) a following offer of `side` stands at, given the market: the
+/// market price with the offer's margin, never past the owner's limit.
 fn follow_price(side: Side, f: &Follow, market: f64) -> f64 {
+    within_limit(side, f, market * (1.0 + f.margin))
+}
+
+fn within_limit(side: Side, f: &Follow, price: f64) -> f64 {
     match side {
-        Side::SellGnr => market.max(f.limit),
-        Side::BuyGnr => market.min(f.limit),
+        Side::SellGnr => price.max(f.limit),
+        Side::BuyGnr => price.min(f.limit),
     }
 }
 
@@ -163,8 +193,9 @@ fn follow_target(o: &Offer, f: &Follow, market: f64) -> Option<(u64, u64)> {
     if !(at.is_finite() && at > 0.0) {
         return None;
     }
-    let step = market.clamp(at * (1.0 - FOLLOW_MAX_STEP), at * (1.0 + FOLLOW_MAX_STEP));
-    let to = follow_price(o.side, f, step);
+    let want = market * (1.0 + f.margin);
+    let step = want.clamp(at * (1.0 - FOLLOW_MAX_STEP), at * (1.0 + FOLLOW_MAX_STEP));
+    let to = within_limit(o.side, f, step);
     if (to - at).abs() / at < FOLLOW_MIN_MOVE {
         return None;
     }
@@ -186,7 +217,20 @@ fn follow_market(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
     };
     for m in st.offers.iter_mut() {
         let Some(f) = m.follow.clone() else { continue };
-        if m.taken || m.cancelled || m.offer.expires <= t + 900 || f.at + every > t {
+        if m.taken || m.cancelled || m.offer.expires <= t + 900 {
+            continue;
+        }
+        if triggered(m.offer.side, &f, market) {
+            let why = format!(
+                "Taken off the board by itself: the market price reached your trigger price of {} BTC per GNR.",
+                btc_text(f.trigger.unwrap_or_default().round() as u64)
+            );
+            if take_down(e.wallet, base, m, &why).is_ok() {
+                m.stopped = Some(why);
+            }
+            continue;
+        }
+        if f.at + every > t {
             continue;
         }
         // Only an offer that is on the board has a price to move.
@@ -1225,6 +1269,7 @@ fn publish_offer(
         rest_deposit: None,
         rest_done: false,
         promise: None,
+        stopped: None,
     };
     if let Some(a) = &auto {
         board::auto_ok(&offer, &board::Auto { min: a.min })?;
@@ -1392,6 +1437,7 @@ fn new_lot(
         rest_deposit: None,
         rest_done: false,
         promise: None,
+        stopped: None,
     }
 }
 
@@ -3439,6 +3485,13 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         // BTC price.
         let mut market = get(&base, "/v1/swap/market").unwrap_or_else(|_| cached_market());
         market["btc_usd"] = cached_market()["btc_usd"].clone();
+        if market["quick"].is_object()
+            && let Some(listing) = raw["offers"].as_array()
+        {
+            let mp = market_price(&market["market"]);
+            let band = quick::guard_band(&market["market"]);
+            quick::guard_summary(&mut market["quick"], listing, mp, band);
+        }
         Ok(json!({
             "board": base,
             "offers": offers.iter().map(view).collect::<Vec<_>>(),
@@ -3449,7 +3502,10 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                     v["prepaid"] = json!(true);
                 }
                 if let Some(f) = &m.follow {
-                    v["follow"] = json!({"limit": f.limit, "moves": f.moves, "at": f.at});
+                    v["follow"] = json!({"limit": f.limit, "moves": f.moves, "at": f.at, "margin": f.margin * 100.0, "trigger": f.trigger});
+                }
+                if let Some(why) = &m.stopped {
+                    v["stopped"] = json!(why);
                 }
                 if let Some(x) = &m.auto {
                     v["auto"] = json!({"min": x.min, "min_text": format_amount(x.min), "group": x.group});
@@ -3556,6 +3612,12 @@ pub struct PublishReq {
     follow: Option<bool>,
     #[serde(default)]
     limit: Option<f64>,
+    /// A following offer (1.0.48): percent above (or, negative, below) the market price,
+    /// and the market price (sat per GNR) at which it is taken off the board by itself.
+    #[serde(default)]
+    margin: Option<f64>,
+    #[serde(default)]
+    trigger: Option<f64>,
     /// Quick Swap (1.0.46): the offer is swapped in parts by itself, with anyone; a buy
     /// offer is paid from the wallet's Bitcoin balance. `min`: the smallest part (GNR).
     #[serde(default)]
@@ -3594,10 +3656,31 @@ pub async fn publish(
                 .and_then(|m| market_price(&m["market"]))
                 .or_else(|| market_price(&cached_market()["market"]))
                 .context("there is no market price to follow yet: no swap has completed lately. Publish at a price of your own")?;
+            let margin = r.margin.unwrap_or(0.0) / 100.0;
+            ensure!(
+                margin.is_finite() && margin.abs() <= FOLLOW_MAX_MARGIN + 1e-9,
+                "the offer may stand at most 25 % above or below the market price"
+            );
+            let trigger = r.trigger.filter(|t| *t > 0.0);
+            if let Some(t) = trigger {
+                ensure!(t.is_finite(), "invalid trigger price");
+                ensure!(
+                    match r.side {
+                        Side::SellGnr => t < market,
+                        Side::BuyGnr => t > market,
+                    },
+                    match r.side {
+                        Side::SellGnr => "the trigger price of a sell offer must be below the market price, or the offer would come down at once",
+                        Side::BuyGnr => "the trigger price of a buy offer must be above the market price, or the offer would come down at once",
+                    }
+                );
+            }
             let f = Follow {
                 limit,
                 at: now(),
                 moves: 0,
+                margin,
+                trigger,
             };
             let (gnr, sats) = match r.side {
                 Side::SellGnr => (parse_amount(&r.gnr).context("invalid GNR amount")?, 0),
@@ -3814,6 +3897,40 @@ pub struct CancelReq {
     id: String,
 }
 
+/// Takes this wallet's offer `m` off the board for good: down from the board if it is
+/// there, its GNR released (committed for a week from publishing if it was listed), the
+/// bitcoin of a buy offer's deposit sent back with `fund_status`.
+fn take_down(w: &mut Wallet, base: &str, m: &mut MyOffer, fund_status: &str) -> Result<()> {
+    // An offer still on its way to the board is not there to be taken down.
+    let listed =
+        m.reserve.as_ref().is_none_or(|r| r.posted) && m.fund.as_ref().is_none_or(|f| f.posted);
+    if listed {
+        post(
+            base,
+            "/v1/swap/offers/cancel",
+            &json!({"id": m.offer.id, "secret": m.cancel_secret}),
+        )?;
+    }
+    m.cancelled = true;
+    if let Some(r) = m.reserve.as_mut()
+        && !r.released
+    {
+        // The GNR of an offer that was on the board stays committed for a week from
+        // when it was published; one that never got there is free at once.
+        let until = commit_until(r, m.offer.expires, now());
+        if let Some(cm) = r.note() {
+            w.release(&cm, until)?;
+        }
+        r.released = true;
+        r.free_at = until;
+        r.status.clear();
+    }
+    // A buy offer with a deposit: the bitcoin goes back (the background round sends it
+    // within seconds).
+    close_fund(m, true, fund_status);
+    Ok(())
+}
+
 pub async fn cancel(
     axum::extract::State(app): S,
     h: HeaderMap,
@@ -3837,38 +3954,13 @@ pub async fn cancel(
             !m.taken,
             "this offer was already taken; the swap continues in Your swaps"
         );
-        // An offer still on its way to the board is not there to be taken down.
-        let listed =
-            m.reserve.as_ref().is_none_or(|r| r.posted) && m.fund.as_ref().is_none_or(|f| f.posted);
-        if listed {
-            post(
-                &base,
-                "/v1/swap/offers/cancel",
-                &json!({"id": m.offer.id, "secret": m.cancel_secret}),
-            )?;
-        }
-        m.cancelled = true;
-        if let Some(r) = m.reserve.as_mut()
-            && !r.released
-        {
-            // The GNR of an offer that was on the board stays committed for a week from
-            // when it was published; one that never got there is free at once.
-            let until = commit_until(r, m.offer.expires, now());
-            if let Some(cm) = r.note() {
-                w.release(&cm, until)?;
-            }
-            r.released = true;
-            r.free_at = until;
-            r.status.clear();
-        }
-        // A buy offer with a deposit: the bitcoin goes back (the background round sends
-        // it within seconds).
         let back = m.btc_address.clone();
-        close_fund(
+        take_down(
+            w,
+            &base,
             m,
-            true,
             &format!("Cancelled. Sending your bitcoin back to {back}."),
-        );
+        )?;
         save(w, &st)
     })
     .await
@@ -3881,6 +3973,73 @@ pub async fn cancel(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fol(limit: f64, margin: f64, trigger: Option<f64>) -> Follow {
+        Follow {
+            limit,
+            at: 0,
+            moves: 0,
+            margin,
+            trigger,
+        }
+    }
+
+    #[test]
+    fn a_following_offer_stands_at_its_margin_from_the_market_within_its_limit() {
+        // Sell at the market +2 %, never below 4,000 sat per GNR.
+        let f = fol(4_000.0, 0.02, None);
+        assert!((follow_price(Side::SellGnr, &f, 5_000.0) - 5_100.0).abs() < 1e-9);
+        assert_eq!(follow_price(Side::SellGnr, &f, 3_000.0), 4_000.0);
+        // Buy at the market -1 %, never above 6,000.
+        let b = fol(6_000.0, -0.01, None);
+        assert!((follow_price(Side::BuyGnr, &b, 5_000.0) - 4_950.0).abs() < 1e-9);
+        assert_eq!(follow_price(Side::BuyGnr, &b, 9_000.0), 6_000.0);
+        // An offer saved before 1.0.48 reads with no margin and no trigger.
+        let old: Follow =
+            serde_json::from_value(json!({"limit": 4_000.0, "at": 5, "moves": 2})).unwrap();
+        assert_eq!((old.margin, old.trigger), (0.0, None));
+        // Moving toward the market and its margin, 5 % a step at most.
+        let o = Offer {
+            id: String::new(),
+            network: "devnet".into(),
+            btc_network: "regtest".into(),
+            side: Side::SellGnr,
+            gnr: 100_000_000,
+            sats: 5_000,
+            key: String::new(),
+            expires: 0,
+            cancel: String::new(),
+            nonce: 0,
+        };
+        assert_eq!(
+            follow_target(&o, &f, 5_000.0),
+            None,
+            "5,100 is within a step but 10,000 sat is the least a part needs"
+        );
+        let big = Offer {
+            gnr: 100 * 100_000_000,
+            sats: 500_000,
+            ..o
+        };
+        assert_eq!(
+            follow_target(&big, &f, 5_000.0),
+            Some((100 * 100_000_000, 510_000))
+        );
+        assert_eq!(
+            follow_target(&big, &f, 9_000.0),
+            Some((100 * 100_000_000, 525_000)),
+            "one step of 5 %"
+        );
+    }
+
+    #[test]
+    fn a_trigger_takes_the_offer_down_when_the_market_reaches_it() {
+        let s = fol(1.0, 0.0, Some(4_000.0));
+        assert!(!triggered(Side::SellGnr, &s, 4_500.0) && triggered(Side::SellGnr, &s, 4_000.0));
+        let b = fol(1e9, 0.0, Some(6_000.0));
+        assert!(!triggered(Side::BuyGnr, &b, 5_500.0) && triggered(Side::BuyGnr, &b, 6_100.0));
+        assert!(!triggered(Side::SellGnr, &fol(1.0, 0.0, None), 1.0));
+    }
 
     fn my(expires: u64) -> MyOffer {
         MyOffer {
@@ -3919,6 +4078,7 @@ mod tests {
             rest_deposit: None,
             rest_done: false,
             promise: None,
+            stopped: None,
         }
     }
 

@@ -19,13 +19,23 @@
   };
   var cell = function (main, sub) { return "<b>" + main + "</b>" + (sub ? "<em>" + sub + "</em>" : ""); };
   var offersN = function (n) { return Tn(n, "{n} offer", "{n} offers"); };
+  // The market price, once completed swaps set one (the board's `priced` swaps).
+  var mprice = function () { var m = data.market || {}; return m.price != null && Number(m.priced) >= 1 ? Number(m.price) : null; };
+  // An offer's distance from the market price, and a mark when it is more than 25 % away.
+  function vsMarket(p) {
+    var mp = mprice();
+    if (!mp) return "";
+    var d = (p / mp - 1) * 100;
+    return " · <span class=\"mk-vs\">" + (d >= 0 ? "+" : "") + e(GKI18N.num(d, { minimumFractionDigits: 1, maximumFractionDigits: 1 })) + " %</span>" +
+      (Math.abs(d) > 25 ? "<i class=\"mk-far\" title=\"" + e(T("More than 25 % from the market price: Quick Swap never takes it, and it is not counted as ready to swap")) + "\">" + e(T("far from market")) + "</i>" : "");
+  }
 
   function rows(list, kind, when) {
     var big = Math.max.apply(null, list.map(function (o) { return o.gnr; }).concat([1]));
     return list.map(function (o) {
       var p = price(o), off = o.online === false, w = Math.max(2, Math.round(o.gnr / big * 100));
       return "<tr class=\"" + (off ? "mk-off" : "") + "\" style=\"--depth:" + w + "%\">" +
-        "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + e(off ? T("Maker offline: it cannot be taken until the maker's wallet is back") : T("Maker online: the swap starts within seconds")) + "\"></span><div>" + cell(sat(p) + (o.auto ? "<span class=\"mk-qtag\" title=\"" + e(T("Quick Swap: anyone can swap any part of it, in one click")) + "\">Quick</span>" : ""), usd(p)) + "</div></div></td>" +
+        "<td class=\"mk-px\"><div class=\"mk-pxw\"><span class=\"mk-live" + (off ? " off" : "") + "\" title=\"" + e(off ? T("Maker offline: it cannot be taken until the maker's wallet is back") : T("Maker online: the swap starts within seconds")) + "\"></span><div>" + cell(sat(p) + (o.auto ? "<span class=\"mk-qtag\" title=\"" + e(T("Quick Swap: anyone can swap any part of it, in one click")) + "\">Quick</span>" : ""), usd(p) + (kind === "pend" ? "" : vsMarket(p))) + "</div></div></td>" +
         "<td class=\"num\">" + cell(gnr(o.gnr) + (o.backed ? "<i class=\"mk-ok\" title=\"" + e(T("The seller's GNR is set aside and proven to the board")) + "\">✓</i>" : ""), kind === "pend" ? e(o.funded ? T("bitcoin paid") : T("taken, not paid yet")) : "") + "</td>" +
         "<td class=\"num\">" + cell(btc(o.sats) + " BTC" + (o.deposited ? "<i class=\"mk-ok\" title=\"" + e(T("The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself")) + "\">✓</i>" : ""), dollars(o.sats)) + "</td>" +
         "<td class=\"num\">" + e(when(o)) + "</td></tr>";
@@ -60,7 +70,8 @@
   function render() {
     var m = data.market || {}, np = Number(m.priced) || 0;
     $("mkPrice").textContent = m.price != null ? sat(m.price) : T("no swaps yet");
-    $("mkPriceL").textContent = m.price != null ? (usd(m.price) ? "≈ " + usd(m.price) + " · " : "") + Tn(np, "average of {n} swap", "average of {n} swaps") : T("after the first completed swap");
+    var how = m.status === "verified" ? Tn(np, "median of {n} verified swap", "median of {n} verified swaps") : m.status === "forming" ? T("forming") + ": " + Tn(np, "average of {n} swap", "average of {n} swaps") : Tn(np, "average of {n} swap", "average of {n} swaps");
+    $("mkPriceL").textContent = m.price != null ? (usd(m.price) ? "≈ " + usd(m.price) + " · " : "") + how + (m.volatile ? " · " + T("catching up with recent swaps") : "") : T("after the first completed swap");
     $("mkAsk").textContent = m.best_ask != null ? sat(m.best_ask) : "—"; $("mkAskU").textContent = m.best_ask != null ? usd(m.best_ask) : "";
     $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
     $("mkBid").textContent = m.best_bid != null ? sat(m.best_bid) : "—"; $("mkBidU").textContent = m.best_bid != null ? usd(m.best_bid) : "";
@@ -102,6 +113,23 @@
     put("mktProg", paidNow, swaps, waiting ? "" : T("none right now"));
     if (waiting) $("mktProgN").textContent += (paidNow.length ? " · " : "") + T("{n} taken, not paid yet", { n: waiting });
     put("mktDone", data.recent, swaps, T("no swaps yet"));
+    // Bitcoin that buyers have really deposited (found by the board on the Bitcoin chain).
+    var dep = data.offers.filter(function (o) { return o.side === "buy_gnr" && o.deposited; });
+    if (dep.length) $("mktBuyN").textContent += " · " + T("{amount} BTC deposited", { amount: btc(sum(dep, "sats")) });
+    depth();
+  }
+  // How much can be swapped near the market price: GNR offered and bitcoin bid within 2, 5,
+  // 10 and 20 % of it, by makers online now (the depth trackers judge a market by).
+  function depth() {
+    var host = $("mktDepth"), mp = mprice();
+    if (!host) return;
+    if (!mp) { host.innerHTML = ""; return; }
+    var on = data.offers.filter(function (o) { return o.online !== false; });
+    var within = function (side, pct) { return on.filter(function (o) { return o.side === side && Math.abs(price(o) / mp - 1) <= pct / 100; }); };
+    host.innerHTML = "<em>" + e(T("Near the market price (online offers: GNR for sale · bitcoin bid)")) + "</em>" + [2, 5, 10, 20].map(function (p) {
+      var a = within("sell_gnr", p), b = within("buy_gnr", p);
+      return "<span><b>±" + p + " %</b>" + gnr(a.reduce(function (s, o) { return s + o.gnr; }, 0)) + " GNR · " + btc(b.reduce(function (s, o) { return s + o.sats; }, 0)) + " BTC</span>";
+    }).join("");
   }
   // Price history: one point per completed swap, oldest first.
   var charts = {};
@@ -174,10 +202,30 @@
   // the wallet's own (best price first, whole offers where they fit, at most three parts).
   var qx = { side: "buy", unit: "usd" };
   var MIN_PART_SATS = 10000, MIN_PART_GNR = 3 * 2560;
-  function quickOffers(buying) {
+  function quickAll(buying) {
     return data.offers.filter(function (o) {
       return o.auto && o.online !== false && o.side === (buying ? "sell_gnr" : "buy_gnr") && (buying ? o.backed : o.deposited);
     });
+  }
+  // The wallet's price guard (1.0.48): no part more than 20 % from the market price, 10 %
+  // while the price is forming or the market is thin; without a market price, the best
+  // Quick Swap offer is the measure.
+  function guardPct() {
+    var m = data.market || {};
+    return m.status === "verified" && m.depth !== "thin" ? 20 : 10;
+  }
+  function guardLimit(buying, list) {
+    var ref = mprice();
+    if (ref == null) {
+      var ps = list.map(price);
+      if (!ps.length) return null;
+      ref = buying ? Math.min.apply(null, ps) : Math.max.apply(null, ps);
+    }
+    return ref * (1 + (buying ? 1 : -1) * guardPct() / 100);
+  }
+  function quickOffers(buying) {
+    var all = quickAll(buying), lim = guardLimit(buying, all);
+    return all.filter(function (o) { return lim == null || (buying ? price(o) <= lim * (1 + 1e-9) : price(o) >= lim * (1 - 1e-9)); });
   }
   // Bitcoin for g GNR of an offer at its price, rounded for its maker (BigInt: no overflow).
   function partSats(o, g) {
@@ -208,14 +256,25 @@
   function quick() {
     if (!$("qxSell")) return;
     var k = data.quick || null;
-    var s = (k && k.sell) || {}, b = (k && k.buy) || {}, n = (s.offers || 0) + (b.offers || 0);
+    // What Quick Swap takes: the online Quick Swap offers within the price guard.
+    var side = function (buying) {
+      var v = quickOffers(buying), all = quickAll(buying), ps = v.map(price);
+      return {
+        offers: v.length, far: all.length - v.length,
+        gnr: v.reduce(function (a, o) { return a + o.gnr; }, 0), sats: v.reduce(function (a, o) { return a + o.sats; }, 0),
+        best: ps.length ? (buying ? Math.min.apply(null, ps) : Math.max.apply(null, ps)) : null
+      };
+    };
+    var s = side(true), b = side(false), n = s.offers + b.offers, far = s.far + b.far;
+    var left = function (x) { return x.far ? " · " + Tn(x.far, "{n} far from the market, left out", "{n} far from the market, left out") : ""; };
     $("qxLiveBox").classList.toggle("off", !n);
     var now = new Date().toLocaleTimeString(GKI18N.lang, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    $("qxLive").textContent = !k ? T("Quick Swap starts with wallet 1.0.46") : n ? Tn(n, "{n} offer online, updated {time}", "{n} offers online, updated {time}", { time: now }) : T("No Quick Swap offer online right now");
+    var paused = (data.market || {}).volatile;
+    $("qxLive").textContent = !k ? T("Quick Swap starts with wallet 1.0.46") : paused ? T("Paused: the price is catching up with recent swaps") : n ? Tn(n, "{n} offer online, updated {time}", "{n} offers online, updated {time}", { time: now }) : far ? T("Nothing near the market price right now") : T("No Quick Swap offer online right now");
     tween($("qxSell"), s.offers ? gnr(s.gnr) + " GNR" : "—");
-    $("qxSellN").textContent = s.offers ? T("from {price} per GNR", { price: sat(s.best) + (usd(s.best) ? " · " + usd(s.best) : "") }) + " · " + offersN(s.offers) : T("no sell offer online");
+    $("qxSellN").textContent = (s.offers ? T("from {price} per GNR", { price: sat(s.best) + (usd(s.best) ? " · " + usd(s.best) : "") }) + " · " + offersN(s.offers) : T("no sell offer online")) + left(s);
     tween($("qxBuy"), b.offers ? (dollars(b.sats) || btc(b.sats) + " BTC") : "—");
-    $("qxBuyN").textContent = b.offers ? btc(b.sats) + " BTC · " + T("up to {price} per GNR", { price: sat(b.best) }) + " · " + offersN(b.offers) : T("no buy offer online");
+    $("qxBuyN").textContent = (b.offers ? btc(b.sats) + " BTC · " + T("up to {price} per GNR", { price: sat(b.best) }) + " · " + offersN(b.offers) : T("no buy offer online")) + left(b);
     tween($("qxRun"), k ? String(Number(k.parts_in_progress || 0)) : "—");
     qcalc();
   }
@@ -244,11 +303,18 @@
     if (!want) { $("qxOut").textContent = "—"; $("qxOutN").textContent = T("The bitcoin price could not be read; use BTC or GNR."); return; }
     var p = plan(buy, want, !gUnit);
     var g = p.reduce(function (a, x) { return a + x.gnr; }, 0), s = p.reduce(function (a, x) { return a + x.sats; }, 0);
-    if (!p.length) { $("qxOut").textContent = "—"; $("qxOutN").textContent = quickOffers(buy).length ? T("That is less than the smallest part of the offers online (at least 10,000 sat).") : T("No Quick Swap offer is online on this side right now."); return; }
+    if (!p.length) {
+      $("qxOut").textContent = "—";
+      $("qxOutN").textContent = quickOffers(buy).length ? T("That is less than the smallest part of the offers online (at least 10,000 sat).")
+        : quickAll(buy).length ? T("Every Quick Swap offer online is further from the market price than Quick Swap goes ({pct} %). It can still be taken by hand on the board.", { pct: guardPct() })
+        : T("No Quick Swap offer is online on this side right now.");
+      return;
+    }
     $("qxOut").textContent = gUnit ? btc(s) + " BTC" : gnr(g) + " GNR";
     var short = gUnit ? g < want : s + MIN_PART_SATS < want;
     $("qxOutN").textContent = T("{price} per GNR on average", { price: sat(s / (g / 1e8)) }) + (dollars(s) ? " · ≈ " + dollars(s) : "") + " · " + Tn(p.length, "{n} part", "{n} parts") +
-      (short ? " · " + T("the board has less than that right now") : "") + ". " + T("Plus the bitcoin network fee.");
+      (short ? " · " + T("the board has less than that right now") : "") + ". " + T("Plus the bitcoin network fee.") + " " +
+      T("No part is more than {pct} % from the market price.", { pct: guardPct() });
   }
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest ? ev.target.closest("#qxSide button, #qxUnit button") : null;

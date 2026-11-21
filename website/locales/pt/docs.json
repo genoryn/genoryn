@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentação do Genoryn Krypton (GNR): carteira, mineração, trocas, API",
- "6054f94b63": "Documentação · mainnet · versão 1.0.47",
+ "14ef51c49e": "Documentação · mainnet · versão 1.0.48",
  "503bc1b9c1": "Documentação do Genoryn Krypton",
  "be0c07c7b6": "Tudo o que você precisa para usar, minerar, negociar, executar, integrar e auditar o Genoryn Krypton: dinheiro resistente à computação quântica e privado por padrão, com lançamento justo, limite de 21,000,000 GNR e trocas atômicas com bitcoin. Comece pelo início rápido ou vá direto a qualquer tópico pelo sumário.",
  "437aea62a5": "Sumário",
@@ -242,6 +242,8 @@
  "f20c91b2a2": "Quick Swap: qualquer valor, em um clique",
  "e22f911be4": "No topo da aba Troca (carteira 1.0.46). Diga quanto você quer comprar ou vender, em dólares, bitcoin ou GNR, e clique em um botão. A carteira encontra os melhores preços entre as <0>ofertas Quick Swap</0> cujos criadores estão online e cujas moedas estão disponíveis, e troca exatamente esse valor usando até três delas. Cada parte é uma troca própria, como descrito acima: o GNR do vendedor é bloqueado primeiro, e ou os dois lados recebem ou os dois ficam com suas moedas. Veja ao vivo na <1>página do mercado</1>.",
  "d087e120c4": "<0>O preço que você aceitou é o pior que você paga.</0> Cada parte custa o preço da sua oferta. Se uma parte não puder começar (outra pessoa aceitou aquela oferta um instante antes, ou o criador dela parou de responder por dois minutos), a carteira a substitui por outra oferta, nunca mais de 1&nbsp;% acima do pior preço que lhe foi mostrado.",
+ "821e82def0": "<0>Nunca longe do preço de mercado</0> (carteira 1.0.48). O Quick Swap não usa nenhuma oferta a mais de 20&nbsp;% do preço de mercado, ou 10&nbsp;% enquanto o preço ainda está se formando ou o mercado está fino. Ofertas mais distantes continuam no quadro, marcadas como longe do mercado, e ainda podem ser aceitas à mão. Enquanto o quadro indica que o preço está alcançando as trocas recentes, o Quick Swap espera.",
+ "28552af887": "<0>Ofertas que seguem o mercado.</0> Uma oferta Quick Swap segue o preço de mercado por padrão: fica no preço de mercado, ou com uma margem acima ou abaixo dele, nunca além do seu limite, e sai do quadro sozinha se o mercado chegar ao preço de gatilho que você definir.",
  "5a42edd697": "<0>Seu saldo em Bitcoin.</0> Um endereço da própria carteira, derivado das suas 24 palavras. As compras são pagas a partir dele na hora (assim que ele tiver uma confirmação); as vendas são pagas nele; envie bitcoin a partir dele quando quiser, exceto o que os Quick Swaps em andamento ainda precisam.",
  "fb22facf30": "<0>Publicar uma oferta Quick Swap.</0> Marque Quick Swap ao publicar: qualquer pessoa pode trocar qualquer parte dela, da menor parte (pelo menos 10,000&nbsp;sat) até ela inteira, pelo seu preço. Ela é listada em até três lotes para que várias pessoas possam trocar ao mesmo tempo, e depois de uma parte o restante do lote volta ao quadro sozinho. Uma oferta de compra Quick Swap é paga a partir do seu saldo em Bitcoin.",
  "1fe36b3fdf": "<0>Bitcoin prometido uma única vez.</0> Antes que a carteira de um vendedor bloqueie GNR para um comprador cujo bitcoin aguarda em um depósito, o quadro soma o que esse depósito já tem prometido a outros vendedores. O vendedor só bloqueia se o depósito cobrir tudo, para que o bitcoin de uma troca não possa prender o GNR de muitos vendedores.",

@@ -300,6 +300,10 @@
  "2335b5d577": "Vazgeç",
  "3ee87a0e22": "Bitcoin bir onay aldığında takas kendiliğinden başlar.",
  "df94a56aa4": "Henüz hiçbir şey kilitlenmedi veya ödenmedi.",
+ "ae6b502de1": "{amount} BTC yatırıldı",
+ "180ca561ce": "Piyasa fiyatına yakın (çevrimiçi teklifler: satılık GNR · teklif edilen bitcoin)",
+ "d4056c9c4e": "Piyasa fiyatından %25'ten fazla uzak: Quick Swap onu asla almaz ve takasa hazır sayılmaz",
+ "b0c6a6075a": "piyasadan uzak",
  "7c41b09542": "Bitcoin sözleşmesinde: takas sürüyor",
  "1f293b48f4": "Teklif alındı ve GNR kilitlendi, ancak henüz bitcoin ödenmedi",
  "e87ba7a0b7": "sona erdi",
@@ -356,6 +360,10 @@
  "ca15ebc05a": "Karşılığında",
  "e187023220": "Asla şunun altında satma (GNR başına)",
  "b3aeccc856": "Asla şundan fazla ödeme (GNR başına)",
+ "51ce9a8a96": "Piyasa fiyatının üstünde (negatif: altında)",
+ "36a3fadb68": "Piyasa fiyatının altında (negatif: üstünde)",
+ "52ce8c2c92": "Piyasa fiyatı şuna düşerse kaldır (isteğe bağlı)",
+ "c32c41ceb4": "Piyasa fiyatı şuna yükselirse kaldır (isteğe bağlı)",
  "1e65be33e0": "{btc} BTC karşılığında şu anki fiyatla yaklaşık {gnr} GNR alırsınız ve asla {min} GNR'den az değil (limitinizde).",
  "9c662b40eb": "{btc} BTC karşılığında şu anki fiyatla yaklaşık {gnr} GNR alırsınız.",
  "94bdb93d49": "Ödediğiniz bitcoin sabittir; GNR piyasayla birlikte değişir.",
@@ -364,6 +372,12 @@
  "c616f91ec6": "Teklif piyasa fiyatından, {price} ile başlar.",
  "3d5cdfb03f": "Piyasa %{move} veya daha fazla değiştiğinde cüzdan teklifi yeni fiyatla yeniden listeler: en fazla {mins} dakikada bir, her seferinde en fazla %{step} ve asla limitinizin altına inmeden.",
  "14f90e4c1a": "Piyasa %{move} veya daha fazla değiştiğinde cüzdan teklifi yeni fiyatla yeniden listeler: en fazla {mins} dakikada bir, her seferinde en fazla %{step} ve asla limitinizin üstüne çıkmadan.",
+ "f63a95ea6e": "Teklif piyasa fiyatının %{pct} üstünde durur.",
+ "5283163b6a": "Teklif piyasa fiyatının %{pct} altında durur.",
+ "b43ab3ec6a": "Piyasa fiyatı {price} seviyesine düşerse cüzdan teklifi panodan kendiliğinden kaldırır.",
+ "3d0ee0b1a8": "Piyasa fiyatı {price} seviyesine yükselirse cüzdan teklifi panodan kendiliğinden kaldırır.",
+ "f4ca6e0e5f": "Bu tetik fiyatı piyasa fiyatının altında değil: teklif hemen kalkardı.",
+ "cb9276639b": "Bu tetik fiyatı piyasa fiyatının üstünde değil: teklif hemen kalkardı.",
  "ef71b395a9": "En fazla üç parti halinde listelenir, böylece birkaç kişi aynı anda satın alabilir. Her parti, her satış teklifi gibi kendi GNR'sini ayırır ve bunu kanıtlar; yalnızca bitcoin'i zaten orada olan alıcılara satılır. Bir kısım satıldıktan sonra kalanı bir sonraki bloktan sonra kendiliğinden yeniden listelenir. 10,000 sat'ın alabileceği en küçük miktar için en küçük kısmı boş bırakın.",
  "4c5b44bf81": "Bitcoin bakiyenizden ({btc} BTC serbest ve onaylı), en fazla üç parti halinde ödenir; böylece birkaç kişi size aynı anda satış yapabilir. Satıcının GNR'si, cüzdanınız ödeme yapmadan önce her zaman sizin için kilitlenir. Bir kısımdan sonra kalanı, para üstü bir onay aldığında yeniden listelenir.",
  "18b21fdad5": "Teklifin inebileceği en düşük fiyatı belirtin",
@@ -485,12 +499,14 @@
  "9f91d324d8": "Yaklaşık alacağınız",
  "bf2bfdd152": "Yaklaşık satacağınız",
  "cb1a3925b8": "Bir miktar yazın: cüzdan panodaki en iyi fiyatları en fazla üç teklif arasında bulur.",
+ "b5ef2cc9b7": "Fiyat koruması: hiçbir parça piyasa fiyatından %{pct}'ten fazla uzak değil.",
  "a10c98d164": "piyasaya göre %{pct}",
  "4504b0fd8b": "yaklaşık {n}",
  "569fadfb06": "Bitcoin ağ ücreti",
  "7894bf6106": "Tek bir teklifle tek bir atomik takas",
  "eb46e4954e": "Kısım {n}: {price} fiyattan {amount} GNR",
  "6c27578942": "Panoda şu anda bundan daha azı var: bu işlem {amount} takas eder. Kalanı için daha sonra yeniden takas yapın.",
+ "f63042989f": "Bu, Quick Swap'ın şu anda piyasa fiyatına yakın takas edebileceğinin yarısından fazlası; bu yüzden son parçalar daha pahalı. Daha küçük bir miktar piyasaya daha yakın bir fiyat alır.",
  "c9e4af4b18": "Şu anda takas yapılacak bir şey yok.",
  "9c0e74e6c0": "Şimdi al",
  "26fc32b063": "Şimdi sat",
@@ -509,6 +525,7 @@
  "9288122cdf": "Şu anda satılık bir şey yok",
  "daa04c3b3f": "Ödenmeye hazır {amount} BTC",
  "5ce93dc65a": "Şu anda alıcı yok",
+ "01e95f9100": "Şu anda piyasa fiyatına yakın bir şey yok",
  "7936f4b76d": "{price} fiyattan başlayan",
  "c5864ebdbd": "çevrimiçi yok",
  "5b54f2f95e": "en fazla {price}",
@@ -770,6 +787,10 @@
   "one": "{n} işlemle {address} adresine gönderildi:",
   "other": "{n} işlemle {address} adresine gönderildi:"
  },
+ "66a305593e": {
+  "one": "Daha uzak {n} teklif ({amount} GNR) dışarıda bırakıldı.",
+  "other": "Daha uzak {n} teklif ({amount} GNR) dışarıda bırakıldı."
+ },
  "e9b666e84e": {
   "one": "Ortalama GNR başına {price}{usd}, {n} kısımda.",
   "other": "Ortalama GNR başına {price}{usd}, {n} kısımda."
@@ -777,6 +798,10 @@
  "7a44caeb3c": {
   "one": "Quick Swap başladı: {n} kısım. Aşağıdan izleyin.",
   "other": "Quick Swap başladı: {n} kısım. Aşağıdan izleyin."
+ },
+ "9f108be4d8": {
+  "one": "{n} piyasadan uzak, dışarıda bırakıldı",
+  "other": "{n} piyasadan uzak, dışarıda bırakıldı"
  },
  "76a32604e3": {
   "one": "Zincirde {n} coin",

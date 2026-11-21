@@ -39,7 +39,7 @@
     </div>
     <ol class="qx-steps">
       <li><b>Type how much.</b> In dollars, bitcoin or GNR, in the wallet's Swap tab.</li>
-      <li><b>Best prices first.</b> Up to three offers, each at its own price, none beyond the price you accepted.</li>
+      <li><b>Best prices first, near the market.</b> Up to three offers, each at its own price, none beyond the price you accepted and none more than 20 % from the market price (10 % while the price is forming).</li>
       <li><b>Locked before paid.</b> Every part is an atomic swap; both sides are paid or both keep their coins.</li>
       <li><b>About 15 minutes,</b> mostly the bitcoin confirmation. Buying pays from your wallet's Bitcoin balance.</li>
     </ol>
@@ -84,6 +84,7 @@
     <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="mktBuy">—</b><em id="mktBuyN">buy offers</em></div>
     <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
     <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
+    <p class="mk-depth" id="mktDepth"></p>
   </section>
 
   <section class="mk-hist" id="history" aria-labelledby="hist-h">
@@ -152,8 +153,11 @@
       <ul class="mk-steps">
         <li><b>Only completed swaps count</b>, and only once their claim is on the GNR chain. Offers and swaps in progress are shown but never move the price: anyone can post an offer at any price.</li>
         <li><b>The bitcoin must be on the Bitcoin chain.</b> A swap's report names its bitcoin contract and is signed by one of the two wallets of the swap. The board looks the contract up and notes how much bitcoin was taken out of it with the swap's secret. Nobody else can report a swap, and a report without its bitcoin weighs nothing once there are three that have it.</li>
-        <li><b>The price is where half of that bitcoin changed hands below, and half above</b> (the volume-weighted median of the last 72 hours). A swap never weighs more than its GNR is worth at the going price, and never more than a fifth of the total, so one or two large swaps cannot set the price.</li>
-        <li><b>Typos are left out</b>: a swap more than 4× away from the median does not count. Until three swaps have their bitcoin found, the price is the plain average of the reported ones.</li>
+        <li><b>The price is where half of that bitcoin changed hands below, and half above</b> (the volume-weighted median of the last 72 hours, newer swaps weighing more: a swap of 72 hours ago half as much as a new one). A swap never weighs more than its GNR is worth at the going price, and never more than a fifth of the total, so one or two large swaps cannot set the price.</li>
+        <li><b>Only swaps of at least 0.001 BTC count</b> (since 1.0.48): many tiny swaps between one's own wallets cannot carry the price, and each swap pays two Bitcoin network fees.</li>
+        <li><b>The price moves at most 10 % an hour.</b> It is rebuilt hour by hour from the swaps themselves, so anyone with the same swaps gets the same price. A real move shows within hours; a burst of swaps cannot jump it. When the swaps are more than 15 % from the price, the board says the price is catching up and Quick Swap waits.</li>
+        <li><b>Typos are left out</b>: a swap more than 4× away from the median does not count. Until three swaps of at least 0.001 BTC have their bitcoin found, the price is still forming: the plain average of the reported swaps, shown as such.</li>
+        <li><b>Quick Swap stays near this price:</b> it never takes an offer more than 20 % from the market price (10 % while the price is forming or the market is thin). An offer further away stays on the board, marked far from the market, and can still be taken by hand.</li>
       </ul>
       <p class="muted mk-fine"><b>Your price is free:</b> publish an offer at any price you like. The board only refuses offers for more than 1,000 BTC and offers without proof of work; offers whose maker is offline stay listed, greyed out, and cannot be taken. Prices are shown in bitcoin and in dollars at the current BTC price.</p>
     </div>

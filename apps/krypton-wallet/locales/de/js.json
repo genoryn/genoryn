@@ -300,6 +300,10 @@
  "2335b5d577": "Absagen",
  "3ee87a0e22": "Der Swap startet von selbst, sobald die Bitcoin eine Bestätigung haben.",
  "df94a56aa4": "Noch ist nichts gesperrt oder gezahlt.",
+ "ae6b502de1": "{amount} BTC hinterlegt",
+ "180ca561ce": "Nahe am Marktpreis (Angebote online: GNR zum Verkauf · gebotene Bitcoin)",
+ "d4056c9c4e": "Mehr als 25 % vom Marktpreis entfernt: Quick Swap nimmt es nie, und es zählt nicht als sofort tauschbar",
+ "b0c6a6075a": "weit vom Markt",
  "7c41b09542": "Die Bitcoin sind in ihrem Vertrag: Der Swap läuft",
  "1f293b48f4": "Das Angebot wurde angenommen und die GNR sind gesperrt, aber es wurden noch keine Bitcoin gezahlt",
  "e87ba7a0b7": "beendet",
@@ -356,6 +360,10 @@
  "ca15ebc05a": "Für",
  "e187023220": "Nie verkaufen unter (pro GNR)",
  "b3aeccc856": "Nie mehr zahlen als (pro GNR)",
+ "51ce9a8a96": "Über dem Marktpreis um (negativ: darunter)",
+ "36a3fadb68": "Unter dem Marktpreis um (negativ: darüber)",
+ "52ce8c2c92": "Herunternehmen, wenn der Marktpreis fällt auf (optional)",
+ "c32c41ceb4": "Herunternehmen, wenn der Marktpreis steigt auf (optional)",
  "1e65be33e0": "Für {btc} BTC erhältst du zum aktuellen Preis etwa {gnr} GNR und nie weniger als {min} GNR (bei deinem Limit).",
  "9c662b40eb": "Für {btc} BTC erhältst du zum aktuellen Preis etwa {gnr} GNR.",
  "94bdb93d49": "Die Bitcoin sind das, was du zahlst; die Menge an GNR bewegt sich mit dem Markt.",
@@ -364,6 +372,12 @@
  "c616f91ec6": "Das Angebot startet zum Marktpreis, {price}.",
  "3d5cdfb03f": "Wenn sich der Markt um {move}% oder mehr bewegt hat, listet die Wallet das Angebot zum neuen Preis erneut: höchstens alle {mins} Minuten, um höchstens {step}% auf einmal und nie unter deinem Limit.",
  "14f90e4c1a": "Wenn sich der Markt um {move}% oder mehr bewegt hat, listet die Wallet das Angebot zum neuen Preis erneut: höchstens alle {mins} Minuten, um höchstens {step}% auf einmal und nie über deinem Limit.",
+ "f63a95ea6e": "Das Angebot steht {pct} % über dem Marktpreis.",
+ "5283163b6a": "Das Angebot steht {pct} % unter dem Marktpreis.",
+ "b43ab3ec6a": "Fällt der Marktpreis auf {price}, nimmt die Wallet das Angebot von selbst von der Tafel.",
+ "3d0ee0b1a8": "Steigt der Marktpreis auf {price}, nimmt die Wallet das Angebot von selbst von der Tafel.",
+ "f4ca6e0e5f": "Dieser Auslösepreis liegt nicht unter dem Marktpreis: Das Angebot käme sofort herunter.",
+ "cb9276639b": "Dieser Auslösepreis liegt nicht über dem Marktpreis: Das Angebot käme sofort herunter.",
  "ef71b395a9": "Gelistet in bis zu drei Tranchen, damit mehrere Personen gleichzeitig kaufen können. Jede Tranche legt ihre GNR zurück und weist sie nach, wie jedes Verkaufsangebot; sie wird nur an Käufer verkauft, deren Bitcoin bereits da sind. Nachdem ein Teil verkauft ist, wird der Rest nach dem nächsten Block von selbst erneut gelistet. Lass das Feld für den kleinsten Teil leer, dann gilt die kleinste Menge, die 10,000 sat kaufen.",
  "4c5b44bf81": "Bezahlt aus deinem Bitcoin-Guthaben ({btc} BTC frei und bestätigt), in bis zu drei Tranchen, damit mehrere Personen gleichzeitig an dich verkaufen können. Die GNR eines Verkäufers werden immer für dich gesperrt, bevor deine Wallet zahlt. Nach einem Teil wird der Rest erneut gelistet, sobald sein Wechselgeld eine Bestätigung hat.",
  "18b21fdad5": "Gib den niedrigsten Preis an, auf den das Angebot fallen darf",
@@ -485,12 +499,14 @@
  "9f91d324d8": "Du bekommst etwa",
  "bf2bfdd152": "Du verkaufst etwa",
  "cb1a3925b8": "Gib einen Betrag ein: Die Wallet findet die besten Preise auf der Angebotstafel, über bis zu drei Angebote hinweg.",
+ "b5ef2cc9b7": "Preisschutz: kein Teil mehr als {pct} % vom Marktpreis entfernt.",
  "a10c98d164": "{pct}% vs. Markt",
  "4504b0fd8b": "etwa {n}",
  "569fadfb06": "Bitcoin-Netzwerkgebühr",
  "7894bf6106": "Ein Atomic Swap mit einem Angebot",
  "eb46e4954e": "Teil {n}: {amount} GNR zu {price}",
  "6c27578942": "Die Angebotstafel hat gerade weniger als das: Hiermit werden {amount} geswappt. Swappe später erneut für den Rest.",
+ "f63042989f": "Das ist mehr als die Hälfte dessen, was Quick Swap gerade nahe am Marktpreis tauschen kann, daher kosten die letzten Teile mehr. Ein kleinerer Betrag bekommt einen Preis näher am Markt.",
  "c9e4af4b18": "Gerade gibt es nichts zum Swappen.",
  "9c0e74e6c0": "Jetzt kaufen",
  "26fc32b063": "Jetzt verkaufen",
@@ -509,6 +525,7 @@
  "9288122cdf": "Gerade nichts im Verkauf",
  "daa04c3b3f": "{amount} BTC zahlungsbereit",
  "5ce93dc65a": "Gerade kein Käufer",
+ "01e95f9100": "Gerade nichts nahe am Marktpreis",
  "7936f4b76d": "ab {price}",
  "c5864ebdbd": "keiner online",
  "5b54f2f95e": "bis {price}",
@@ -770,6 +787,10 @@
   "one": "An {address} in {n} Transaktion gesendet:",
   "other": "An {address} in {n} Transaktionen gesendet:"
  },
+ "66a305593e": {
+  "one": "{n} Angebot ({amount} GNR) weiter weg wird ausgelassen.",
+  "other": "{n} Angebote ({amount} GNR) weiter weg werden ausgelassen."
+ },
  "e9b666e84e": {
   "one": "{price} pro GNR im Durchschnitt{usd}, in {n} Teil.",
   "other": "{price} pro GNR im Durchschnitt{usd}, in {n} Teilen."
@@ -777,6 +798,10 @@
  "7a44caeb3c": {
   "one": "Quick Swap gestartet: {n} Teil. Verfolge den Fortschritt unten.",
   "other": "Quick Swap gestartet: {n} Teile. Verfolge den Fortschritt unten."
+ },
+ "9f108be4d8": {
+  "one": "{n} weit vom Markt, ausgelassen",
+  "other": "{n} weit vom Markt, ausgelassen"
  },
  "76a32604e3": {
   "one": "{n} Coin on-chain",

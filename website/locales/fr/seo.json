@@ -26,6 +26,7 @@
  "6377a06e81": "Oui, exactement comme GNR : le jeton, le montant, l'expéditeur et le destinataire seront cachés par une preuve à divulgation nulle de connaissance. Seules la création et la destruction de jetons seront publiques.",
  "377ed0c796": "Non. Aucun émetteur ne pourra prendre de jetons, voir les soldes ou geler un détenteur en particulier ; tout ce qu'un émetteur pourra faire sera déclaré avant que le jeton n'existe.",
  "c914a0c430": "Non. Gardez votre portefeuille à jour ; son onglet Jetons s'activera de lui-même lorsque les jetons seront activés.",
+ "31285111a0": "Genoryn Krypton 1.0.48: Quick Swap reste près du prix du marché, et une rafale d'échanges ne peut pas faire sauter le prix",
  "5571f9479e": "Genoryn Krypton 1.0.47: Le portefeuille et genoryn.io en dix langues, Hive OS pour les rigs de minage",
  "6fcd32855d": "Genoryn Krypton 1.0.46 : Quick Swap, achetez ou vendez n'importe quel montant de GNR en un clic",
  "93a46c858e": "Genoryn Krypton 1.0.45 : les anciennes phrases de récupération de 24 mots se restaurent telles que les gens les ont notées",
@@ -42,6 +43,5 @@
  "31b6065dc3": "Genoryn Krypton 1.0.34 : des offres pour une semaine, un mois ou un an ; une nouvelle page de marché ; une documentation complète",
  "35179132ee": "Genoryn Krypton 1.0.33 : correctifs de sécurité, un prix du marché équitable, des prix d'offre libres",
  "068001f0f6": "Genoryn Krypton 1.0.32 : des modèles de rareté dans Minage",
- "030dc140e5": "Genoryn Krypton 1.0.31 : ce que vos ordinateurs mineraient",
- "9391bc9c31": "Genoryn Krypton 1.0.30 : le calculateur de minage passe dans Minage"
+ "030dc140e5": "Genoryn Krypton 1.0.31 : ce que vos ordinateurs mineraient"
 }

@@ -128,6 +128,8 @@
  "4dccac6210": "Piyasa fiyatını kullan",
  "98b7663e33": "Piyasa fiyatını takip et: teklifin fiyatı piyasayla birlikte kendiliğinden değişir",
  "e187023220": "Şu fiyatın altında asla satma (GNR başına)",
+ "51ce9a8a96": "Piyasa fiyatının üstünde (negatif: altında)",
+ "52ce8c2c92": "Piyasa fiyatı şuna düşerse kaldır (isteğe bağlı)",
  "849affa4de": "İstediğiniz fiyatı belirleyin: ilk piyasa fiyatını teklifiniz belirleyebilir.",
  "3633fb7c20": "Bitcoini alacağınız Bitcoin adresiniz",
  "44717647db": "<0>Quick Swap</0>: herkesle parça parça, kendiliğinden takas edin. İnsanlar tek tıkla bundan tam istedikleri miktarı alır (veya satar).",

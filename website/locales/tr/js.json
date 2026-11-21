@@ -158,6 +158,8 @@
  "068deca46a": "{n} sa",
  "913185ba21": "{n} dk",
  "91647badc3": "1 yıl",
+ "d4056c9c4e": "Piyasa fiyatından %25'ten fazla uzak: Quick Swap onu asla almaz ve takasa hazır sayılmaz",
+ "b0c6a6075a": "piyasadan uzak",
  "7365075e93": "Teklif sahibi çevrimdışı: teklif sahibinin cüzdanı geri gelene kadar alınamaz",
  "bc79e086c0": "Teklif sahibi çevrimiçi: takas saniyeler içinde başlar",
  "09247d9fe7": "Quick Swap: herkes herhangi bir kısmını tek tıkla takas edebilir",
@@ -170,6 +172,8 @@
  "98ca0d5189": "henüz yok",
  "27f8f698aa": "Henüz satış teklifi yok. Cüzdanın Takas sekmesinde bir tane yayımlayın.",
  "d98b16d898": "Henüz alış teklifi yok. Cüzdanın Takas sekmesinde bir tane yayımlayın.",
+ "f5fd5ffef3": "oluşuyor",
+ "65bcf3ec42": "son takasları yakalıyor",
  "b1f1da8f12": "ilk tamamlanan takastan sonra",
  "fb4876cca4": "{n} sürüyor",
  "4a3b16f102": "{n} ödendi ve sürüyor",
@@ -183,6 +187,8 @@
  "e6ef42054e": "satış teklifi yok",
  "33170bcd78": "alış teklifi yok",
  "6990fba430": "şu anda yok",
+ "ae6b502de1": "{amount} BTC yatırıldı",
+ "180ca561ce": "Piyasa fiyatına yakın (çevrimiçi teklifler: satılık GNR · teklif edilen bitcoin)",
  "bb3fea050e": "Her takasta el değiştiren GNR",
  "0e9f7d5376": "Her takasta ödenen bitcoin",
  "fa78ffc590": "son {price}",
@@ -207,6 +213,8 @@
  "7b9af1e1b1": "Sırrın hash'i kilide eşittir ve aynı sır bitcoin tarafının kilidini açtı. GNR satıcıya ancak blok #{h} itibarıyla iade edilebilirdi; bundan önce talep edildi.",
  "0a8d1125b3": "Talebi zincire girdiğinde sayılır.",
  "9f3ed84e96": "Quick Swap, cüzdan 1.0.46 ile başlar",
+ "6841d7d3a3": "Duraklatıldı: fiyat son takasları yakalıyor",
+ "01e95f9100": "Şu anda piyasa fiyatına yakın bir şey yok",
  "1b9916931f": "Şu anda çevrimiçi Quick Swap teklifi yok",
  "999e3abca4": "en düşük: GNR başına {price}",
  "b14f947697": "çevrimiçi satış teklifi yok",
@@ -223,10 +231,12 @@
  "a53d80f163": "Panonun şu anda karşılığında ne verdiğini görmek için bir miktar yazın.",
  "92fc06fca5": "Bitcoin fiyatı okunamadı; BTC veya GNR kullanın.",
  "43a5384b95": "Bu, çevrimiçi tekliflerin en küçük parçasından daha az (en az 10,000 sat).",
+ "f1b1f8b0c4": "Çevrimiçi her Quick Swap teklifi, Quick Swap'ın kabul ettiğinden daha uzak piyasa fiyatından (%{pct}). Teklif panosunda yine de elle alınabilir.",
  "bcc86c5158": "Bu tarafta şu anda çevrimiçi Quick Swap teklifi yok.",
  "d7104f9725": "ortalama GNR başına {price}",
  "8cbcb23d9f": "panoda şu anda bundan daha azı var",
  "a17cce4a43": "Artı bitcoin ağ ücreti.",
+ "a50bbae6e1": "Hiçbir parça piyasa fiyatından %{pct}'ten fazla uzak değildir.",
  "8d525e5f15": "Kopyalandı",
  "18c80a2d0a": {
   "one": "{n} gün",
@@ -239,6 +249,10 @@
  "fc0e04ad73": {
   "one": "{n} teklif",
   "other": "{n} teklif"
+ },
+ "4de697cf7f": {
+  "one": "{n} doğrulanmış takasın medyanı",
+  "other": "{n} doğrulanmış takasın medyanı"
  },
  "4221acbc41": {
   "one": "{n} takasın ortalaması",
@@ -255,6 +269,10 @@
  "0a6801b507": {
   "one": "{n} alış teklifi",
   "other": "{n} alış teklifi"
+ },
+ "9f108be4d8": {
+  "one": "{n} piyasadan uzak, dışarıda bırakıldı",
+  "other": "{n} piyasadan uzak, dışarıda bırakıldı"
  },
  "3ec3996136": {
   "one": "{n} çevrimiçi teklif, güncelleme: {time}",

@@ -163,6 +163,8 @@
  "068deca46a": "{n} h",
  "913185ba21": "{n} min",
  "91647badc3": "1 an",
+ "d4056c9c4e": "À plus de 25 % du prix du marché : Quick Swap ne la prend jamais, et elle n'est pas comptée comme prête à l'échange",
+ "b0c6a6075a": "loin du marché",
  "7365075e93": "Créateur hors ligne : l'offre ne peut pas être prise tant que son portefeuille n'est pas de retour",
  "bc79e086c0": "Créateur en ligne : l'échange démarre en quelques secondes",
  "09247d9fe7": "Quick Swap : n'importe qui peut en échanger n'importe quelle partie, en un clic",
@@ -175,6 +177,8 @@
  "98ca0d5189": "aucune pour l'instant",
  "27f8f698aa": "Aucune offre de vente pour l'instant. Publiez-en une dans l'onglet Échange du portefeuille.",
  "d98b16d898": "Aucune offre d'achat pour l'instant. Publiez-en une dans l'onglet Échange du portefeuille.",
+ "f5fd5ffef3": "en formation",
+ "65bcf3ec42": "rattrape les derniers échanges",
  "b1f1da8f12": "après le premier échange conclu",
  "fb4876cca4": "{n} en cours",
  "4a3b16f102": "{n} payés et en cours",
@@ -188,6 +192,8 @@
  "e6ef42054e": "aucune offre de vente",
  "33170bcd78": "aucune offre d'achat",
  "6990fba430": "aucune pour le moment",
+ "ae6b502de1": "{amount} BTC déposés",
+ "180ca561ce": "Près du prix du marché (offres en ligne : GNR à vendre · bitcoins proposés)",
  "bb3fea050e": "GNR négociés par échange",
  "0e9f7d5376": "Bitcoins payés par échange",
  "fa78ffc590": "dernier : {price}",
@@ -212,6 +218,8 @@
  "7b9af1e1b1": "Le hash du secret correspond au verrou, et ce même secret a déverrouillé le côté bitcoin. Les GNR n'auraient pu être remboursés au vendeur qu'à partir du bloc #{h} ; ils ont été réclamés avant.",
  "0a8d1125b3": "Compté dès que sa réclamation est sur la chaîne.",
  "9f3ed84e96": "Quick Swap est disponible à partir du portefeuille 1.0.46",
+ "6841d7d3a3": "En pause : le prix rattrape les derniers échanges",
+ "01e95f9100": "Rien près du prix du marché pour le moment",
  "1b9916931f": "Aucune offre Quick Swap en ligne pour le moment",
  "999e3abca4": "à partir de {price} par GNR",
  "b14f947697": "aucune offre de vente en ligne",
@@ -228,10 +236,12 @@
  "a53d80f163": "Saisissez un montant pour voir ce que le tableau des offres en donne maintenant.",
  "92fc06fca5": "Impossible de lire le prix du bitcoin ; utilisez BTC ou GNR.",
  "43a5384b95": "C'est moins que la plus petite part des offres en ligne (au moins 10,000 sat).",
+ "f1b1f8b0c4": "Chaque offre Quick Swap en ligne est plus loin du prix du marché que Quick Swap ne va ({pct} %). On peut toujours la prendre à la main sur le tableau des offres.",
  "bcc86c5158": "Aucune offre Quick Swap n'est en ligne de ce côté pour le moment.",
  "d7104f9725": "{price} par GNR en moyenne",
  "8cbcb23d9f": "le tableau des offres en propose moins pour le moment",
  "a17cce4a43": "Plus les frais du réseau bitcoin.",
+ "a50bbae6e1": "Aucune partie n'est à plus de {pct} % du prix du marché.",
  "8d525e5f15": "Copié",
  "18c80a2d0a": {
   "one": "{n} jour",
@@ -247,6 +257,11 @@
   "one": "{n} offre",
   "many": "{n} d'offres",
   "other": "{n} offres"
+ },
+ "4de697cf7f": {
+  "one": "médiane de {n} échange vérifié",
+  "many": "médiane de {n} échanges vérifiés",
+  "other": "médiane de {n} échanges vérifiés"
  },
  "4221acbc41": {
   "one": "moyenne de {n} échange",
@@ -267,6 +282,11 @@
   "one": "{n} offre d'achat",
   "many": "{n} d'offres d'achat",
   "other": "{n} offres d'achat"
+ },
+ "9f108be4d8": {
+  "one": "{n} loin du marché, laissée de côté",
+  "many": "{n} loin du marché, laissées de côté",
+  "other": "{n} loin du marché, laissées de côté"
  },
  "3ec3996136": {
   "one": "{n} offre en ligne (mise à jour {time})",

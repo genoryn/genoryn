@@ -190,6 +190,8 @@
  "4dccac6210": "Use the market price",
  "98b7663e33": "Follow the market price: the offer's price moves with the market by itself",
  "e187023220": "Never sell below (per GNR)",
+ "51ce9a8a96": "Above the market price by (negative: below)",
+ "52ce8c2c92": "Take it down if the market price falls to (optional)",
  "849affa4de": "Set any price you like: your offer can set the first market price.",
  "3633fb7c20": "Your Bitcoin address to receive the bitcoin",
  "44717647db": "<0>Quick Swap</0>: swap it in parts with anyone, by itself. People buy (or sell) exactly the amount they want from it in one click.",

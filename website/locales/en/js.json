@@ -157,6 +157,8 @@
  "068deca46a": "{n} h",
  "913185ba21": "{n} min",
  "91647badc3": "1 year",
+ "d4056c9c4e": "More than 25 % from the market price: Quick Swap never takes it, and it is not counted as ready to swap",
+ "b0c6a6075a": "far from market",
  "7365075e93": "Maker offline: it cannot be taken until the maker's wallet is back",
  "bc79e086c0": "Maker online: the swap starts within seconds",
  "09247d9fe7": "Quick Swap: anyone can swap any part of it, in one click",
@@ -169,6 +171,8 @@
  "98ca0d5189": "none yet",
  "27f8f698aa": "No sell offers yet. Publish one in the wallet's Swap tab.",
  "d98b16d898": "No buy offers yet. Publish one in the wallet's Swap tab.",
+ "f5fd5ffef3": "forming",
+ "65bcf3ec42": "catching up with recent swaps",
  "b1f1da8f12": "after the first completed swap",
  "fb4876cca4": "{n} running",
  "4a3b16f102": "{n} paid and running",
@@ -182,6 +186,8 @@
  "e6ef42054e": "no sell offers",
  "33170bcd78": "no buy offers",
  "6990fba430": "none right now",
+ "ae6b502de1": "{amount} BTC deposited",
+ "180ca561ce": "Near the market price (online offers: GNR for sale · bitcoin bid)",
  "bb3fea050e": "GNR traded in each swap",
  "0e9f7d5376": "Bitcoin paid in each swap",
  "fa78ffc590": "last {price}",
@@ -206,6 +212,8 @@
  "7b9af1e1b1": "The secret hashes to the lock, and the same secret unlocked the bitcoin side. The GNR could only have been refunded to the seller from block #{h}; it was claimed before that.",
  "0a8d1125b3": "Counted once its claim is on chain.",
  "9f3ed84e96": "Quick Swap starts with wallet 1.0.46",
+ "6841d7d3a3": "Paused: the price is catching up with recent swaps",
+ "01e95f9100": "Nothing near the market price right now",
  "1b9916931f": "No Quick Swap offer online right now",
  "999e3abca4": "from {price} per GNR",
  "b14f947697": "no sell offer online",
@@ -222,10 +230,12 @@
  "a53d80f163": "Type an amount to see what the board gives for it now.",
  "92fc06fca5": "The bitcoin price could not be read; use BTC or GNR.",
  "43a5384b95": "That is less than the smallest part of the offers online (at least 10,000 sat).",
+ "f1b1f8b0c4": "Every Quick Swap offer online is further from the market price than Quick Swap goes ({pct} %). It can still be taken by hand on the board.",
  "bcc86c5158": "No Quick Swap offer is online on this side right now.",
  "d7104f9725": "{price} per GNR on average",
  "8cbcb23d9f": "the board has less than that right now",
  "a17cce4a43": "Plus the bitcoin network fee.",
+ "a50bbae6e1": "No part is more than {pct} % from the market price.",
  "8d525e5f15": "Copied",
  "18c80a2d0a": {
   "one": "{n} day",
@@ -238,6 +248,10 @@
  "fc0e04ad73": {
   "one": "{n} offer",
   "other": "{n} offers"
+ },
+ "4de697cf7f": {
+  "one": "median of {n} verified swap",
+  "other": "median of {n} verified swaps"
  },
  "4221acbc41": {
   "one": "average of {n} swap",
@@ -254,6 +268,10 @@
  "0a6801b507": {
   "one": "{n} buy offer",
   "other": "{n} buy offers"
+ },
+ "9f108be4d8": {
+  "one": "{n} far from the market, left out",
+  "other": "{n} far from the market, left out"
  },
  "3ec3996136": {
   "one": "{n} offer online, updated {time}",

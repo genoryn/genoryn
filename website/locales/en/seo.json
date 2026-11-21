@@ -25,6 +25,7 @@
  "6377a06e81": "Yes, exactly like GNR: the token, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of tokens will be public.",
  "377ed0c796": "No. No issuer will be able to take tokens, see balances or freeze a single holder; anything an issuer may do will be declared before the token exists.",
  "c914a0c430": "No. Keep your wallet up to date; its Tokens tab turns on by itself when tokens are activated.",
+ "31285111a0": "Genoryn Krypton 1.0.48: Quick Swap stays near the market price, and a burst of swaps cannot jump the price",
  "5571f9479e": "Genoryn Krypton 1.0.47: The wallet and genoryn.io in ten languages, Hive OS for mining rigs",
  "6fcd32855d": "Genoryn Krypton 1.0.46: Quick Swap: buy or sell any amount of GNR in one click",
  "93a46c858e": "Genoryn Krypton 1.0.45: Old 24-word recovery phrases restore as people wrote them down",
@@ -41,6 +42,5 @@
  "31b6065dc3": "Genoryn Krypton 1.0.34: Offers for a week, a month or a year; a new market page; full documentation",
  "35179132ee": "Genoryn Krypton 1.0.33: Security fixes, a fair market price, free offer prices",
  "068001f0f6": "Genoryn Krypton 1.0.32: Scarcity models in Mining",
- "030dc140e5": "Genoryn Krypton 1.0.31: What your computers would mine",
- "9391bc9c31": "Genoryn Krypton 1.0.30: The mining calculator moves to Mining"
+ "030dc140e5": "Genoryn Krypton 1.0.31: What your computers would mine"
 }
