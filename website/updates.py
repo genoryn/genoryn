@@ -17,6 +17,12 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.49", "date": "2026-11-22", "title": "The offer board's sell and buy tables no longer overlap",
+     "tags": ["Wallet"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Fixed", "In the Swap tab, the sell and buy offers no longer run into each other: they stand side by side only where both fit, otherwise one under the other, and amounts of GNR are written shorter."),
+     ]},
     {"v": "1.0.48", "date": "2026-11-21", "title": "Quick Swap stays near the market price, and a burst of swaps cannot jump the price",
      "tags": ["Swap", "Wallet", "Site"],
      "items": [

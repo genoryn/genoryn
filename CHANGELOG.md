@@ -4,6 +4,14 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.49](https://github.com/genoryn/genoryn/releases/tag/v1.0.49) · 2026-11-22: The offer board's sell and buy tables no longer overlap
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Fixed
+
+- In the Swap tab, the sell and buy offers no longer run into each other: they stand side by side only where both fit, otherwise one under the other, and amounts of GNR are written shorter.
+
 ## [1.0.48](https://github.com/genoryn/genoryn/releases/tag/v1.0.48) · 2026-11-21: Quick Swap stays near the market price, and a burst of swaps cannot jump the price
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

@@ -412,11 +412,12 @@ header{padding:14px 30px}
 .sw-why h3{font:700 24px/1.15 var(--font-display);letter-spacing:-.01em;margin:8px 0 10px}.sw-why p{margin:0;max-width:720px}
 .sw-why ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}.sw-why li{padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset)}.sw-why li b{display:block;font-size:14px}.sw-why li span{color:var(--text-secondary);font-size:13px}
 @media (max-width:1100px){.sw-why{grid-template-columns:1fr}}
-.bd-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
-.bd-col{min-width:0;border:1px solid var(--line);border-radius:16px;padding:12px 10px 6px;background:var(--bg-inset)}
+/* Side by side only where each half has room for its table; below that, one under the other. */
+.bd-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px;margin-top:6px}
+.bd-col{min-width:0;overflow-x:auto;border:1px solid var(--line);border-radius:16px;padding:12px 10px 6px;background:var(--bg-inset)}
+.bd-half td.p span{white-space:normal}
 .bd-colh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 8px 6px}.bd-colh b{font:600 15px var(--font-sans)}.bd-colh em{font-style:normal;color:var(--text-tertiary);font-weight:400;margin-left:4px}.bd-colh span{color:var(--text-tertiary);font-size:12px}
-.bd-half td{padding:9px 8px}.bd-half th{padding:6px 8px}
-@media (max-width:1280px){.bd-two{grid-template-columns:1fr}}
+.bd-half td{padding:9px 6px}.bd-half th{padding:6px 6px}
 .swr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;margin-top:12px}.swr-grid .swc{margin-top:0}
 .swc-done{background:var(--glass-sheen),var(--bg-inset)}
 .swr-top{display:flex;align-items:center;gap:12px}.swr-top b{display:block;font:600 16px var(--font-sans)}.swr-top span{color:var(--text-tertiary);font-size:12.5px}.swr-top .pill{margin-left:auto}
@@ -1996,7 +1997,7 @@ function renderBook(){
   const okB=o=>o.deposited?'<i class="bd-ok" title="'+TE("The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself")+'">✓</i>':'';
   if(two){
     const side=(s,id,empty)=>{ const l=bdOffers(s), r=l.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), bg=Math.max(1,...r.map(o=>o.gnr));
-      $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="${TE("Expires in {time}", {time: bdAgo(o.expires_in)})}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}${qtag(o)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}${o.prepaid?' · <em title="'+TE("The seller locks GNR only for a buyer whose bitcoin is deposited first")+'">'+TE("pay first")+'</em>':''}</span></td><td class="mono r">${esc(o.gnr_text)}${ok(o)}</td><td class="mono r">${esc(o.btc_text)}${okB(o)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
+      $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="${TE("Expires in {time}", {time: bdAgo(o.expires_in)})}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}${qtag(o)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}${o.prepaid?' · <em title="'+TE("The seller locks GNR only for a buyer whose bitcoin is deposited first")+'">'+TE("pay first")+'</em>':''}</span></td><td class="mono r" title="${esc(o.gnr_text)} GNR">${gnrShort(o.gnr)}${ok(o)}</td><td class="mono r">${esc(o.btc_text)}${okB(o)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
     const n=side('sell_gnr','bdAskRows',TE("No sell offers yet. Publish one: it sets the first price."))+side('buy_gnr','bdBidRows',TE("No buy offers yet."));
     $('bdPager').innerHTML=pages>1?`<button class="btn" ${BDV.page?'':'disabled'} onclick="BDV.page--;renderBook()">${TE("‹ Previous")}</button><span>${TE("Page {page} of {pages}", {page: BDV.page+1, pages})} · ${esc(Tn(n, "{n} offers", "{n} offers", {n}))}</span><button class="btn" ${BDV.page<pages-1?'':'disabled'} onclick="BDV.page++;renderBook()">${TE("Next ›")}</button>`:(n?`<span>${esc(Tn(n, "{n} offer", "{n} offers", {n}))}</span>`:'');
     return;
