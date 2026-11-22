@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Tümünü kilitle",
  "bee1fc42c8": "Her cüzdan kendi parolasını yeniden ister. Madenci çalışmaya devam eder.",
  "6860583459": "“{name}” cüzdanına geçildi",
+ "d8c8d9625c": "Bu cüzdanın Bitcoin bakiyesi yükleniyor…",
+ "31bcac8a36": "Madencilik yapılmıyor. Madenciyi başlatırsanız şu anda gösterilen cüzdana öder: “{name}”.",
+ "c1d122a008": "Madencilik yapılmıyor.",
+ "1963bbbd7d": "Madencilik “{name}” cüzdanına ödüyor",
+ "08882ab5dc": "“{name}” cüzdanına bakıyorsunuz: aşağıdaki ödemeler ve tutarlar bu cüzdanındır.",
+ "4b509134e0": "“{name}” cüzdanını göster",
  "f96c6b784a": "Cüzdanı yeniden adlandır",
  "1509f561f2": "Kaydet",
  "ff5cf34a70": "Cüzdan adı",
@@ -802,6 +808,10 @@
  "9f108be4d8": {
   "one": "{n} piyasadan uzak, dışarıda bırakıldı",
   "other": "{n} piyasadan uzak, dışarıda bırakıldı"
+ },
+ "1540b3b4ed": {
+  "one": "Quick Swap teklifiniz panoda: başkaları onunla takas yapabilir",
+  "other": "{n} Quick Swap teklifiniz panoda: başkaları onlarla takas yapabilir"
  },
  "76a32604e3": {
   "one": "Zincirde {n} coin",

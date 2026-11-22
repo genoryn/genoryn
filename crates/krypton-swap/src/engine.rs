@@ -1752,6 +1752,14 @@ impl<G: ChainSource> Engine<'_, G> {
         match s.stage {
             Stage::Locked | Stage::Accepted => {
                 if let Some(l) = &lock
+                    && l.spent_height.is_some()
+                    && l.secret.is_none()
+                {
+                    // Spent without the secret: refunded, by another copy of this wallet
+                    // (a second computer, or restored from the phrase). The GNR is back.
+                    s.stage = Stage::Refunded;
+                    s.say("Refunded: the GNR is back.");
+                } else if let Some(l) = &lock
                     && refund_due(l)
                 {
                     let cm = l.cm;
@@ -1773,6 +1781,8 @@ impl<G: ChainSource> Engine<'_, G> {
                                 ));
                             } else if s.created + DEPOSIT_TIMEOUT_SECS + 3600 >= now() {
                                 s.say("GNR locked and confirmed. Waiting for the buyer's bitcoin; if it does not come, the GNR returns to you.");
+                            } else if left == 0 {
+                                s.say("No bitcoin was paid in time. Your GNR is safe: its refund is on its way and confirms within a few blocks. Nothing needs doing; keep the wallet running.");
                             } else {
                                 s.say(format!(
                                     "No bitcoin was paid in time. Your GNR is safe: it comes back to you by itself at block {gnr_refund}, in about {left} blocks (roughly {} hours). Nothing needs doing; keep the wallet running then.",

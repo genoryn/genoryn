@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Alle sperren",
  "bee1fc42c8": "Jede Wallet fragt wieder nach ihrem eigenen Passwort. Der Miner läuft weiter.",
  "6860583459": "Zu „{name}“ gewechselt",
+ "d8c8d9625c": "Bitcoin-Guthaben dieser Wallet wird geladen…",
+ "31bcac8a36": "Es wird nicht gemint. Startest du den Miner, zahlt er an die gerade angezeigte Wallet: „{name}“.",
+ "c1d122a008": "Es wird nicht gemint.",
+ "1963bbbd7d": "Mining zahlt an „{name}“",
+ "08882ab5dc": "Du siehst gerade „{name}“: Auszahlungen und Beträge unten gehören zu dieser Wallet.",
+ "4b509134e0": "„{name}“ anzeigen",
  "f96c6b784a": "Wallet umbenennen",
  "1509f561f2": "Speichern",
  "ff5cf34a70": "Wallet-Name",
@@ -802,6 +808,10 @@
  "9f108be4d8": {
   "one": "{n} weit vom Markt, ausgelassen",
   "other": "{n} weit vom Markt, ausgelassen"
+ },
+ "1540b3b4ed": {
+  "one": "dein Angebot mit Quick Swap steht auf der Tafel: andere können damit tauschen",
+  "other": "deine {n} Angebote mit Quick Swap stehen auf der Tafel: andere können damit tauschen"
  },
  "76a32604e3": {
   "one": "{n} Coin on-chain",

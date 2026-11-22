@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Tout verrouiller",
  "bee1fc42c8": "Chaque portefeuille redemandera son propre mot de passe. Le mineur continue de tourner.",
  "6860583459": "Passé à « {name} »",
+ "d8c8d9625c": "Chargement du solde Bitcoin de ce portefeuille…",
+ "31bcac8a36": "Pas de minage. Lancer le mineur paie le portefeuille affiché maintenant : « {name} ».",
+ "c1d122a008": "Pas de minage.",
+ "1963bbbd7d": "Le minage paie « {name} »",
+ "08882ab5dc": "Vous regardez « {name} » : les paiements et montants ci-dessous sont ceux de ce portefeuille.",
+ "4b509134e0": "Afficher « {name} »",
  "f96c6b784a": "Renommer le portefeuille",
  "1509f561f2": "Enregistrer",
  "ff5cf34a70": "Nom du portefeuille",
@@ -825,6 +831,11 @@
   "one": "{n} loin du marché, laissée de côté",
   "many": "{n} loin du marché, laissées de côté",
   "other": "{n} loin du marché, laissées de côté"
+ },
+ "1540b3b4ed": {
+  "one": "votre offre Quick Swap est publiée : d'autres peuvent échanger avec elle",
+  "many": "vos {n} offres Quick Swap sont publiées : d'autres peuvent échanger avec elles",
+  "other": "vos {n} offres Quick Swap sont publiées : d'autres peuvent échanger avec elles"
  },
  "76a32604e3": {
   "one": "{n} pièce sur la chaîne",

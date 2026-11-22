@@ -4,6 +4,23 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.50](https://github.com/genoryn/genoryn/releases/tag/v1.0.50) · 2026-11-22: Swaps that ended elsewhere close, and each wallet shows its own Bitcoin balance and miner
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- The Mining tab says by name which wallet the miner pays, and offers to show it when you are looking at another wallet.
+
+### Changed
+
+- Your own Quick Swap offers are not counted as ready to swap in your own wallet (you cannot swap with yourself); the wallet says they are listed for others.
+
+### Fixed
+
+- A sale whose GNR came back through another copy of the wallet (a second computer, or the wallet restored from its phrase) no longer waits forever under Your swaps: it ends as refunded. The GNR was never lost; it was back in the wallet.
+- Switching wallets shows the new wallet's Bitcoin balance and Quick Swap at once, not the last wallet's.
+
 ## [1.0.49](https://github.com/genoryn/genoryn/releases/tag/v1.0.49) · 2026-11-22: The offer board's sell and buy tables no longer overlap
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

@@ -556,6 +556,41 @@ fn a_buyer_who_never_pays_costs_the_seller_nothing() {
     assert_eq!(b.swap().stage, Stage::Failed, "{}", b.swap().status);
 }
 
+/// The GNR came back through another copy of the seller's wallet (the same wallet on a
+/// second computer, or restored from its phrase): this copy's swap ends as refunded instead
+/// of waiting for a refund that can no longer happen.
+#[test]
+fn a_lock_refunded_by_another_copy_ends_the_swap() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = b.wallet.address();
+    locked(&mut a, &mut b, &src, &btc, &chain);
+    let refund_at = a.swap().gnr_refund_height.unwrap();
+    while chain.tip().height() + 1 < refund_at {
+        mine(&src, &miner);
+    }
+    a.wallet.sync(&src, |_, _| {}).unwrap();
+    let cm = a.wallet.locks()[0].cm;
+    a.wallet.refund_lock(&src, &cm).unwrap();
+    mine(&src, &miner);
+    a.wallet.sync(&src, |_, _| {}).unwrap();
+    assert!(a.wallet.locks()[0].spent_height.is_some());
+    assert_eq!(
+        a.swap().stage,
+        Stage::Locked,
+        "the engine did not send that refund"
+    );
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Refunded, "{}", a.swap().status);
+    assert_eq!(a.wallet.locked_balance(), 0);
+}
+
 #[test]
 fn a_seller_who_never_takes_the_bitcoin_refunds_the_buyer() {
     let dir = tempfile::tempdir().unwrap();

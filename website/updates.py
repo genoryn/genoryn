@@ -17,6 +17,15 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.50", "date": "2026-11-22", "title": "Swaps that ended elsewhere close, and each wallet shows its own Bitcoin balance and miner",
+     "tags": ["Swap", "Wallet"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Fixed", "A sale whose GNR came back through another copy of the wallet (a second computer, or the wallet restored from its phrase) no longer waits forever under Your swaps: it ends as refunded. The GNR was never lost; it was back in the wallet."),
+         ("Fixed", "Switching wallets shows the new wallet's Bitcoin balance and Quick Swap at once, not the last wallet's."),
+         ("Added", "The Mining tab says by name which wallet the miner pays, and offers to show it when you are looking at another wallet."),
+         ("Changed", "Your own Quick Swap offers are not counted as ready to swap in your own wallet (you cannot swap with yourself); the wallet says they are listed for others."),
+     ]},
     {"v": "1.0.49", "date": "2026-11-22", "title": "The offer board's sell and buy tables no longer overlap",
      "tags": ["Wallet"],
      "items": [

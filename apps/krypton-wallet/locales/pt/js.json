@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Bloquear todas",
  "bee1fc42c8": "Cada carteira pede a própria senha novamente. O minerador continua rodando.",
  "6860583459": "Alternado para “{name}”",
+ "d8c8d9625c": "Carregando o saldo de Bitcoin desta carteira…",
+ "31bcac8a36": "Não está minerando. Ao iniciar o minerador, ele paga a carteira mostrada agora: “{name}”.",
+ "c1d122a008": "Não está minerando.",
+ "1963bbbd7d": "A mineração paga “{name}”",
+ "08882ab5dc": "Você está vendo “{name}”: os pagamentos e valores abaixo são desta carteira.",
+ "4b509134e0": "Mostrar “{name}”",
  "f96c6b784a": "Renomear carteira",
  "1509f561f2": "Salvar",
  "ff5cf34a70": "Nome da carteira",
@@ -825,6 +831,11 @@
   "one": "{n} longe do mercado, deixada de fora",
   "many": "{n} longe do mercado, deixadas de fora",
   "other": "{n} longe do mercado, deixadas de fora"
+ },
+ "1540b3b4ed": {
+  "one": "sua oferta Quick Swap está publicada: outras pessoas podem trocar com ela",
+  "many": "suas {n} ofertas Quick Swap estão publicadas: outras pessoas podem trocar com elas",
+  "other": "suas {n} ofertas Quick Swap estão publicadas: outras pessoas podem trocar com elas"
  },
  "76a32604e3": {
   "one": "{n} moeda na cadeia",

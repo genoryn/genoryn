@@ -90,13 +90,33 @@ fn mark_far(book: &mut [Listed], market: Option<f64>, band: f64) {
 
 /// The board's Quick Swap summary (`/v1/swap/market` → `quick`) with the price guard
 /// applied: each side counts only the offers Quick Swap takes, and says how many it leaves
-/// out. `offers` is the board's listing (`/v1/swap/offers` → `offers`).
-pub(super) fn guard_summary(quick: &mut Value, offers: &[Value], market: Option<f64>, band: f64) {
+/// out. `offers` is the board's listing (`/v1/swap/offers` → `offers`). This wallet's own
+/// offers (`mine`) are not counted (it cannot swap with itself) but said (`mine` per side).
+pub(super) fn guard_summary(
+    quick: &mut Value,
+    offers: &[Value],
+    market: Option<f64>,
+    band: f64,
+    mine: &[&String],
+) {
     /// An offer as the summary counts it: GNR, sat, price.
     type Live = (u64, u64, f64);
+    let own = |o: &Value| {
+        o["id"]
+            .as_str()
+            .is_some_and(|id| mine.iter().any(|m| m.as_str() == id))
+    };
     for (key, side) in [("sell", Side::SellGnr), ("buy", Side::BuyGnr)] {
+        let of_side =
+            |o: &&Value| serde_json::from_value::<Side>(o["side"].clone()).ok() == Some(side);
+        let mine_n = offers
+            .iter()
+            .filter(of_side)
+            .filter(|o| o["auto"].is_object() && own(o))
+            .count();
         let live: Vec<Live> = offers
             .iter()
+            .filter(|o| !own(o))
             .filter(|o| o["auto"].is_object() && o["online"].as_bool().unwrap_or(false))
             .filter(|o| serde_json::from_value::<Side>(o["side"].clone()).ok() == Some(side))
             .filter(|o| match side {
@@ -124,6 +144,7 @@ pub(super) fn guard_summary(quick: &mut Value, offers: &[Value], market: Option<
         s["gnr"] = json!(ok.iter().map(|x| x.0).sum::<u64>());
         s["sats"] = json!(ok.iter().map(|x| x.1).sum::<u64>());
         s["best"] = json!(best);
+        s["mine"] = json!(mine_n);
         s["far_offers"] = json!(far.len());
         s["far_gnr"] = json!(far.iter().map(|x| x.0).sum::<u64>());
         s["guard"] = json!(limit);
@@ -1251,15 +1272,32 @@ mod guard_tests {
             offers.push(offer("sell_gnr", 0.333_333_33, 0.033_333_34, true, true));
         }
         let mut q = json!({"sell": {"offers": 7, "gnr": 20_100_000_000u64}, "buy": {"offers": 0}});
-        guard_summary(&mut q, &offers, Some(146.81), 0.1);
+        guard_summary(&mut q, &offers, Some(146.81), 0.1, &[]);
         assert_eq!(q["sell"]["offers"], 1);
         assert_eq!(q["sell"]["gnr"], 10_000_000_000u64);
         assert_eq!(q["sell"]["far_offers"], 6);
         assert_eq!(q["sell"]["best"].as_f64().map(|p| p.round()), Some(147.0));
         assert_eq!(q["buy"]["offers"], 0);
         assert_eq!(q["guard_pct"], 10.0);
+        // This wallet's own offer is not counted (it cannot swap with itself), only said.
+        let mut with_mine = offers.clone();
+        let mut own = offer("buy_gnr", 100.0, 0.000127, true, true);
+        own["id"] = json!("ab12");
+        with_mine.push(own);
+        let id = "ab12".to_string();
+        let mut m = json!({"sell": {}, "buy": {}});
+        guard_summary(&mut m, &with_mine, Some(127.0), 0.1, &[&id]);
+        assert_eq!(
+            (m["buy"]["offers"].clone(), m["buy"]["mine"].clone()),
+            (json!(0), json!(1))
+        );
+        guard_summary(&mut m, &with_mine, Some(127.0), 0.1, &[]);
+        assert_eq!(
+            (m["buy"]["offers"].clone(), m["buy"]["mine"].clone()),
+            (json!(1), json!(0))
+        );
         // Without a market price the best Quick Swap offer is the measure: the same result.
-        guard_summary(&mut q, &offers, None, 0.2);
+        guard_summary(&mut q, &offers, None, 0.2, &[]);
         assert_eq!(
             (q["sell"]["offers"].clone(), q["sell"]["far_offers"].clone()),
             (json!(1), json!(6))

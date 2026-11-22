@@ -3490,7 +3490,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
         {
             let mp = market_price(&market["market"]);
             let band = quick::guard_band(&market["market"]);
-            quick::guard_summary(&mut market["quick"], listing, mp, band);
+            quick::guard_summary(&mut market["quick"], listing, mp, band, &mine);
         }
         Ok(json!({
             "board": base,

@@ -297,6 +297,7 @@ pre.mono{white-space:pre-wrap;margin:10px 0 0}
 .bd-table tr.bd-off td{opacity:.48}
 #bdDur{width:100%;margin-bottom:10px}
 .mn-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px;perspective:1000px}
+.mn-who{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;margin-bottom:14px;border-radius:14px;font-size:13.5px;color:var(--text-secondary)}.mn-who:empty{display:none}.mn-who b{color:var(--text-primary)}.mn-who .btn{margin-left:auto;height:32px;padding:0 14px;font-size:12.5px}
 .mn-kpi{position:relative;padding:16px 18px 14px;border-radius:var(--radius-lg);display:flex;flex-direction:column;gap:5px;min-width:0;overflow:hidden;transform-style:preserve-3d}
 .mn-kpi::after{content:"";position:absolute;inset:auto -30% -60% auto;width:70%;height:90%;background:radial-gradient(closest-side,color-mix(in srgb,var(--text-primary) 9%,transparent),transparent);pointer-events:none}
 .mn-l{font-size:12px;color:var(--text-tertiary);display:flex;align-items:center;gap:7px}
@@ -1040,6 +1041,7 @@ header{padding:14px 30px}
       </section>
     </div>
     <div id="tab-mining" class="hidden">
+      <div class="glass mn-who" id="mnWho" aria-live="polite"></div>
       <div class="mn-kpis">
         <div class="glass mn-kpi mn-tilt"><span class="mn-l"><span class="mn-dot" id="mnDot"></span>Your hashrate</span><b id="mnRate">-</b><em id="mnRateSub">miner stopped</em><div class="ov-spark" id="mnSpark"></div></div>
         <div class="glass mn-kpi mn-tilt"><span class="mn-l">Share of the network</span><div class="mn-ringrow"><div class="mn-ring" id="mnRing" style="--p:0"><i></i></div><div><b id="mnShare">-</b><em id="mnShareSub">&nbsp;</em></div></div></div>
@@ -1477,12 +1479,20 @@ async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){
 async function lockAll(){ if(!await ask({title:T("Lock all wallets?"), icon:'lock', ok:T("Lock all"), body:'<p class="mtext">'+TE("Each wallet asks for its own password again. The miner keeps running.")+'</p>'})) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function useWallet(id){
   try{ await api('/api/wallets/use',{id}); toast(T("Switched to “{name}”", {name: wname(id)})); }catch(e){ toast(e.message,true); return; }
-  // Everything shown belongs to the new wallet now: drop what was loaded for the old one.
+  // Everything shown belongs to the new wallet now: drop what was loaded for the old one,
+  // its Bitcoin balance and Quick Swap quote included (each wallet has its own).
   hide('proofOut'); hide('proofBtns'); BD={}; SW={swaps:[]};
+  QS.bal=null; QS.balAt=0; QS.q=null; ++QS.seq; $('btcBal').textContent='-'; $('btcBalSub').textContent=T("Loading this wallet's Bitcoin balance…");
   await refresh(); loadWallets();
   const vis=t=>!$('tab-'+t).classList.contains('hidden');
-  if(vis('history')) loadHistory(); if(vis('swap')) loadSwaps(); if(vis('network')) loadNetExtras();
+  if(vis('history')) loadHistory(); if(vis('swap')){ loadSwaps(); loadBoard(); btcLoad(true); qsAsk(); } if(vis('network')) loadNetExtras();
 }
+/* Which wallet the miner pays, at the top of the Mining tab: by name, and a way to it when
+   another wallet is the one shown (the payouts and amounts below are the shown wallet's). */
+function mnWho(m){ const box=$('mnWho'); if(!box) return; const act=(S.active||{}).name||'';
+  if(!m.running){ box.innerHTML=`<span class="mn-dot"></span><span>${act?TE("Not mining. Starting the miner pays the wallet shown now: “{name}”.", {name: act}):TE("Not mining.")}</span>`; return; }
+  const to=m.wallet||act, other=!!(m.wallet&&act&&m.wallet!==act), id=other&&((S.wallet_names||[]).find(w=>w.name===m.wallet)||{}).id;
+  box.innerHTML=`<span class="mn-dot on"></span><span><b>${TE("Mining pays “{name}”", {name: to})}</b>${other?' · '+TE("You are looking at “{name}”: the payouts and amounts below are this wallet's.", {name: act}):''}</span>${id?`<button class="btn" onclick="pickWallet('${esc(id)}')">${TE("Show “{name}”", {name: m.wallet})}</button>`:''}`; }
 async function renameW(id){ WV.menu=null; renderWallets(); const n=await ask({title:T("Rename wallet"), icon:'wallet', ok:T("Save"), input:{value:wname(id), max:40, placeholder:T("Wallet name")}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function removeW(id){
   WV.menu=null; const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
@@ -2264,7 +2274,8 @@ function qsBoard(){ const k=(BD.market&&BD.market.quick)||null, u=btcUsd();
   const money=s=>u?GKValue.usd(s*u/1e8):btcFmt(s/1e8)+' BTC';
   if(!k){ $('qsLive').textContent=T("The board does not offer Quick Swap yet"); $('qsLiveBox').classList.add('off'); return; }
   const s=k.sell||{}, b=k.buy||{}, n=(s.offers||0)+(b.offers||0), far=(s.far_offers||0)+(b.far_offers||0);
-  const left=x=>x.far_offers?' · '+Tn(x.far_offers, "{n} far from the market, left out", "{n} far from the market, left out", {n: x.far_offers}):'';
+  const left=x=>(x.far_offers?' · '+Tn(x.far_offers, "{n} far from the market, left out", "{n} far from the market, left out", {n: x.far_offers}):'')
+    +(x.mine?' · '+Tn(x.mine, "your Quick Swap offer is listed: others can swap with it", "your {n} Quick Swap offers are listed: others can swap with them", {n: x.mine}):'');
   $('qsLiveBox').classList.toggle('off', !n);
   $('qsLive').textContent=n?(QS.side==='buy'?(s.offers?T("{amount} GNR ready to buy", {amount: gnrShort(s.gnr)}):T("Nothing for sale right now")):(b.offers?T("{amount} BTC ready to pay", {amount: btcFmt(b.sats/1e8)}):T("No buyer right now"))):far?T("Nothing near the market price right now"):T("No Quick Swap offer online right now");
   $('qsDSell').textContent=s.offers?gnrShort(s.gnr)+' GNR':'-'; $('qsDSellN').textContent=(s.offers?Tn(s.offers, "{n} offer", "{n} offers", {n: s.offers})+' · '+T("from {price}", {price: fmtPx(s.best)})+(u?' · '+GKValue.usd(s.best*u/1e8):''):T("none online"))+left(s);
@@ -2593,7 +2604,8 @@ async function refresh(){
   // Offer a newly found update once per version (automatic mode installs by itself).
   let seen=null; try{ seen=localStorage.getItem('gk-upd-seen'); }catch(e){}
   if(S.update && S.update.version!==seen && !modalDone && !(S.settings&&S.settings.auto_update) && !S.working && !S.busy) offerUpdate(S.update,false); $('aPay').textContent=S.payout_interval||360; $('aMat').textContent=S.maturity||100;
-  const m=S.miner||{}; $('mStat').textContent=m.running?T("mining"):(m.error?T("stopped: {error}", {error: TR(m.error)}):T("stopped")); $('mStat').title=TR(m.error)||''; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||T("the wallet active when mining started")):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
+  const m=S.miner||{}; mnWho(m);
+  $('mStat').textContent=m.running?T("mining"):(m.error?T("stopped: {error}", {error: TR(m.error)}):T("stopped")); $('mStat').title=TR(m.error)||''; $('mStat').className=m.running?'ok':''; $('mDev').textContent=m.device||m.backend||'-'; $('mWal').textContent=m.running?(m.wallet||T("the wallet active when mining started")):'-'; $('mRate').textContent=m.running?rate(m.hashrate):'-'; $('mBlocks').textContent=m.blocks||0;
   $('mShares').textContent=m.shares||0;
   const rej=Number(m.rejected||0), tried=rej+Number(m.shares||0);
   $('mRej').textContent=m.running?(rej?fmtN(rej)+' ('+(rej/tried*100).toFixed(rej/tried<0.01?2:1)+' %)':T("none")):'-';

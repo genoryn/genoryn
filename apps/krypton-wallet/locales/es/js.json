@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Bloquear todas",
  "bee1fc42c8": "Cada billetera volverá a pedir su propia contraseña. El minero sigue funcionando.",
  "6860583459": "Cambiado a “{name}”",
+ "d8c8d9625c": "Cargando el saldo de Bitcoin de esta billetera…",
+ "31bcac8a36": "No se está minando. Al iniciar el minero, paga a la billetera que se muestra ahora: «{name}».",
+ "c1d122a008": "No se está minando.",
+ "1963bbbd7d": "La minería paga a «{name}»",
+ "08882ab5dc": "Estás viendo «{name}»: los pagos y cantidades de abajo son de esta billetera.",
+ "4b509134e0": "Mostrar «{name}»",
  "f96c6b784a": "Renombrar billetera",
  "1509f561f2": "Guardar",
  "ff5cf34a70": "Nombre de la billetera",
@@ -825,6 +831,11 @@
   "one": "{n} lejos del mercado, descartada",
   "many": "{n} lejos del mercado, descartadas",
   "other": "{n} lejos del mercado, descartadas"
+ },
+ "1540b3b4ed": {
+  "one": "tu oferta Quick Swap está publicada: otros pueden intercambiar con ella",
+  "many": "tus {n} ofertas Quick Swap están publicadas: otros pueden intercambiar con ellas",
+  "other": "tus {n} ofertas Quick Swap están publicadas: otros pueden intercambiar con ellas"
  },
  "76a32604e3": {
   "one": "{n} moneda en la cadena",

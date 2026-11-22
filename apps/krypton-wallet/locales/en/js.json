@@ -51,6 +51,12 @@
  "ac5bb7e1a9": "Lock all",
  "bee1fc42c8": "Each wallet asks for its own password again. The miner keeps running.",
  "6860583459": "Switched to “{name}”",
+ "d8c8d9625c": "Loading this wallet's Bitcoin balance…",
+ "31bcac8a36": "Not mining. Starting the miner pays the wallet shown now: “{name}”.",
+ "c1d122a008": "Not mining.",
+ "1963bbbd7d": "Mining pays “{name}”",
+ "08882ab5dc": "You are looking at “{name}”: the payouts and amounts below are this wallet's.",
+ "4b509134e0": "Show “{name}”",
  "f96c6b784a": "Rename wallet",
  "1509f561f2": "Save",
  "ff5cf34a70": "Wallet name",
@@ -903,6 +909,10 @@
  "9f108be4d8": {
   "one": "{n} far from the market, left out",
   "other": "{n} far from the market, left out"
+ },
+ "1540b3b4ed": {
+  "one": "your Quick Swap offer is listed: others can swap with it",
+  "other": "your {n} Quick Swap offers are listed: others can swap with them"
  },
  "76a32604e3": {
   "one": "{n} coin on chain",
