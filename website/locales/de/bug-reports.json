@@ -25,7 +25,7 @@
  "614175a546": "<0>Der genaue Text</0> jeder Meldung, kopiert, nicht nacherzählt. Bei allem, was du siehst, hilft ein Screenshot; verdecke Guthaben und Adressen, die du nicht zeigen willst.",
  "66c7711bdc": "<0>Wie oft:</0> jedes Mal, manchmal, einmal.",
  "910b37920e": "Wo du Details findest",
- "3600743a16": "<0>Die Wallet</0> zeigt ihren letzten Fehler in einer Leiste oben und den Status jedes Swaps und jedes Angebots im Swap-Tab. Ihre <1>Konsole</1> beantwortet <2/>, <3/> und <4/>: Kopiere, was sie ausgibt.",
+ "5f10e51710": "<0>Die Wallet</0> zeigt ihren letzten Fehler in einer Leiste oben und den Status jedes Swaps und jedes Angebots in den Tabs Swap und Markt. Ihre <1>Konsole</1> beantwortet <2/>, <3/> und <4/>: Kopiere, was sie ausgibt.",
  "b3dc28f6ca": "<0>Der Miner</0> zeigt im Mining-Tab, warum er angehalten hat.",
  "344707d6ad": "<0>Ein Node</0>, der als Dienst läuft, schreibt ins Systemprotokoll: <1/>. Von Hand gestartet, schreibt er ins Terminal; <2/> verrät mehr.",
  "fa34d71852": "<0>Transaktions- und Block-IDs</0> sind öffentlich. Sie zeigen einem Entwickler genau, wo er suchen muss.",

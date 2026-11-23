@@ -26,6 +26,7 @@
  "6377a06e81": "Evet, tıpkı GNR gibi: token, miktar, gönderici ve alıcı bir sıfır bilgi kanıtıyla gizlenecek. Yalnızca tokenlerin oluşturulması ve yok edilmesi herkese açık olacak.",
  "377ed0c796": "Hayır. Hiçbir ihraççı token alamayacak, bakiyeleri göremeyecek veya tek bir sahibin varlıklarını donduramayacak; bir ihraççının yapabileceği her şey token var olmadan önce beyan edilecek.",
  "c914a0c430": "Hayır. Cüzdanınızı güncel tutun; Tokenler sekmesi, tokenler etkinleştirildiğinde kendiliğinden açılır.",
+ "b3483934d1": "Genoryn Krypton 1.0.51: Takas ve Piyasa, her biri kendi sekmesinde ve kendi sayfasında",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Başka yerde biten takaslar kapanır ve her cüzdan kendi Bitcoin bakiyesini ve madencisini gösterir",
  "910087c4ff": "Genoryn Krypton 1.0.49: Teklif panosunun satış ve alış tabloları artık üst üste binmiyor",
  "31285111a0": "Genoryn Krypton 1.0.48: Quick Swap piyasa fiyatına yakın kalır ve bir takas dalgası fiyatı sıçratamaz",

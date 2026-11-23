@@ -45,7 +45,7 @@
  "cfda13f7bd": "Gab es einen Premine, einen Vorverkauf oder eine Entwicklergebühr?",
  "362e66ca59": "Nein. Der Genesis-Block gibt nichts aus, es gab keinen Vorverkauf, und jeder Block zahlt nur an Miner, nach demselben Plan seit Block 1.",
  "179f466122": "Wie kann ich GNR kaufen?",
- "1ff2940ec4": "Im Tab „Swap“ der Wallet, mit Bitcoin, über einen Atomic Swap mit einer anderen Person: Nimm ein Verkaufsangebot an oder veröffentliche ein Kaufangebot. Es gibt keine Börse, kein Konto und keine Verwahrung. <0>So bekommst du GNR</0>.",
+ "0e76192eb8": "In der Wallet, mit Bitcoin, über einen Atomic Swap mit einer anderen Person: Quick Swap im Tab „Swap“ kauft jede Menge mit einem Klick, oder nimm im Tab „Markt“ ein Verkaufsangebot an oder veröffentliche ein Kaufangebot. Es gibt keine Börse, kein Konto und keine Verwahrung. <0>So bekommst du GNR</0>.",
  "61eff42612": "Ist GNR an einer Börse gelistet?",
  "448724d72b": "Nein. GNR wird durch Mining verdient oder direkt zwischen Wallets gegen Bitcoin getauscht.",
  "ae5e14360e": "Nur aus abgeschlossenen Swaps der letzten 72 Stunden, deren Bitcoin die Angebotstafel auf der Bitcoin-Chain gefunden hat: Der Marktpreis ist der Punkt, unter dem die Hälfte dieser Bitcoin den Besitzer gewechselt hat und über dem die andere Hälfte (ein volumengewichteter Median). Angebote und laufende Swaps bewegen ihn nie. <0>Live-Markt</0>.",

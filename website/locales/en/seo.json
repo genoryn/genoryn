@@ -25,6 +25,7 @@
  "6377a06e81": "Yes, exactly like GNR: the token, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of tokens will be public.",
  "377ed0c796": "No. No issuer will be able to take tokens, see balances or freeze a single holder; anything an issuer may do will be declared before the token exists.",
  "c914a0c430": "No. Keep your wallet up to date; its Tokens tab turns on by itself when tokens are activated.",
+ "b3483934d1": "Genoryn Krypton 1.0.51: Swap and Market, each on a tab and a page of its own",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Swaps that ended elsewhere close, and each wallet shows its own Bitcoin balance and miner",
  "910087c4ff": "Genoryn Krypton 1.0.49: The offer board's sell and buy tables no longer overlap",
  "31285111a0": "Genoryn Krypton 1.0.48: Quick Swap stays near the market price, and a burst of swaps cannot jump the price",

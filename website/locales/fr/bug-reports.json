@@ -25,7 +25,7 @@
  "614175a546": "<0>Le texte exact</0> de tout message, copié et non reformulé. Une capture d'écran aide pour tout ce qui est visible ; masquez les soldes et les adresses que vous ne voulez pas montrer.",
  "66c7711bdc": "<0>À quelle fréquence :</0> à chaque fois, parfois, une seule fois.",
  "910b37920e": "Où trouver les détails",
- "3600743a16": "<0>Le portefeuille</0> affiche sa dernière erreur dans une barre en haut, et l'état de chaque échange et de chaque offre dans l'onglet Échange. Sa <1>Console</1> répond à <2/>, <3/> et <4/> : copiez leur réponse.",
+ "5f10e51710": "<0>Le portefeuille</0> affiche sa dernière erreur dans une barre en haut, et l'état de chaque échange et de chaque offre dans les onglets Échange et Marché. Sa <1>Console</1> répond à <2/>, <3/> et <4/> : copiez leur réponse.",
  "b3dc28f6ca": "<0>Le mineur</0> indique dans l'onglet Minage pourquoi il s'est arrêté.",
  "344707d6ad": "<0>Un nœud</0> exécuté en tant que service écrit dans le journal système : <1/>. Lancé à la main, il écrit dans le terminal ; <2/> en dit plus.",
  "fa34d71852": "<0>Les identifiants de transaction et de bloc</0> sont publics. Ils indiquent à un développeur exactement où chercher.",

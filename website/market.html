@@ -16,74 +16,28 @@
 <!--NAV-->
 <main id="top" class="wrap">
   <div class="page-head"><span class="eyebrow">Market · live</span><h1 class="h2 glow">GNR market</h1>
-    <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p></div>
-
-  <section class="glass qx" id="quick" aria-labelledby="qx-h">
-    <div class="qx-head">
-      <div><span class="eyebrow qx-eye"><span class="qx-bolt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Quick Swap · live</span>
-        <h2 id="qx-h" class="h3">Buy or sell any amount of GNR, in one click</h2>
-        <p class="muted">The wallet finds the best prices on the board and swaps exactly the amount you want, across up to three offers whose makers are online right now. Each part is its own atomic swap: the seller's GNR is locked on chain before any bitcoin moves.</p></div>
-      <span class="qx-live" id="qxLiveBox"><i></i><b id="qxLive">Reading the board…</b></span>
-    </div>
-    <div class="qx-grid">
-      <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>Ready to buy now</span><b id="qxSell"><span class="qx-skel"></span></b><em id="qxSellN">&nbsp;</em></div>
-      <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Ready to buy your GNR</span><b id="qxBuy"><span class="qx-skel"></span></b><em id="qxBuyN">&nbsp;</em></div>
-      <div class="qx-stat"><span class="qx-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Quick Swaps running</span><b id="qxRun"><span class="qx-skel"></span></b><em>parts swapping right now</em></div>
-      <div class="qx-calc">
-        <div class="qx-row"><div class="qx-seg" id="qxSide" role="group" aria-label="Buy or sell"><button type="button" data-s="buy" class="on">Buy GNR</button><button type="button" data-s="sell">Sell GNR</button></div>
-          <div class="qx-seg qx-units" id="qxUnit" role="group" aria-label="Unit"><button type="button" data-u="usd" class="on">USD</button><button type="button" data-u="btc">BTC</button><button type="button" data-u="gnr">GNR</button></div></div>
-        <label class="qx-in"><span id="qxInL">You pay</span><input id="qxAmt" inputmode="decimal" placeholder="100" autocomplete="off" aria-label="Amount"></label>
-        <div class="qx-out"><span id="qxOutL">You would get about</span><b id="qxOut">—</b><em id="qxOutN">Type an amount to see what the board gives for it now.</em></div>
-        <a class="btn btn-primary qx-go" href="/download">Swap in the wallet</a>
-      </div>
-    </div>
-    <ol class="qx-steps">
-      <li><b>Type how much.</b> In dollars, bitcoin or GNR, in the wallet's Swap tab.</li>
-      <li><b>Best prices first, near the market.</b> Up to three offers, each at its own price, none beyond the price you accepted and none more than 20 % from the market price (10 % while the price is forming).</li>
-      <li><b>Locked before paid.</b> Every part is an atomic swap; both sides are paid or both keep their coins.</li>
-      <li><b>About 15 minutes,</b> mostly the bitcoin confirmation. Buying pays from your wallet's Bitcoin balance.</li>
-    </ol>
-  </section>
-
-  <section class="glass card mk-why" aria-labelledby="why-h">
-    <div><span class="eyebrow">Why swap bitcoin for GNR</span>
-      <h2 id="why-h" class="h3">Move bitcoin's value into a quantum-resistant system.</h2>
-      <p>Bitcoin's coins are guarded by elliptic-curve signatures (ECDSA and Schnorr). A large enough quantum computer running Shor's algorithm could break them and spend other people's coins. Nobody knows when such a machine will exist, but savings are kept for decades.</p>
-      <p>That is what this market is for. An atomic swap lets you move value from bitcoin into GNR, whose coins are guarded by hash-based zk-STARK proofs instead of elliptic curves, directly from your own wallet: no exchange holds your coins, no account, no identity. You can swap back to bitcoin the same way whenever you like.</p></div>
-    <ul>
-      <li><b>For protection</b><span>Value you move into GNR no longer depends on elliptic-curve cryptography.</span></li>
-      <li><b>Proven</b><span>A sell offer is listed only after the board has checked that its GNR is there.</span></li>
-      <li><b>Atomic</b><span>Either both sides are paid, or both keep their coins. Nobody can run off with half a trade.</span></li>
-      <li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer sends any bitcoin.</span></li>
-      <li><b>Honest about limits</b><span>A swap exchanges bitcoin for GNR at the market price; the bitcoin itself stays on Bitcoin's chain with its new owner.</span></li>
-    </ul>
-  </section>
+    <p class="lead">People set the price of GNR themselves: with the offers they publish in the wallet and the swaps they complete. Every trade is an atomic swap between two wallets, so there is no exchange, no custody and no account.</p>
+    <a class="mk-qcta glass" href="/swap"><span class="qx-bolt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><span><b>Quick Swap</b><em>Buy or sell any amount of GNR, in one click</em></span><svg class="ni" aria-hidden="true"><use href="#n-arrow"/></svg></a></div>
 
   <a class="glass hero-price mk-hero-price" href="/download" aria-label="GNR price: get the wallet to trade">
     <span class="hp-top"><span class="hp-coins" aria-hidden="true"><svg class="coin"><use href="#c-gnr"/></svg><svg class="coin"><use href="#c-btc"/></svg></span><span class="eyebrow-s">GNR price</span><span class="hp-live"><span class="dot live ok"></span>live</span></span>
     <b data-mk-usd>—</b>
-    <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span data-mk-src>set by people on the offer board</span></span>
-    <span class="hp-break">
-      <span><em>Best sell offer</em><b data-mk-ask>—</b></span>
-      <span><em>Last swap</em><b data-mk-last>—</b></span>
+    <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span id="mkPriceL">after the first completed swap</span></span>
+    <span class="hp-break mk-break">
+      <span><em>Best sell offer <i id="mkAskN"></i></em><b id="mkAsk">—</b><small id="mkAskU"></small></span>
+      <span><em>Best buy offer <i id="mkBidN"></i></em><b id="mkBid">—</b><small id="mkBidU"></small></span>
+      <span><em>Last 24 hours</em><b id="mkVol">—</b><small id="mkVolU"></small></span>
       <span><em>Market depth</em><b data-ix-conf>—</b></span>
     </span>
     <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
   </a>
-  <section class="mk-strip glass" aria-label="Market summary">
-    <div><span>Market price</span><b id="mkPrice">—</b><em id="mkPriceL">after the first completed swap</em></div>
-    <div><span>Best sell offer <i id="mkAskN"></i></span><b id="mkAsk">—</b><em id="mkAskU"></em></div>
-    <div><span>Best buy offer <i id="mkBidN"></i></span><b id="mkBid">—</b><em id="mkBidU"></em></div>
-    <div><span>Last 24 hours</span><b id="mkVol">—</b><em id="mkVolU"></em></div>
-    <div><span>Swaps on record</span><b id="mkAll">—</b><em id="mkAllV"></em></div>
-  </section>
 
-  <section class="mk-totals" aria-label="The bitcoin price and the totals on the board">
-    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="mktBtc">—</b><em id="mktBtcN">per bitcoin</em></div>
-    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="mktSell">—</b><em id="mktSellN">sell offers</em></div>
-    <div class="glass card mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="mktBuy">—</b><em id="mktBuyN">buy offers</em></div>
-    <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
-    <div class="glass card mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
+  <section class="glass mk-totals" aria-label="The bitcoin price and the totals on the board">
+    <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="mktBtc">—</b><em id="mktBtcN">per bitcoin</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="mktSell">—</b><em id="mktSellN">sell offers</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="mktBuy">—</b><em id="mktBuyN">buy offers</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
     <p class="mk-depth" id="mktDepth"></p>
   </section>
 
@@ -140,16 +94,10 @@
     </ol></div>
   </section>
 
+  <div class="mk-sec" id="price"><span class="eyebrow">Price</span><h2 class="h3">How the market price is computed</h2></div>
   <section class="mk-book mk-one">
     <div class="glass card">
-      <h2 class="h3">How a swap works</h2>
-      <ol class="mk-steps">
-        <li><b>Get the wallet</b> from the <a href="/download">download page</a> and keep it running.</li>
-        <li>Open <b>Swap</b>: take an offer from the board, or publish your own.</li>
-        <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.</li>
-        <li><b>The wallets finish alone.</b> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 3 hours, the GNR after about 21. No swap lasts longer than a week.</li>
-      </ol>
-      <p class="muted mk-fine"><b>How the market price is computed:</b> from what people actually paid, weighed by the bitcoin that moved.</p>
+      <p class="muted mk-fine">From what people actually paid, weighed by the bitcoin that moved.</p>
       <ul class="mk-steps">
         <li><b>Only completed swaps count</b>, and only once their claim is on the GNR chain. Offers and swaps in progress are shown but never move the price: anyone can post an offer at any price.</li>
         <li><b>The bitcoin must be on the Bitcoin chain.</b> A swap's report names its bitcoin contract and is signed by one of the two wallets of the swap. The board looks the contract up and notes how much bitcoin was taken out of it with the swap's secret. Nobody else can report a swap, and a report without its bitcoin weighs nothing once there are three that have it.</li>

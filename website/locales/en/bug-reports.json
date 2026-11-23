@@ -24,7 +24,7 @@
  "614175a546": "<0>The exact text</0> of any message, copied, not retold. A screenshot helps for anything you see; hide balances and addresses you do not want to show.",
  "66c7711bdc": "<0>How often:</0> every time, sometimes, once.",
  "910b37920e": "Where to find details",
- "3600743a16": "<0>The wallet</0> shows its last error in a bar at the top, and the status of every swap and offer in the Swap tab. Its <1>Console</1> answers <2/>, <3/> and <4/>: copy what they say.",
+ "5f10e51710": "<0>The wallet</0> shows its last error in a bar at the top, and the status of every swap and offer in the Swap and Market tabs. Its <1>Console</1> answers <2/>, <3/> and <4/>: copy what they say.",
  "b3dc28f6ca": "<0>The miner</0> shows why it stopped in the Mining tab.",
  "344707d6ad": "<0>A node</0> run as a service writes to the system log: <1/>. Started by hand, it writes to the terminal; <2/> says more.",
  "fa34d71852": "<0>Transaction and block ids</0> are public. They tell a developer exactly where to look.",

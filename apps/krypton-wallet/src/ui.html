@@ -504,6 +504,55 @@ header{padding:14px 30px}
 @media (max-width:1080px){.qs-wrap{grid-template-columns:1fr}.qs-side{grid-template-columns:1fr 1fr}}
 @media (max-width:640px){.qs-side{grid-template-columns:1fr}.qs-in input{font-size:26px}.qs-out b{font-size:24px}.qsp-names{display:none}}
 @media (prefers-reduced-motion:reduce){.qs::before,.qs-live i,.qs-skel,.qsp-steps i.now::after,.qs-spin{animation:none}}
+/* Swap and Market as two tabs (1.0.51) */
+.qs-wrap{grid-template-columns:minmax(0,600px) minmax(300px,390px);justify-content:center;gap:22px;margin-bottom:22px}
+.qs{padding:24px 26px 22px}
+.qs-head{margin-bottom:16px}
+.qs-seg{margin-bottom:16px}
+.qs-box{border-radius:18px;padding:16px 18px 18px;transition:border-color .2s,box-shadow .2s}
+.qs-box:focus-within{border-color:var(--line-strong);box-shadow:0 0 0 3px color-mix(in srgb,var(--text-primary) 7%,transparent)}
+.qs-recv{padding-top:20px}.qs-recv label{margin:0}
+.qs-in input:focus-visible,.unit-in input:focus-visible{box-shadow:none!important}
+.qs-box:has(input:focus-visible),.unit-in:has(input:focus-visible){border-color:var(--text-secondary)}
+.qs-flip{position:relative;z-index:1;display:grid;place-items:center;width:40px;height:40px;margin:-14px auto;padding:0;border:0;border-radius:13px;background:var(--bg-solid);box-shadow:0 0 0 1px var(--line-strong),0 6px 18px rgba(0,0,0,.22);cursor:pointer;transition:transform .2s,box-shadow .2s}
+.qs-flip:hover{transform:translateY(-1px);box-shadow:0 0 0 1px var(--text-secondary),0 8px 22px rgba(0,0,0,.28)}
+.qs-flip:focus-visible{outline:2px solid var(--text-primary);outline-offset:2px}
+.qs-flip svg{width:18px;height:18px;padding:0;border:0;border-radius:0;background:none}
+.qs-out{min-height:40px}
+.qs-quote{margin:16px 2px 4px}
+.qs-dmkt b{font-variant-numeric:tabular-nums}.qs-dmkt .linkbtn{padding:2px 0 0;font-size:11.5px}
+.sw-why{display:block;margin:18px 0}
+.sw-why h3{font-size:20px;margin:8px 0 8px}
+.sw-why ul{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:16px}
+.mk-go{display:inline-flex;align-items:center;gap:8px;margin-top:14px;height:36px;padding:0 16px;font-size:13px}.mk-go .ic{width:15px;height:15px}
+.mk-run{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:12px 16px;margin-bottom:18px;border:1px solid var(--line-strong);border-radius:14px;background:var(--bg-inset);font-size:13.5px}
+.mk-run .btn{margin-left:auto;height:32px;padding:0 14px;font-size:12.5px}
+.sw-totals{gap:0;padding:0;overflow:hidden}
+.sw-totals .swt{padding:16px 20px;border-radius:0}
+.sw-totals .swt+.swt{border-left:1px solid var(--line)}
+.sw-totals .swt b{font-size:clamp(18px,1.6vw,23px)}
+.sw-totals .swt-depth{margin:0;padding:12px 20px 14px;border-top:1px solid var(--line)}
+.mk-how{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.mk-how summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--text-secondary)}
+.mk-how summary::-webkit-details-marker{display:none}
+.mk-how summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .2s}
+.mk-how[open] summary::before{transform:rotate(45deg)}
+.mk-how summary:hover{color:var(--text-primary)}
+.mk-how .hero-note{margin-top:10px}
+.mk-hero{grid-template-columns:minmax(260px,1.2fr) repeat(2,minmax(0,1fr))}
+.mk-price{grid-row:span 2}
+.mk-hero>.mk-stat{border-left:1px solid var(--line);padding:18px 24px}
+.mk-hero>.mk-stat:nth-child(n+4){border-top:1px solid var(--line)}
+.mk-stat b{font-size:19px;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.bd-two{display:flex;flex-direction:column;gap:0}
+.bd-half td.p{width:54%}.bd-table td.p span span{display:inline;margin:0;font-size:inherit}
+.bd-mid{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:10px 0;padding:11px 16px;border-radius:12px;border:1px dashed var(--line-strong);font-size:12.5px;color:var(--text-tertiary)}
+.bd-mid b{font:600 15px var(--font-mono);color:var(--text-primary)}.bd-mid em{font-style:normal;color:var(--text-secondary)}.bd-mid i{font-style:normal;margin-left:auto}
+@media (max-width:1180px){.mk-hero{grid-template-columns:1fr 1fr}.mk-price{grid-row:auto}.mk-hero>.mk-stat{border-left:0}.mk-hero>.mk-stat:nth-child(odd){border-left:1px solid var(--line)}}
+@media (max-width:1300px){.sw-totals .swt+.swt{border-left:0}.sw-totals .swt{border-bottom:1px solid var(--line)}.sw-totals .swt-depth{border-top:0}}
+@media (max-width:1100px){.sw-why ul{grid-template-columns:1fr 1fr}}
+@media (max-width:1080px){.qs-wrap{grid-template-columns:1fr}}
+@media (max-width:640px){.sw-why ul{grid-template-columns:1fr}.qs{padding:20px 18px 18px}}
 </style>
 </head>
 <body>
@@ -589,6 +638,7 @@ header{padding:14px 30px}
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
       <button class="rail" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swap</span><em class="tab-badge hidden" id="swBadge"></em></button>
+      <button class="rail" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>Market</span></button>
       <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Tokens</span><em class="tab-soon">soon</em></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
@@ -753,7 +803,9 @@ header{padding:14px 30px}
           <div class="qs-box">
             <div class="qs-row"><label for="qsAmt" id="qsInL">You pay</label><div class="seg qs-unit" id="qsUnit" role="group" aria-label="Unit"><button type="button" data-u="usd">USD</button><button type="button" data-u="btc" class="on">BTC</button><button type="button" data-u="gnr">GNR</button></div></div>
             <div class="qs-in"><span class="qs-cur" id="qsCur"></span><input id="qsAmt" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="qsQuote"><button type="button" class="linkbtn qs-max" id="qsMax">Max</button></div>
-            <div class="qs-flip" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg></div>
+          </div>
+          <button type="button" class="qs-flip" id="qsFlip" title="Switch between buying and selling" aria-label="Switch between buying and selling"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg></button>
+          <div class="qs-box qs-recv">
             <label id="qsOutL">You receive</label>
             <div class="qs-out" id="qsOutBox"><span class="qs-cur" id="qsOutCur"></span><b id="qsOut">0</b><span class="qs-sub" id="qsOutSub"></span></div>
           </div>
@@ -774,97 +826,11 @@ header{padding:14px 30px}
             <div class="qs-d"><span>For sale</span><b id="qsDSell">-</b><em id="qsDSellN">&nbsp;</em></div>
             <div class="qs-d"><span>Wanted</span><b id="qsDBuy">-</b><em id="qsDBuyN">&nbsp;</em></div>
             <div class="qs-d"><span>Running now</span><b id="qsDRun">-</b><em>Quick Swap parts</em></div>
+            <div class="qs-d qs-dmkt"><span>Market price</span><b id="qsDMkt">-</b><em><button type="button" class="linkbtn" onclick="goTab('market')">Open the market</button></em></div>
           </section>
         </aside>
       </div>
       <section class="glass card qs-orders hidden" id="qsOrdersBox"><div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Your Quick Swaps</h2></div><div id="qsOrders"></div></section>
-      <section class="glass card mk-hero">
-        <div class="mk-price">
-          <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
-          <b id="bdUsd">-</b>
-          <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
-          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted): thin, moderate or deep."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
-        </div>
-        <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
-        <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
-        <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
-        <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
-      </section>
-      <section class="sw-totals" aria-label="The bitcoin price and the totals on the board">
-        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="swtBtc">-</b><em id="swtBtcN">per bitcoin</em></div>
-        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="swtSell">-</b><em id="swtSellN">sell offers</em></div>
-        <div class="glass card swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="swtBuy">-</b><em id="swtBuyN">buy offers</em></div>
-        <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>In progress</span><b id="swtProg">-</b><em id="swtProgN">swaps running</em></div>
-        <div class="glass card swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
-        <p class="swt-depth" id="swtDepth"></p>
-      </section>
-      <section class="glass card sw-why">
-        <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
-          <p class="muted">Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could one day break. A swap moves that value into GNR, which is guarded by hash-based proofs instead, directly between two wallets: no exchange, no custody, no account. You can swap back to bitcoin the same way at any time.</p></div>
-        <ul><li><b>Proven</b><span>A sell offer is listed only after the board has checked that its GNR is there.</span></li><li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer pays.</span></li><li><b>Atomic</b><span>Both sides are paid, or both keep their coins.</span></li><li><b>Anonymous</b><span>Offers carry one-time keys, never your address.</span></li></ul>
-      </section>
-      <div class="bd-layout">
-        <section class="glass card bd-book">
-          <div class="bd-head">
-            <h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Offer board</h2>
-            <span class="muted mono bd-host" id="bdBoard"></span>
-          </div>
-          <div class="bd-tools">
-            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="book" class="on">Order book</button><button type="button" data-t="pending">In progress <em id="bdTabP">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
-            <div class="bd-filters">
-              <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
-              <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
-              <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
-              <select id="bdPerPage" aria-label="Offers per page"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
-            </div>
-          </div>
-          <div class="bd-two" id="bdTwo">
-            <div class="bd-col"><div class="bd-colh"><b>Sell offers <em id="bdTabS">0</em></b><span>buy GNR from these</span></div>
-              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdAskRows"></tbody></table></div>
-            <div class="bd-col"><div class="bd-colh"><b>Buy offers <em id="bdTabB">0</em></b><span>sell GNR to these</span></div>
-              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdBidRows"></tbody></table></div>
-          </div>
-          <div class="bd-tablewrap hidden" id="bdOne">
-            <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
-          </div>
-          <div class="pager" id="bdPager"></div>
-          <p class="hero-note"><b>Every sell offer is proven</b> (✓): its GNR sits in a note of its own, the board has checked a zero-knowledge proof of that, and it takes the offer down the moment that GNR moves. <b>A buy offer with a ✓ has its bitcoin deposited</b>: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself. Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: from the swaps completed in the last 72 hours whose bitcoin the board found on the Bitcoin chain. It is their volume-weighted median: half of that bitcoin changed hands below it, half above, and no single swap counts for more than a fifth. Offers and swaps in progress never move it, so offer at any price you like.</p>
-        </section>
-        <aside class="bd-side">
-          <section class="glass card bd-trade">
-            <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
-            <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
-            <label for="bdGnr" id="bdGnrL">Amount</label>
-            <div class="unit-in" id="bdGnrBox"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
-            <label for="bdBtc" id="bdBtcL">For</label>
-            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
-            <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
-            <label class="mcheck"><input type="checkbox" id="bdFol" onchange="bdFolSet(true)"> <span id="bdFolT">Follow the market price: the offer's price moves with the market by itself</span></label>
-            <div class="bd-fol hidden" id="bdFolBox">
-              <label for="bdLim" id="bdLimL">Never sell below (per GNR)</label>
-              <div class="unit-in"><input id="bdLim" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
-              <label for="bdMar" id="bdMarL">Above the market price by (negative: below)</label>
-              <div class="unit-in"><input id="bdMar" inputmode="decimal" placeholder="0" autocomplete="off"><span>%</span></div>
-              <label for="bdTrig" id="bdTrigL">Take it down if the market price falls to (optional)</label>
-              <div class="unit-in"><input id="bdTrig" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
-              <p id="bdFolNote"></p>
-            </div>
-            <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
-            <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
-            <label class="mcheck qs-auto" id="bdAutoRow"><input type="checkbox" id="bdAuto" onchange="bdAutoSet()"> <span><b>Quick Swap</b>: swap it in parts with anyone, by itself. People buy (or sell) exactly the amount they want from it in one click.</span></label>
-            <div class="bd-fol hidden" id="bdAutoBox">
-              <label for="bdAutoMin">Smallest part</label>
-              <div class="unit-in"><input id="bdAutoMin" inputmode="decimal" placeholder="automatic" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
-              <p id="bdAutoNote"></p>
-            </div>
-            <label class="mcheck" id="bdPreRow"><input type="checkbox" id="bdPre" checked> Only for buyers whose bitcoin is already deposited: nobody can take the offer and leave your GNR locked unpaid</label>
-            <label class="mcheck hidden" id="bdDepRow"><input type="checkbox" id="bdDep" checked> Pay the bitcoin now, to an address of this wallet: the swap then completes by itself</label>
-            <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="6">6 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option><option value="168">1 week</option><option value="720">1 month</option><option value="8760">1 year</option></select>
-            <button class="btn btn-primary bdpub" id="bdPubBtn" onclick="boardPublish()">Publish for 24 hours</button>
-            <div id="bdMine" class="bd-minelist"></div>
-          </section>
-        </aside>
-      </div>
       <section class="glass card sw-mine">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
         <div class="sw-keep"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Keep this wallet open (running and unlocked) until your swaps are done.</b> Only your wallet holds the keys that lock, take and refund your coins, so only it can do these steps; genoryn.io never has your keys, which is also why nobody can take your coins. You do not need to watch: closing the window keeps the wallet working in the background. If the wallet locks itself (after 24 hours), unlock it again: the swap waits, and the timelocks give hours of room.</div></div>
@@ -872,6 +838,11 @@ header{padding:14px 30px}
         <div id="swTakes"></div>
         <div id="swapList"><p class="muted">No swaps yet.</p></div>
         <details class="sw-past hidden" id="swPastBox" open><summary>Completed and past swaps <em id="swPastN"></em></summary><div id="swapPast" class="swr-grid"></div></details>
+      </section>
+      <section class="glass card sw-why">
+        <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
+          <p class="muted">Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could one day break. A swap moves that value into GNR, which is guarded by hash-based proofs instead, directly between two wallets: no exchange, no custody, no account. You can swap back to bitcoin the same way at any time.</p></div>
+        <ul><li><b>Proven</b><span>A sell offer is listed only after the board has checked that its GNR is there.</span></li><li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer pays.</span></li><li><b>Atomic</b><span>Both sides are paid, or both keep their coins.</span></li><li><b>Anonymous</b><span>Offers carry one-time keys, never your address.</span></li></ul>
       </section>
       <details class="glass card bd-direct"><summary><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap directly with someone, using codes</summary>
         <div class="grid" style="margin-top:14px">
@@ -910,6 +881,93 @@ header{padding:14px 30px}
           <button class="btn" onclick="recoverBtc()">Look and send back</button>
         </div>
       </details>
+    </div>
+    <div id="tab-market" class="hidden">
+      <div class="mk-run hidden" id="mkRun"><span class="bd-live"></span><span id="mkRunT"></span><button type="button" class="btn" onclick="goTab('swap')">Follow on Swap</button></div>
+      <section class="glass card mk-hero">
+        <div class="mk-price">
+          <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
+          <b id="bdUsd">-</b>
+          <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
+          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted): thin, moderate or deep."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
+          <button type="button" class="btn mk-go" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap in one click</button>
+        </div>
+        <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
+        <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
+        <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
+        <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
+      </section>
+      <section class="glass card sw-totals" aria-label="The bitcoin price and the totals on the board">
+        <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="swtBtc">-</b><em id="swtBtcN">per bitcoin</em></div>
+        <div class="swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="swtSell">-</b><em id="swtSellN">sell offers</em></div>
+        <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="swtBuy">-</b><em id="swtBuyN">buy offers</em></div>
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>In progress</span><b id="swtProg">-</b><em id="swtProgN">swaps running</em></div>
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
+        <p class="swt-depth" id="swtDepth"></p>
+      </section>
+      <div class="bd-layout">
+        <section class="glass card bd-book">
+          <div class="bd-head">
+            <h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Offer board</h2>
+            <span class="muted mono bd-host" id="bdBoard"></span>
+          </div>
+          <div class="bd-tools">
+            <div class="seg" id="bdTab" role="group" aria-label="Offers"><button type="button" data-t="book" class="on">Order book</button><button type="button" data-t="pending">In progress <em id="bdTabP">0</em></button><button type="button" data-t="mine">Mine <em id="bdTabM">0</em></button></div>
+            <div class="bd-filters">
+              <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
+              <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
+              <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
+              <select id="bdPerPage" aria-label="Offers per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+            </div>
+          </div>
+          <div class="bd-two" id="bdTwo">
+            <div class="bd-col"><div class="bd-colh"><b>Sell offers <em id="bdTabS">0</em></b><span>buy GNR from these</span></div>
+              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdAskRows"></tbody></table></div>
+            <div class="bd-mid hidden" id="bdMid"></div>
+            <div class="bd-col"><div class="bd-colh"><b>Buy offers <em id="bdTabB">0</em></b><span>sell GNR to these</span></div>
+              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdBidRows"></tbody></table></div>
+          </div>
+          <div class="bd-tablewrap hidden" id="bdOne">
+            <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
+          </div>
+          <div class="pager" id="bdPager"></div>
+          <details class="mk-how"><summary>How the offer board works</summary><p class="hero-note"><b>Every sell offer is proven</b> (✓): its GNR sits in a note of its own, the board has checked a zero-knowledge proof of that, and it takes the offer down the moment that GNR moves. <b>A buy offer with a ✓ has its bitcoin deposited</b>: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself. Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: from the swaps completed in the last 72 hours whose bitcoin the board found on the Bitcoin chain. It is their volume-weighted median: half of that bitcoin changed hands below it, half above, and no single swap counts for more than a fifth. Offers and swaps in progress never move it, so offer at any price you like.</p></details>
+        </section>
+        <aside class="bd-side">
+          <section class="glass card bd-trade">
+            <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
+            <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
+            <label for="bdGnr" id="bdGnrL">Amount</label>
+            <div class="unit-in" id="bdGnrBox"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
+            <label for="bdBtc" id="bdBtcL">For</label>
+            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
+            <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
+            <label class="mcheck"><input type="checkbox" id="bdFol" onchange="bdFolSet(true)"> <span id="bdFolT">Follow the market price: the offer's price moves with the market by itself</span></label>
+            <div class="bd-fol hidden" id="bdFolBox">
+              <label for="bdLim" id="bdLimL">Never sell below (per GNR)</label>
+              <div class="unit-in"><input id="bdLim" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
+              <label for="bdMar" id="bdMarL">Above the market price by (negative: below)</label>
+              <div class="unit-in"><input id="bdMar" inputmode="decimal" placeholder="0" autocomplete="off"><span>%</span></div>
+              <label for="bdTrig" id="bdTrigL">Take it down if the market price falls to (optional)</label>
+              <div class="unit-in"><input id="bdTrig" inputmode="decimal" placeholder="0.00000000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
+              <p id="bdFolNote"></p>
+            </div>
+            <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
+            <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
+            <label class="mcheck qs-auto" id="bdAutoRow"><input type="checkbox" id="bdAuto" onchange="bdAutoSet()"> <span><b>Quick Swap</b>: swap it in parts with anyone, by itself. People buy (or sell) exactly the amount they want from it in one click.</span></label>
+            <div class="bd-fol hidden" id="bdAutoBox">
+              <label for="bdAutoMin">Smallest part</label>
+              <div class="unit-in"><input id="bdAutoMin" inputmode="decimal" placeholder="automatic" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
+              <p id="bdAutoNote"></p>
+            </div>
+            <label class="mcheck" id="bdPreRow"><input type="checkbox" id="bdPre" checked> Only for buyers whose bitcoin is already deposited: nobody can take the offer and leave your GNR locked unpaid</label>
+            <label class="mcheck hidden" id="bdDepRow"><input type="checkbox" id="bdDep" checked> Pay the bitcoin now, to an address of this wallet: the swap then completes by itself</label>
+            <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="6">6 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option><option value="168">1 week</option><option value="720">1 month</option><option value="8760">1 year</option></select>
+            <button class="btn btn-primary bdpub" id="bdPubBtn" onclick="boardPublish()">Publish for 24 hours</button>
+            <div id="bdMine" class="bd-minelist"></div>
+          </section>
+        </aside>
+      </div>
     </div>
     <div id="tab-coins" class="hidden">
       <section class="glass card cx-soon hidden" id="cxSoon">
@@ -1485,7 +1543,7 @@ async function useWallet(id){
   QS.bal=null; QS.balAt=0; QS.q=null; ++QS.seq; $('btcBal').textContent='-'; $('btcBalSub').textContent=T("Loading this wallet's Bitcoin balance…");
   await refresh(); loadWallets();
   const vis=t=>!$('tab-'+t).classList.contains('hidden');
-  if(vis('history')) loadHistory(); if(vis('swap')){ loadSwaps(); loadBoard(); btcLoad(true); qsAsk(); } if(vis('network')) loadNetExtras();
+  if(vis('history')) loadHistory(); if(vis('swap')||vis('market')) loadSwaps(); if(vis('swap')){ btcLoad(true); qsAsk(); } if(vis('network')) loadNetExtras();
 }
 /* Which wallet the miner pays, at the top of the Mining tab: by name, and a way to it when
    another wallet is the one shown (the payouts and amounts below are the shown wallet's). */
@@ -1763,11 +1821,12 @@ function weakWarn(r, name){ if(!r||!r.weak_password) return;
     body:`<p class="mtext">${TE("The password of {name} is easy to guess for a computer. Anyone who copies the wallet file could try passwords offline. A long passphrase of several random words makes that impossible.", {name: name||T("this wallet")})}</p>`}).then(go=>{ if(go){ goTab('security'); $('cpOld').focus(); } }); }
 async function quitApp(){ if(!await ask({title:T("Quit Genoryn Krypton?"), icon:'power', ok:T("Quit"), danger:true, body:'<p class="mtext">'+TE("The miner and your own node stop too. To keep mining, just close the window instead.")+'</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>'+TE("Closed")+'</h2><p class="muted">'+TE("Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.")+'</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast(T("Copied")); }
-const TABS=['wallet','history','swap','coins','mining','network','settings','console','security','about'];
-const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
+const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'); };
+const TABS=['wallet','history','swap','market','coins','mining','network','settings','console','security','about'];
+const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
-  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap') loadSwaps(true); if(t==='coins') loadCoins(); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap'||t==='market') loadSwaps(true); if(t==='coins') loadCoins(); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=[TE("Request"),TE("Accept"),TE("Deposit"),TE("Lock"),TE("Claim"),TE("Done")];
@@ -1782,6 +1841,7 @@ async function loadSwaps(first){
   const list=SW.swaps||[], live=list.filter(s=>!s.finished), past=list.filter(s=>s.finished);
   loadBoard();
   $('swCount').textContent=live.length?T("{n} in progress", {n: live.length}):'';
+  $('mkRun').classList.toggle('hidden', !live.length); $('mkRunT').textContent=live.length?T("Your swaps")+': '+T("{n} in progress", {n: live.length}):'';
   live.filter(s=>s.gnr_first&&s.role==='btc_seller'&&s.stage==='await_deposit'&&s.htlc_address&&!swAuto(s)&&!PAY_SHOWN.has(s.id)).slice(0,1).forEach(s=>showPay(s));
   $('swElse').innerHTML=(SW.mirrored||[]).map(swMirror).join('')+(SW.elsewhere||[]).map(l=>`<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin('gnr','coin-pair')}</span><b>${TE("{amount} GNR locked in a swap on another computer", {amount: l.gnr_text})}</b><span class="pill">${l.refunding?TE("returning"):TE("runs elsewhere")}</span></div>
     <p class="swc-status">${l.height?TE("This wallet (the same 24 words) is open on another computer too, and a swap was started there. That computer runs the swap and shows its progress; this one sees only the GNR, locked on chain since block {height}.", {height: GKI18N.num(Number(l.height))}):TE("This wallet (the same 24 words) is open on another computer too, and a swap was started there. That computer runs the swap and shows its progress; this one sees only the GNR, locked on chain.")}</p>
@@ -1912,7 +1972,7 @@ async function swapCode(){
 }
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
-const BDV={tab:'book', sort:'price', min:'', max:'', per:25, page:0};
+const BDV={tab:'book', sort:'price', min:'', max:'', per:10, page:0};
 /* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
 const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?GKI18N.num(v,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
@@ -2006,6 +2066,8 @@ function renderBook(){
   const ok=o=>o.backed?'<i class="bd-ok" title="'+TE("The seller's GNR is set aside and proven to the board")+'">✓</i>':'';
   const okB=o=>o.deposited?'<i class="bd-ok" title="'+TE("The buyer's bitcoin is deposited: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself")+'">✓</i>':'';
   if(two){
+    const um=btcUsd(); $('bdMid').classList.toggle('hidden', mp==null);
+    if(mp!=null) $('bdMid').innerHTML=`<span>${TE("Market price")}</span><b>${fmtPx(mp)}</b>${um?'<em>'+GKValue.usd(mp*um/1e8)+'</em>':''}<i>${TE("Spread")} ${esc($('bdSpread').textContent)}</i>`;
     const side=(s,id,empty)=>{ const l=bdOffers(s), r=l.slice(BDV.page*BDV.per,(BDV.page+1)*BDV.per), bg=Math.max(1,...r.map(o=>o.gnr));
       $(id).innerHTML=r.length?r.map(o=>`<tr class="${o.online===false?'bd-off':''}" title="${TE("Expires in {time}", {time: bdAgo(o.expires_in)})}"><td class="p"><i class="bd-depth" style="width:${Math.max(6,Math.round(o.gnr/bg*100))}%"></i><b>${live(o)}${fmtPx(o.price)}${qtag(o)}</b><span>${usd(o.price)}${mp?' · '+vs(o.price):''}${o.prepaid?' · <em title="'+TE("The seller locks GNR only for a buyer whose bitcoin is deposited first")+'">'+TE("pay first")+'</em>':''}</span></td><td class="mono r" title="${esc(o.gnr_text)} GNR">${gnrShort(o.gnr)}${ok(o)}</td><td class="mono r">${esc(o.btc_text)}${okB(o)}</td><td>${act(o)}</td></tr>`).join(''):`<tr><td colspan="4" class="muted">${empty}</td></tr>`; return l.length; };
     const n=side('sell_gnr','bdAskRows',TE("No sell offers yet. Publish one: it sets the first price."))+side('buy_gnr','bdBidRows',TE("No buy offers yet."));
@@ -2185,7 +2247,7 @@ async function boardTake(id, side, g, b){
   if(!addr) return;
   try{ const r=await api('/api/board/take',{id, address:String(addr).trim(), password:pw, deposit:buy&&window.tkDep!==false});
     if(r.fund){ toast(T("The swap starts by itself once your bitcoin has one confirmation")); showDeposit(Object.assign({back_to:String(addr).trim(), fee_text:btcFmt(Math.max(0,r.fund.need-Math.round(Number(b)*1e8))/1e8)}, r.fund)); }
-    else toast(T("Swap started: follow it under Your swaps"));
+    else toast(tabOn('market')?T("Swap started: follow it on the Swap tab, under Your swaps"):T("Swap started: follow it under Your swaps"));
     loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 async function boardUntake(id, funded){
@@ -2221,6 +2283,7 @@ function qsLabels(){ const w=qsWant();
   $('qsMax').classList.toggle('hidden', !(QS.side==='sell'&&QS.unit==='gnr')&&!(QS.side==='buy'&&QS.unit==='btc')); }
 document.querySelectorAll('#qsSide button').forEach(b=>b.onclick=()=>{ QS.side=b.dataset.s; document.querySelectorAll('#qsSide button').forEach(x=>x.classList.toggle('on',x===b));
   if(QS.side==='sell'&&QS.unit==='btc') qsUnit('gnr'); else { qsLabels(); qsAsk(); } });
+$('qsFlip').onclick=()=>{ const o=document.querySelector('#qsSide [data-s="'+(QS.side==='buy'?'sell':'buy')+'"]'); if(o) o.click(); };
 function qsUnit(u){ QS.unit=u; document.querySelectorAll('#qsUnit button').forEach(x=>x.classList.toggle('on',x.dataset.u===u)); qsLabels(); qsAsk(); }
 document.querySelectorAll('#qsUnit button').forEach(b=>b.onclick=()=>qsUnit(b.dataset.u));
 $('qsAmt').oninput=()=>qsAsk();
@@ -2280,7 +2343,8 @@ function qsBoard(){ const k=(BD.market&&BD.market.quick)||null, u=btcUsd();
   $('qsLive').textContent=n?(QS.side==='buy'?(s.offers?T("{amount} GNR ready to buy", {amount: gnrShort(s.gnr)}):T("Nothing for sale right now")):(b.offers?T("{amount} BTC ready to pay", {amount: btcFmt(b.sats/1e8)}):T("No buyer right now"))):far?T("Nothing near the market price right now"):T("No Quick Swap offer online right now");
   $('qsDSell').textContent=s.offers?gnrShort(s.gnr)+' GNR':'-'; $('qsDSellN').textContent=(s.offers?Tn(s.offers, "{n} offer", "{n} offers", {n: s.offers})+' · '+T("from {price}", {price: fmtPx(s.best)})+(u?' · '+GKValue.usd(s.best*u/1e8):''):T("none online"))+left(s);
   $('qsDBuy').textContent=b.offers?money(b.sats):'-'; $('qsDBuyN').textContent=(b.offers?btcFmt(b.sats/1e8)+' BTC · '+Tn(b.offers, "{n} offer", "{n} offers", {n: b.offers})+' · '+T("up to {price}", {price: fmtPx(b.best)}):T("none online"))+left(b);
-  $('qsDRun').textContent=Number(k.parts_in_progress||0); }
+  $('qsDRun').textContent=Number(k.parts_in_progress||0);
+  const mp=bdMkt().price; $('qsDMkt').textContent=mp!=null?fmtPx(mp)+(u?' · '+GKValue.usd(mp*u/1e8):''):'-'; }
 /* The steps of one Quick Swap part, as a bar. */
 const QS_STEPS_BUY=[TE("Matched"),TE("GNR locked"),TE("You paid"),TE("Seller took"),TE("You got GNR")], QS_STEPS_SELL=[TE("Matched"),TE("GNR locked"),TE("Buyer paid"),TE("You took"),TE("Done")];
 function qsStep(p){ if(p.state==='done') return 5; if(p.state==='asking') return 0;
@@ -2317,7 +2381,7 @@ async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There
   const addr=(($('btcTo')||{}).value||'').trim(), amt=(($('btcAmt')||{}).value||'max').trim(), pw=takePass(); if(!okS) return; if(!addr) return toast(T("Enter the Bitcoin address"),true);
   try{ const r=await api('/api/btc/send',{address:addr, amount:amt, password:pw}); toast(T("Sent: {txid}", {txid: r.txid})); btcLoad(true); }catch(e){ toast(e.message,true) } }
 qsLabels();
-setInterval(()=>{ if(!document.hidden && !$('tab-swap').classList.contains('hidden')) loadSwaps(); }, 8000);
+setInterval(()=>{ if(!document.hidden && (tabOn('swap')||tabOn('market'))) loadSwaps(); }, 8000);
 
 /* Krypton coins: an overview of your coins, private sends, the coin market and issuing. */
 let CN={holdings:[],all:[],mine:[],history:[]}, CM={offers:[],markets:{},deals:[]}, cxView='home', cxCoin=null, cxMk=null, cxSideV='sell_gnr', cxFeeV='normal', cxAllF='all', cwStep=1, cwOk=false;

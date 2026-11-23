@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.50"
+VERSION = "1.0.51"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
@@ -30,6 +30,9 @@ PAGES = {
     "get": {"path": "/get", "file": "get.html", "priority": "0.9", "freq": "daily",
             "og_title": "Get Genoryn Krypton (GNR): mine it today",
             "og_desc": "No premine, no presale: mine GNR on a GPU or CPU, or swap bitcoin for it on the offer board at the live market price."},
+    "swap": {"path": "/swap", "file": "swap.html", "priority": "0.9", "freq": "always",
+             "og_title": "Swap bitcoin and GNR in one click: Quick Swap",
+             "og_desc": "Buy or sell any amount of GNR with bitcoin from your own wallet. Every part is an atomic swap: the seller's GNR is locked on chain first. No exchange, no custody."},
     "market": {"path": "/market", "file": "market.html", "priority": "0.9", "freq": "always",
                "og_title": "GNR market: live offers and price of Genoryn Krypton",
                "og_desc": "Live offer board and market price of GNR from atomic swaps with bitcoin. No exchange, no custody: people set the price."},
@@ -180,7 +183,7 @@ FAQ_GROUPS = [
         ("Was there a premine, a presale or a developer fee?", "No. The genesis block issues nothing, there was no presale, and every block pays miners only, under the same schedule since block 1."),
     ]),
     ("trading", "Getting and trading GNR", [
-        ("How can I buy GNR?", "In the wallet's Swap tab, with bitcoin, through an atomic swap with another person: take a sell offer or publish a buy offer. There is no exchange, no account and no custody. <a href=\"/get\">How to get GNR</a>."),
+        ("How can I buy GNR?", "In the wallet, with bitcoin, through an atomic swap with another person: Quick Swap on the Swap tab buys any amount in one click, or take a sell offer or publish a buy offer on the Market tab. There is no exchange, no account and no custody. <a href=\"/get\">How to get GNR</a>."),
         ("Is GNR listed on an exchange?", "No. GNR is earned by mining or exchanged with bitcoin directly between wallets."),
         ("Where does the GNR price come from?", "Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the market price is where half of that bitcoin changed hands below and half above (a volume-weighted median). Offers and swaps in progress never move it. <a href=\"/market\">Live market</a>."),
         ("Why swap bitcoin for GNR?", "Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could break. A swap moves value into a system guarded by hash-based proofs, directly from your own wallet."),
@@ -284,6 +287,9 @@ def graph(page):
                    "about": ["quantum-resistant cryptocurrency", "post-quantum cryptography", "Shor's algorithm", "Bitcoin",
                              "zk-STARK", "ML-KEM", "harvest now, decrypt later"]},
                   faq(QUANTUM_FAQ), crumbs("Quantum security", p["path"])]
+    elif page == "swap":
+        items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
+                  crumbs("Swap", p["path"])]
     elif page == "market":
         items += [{"@type": "WebPage", "url": url, "name": p["og_title"], "isPartOf": {"@id": SITE + "/#website"}},
                   crumbs("Market", p["path"])]

@@ -26,6 +26,7 @@
  "6377a06e81": "Ja, genau wie bei GNR: Token, Betrag, Absender und Empfänger werden durch einen Zero-Knowledge-Beweis verborgen. Nur das Erzeugen und Vernichten von Token wird öffentlich sein.",
  "377ed0c796": "Nein. Kein Herausgeber wird Token wegnehmen, Guthaben einsehen oder auch nur einen einzigen Inhaber sperren können; alles, was ein Herausgeber tun darf, wird erklärt, bevor der Token existiert.",
  "c914a0c430": "Nein. Halte deine Wallet aktuell; ihr Token-Tab schaltet sich von selbst ein, wenn Token aktiviert werden.",
+ "b3483934d1": "Genoryn Krypton 1.0.51: Swap und Markt, jeweils mit eigenem Tab und eigener Seite",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Anderswo beendete Swaps schließen sich, und jede Wallet zeigt ihr eigenes Bitcoin-Guthaben und ihren Miner",
  "910087c4ff": "Genoryn Krypton 1.0.49: Die Verkaufs- und Kauftabellen der Angebotstafel überlappen sich nicht mehr",
  "31285111a0": "Genoryn Krypton 1.0.48: Quick Swap bleibt nahe am Marktpreis, und ein Schwall von Swaps kann den Preis nicht springen lassen",

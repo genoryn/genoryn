@@ -25,7 +25,7 @@
  "614175a546": "<0>El texto exacto</0> de cualquier mensaje, copiado, no contado con tus palabras. Una captura de pantalla ayuda con todo lo que se ve; oculta los saldos y las direcciones que no quieras mostrar.",
  "66c7711bdc": "<0>Con qué frecuencia:</0> siempre, a veces, una vez.",
  "910b37920e": "Dónde encontrar detalles",
- "3600743a16": "<0>La billetera</0> muestra su último error en una barra en la parte superior, y el estado de cada intercambio y oferta en la pestaña Swap. Su <1>Console</1> responde a <2/>, <3/> y <4/>: copia lo que dicen.",
+ "5f10e51710": "<0>La billetera</0> muestra su último error en una barra en la parte superior, y el estado de cada intercambio y oferta en las pestañas Intercambio y Mercado. Su <1>Console</1> responde a <2/>, <3/> y <4/>: copia lo que dicen.",
  "b3dc28f6ca": "<0>El minero</0> muestra por qué se detuvo en la pestaña Mining.",
  "344707d6ad": "<0>Un nodo</0> que se ejecuta como servicio escribe en el registro del sistema: <1/>. Si se inicia a mano, escribe en la terminal; <2/> da más detalles.",
  "fa34d71852": "<0>Los identificadores de transacciones y bloques</0> son públicos. Indican a un desarrollador exactamente dónde mirar.",

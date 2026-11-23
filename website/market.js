@@ -1,4 +1,4 @@
-/* genoryn.io/market: the live offer board and market price, read from the node's /v1/swap API. */
+/* genoryn.io/market and /swap: the live offer board, market price and Quick Swap, read from the node's /v1/swap API. */
 (function () {
   var PER = 20, page = { sell: 0, buy: 0 }, data = { offers: [], pending: [], market: {}, recent: [], btc: 0, now: 0 };
   var $ = function (id) { return document.getElementById(id); };
@@ -60,7 +60,7 @@
       : e(T("none yet"));
     $(kind === "sell" ? "mkSell" : "mkBuy").innerHTML = shown.length
       ? rows(shown, kind, function (o) { return left(Math.max(0, o.expires - data.now)); })
-      : "<tr><td colspan=\"4\" class=\"muted mk-empty\">" + e(kind === "sell" ? T("No sell offers yet. Publish one in the wallet's Swap tab.") : T("No buy offers yet. Publish one in the wallet's Swap tab.")) + "</td></tr>";
+      : "<tr><td colspan=\"4\" class=\"muted mk-empty\">" + e(kind === "sell" ? T("No sell offers yet. Publish one in the wallet's Market tab.") : T("No buy offers yet. Publish one in the wallet's Market tab.")) + "</td></tr>";
     var pg = $(kind === "sell" ? "mkSellP" : "mkBuyP");
     pg.innerHTML = pages > 1
       ? "<button class=\"btn\" data-mk=\"" + kind + "\" data-d=\"-1\"" + (page[kind] ? "" : " disabled") + ">‹</button><span>" + (page[kind] + 1) + " / " + pages + "</span><button class=\"btn\" data-mk=\"" + kind + "\" data-d=\"1\"" + (page[kind] < pages - 1 ? "" : " disabled") + ">›</button>"
@@ -68,10 +68,10 @@
   }
 
   function render() {
+    if (!$("mkSell")) return;
     var m = data.market || {}, np = Number(m.priced) || 0;
-    $("mkPrice").textContent = m.price != null ? sat(m.price) : T("no swaps yet");
     var how = m.status === "verified" ? Tn(np, "median of {n} verified swap", "median of {n} verified swaps") : m.status === "forming" ? T("forming") + ": " + Tn(np, "average of {n} swap", "average of {n} swaps") : Tn(np, "average of {n} swap", "average of {n} swaps");
-    $("mkPriceL").textContent = m.price != null ? (usd(m.price) ? "≈ " + usd(m.price) + " · " : "") + how + (m.volatile ? " · " + T("catching up with recent swaps") : "") : T("after the first completed swap");
+    $("mkPriceL").textContent = m.price != null ? how + (m.volatile ? " · " + T("catching up with recent swaps") : "") : T("after the first completed swap");
     $("mkAsk").textContent = m.best_ask != null ? sat(m.best_ask) : "—"; $("mkAskU").textContent = m.best_ask != null ? usd(m.best_ask) : "";
     $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
     $("mkBid").textContent = m.best_bid != null ? sat(m.best_bid) : "—"; $("mkBidU").textContent = m.best_bid != null ? usd(m.best_bid) : "";
@@ -87,9 +87,7 @@
     $("mkPend").innerHTML = data.pending.length
       ? rows(data.pending, "pend", function (o) { return T("{t} ago", { t: left(Math.max(0, data.now - (o.since || data.now))) }); })
       : "<tr><td colspan=\"4\" class=\"muted mk-empty\">" + e(T("No swap running right now.")) + "</td></tr>";
-    var all = data.recent, vol = all.reduce(function (a, t) { return a + Number(t.gnr || 0); }, 0), vb = all.reduce(function (a, t) { return a + Number(t.sats || 0); }, 0);
-    $("mkAll").textContent = all.length;
-    $("mkAllV").textContent = all.length ? gnr(vol) + " GNR" + (dollars(vb) ? " · ≈ " + dollars(vb) : "") : "";
+    var all = data.recent;
     $("mkRecentN").textContent = all.length ? "· " + all.length : "";
     $("mkRecent").innerHTML = all.length ? all.map(card).join("") : "<p class=\"muted\">" + e(T("No completed swaps yet.")) + "</p>";
     history();

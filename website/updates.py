@@ -17,6 +17,14 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.51", "date": "2026-11-23", "title": "Swap and Market, each on a tab and a page of its own",
+     "tags": ["Swap", "Wallet", "Site"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Changed", "The wallet has a Market tab of its own: the GNR price, the offer board and publishing an offer. The Swap tab keeps Quick Swap, your Bitcoin balance and your swaps."),
+         ("Changed", "A cleaner design for both: in Quick Swap what you pay stands above what you get, with a button between them that switches between buying and selling; the order book shows the market price between its sell and buy offers; the board's totals stand in one row, and its long explanation folds away."),
+         ("Added", "genoryn.io/swap: Quick Swap on a page of its own, with the live price and what the board can swap right now. genoryn.io/market keeps the price, the order book, the price history and every completed swap."),
+     ]},
     {"v": "1.0.50", "date": "2026-11-22", "title": "Swaps that ended elsewhere close, and each wallet shows its own Bitcoin balance and miner",
      "tags": ["Swap", "Wallet"],
      "items": [

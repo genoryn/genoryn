@@ -26,6 +26,7 @@
  "6377a06e81": "Sim, exatamente como o GNR: o token, o valor, o remetente e o destinatário serão ocultados por uma prova de conhecimento zero. Somente a criação e a destruição de tokens serão públicas.",
  "377ed0c796": "Não. Nenhum emissor poderá tomar tokens, ver saldos ou congelar um único detentor; tudo o que um emissor puder fazer será declarado antes de o token existir.",
  "c914a0c430": "Não. Mantenha sua carteira atualizada; a aba Tokens dela se liga sozinha quando os tokens forem ativados.",
+ "b3483934d1": "Genoryn Krypton 1.0.51: Troca e Mercado, cada um com sua própria aba e sua própria página",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Trocas encerradas em outro lugar se fecham, e cada carteira mostra seu próprio saldo de Bitcoin e seu minerador",
  "910087c4ff": "Genoryn Krypton 1.0.49: As tabelas de venda e compra do quadro de ofertas não se sobrepõem mais",
  "31285111a0": "Genoryn Krypton 1.0.48: O Quick Swap fica perto do preço de mercado, e uma rajada de trocas não consegue fazer o preço saltar",

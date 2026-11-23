@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swap Bitcoin for GNR in One Click: Quick Swap for Genoryn Krypton</title>
+<meta name="description" content="Buy or sell any amount of GNR with bitcoin in one click, from your own wallet: atomic swaps between two wallets, the seller's GNR locked on chain first. No exchange, no custody, no account.">
+<!--SEO:swap-->
+<link rel="icon" href="/assets/genoryn-mark-dark.svg" type="image/svg+xml">
+<!--FX_HEAD-->
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fx.css">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body data-page="swap">
+<!--NAV-->
+<main id="top" class="wrap">
+  <section class="sp-hero" id="quick" aria-labelledby="sp-h">
+    <div class="sp-intro">
+      <span class="eyebrow qx-eye"><span class="qx-bolt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Quick Swap · live</span>
+      <h1 id="sp-h" class="h2 glow">Swap bitcoin and GNR, in one click</h1>
+      <p class="lead">Say how much you want to buy or sell. The wallet finds the best prices on the board and swaps exactly that amount, across up to three offers whose makers are online right now. Every part is an atomic swap between two wallets: no exchange, no custody, no account.</p>
+      <a class="sp-price" href="/market" aria-label="GNR price: open the market"><span class="dot live ok" aria-hidden="true"></span><span class="sp-price-k">GNR price</span><b data-mk-usd>—</b><em data-mk-sat>—</em></a>
+      <div class="sp-cta"><a class="btn btn-primary" href="/download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Get the wallet</a><a class="btn" href="/market"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Open the market</a></div>
+    </div>
+    <div class="glass sp-card qx">
+      <div class="sp-card-head"><span class="eyebrow-s">Quick Swap</span><span class="qx-live" id="qxLiveBox"><i></i><b id="qxLive">Reading the board…</b></span></div>
+      <div class="qx-seg sp-side" id="qxSide" role="group" aria-label="Buy or sell"><button type="button" data-s="buy" class="on">Buy GNR</button><button type="button" data-s="sell">Sell GNR</button></div>
+      <div class="sp-box">
+        <div class="sp-row"><label for="qxAmt" id="qxInL">You pay</label><div class="qx-seg qx-units" id="qxUnit" role="group" aria-label="Unit"><button type="button" data-u="usd" class="on">USD</button><button type="button" data-u="btc">BTC</button><button type="button" data-u="gnr">GNR</button></div></div>
+        <input id="qxAmt" inputmode="decimal" placeholder="100" autocomplete="off" aria-describedby="qxOutN">
+      </div>
+      <div class="sp-flip" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg></div>
+      <div class="sp-box sp-recv"><span id="qxOutL">You would get about</span><b id="qxOut">—</b></div>
+      <p class="sp-note" id="qxOutN" aria-live="polite">Type an amount to see what the board gives for it now.</p>
+      <a class="btn btn-primary qx-go" href="/download">Swap in the wallet</a>
+    </div>
+  </section>
+
+  <section class="sp-live" aria-label="Quick Swap on the board now">
+    <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>Ready to buy now</span><b id="qxSell"><span class="qx-skel"></span></b><em id="qxSellN">&nbsp;</em></div>
+    <div class="qx-stat"><span class="qx-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Ready to buy your GNR</span><b id="qxBuy"><span class="qx-skel"></span></b><em id="qxBuyN">&nbsp;</em></div>
+    <div class="qx-stat"><span class="qx-k"><svg class="ni" aria-hidden="true"><use href="#n-swap"/></svg>Quick Swaps running</span><b id="qxRun"><span class="qx-skel"></span></b><em>parts swapping right now</em></div>
+  </section>
+
+  <ol class="qx-steps">
+    <li><b>Type how much.</b> In dollars, bitcoin or GNR, in the wallet's Swap tab.</li>
+    <li><b>Best prices first, near the market.</b> Up to three offers, each at its own price, none beyond the price you accepted and none more than 20 % from the market price (10 % while the price is forming).</li>
+    <li><b>Locked before paid.</b> Every part is an atomic swap; both sides are paid or both keep their coins.</li>
+    <li><b>About 15 minutes,</b> mostly the bitcoin confirmation. Buying pays from your wallet's Bitcoin balance.</li>
+  </ol>
+
+  <section class="glass card mk-why" aria-labelledby="why-h">
+    <div><span class="eyebrow">Why swap bitcoin for GNR</span>
+      <h2 id="why-h" class="h3">Move bitcoin's value into a quantum-resistant system.</h2>
+      <p>Bitcoin's coins are guarded by elliptic-curve signatures (ECDSA and Schnorr). A large enough quantum computer running Shor's algorithm could break them and spend other people's coins. Nobody knows when such a machine will exist, but savings are kept for decades.</p>
+      <p>That is what this market is for. An atomic swap lets you move value from bitcoin into GNR, whose coins are guarded by hash-based zk-STARK proofs instead of elliptic curves, directly from your own wallet: no exchange holds your coins, no account, no identity. You can swap back to bitcoin the same way whenever you like.</p></div>
+    <ul>
+      <li><b>For protection</b><span>Value you move into GNR no longer depends on elliptic-curve cryptography.</span></li>
+      <li><b>Proven</b><span>A sell offer is listed only after the board has checked that its GNR is there.</span></li>
+      <li><b>Atomic</b><span>Either both sides are paid, or both keep their coins. Nobody can run off with half a trade.</span></li>
+      <li><b>Locked first</b><span>The seller's GNR is locked on chain before the buyer sends any bitcoin.</span></li>
+      <li><b>Honest about limits</b><span>A swap exchanges bitcoin for GNR at the market price; the bitcoin itself stays on Bitcoin's chain with its new owner.</span></li>
+    </ul>
+  </section>
+
+  <section class="mk-book mk-one">
+    <div class="glass card">
+      <h2 class="h3">How a swap works</h2>
+      <ol class="mk-steps">
+        <li><b>Get the wallet</b> from the <a href="/download">download page</a> and keep it running.</li>
+        <li>Open <b>Swap</b> to buy or sell in one click, or <b>Market</b> to take an offer from the board or publish your own.</li>
+        <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.</li>
+        <li><b>The wallets finish alone.</b> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 3 hours, the GNR after about 21. No swap lasts longer than a week.</li>
+      </ol>
+    </div>
+  </section>
+
+  <a class="glass sp-next" href="/market">
+    <span class="sp-next-ic" aria-hidden="true"><svg class="ni"><use href="#n-market"/></svg></span>
+    <span class="sp-next-t"><span class="eyebrow-s">Market</span><b>The price, the order book and every completed swap</b><em>See the live sell and buy offers, the price history, and each swap as the blockchain proves it.</em></span>
+    <svg class="ni sp-next-go" aria-hidden="true"><use href="#n-arrow"/></svg>
+  </a>
+</main>
+<!--FOOTER-->
+<script src="/assets/fx.js" data-base="/assets/" defer></script>
+<script src="/assets/value.js" defer></script>
+<script src="/site.js" defer></script>
+<script src="/market.js" defer></script>
+</body>
+</html>

@@ -4,6 +4,19 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.51](https://github.com/genoryn/genoryn/releases/tag/v1.0.51) · 2026-11-23: Swap and Market, each on a tab and a page of its own
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- genoryn.io/swap: Quick Swap on a page of its own, with the live price and what the board can swap right now. genoryn.io/market keeps the price, the order book, the price history and every completed swap.
+
+### Changed
+
+- The wallet has a Market tab of its own: the GNR price, the offer board and publishing an offer. The Swap tab keeps Quick Swap, your Bitcoin balance and your swaps.
+- A cleaner design for both: in Quick Swap what you pay stands above what you get, with a button between them that switches between buying and selling; the order book shows the market price between its sell and buy offers; the board's totals stand in one row, and its long explanation folds away.
+
 ## [1.0.50](https://github.com/genoryn/genoryn/releases/tag/v1.0.50) · 2026-11-22: Swaps that ended elsewhere close, and each wallet shows its own Bitcoin balance and miner
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

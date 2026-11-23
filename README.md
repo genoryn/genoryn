@@ -934,7 +934,8 @@ No. Balances are computed only by wallets that hold the keys.
 
 <details><summary><b>How do I buy GNR, and can a swap cheat me?</b></summary>
 
-In the Swap tab: take a sell offer or publish a buy offer. You pay bitcoin only after the
+Quick Swap on the Swap tab buys or sells any amount in one click; on the Market tab, take a
+sell offer or publish a buy offer. You pay bitcoin only after the
 seller's GNR is locked for you on chain, and the seller's claim of your bitcoin reveals the
 secret that releases the GNR to you. If anyone stops, timeouts refund both.
 </details>

@@ -45,7 +45,7 @@
  "cfda13f7bd": "Y a-t-il eu une prémine, une prévente ou des frais pour les développeurs ?",
  "362e66ca59": "Non. Le bloc de genèse n'émet rien, il n'y a pas eu de prévente, et chaque bloc ne rémunère que les mineurs, selon le même calendrier depuis le bloc 1.",
  "179f466122": "Comment acheter des GNR ?",
- "1ff2940ec4": "Dans l'onglet Échange du portefeuille, avec des bitcoins, par un échange atomique avec une autre personne : prenez une offre de vente ou publiez une offre d'achat. Il n'y a ni plateforme d'échange, ni compte, ni conservation par un tiers. <0>Comment obtenir des GNR</0>.",
+ "0e76192eb8": "Dans le portefeuille, avec des bitcoins, par un échange atomique avec une autre personne : Quick Swap, dans l'onglet Échange, achète n'importe quel montant en un clic, ou bien prenez une offre de vente ou publiez une offre d'achat dans l'onglet Marché. Il n'y a ni plateforme d'échange, ni compte, ni conservation par un tiers. <0>Comment obtenir des GNR</0>.",
  "61eff42612": "Le GNR est-il coté sur une plateforme d'échange ?",
  "448724d72b": "Non. Le GNR s'obtient en minant, ou en l'échangeant contre des bitcoins directement entre portefeuilles.",
  "ae5e14360e": "Uniquement à partir des échanges terminés au cours des 72 dernières heures dont le tableau a trouvé les bitcoins sur la chaîne Bitcoin : le prix du marché est le niveau en dessous duquel la moitié de ces bitcoins a changé de mains, l'autre moitié au-dessus (une médiane pondérée par le volume). Les offres et les échanges en cours ne le font jamais bouger. <0>Marché en direct</0>.",

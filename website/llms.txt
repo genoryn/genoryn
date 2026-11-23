@@ -26,6 +26,7 @@ Key facts:
 - [Documentation](https://genoryn.io/docs): wallet, security, cryptography, emission, mining, atomic swaps, market price, light clients, P2P network, node, API
 - [Download](https://genoryn.io/download): wallet, node and miner for Windows and Linux
 - [Mining](https://genoryn.io/mining): how to mine on GPU or CPU, rewards, live mining and price calculator
+- [Swap](https://genoryn.io/swap): Quick Swap, buying or selling any amount of GNR with bitcoin in one click
 - [Market](https://genoryn.io/market): live offer board, market price and completed swaps
 - [Running a full node](https://genoryn.io/full-node): why, costs, and instructions for Linux, Windows and macOS
 - [Features](https://genoryn.io/features): validation, privacy, quantum security, requirements, user interface, network support

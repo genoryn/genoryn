@@ -44,7 +44,7 @@
  "cfda13f7bd": "Was there a premine, a presale or a developer fee?",
  "362e66ca59": "No. The genesis block issues nothing, there was no presale, and every block pays miners only, under the same schedule since block 1.",
  "179f466122": "How can I buy GNR?",
- "1ff2940ec4": "In the wallet's Swap tab, with bitcoin, through an atomic swap with another person: take a sell offer or publish a buy offer. There is no exchange, no account and no custody. <0>How to get GNR</0>.",
+ "0e76192eb8": "In the wallet, with bitcoin, through an atomic swap with another person: Quick Swap on the Swap tab buys any amount in one click, or take a sell offer or publish a buy offer on the Market tab. There is no exchange, no account and no custody. <0>How to get GNR</0>.",
  "61eff42612": "Is GNR listed on an exchange?",
  "448724d72b": "No. GNR is earned by mining or exchanged with bitcoin directly between wallets.",
  "ae5e14360e": "Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the market price is where half of that bitcoin changed hands below and half above (a volume-weighted median). Offers and swaps in progress never move it. <0>Live market</0>.",

@@ -17,7 +17,7 @@
 <main id="top" class="wrap docs">
   <div class="page-head">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">/</span> <span>Documentation</span></nav>
-    <span class="eyebrow">Documentation · mainnet · release 1.0.50</span>
+    <span class="eyebrow">Documentation · mainnet · release 1.0.51</span>
     <h1 class="h2 glow">Genoryn Krypton documentation</h1>
     <p class="lead">Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.</p>
   </div>
@@ -390,7 +390,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
         </ol>
         <p>A seller who does not have the GNR cannot even list an offer (see <a href="#board">proof of funds</a>), and cannot lock what it does not have, so a buyer never pays someone who cannot deliver. The seller cannot take the bitcoin without revealing the secret that releases the GNR to the buyer.</p>
         <h3 id="quick">Quick Swap: any amount, in one click</h3>
-        <p>At the top of the Swap tab (wallet 1.0.46). Say how much you want to buy or sell, in dollars, bitcoin or GNR, and press one button. The wallet finds the best prices among the <b>Quick Swap offers</b> whose makers are online and whose coins are there, and swaps exactly that amount across up to three of them. Each part is its own swap as described above: the seller's GNR is locked first, and either both sides are paid or both keep their coins. See it live on the <a href="/market#quick">market page</a>.</p>
+        <p>At the top of the Swap tab (wallet 1.0.46). Say how much you want to buy or sell, in dollars, bitcoin or GNR, and press one button. The wallet finds the best prices among the <b>Quick Swap offers</b> whose makers are online and whose coins are there, and swaps exactly that amount across up to three of them. Each part is its own swap as described above: the seller's GNR is locked first, and either both sides are paid or both keep their coins. See it live on the <a href="/swap">swap page</a>.</p>
         <ul>
           <li><b>The price you accepted is the worst you get.</b> A part costs its offer's price. If a part cannot start (someone else took that offer a moment earlier, or its maker stopped answering for two minutes), the wallet replaces it with another offer, never more than 1&nbsp;% beyond the worst price you were shown.</li>
           <li><b>Never far from the market price</b> (wallet 1.0.48). Quick Swap takes no offer more than 20&nbsp;% from the market price, or 10&nbsp;% while the price is still forming or the market is thin. Offers further away stay on the board, marked far from the market, and can still be taken by hand. While the board says the price is catching up with recent swaps, Quick Swap waits.</li>
@@ -423,7 +423,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
 
       <section id="board">
         <h2>The offer board</h2>
-        <p>The board, run by nodes (<code>/v1/swap/...</code>), lists offers and passes sealed messages between the two wallets of a swap. It never sees keys, codes or coins. The wallet's Swap tab and <a href="/market">genoryn.io/market</a> show it.</p>
+        <p>The board, run by nodes (<code>/v1/swap/...</code>), lists offers and passes sealed messages between the two wallets of a swap. It never sees keys, codes or coins. The wallet's Market tab and <a href="/market">genoryn.io/market</a> show it.</p>
         <ul>
           <li><b>Publish</b>: side (sell or buy GNR), amounts, your Bitcoin address (to receive the bitcoin, or for a refund) and how long the offer stays: 1 hour, 6 hours, 24 hours, 3 days, 1 week, 1 month or 1 year. <b>Any price may be offered.</b> The wallet only warns when a price is more than 3× from the market, in case of a typo.</li>
           <li><b>Proof of work</b>: every offer, message and trade report carries a small proof of work (18 bits, about a second). Longer offers need one more bit for every doubling beyond a day: 21 bits for a week, 23 for a month, 27 for a year, a few seconds on a modern CPU. Keeping junk on the board for long costs as much more as it lasts.</li>
@@ -803,7 +803,7 @@ int net = krypton_address_network(addr);   /* 1 mainnet, 2 testnet, 0 invalid */
         <details class="glass"><summary>Do I need to join a pool?</summary><p>No. Every block pays all miners in proportion to their shares, so a single computer earns its share every block, as in a pool, but without an operator.</p></details>
         <details class="glass"><summary>Why are addresses so long?</summary><p>They carry a post-quantum public key (ML-KEM-1024). Publish the short form once and share it; the sender's wallet verifies it.</p></details>
         <details class="glass"><summary>Can anyone see my balance?</summary><p>No. Balances are computed only by wallets that hold the keys.</p></details>
-        <details class="glass"><summary>How do I buy GNR?</summary><p>In the wallet's Swap tab: take a sell offer, or publish a buy offer. You pay bitcoin only after the seller's GNR is locked for you.</p></details>
+        <details class="glass"><summary>How do I buy GNR?</summary><p>In the wallet: Quick Swap on the Swap tab buys any amount in one click; on the Market tab, take a sell offer or publish a buy offer. You pay bitcoin only after the seller's GNR is locked for you.</p></details>
         <details class="glass"><summary>Where does the GNR price come from?</summary><p>Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the price at which half of that bitcoin changed hands below and half above. Offers never move it.</p></details>
         <details class="glass"><summary>Can a swap cheat me?</summary><p>No. The buyer pays only after the seller's GNR is locked on chain for exactly the agreed amount, and the seller's bitcoin claim reveals the secret that releases the GNR to the buyer. If anyone stops, timeouts refund both.</p></details>
         <details class="glass"><summary>Why must the wallet stay open during a swap?</summary><p>Only your wallet holds the keys that lock, claim and refund your coins; no server can do it for you, which is also why nobody can take them. Closing the window is fine: the wallet keeps working in the background.</p></details>
