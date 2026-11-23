@@ -160,7 +160,7 @@
  "fb7c531dd2": "One app: wallet, node and miner.",
  "53023590c8": "Several wallets, one total",
  "2040a0b488": "Proportional mining on GPU or CPU",
- "5f10e5ce9e": "Payment proofs, verified on chain",
+ "ab2aa3e6e3": "The market, inside the wallet",
  "041c7dcc75": "Ways to run it",
  "121f78fb29": "Free, open source, your choice.",
  "ad2ea94850": "Most popular",
@@ -216,11 +216,11 @@
  "8d7fdb76e3": "Block, transaction or nullifier hash, address, or payment proof",
  "e13f4083d4": "Block height, hash, transaction id, address or payment proof",
  "34269c4d8a": "GNR price: open the market",
- "af7f1d4674": "The Genoryn Krypton desktop wallet overview: network hashrate, estimated miners, block height, mining share, accruing rewards and live charts",
+ "cbfa961859": "The Genoryn Krypton desktop wallet on mainnet: network hashrate, mining addresses, block height, supply and live charts",
  "3d5982af25": "What Genoryn Krypton is built from",
  "58acc5109e": "Time range",
  "63d30c5967": "The Mining tab of the Genoryn Krypton wallet: hashrate, share of the network and expected earnings",
  "f6cbbfa835": "All wallets expanded on the Wallet tab: several wallets, each with its own password, and their total balance",
  "cdb771f76e": "Mining tab with hashrate, share of the network, expected earnings and accruing rewards",
- "e838c1c9ff": "History with a payment proof and its verification"
+ "c012875b18": "The Market tab of the wallet: the GNR price, the totals on the board and the order book"
 }

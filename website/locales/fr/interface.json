@@ -14,7 +14,7 @@
  "7c24cd1138": "<0>Console.</0> Interrogez la chaîne et le portefeuille par commandes. Plus de détails ci-dessous.",
  "94369bff09": "<0>Sécurité et À propos.</0> Mots de passe, verrouillages, phrase de récupération, mises à jour.",
  "22f7dc7879": "Thèmes sombre et clair, et des mises à jour vérifiées avec la signature post-quantique du projet avant leur installation.",
- "9d0c0c1ae8": "L'onglet Portefeuille, sur un réseau de test.",
+ "8f94358908": "L'onglet Réseau, sur le mainnet.",
  "badbe96ff4": "Nouveau dans la 1.0.44",
  "a6edf2e71a": "La console",
  "4c22a9b4a4": "Le portefeuille dispose d'une console, comme celui de Bitcoin : une ligne où taper des commandes, avec leurs réponses au-dessus. Commencez à taper et elle propose les commandes correspondantes ; <0>Tab</0> en complète une, les flèches rappellent les lignes précédentes, et <1/> les liste toutes.",
@@ -39,6 +39,6 @@
  "d09acc770e": "Toutes les façons d'utiliser Genoryn Krypton : le portefeuille de bureau avec son mineur, son tableau des offres et sa console en lecture seule, le portefeuille en ligne de commande, le nœud complet, son API REST, JSON-RPC et WebSocket, et des SDK pour TypeScript, Rust et C.",
  "3534d50d42": "Interface utilisateur : portefeuille, console, ligne de commande et API de Genoryn Krypton",
  "1feb2b60ae": "Le portefeuille de bureau avec son mineur, son tableau des offres et sa console en lecture seule, le portefeuille en ligne de commande, le nœud complet, son API REST, JSON-RPC et WebSocket, et les SDK.",
- "affbcd02b9": "Le portefeuille de bureau Genoryn Krypton : solde, envoi et réception, et le réseau en un coup d'œil",
+ "cdc1be027d": "L'onglet Réseau du portefeuille Genoryn Krypton sur le mainnet : hashrate, adresses de minage, offre et graphiques en direct",
  "b63828b140": "Exemple de session dans la console du portefeuille"
 }

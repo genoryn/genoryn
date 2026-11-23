@@ -53,20 +53,20 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/wallet.webp" alt="Network tab: hashrate, estimated miners, supply and live charts"></td>
-    <td width="50%"><img src="docs/images/swap.webp" alt="Swap tab: the market price from completed swaps, the offer board and publishing an offer"></td>
+    <td width="50%"><img src="docs/images/wallet.webp" alt="Network tab on mainnet: hashrate, mining addresses, supply and live charts"></td>
+    <td width="50%"><img src="docs/images/swap.webp" alt="Swap tab on mainnet: Quick Swap, the Bitcoin balance and what is on the board now"></td>
   </tr>
   <tr>
     <td align="center"><sub>Live network and mining overview</sub></td>
-    <td align="center"><sub>Atomic BTC ⇄ GNR swaps: sell and buy offers side by side</sub></td>
+    <td align="center"><sub>Atomic BTC ⇄ GNR swaps: Quick Swap in one click</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/mining.webp" alt="Mining: share of the network, expected earnings and accruing rewards"></td>
-    <td width="50%"><img src="docs/images/proofs.webp" alt="History: mining rewards, sends and swap locks"></td>
+    <td width="50%"><img src="docs/images/market.webp" alt="Market tab on mainnet: the GNR price from completed swaps, the totals on the board and the order book"></td>
   </tr>
   <tr>
     <td align="center"><sub>Proportional GPU / CPU mining</sub></td>
-    <td align="center"><sub>History</sub></td>
+    <td align="center"><sub>Market: the price and the order book</sub></td>
   </tr>
 </table>
 

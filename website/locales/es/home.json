@@ -161,7 +161,7 @@
  "fb7c531dd2": "Una sola app: billetera, nodo y minero.",
  "53023590c8": "Varias billeteras, un total",
  "2040a0b488": "Minería proporcional con GPU o CPU",
- "5f10e5ce9e": "Pruebas de pago verificadas en la cadena",
+ "ab2aa3e6e3": "El mercado, dentro de la billetera",
  "041c7dcc75": "Formas de usarlo",
  "121f78fb29": "Gratis, de código abierto, tú eliges.",
  "ad2ea94850": "Más popular",
@@ -217,11 +217,11 @@
  "8d7fdb76e3": "Hash de bloque, de transacción o de nullifier, dirección o prueba de pago",
  "e13f4083d4": "Altura o hash de bloque, id de transacción, dirección o prueba de pago",
  "34269c4d8a": "Precio de GNR: abre el mercado",
- "af7f1d4674": "Vista general de la billetera de escritorio de Genoryn Krypton: hashrate de la red, mineros estimados, altura de bloque, participación en la minería, recompensas acumuladas y gráficos en vivo",
+ "cbfa961859": "La billetera de escritorio de Genoryn Krypton en la mainnet: hashrate de la red, direcciones de minería, altura de bloque, suministro y gráficos en vivo",
  "3d5982af25": "De qué está hecho Genoryn Krypton",
  "58acc5109e": "Rango de tiempo",
  "63d30c5967": "La pestaña Minería de la billetera de Genoryn Krypton: hashrate, participación en la red y ganancias esperadas",
  "f6cbbfa835": "Todas las billeteras desplegadas en la pestaña Billetera: varias billeteras, cada una con su propia contraseña, y su saldo total",
  "cdb771f76e": "Pestaña Minería con hashrate, participación en la red, ganancias esperadas y recompensas acumuladas",
- "e838c1c9ff": "Historial con una prueba de pago y su verificación"
+ "c012875b18": "La pestaña Mercado de la billetera: el precio de GNR, los totales del tablón y el libro de órdenes"
 }

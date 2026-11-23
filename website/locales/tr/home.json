@@ -161,7 +161,7 @@
  "fb7c531dd2": "Tek uygulama: cüzdan, düğüm ve madenci.",
  "53023590c8": "Birden çok cüzdan, tek toplam",
  "2040a0b488": "GPU veya CPU ile orantılı madencilik",
- "5f10e5ce9e": "Zincirde doğrulanan ödeme kanıtları",
+ "ab2aa3e6e3": "Piyasa, cüzdanın içinde",
  "041c7dcc75": "Çalıştırma seçenekleri",
  "121f78fb29": "Ücretsiz, açık kaynak, seçim sizin.",
  "ad2ea94850": "En popüler",
@@ -217,11 +217,11 @@
  "8d7fdb76e3": "Blok, işlem veya nullifier hash'i, adres ya da ödeme kanıtı",
  "e13f4083d4": "Blok yüksekliği, hash, işlem kimliği, adres veya ödeme kanıtı",
  "34269c4d8a": "GNR fiyatı: piyasayı açın",
- "af7f1d4674": "Genoryn Krypton masaüstü cüzdanına genel bakış: ağ hashrate'i, tahmini madenciler, blok yüksekliği, madencilik payı, biriken ödüller ve canlı grafikler",
+ "cbfa961859": "Mainnet üzerinde Genoryn Krypton masaüstü cüzdanı: ağ hash oranı, madencilik adresleri, blok yüksekliği, arz ve canlı grafikler",
  "3d5982af25": "Genoryn Krypton'ın yapı taşları",
  "58acc5109e": "Zaman aralığı",
  "63d30c5967": "Genoryn Krypton cüzdanının Madencilik sekmesi: hashrate, ağdaki pay ve beklenen kazançlar",
  "f6cbbfa835": "Cüzdan sekmesinde tüm cüzdanlar genişletilmiş: her biri kendi parolasına sahip birden çok cüzdan ve toplam bakiyeleri",
  "cdb771f76e": "Hashrate, ağdaki pay, beklenen kazançlar ve biriken ödüllerle Madencilik sekmesi",
- "e838c1c9ff": "Ödeme kanıtı ve doğrulamasıyla birlikte geçmiş"
+ "c012875b18": "Cüzdanın Piyasa sekmesi: GNR fiyatı, panodaki toplamlar ve emir defteri"
 }

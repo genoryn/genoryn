@@ -13,7 +13,7 @@
  "7c24cd1138": "<0>Console.</0> Ask the chain and the wallet by command. More on it below.",
  "94369bff09": "<0>Security and About.</0> Passwords, locks, the recovery phrase, updates.",
  "22f7dc7879": "Dark and light themes, and updates that are checked against the project's post-quantum signature before they install.",
- "9d0c0c1ae8": "The Wallet tab, on a test network.",
+ "8f94358908": "The Network tab, on mainnet.",
  "badbe96ff4": "New in 1.0.44",
  "a6edf2e71a": "The console",
  "4c22a9b4a4": "The wallet has a console, as Bitcoin's has: a line to type commands on, with their answers above it. Start typing and it offers the commands that match; <0>Tab</0> completes one, the arrow keys bring back earlier lines, and <1/> lists them all.",
@@ -38,6 +38,6 @@
  "d09acc770e": "Every way to use Genoryn Krypton: the desktop wallet with its miner, swap board and read-only console, the command-line wallet, the full node, its REST API, JSON-RPC and WebSocket, and SDKs for TypeScript, Rust and C.",
  "3534d50d42": "User interface: wallet, console, command line and API of Genoryn Krypton",
  "1feb2b60ae": "The desktop wallet with its miner, swap board and read-only console, the command-line wallet, the full node, its REST API, JSON-RPC and WebSocket, and the SDKs.",
- "affbcd02b9": "The Genoryn Krypton desktop wallet: balance, send and receive, and the network at a glance",
+ "cdc1be027d": "The Network tab of the Genoryn Krypton wallet on mainnet: hashrate, mining addresses, supply and live charts",
  "b63828b140": "An example session in the wallet's console"
 }

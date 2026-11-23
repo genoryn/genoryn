@@ -14,7 +14,7 @@
  "7c24cd1138": "<0>Konsole.</0> Befrage die Chain und die Wallet per Befehl. Mehr dazu unten.",
  "94369bff09": "<0>Sicherheit und Über.</0> Passwörter, Sperren, die Wiederherstellungsphrase, Updates.",
  "22f7dc7879": "Dunkles und helles Design und Updates, die vor der Installation gegen die Post-Quanten-Signatur des Projekts geprüft werden.",
- "9d0c0c1ae8": "Der Wallet-Tab in einem Testnetz.",
+ "8f94358908": "Der Tab Netzwerk, im Mainnet.",
  "badbe96ff4": "Neu in 1.0.44",
  "a6edf2e71a": "Die Konsole",
  "4c22a9b4a4": "Die Wallet hat eine Konsole, wie die von Bitcoin: eine Zeile zum Eintippen von Befehlen, mit den Antworten darüber. Beginne zu tippen, und sie schlägt die passenden Befehle vor; <0>Tab</0> vervollständigt einen, die Pfeiltasten holen frühere Zeilen zurück, und <1/> listet alle auf.",
@@ -39,6 +39,6 @@
  "d09acc770e": "Alle Wege, Genoryn Krypton zu nutzen: die Desktop-Wallet mit Miner, Swap-Tafel und schreibgeschützter Konsole, die Kommandozeilen-Wallet, der Full Node, seine REST-API, JSON-RPC und WebSocket sowie SDKs für TypeScript, Rust und C.",
  "3534d50d42": "Benutzeroberfläche: Wallet, Konsole, Kommandozeile und API von Genoryn Krypton",
  "1feb2b60ae": "Die Desktop-Wallet mit Miner, Swap-Tafel und schreibgeschützter Konsole, die Kommandozeilen-Wallet, der Full Node, seine REST-API, JSON-RPC und WebSocket sowie die SDKs.",
- "affbcd02b9": "Die Desktop-Wallet von Genoryn Krypton: Guthaben, Senden und Empfangen und das Netzwerk auf einen Blick",
+ "cdc1be027d": "Der Tab Netzwerk der Genoryn-Krypton-Wallet im Mainnet: Hashrate, Mining-Adressen, Umlauf und Live-Diagramme",
  "b63828b140": "Eine Beispielsitzung in der Konsole der Wallet"
 }

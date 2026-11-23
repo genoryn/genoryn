@@ -14,7 +14,7 @@
  "7c24cd1138": "<0>Console.</0> Consulta la cadena y la billetera mediante comandos. Más información abajo.",
  "94369bff09": "<0>Security y About.</0> Contraseñas, bloqueos, la frase de recuperación, actualizaciones.",
  "22f7dc7879": "Temas oscuro y claro, y actualizaciones que se comprueban con la firma poscuántica del proyecto antes de instalarse.",
- "9d0c0c1ae8": "La pestaña Wallet, en una red de prueba.",
+ "8f94358908": "La pestaña Red, en la mainnet.",
  "badbe96ff4": "Novedad en 1.0.44",
  "a6edf2e71a": "La consola",
  "4c22a9b4a4": "La billetera tiene una consola, como la de Bitcoin: una línea en la que escribir comandos, con sus respuestas encima. Empieza a escribir y te sugiere los comandos que coinciden; <0>Tab</0> completa uno, las teclas de flecha recuperan líneas anteriores y <1/> los muestra todos.",
@@ -39,6 +39,6 @@
  "d09acc770e": "Todas las formas de usar Genoryn Krypton: la billetera de escritorio con su minero, su tablón de intercambios y su consola de solo lectura, la billetera de línea de comandos, el nodo completo, su API REST, JSON-RPC y WebSocket, y SDK para TypeScript, Rust y C.",
  "3534d50d42": "Interfaz de usuario: billetera, consola, línea de comandos y API de Genoryn Krypton",
  "1feb2b60ae": "La billetera de escritorio con su minero, su tablón de intercambios y su consola de solo lectura, la billetera de línea de comandos, el nodo completo, su API REST, JSON-RPC y WebSocket, y los SDK.",
- "affbcd02b9": "La billetera de escritorio de Genoryn Krypton: saldo, envío y recepción, y la red de un vistazo",
+ "cdc1be027d": "La pestaña Red de la billetera Genoryn Krypton en la mainnet: hashrate, direcciones de minería, suministro y gráficos en vivo",
  "b63828b140": "Una sesión de ejemplo en la consola de la billetera"
 }

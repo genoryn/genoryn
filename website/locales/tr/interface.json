@@ -14,7 +14,7 @@
  "7c24cd1138": "<0>Konsol.</0> Zincire ve cüzdana komutla sorular sorun. Ayrıntılar aşağıda.",
  "94369bff09": "<0>Güvenlik ve Hakkında.</0> Parolalar, kilitler, kurtarma ifadesi, güncellemeler.",
  "22f7dc7879": "Koyu ve açık temalar ve kurulmadan önce projenin kuantum sonrası imzasıyla doğrulanan güncellemeler.",
- "9d0c0c1ae8": "Bir test ağında Cüzdan sekmesi.",
+ "8f94358908": "Ağ sekmesi, mainnet üzerinde.",
  "badbe96ff4": "1.0.44'te yeni",
  "a6edf2e71a": "Konsol",
  "4c22a9b4a4": "Cüzdanın, Bitcoin'inki gibi bir konsolu vardır: komut yazmak için bir satır ve üstünde komutların yanıtları. Yazmaya başladığınızda eşleşen komutları önerir; <0>Tab</0> birini tamamlar, ok tuşları önceki satırları geri getirir ve <1/> hepsini listeler.",
@@ -39,6 +39,6 @@
  "d09acc770e": "Genoryn Krypton'u kullanmanın tüm yolları: madencisi, takas panosu ve salt okunur konsoluyla masaüstü cüzdan, komut satırı cüzdanı, tam düğüm, REST API'si, JSON-RPC ve WebSocket, ayrıca TypeScript, Rust ve C için SDK'lar.",
  "3534d50d42": "Kullanıcı arayüzü: Genoryn Krypton'un cüzdanı, konsolu, komut satırı ve API'si",
  "1feb2b60ae": "Madencisi, takas panosu ve salt okunur konsoluyla masaüstü cüzdan, komut satırı cüzdanı, tam düğüm, REST API'si, JSON-RPC ve WebSocket ile SDK'lar.",
- "affbcd02b9": "Genoryn Krypton masaüstü cüzdanı: bakiye, gönderme ve alma, ağa genel bakış",
+ "cdc1be027d": "Mainnet üzerinde Genoryn Krypton cüzdanının Ağ sekmesi: hash oranı, madencilik adresleri, arz ve canlı grafikler",
  "b63828b140": "Cüzdanın konsolunda örnek bir oturum"
 }

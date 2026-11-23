@@ -161,7 +161,7 @@
  "fb7c531dd2": "Eine App: Wallet, Node und Miner.",
  "53023590c8": "Mehrere Wallets, eine Gesamtsumme",
  "2040a0b488": "Proportionales Mining auf GPU oder CPU",
- "5f10e5ce9e": "Zahlungsnachweise, on-chain verifiziert",
+ "ab2aa3e6e3": "Der Markt, direkt in der Wallet",
  "041c7dcc75": "Betriebsarten",
  "121f78fb29": "Kostenlos, Open Source, deine Wahl.",
  "ad2ea94850": "Am beliebtesten",
@@ -217,11 +217,11 @@
  "8d7fdb76e3": "Block-, Transaktions- oder Nullifier-Hash, Adresse oder Zahlungsnachweis",
  "e13f4083d4": "Blockhöhe, Hash, Transaktions-ID, Adresse oder Zahlungsnachweis",
  "34269c4d8a": "GNR-Preis: Markt öffnen",
- "af7f1d4674": "Die Übersicht der Desktop-Wallet von Genoryn Krypton: Netzwerk-Hashrate, geschätzte Miner, Blockhöhe, Mining-Anteil, auflaufende Belohnungen und Live-Diagramme",
+ "cbfa961859": "Die Desktop-Wallet von Genoryn Krypton im Mainnet: Netzwerk-Hashrate, Mining-Adressen, Blockhöhe, Umlauf und Live-Diagramme",
  "3d5982af25": "Woraus Genoryn Krypton aufgebaut ist",
  "58acc5109e": "Zeitraum",
  "63d30c5967": "Der Mining-Tab der Wallet von Genoryn Krypton: Hashrate, Anteil am Netzwerk und erwartete Erträge",
  "f6cbbfa835": "Alle Wallets ausgeklappt im Wallet-Tab: mehrere Wallets, jede mit eigenem Passwort, und ihr Gesamtguthaben",
  "cdb771f76e": "Mining-Tab mit Hashrate, Anteil am Netzwerk, erwarteten Erträgen und auflaufenden Belohnungen",
- "e838c1c9ff": "Verlauf mit einem Zahlungsnachweis und seiner Verifizierung"
+ "c012875b18": "Der Tab Markt der Wallet: der GNR-Preis, die Summen auf der Angebotstafel und das Orderbuch"
 }

@@ -161,7 +161,7 @@
  "fb7c531dd2": "Um só app: carteira, nó e minerador.",
  "53023590c8": "Várias carteiras, um só total",
  "2040a0b488": "Mineração proporcional em GPU ou CPU",
- "5f10e5ce9e": "Provas de pagamento, verificadas na cadeia",
+ "ab2aa3e6e3": "O mercado, dentro da carteira",
  "041c7dcc75": "Formas de usar",
  "121f78fb29": "Gratuito, de código aberto, você escolhe.",
  "ad2ea94850": "Mais popular",
@@ -217,11 +217,11 @@
  "8d7fdb76e3": "Hash de bloco, de transação ou de nullifier, endereço ou prova de pagamento",
  "e13f4083d4": "Altura do bloco, hash, ID da transação, endereço ou prova de pagamento",
  "34269c4d8a": "Preço do GNR: abrir o mercado",
- "af7f1d4674": "Visão geral da carteira desktop do Genoryn Krypton: hashrate da rede, mineradores estimados, altura do bloco, participação na mineração, recompensas acumuladas e gráficos ao vivo",
+ "cbfa961859": "A carteira de desktop do Genoryn Krypton na mainnet: hashrate da rede, endereços de mineração, altura do bloco, oferta e gráficos ao vivo",
  "3d5982af25": "Do que o Genoryn Krypton é feito",
  "58acc5109e": "Período",
  "63d30c5967": "A aba Mineração da carteira Genoryn Krypton: hashrate, participação na rede e ganhos esperados",
  "f6cbbfa835": "Todas as carteiras expandidas na aba Carteira: várias carteiras, cada uma com sua própria senha, e o saldo total delas",
  "cdb771f76e": "Aba Mineração com hashrate, participação na rede, ganhos esperados e recompensas acumuladas",
- "e838c1c9ff": "Histórico com uma prova de pagamento e sua verificação"
+ "c012875b18": "A aba Mercado da carteira: o preço do GNR, os totais do quadro e o livro de ofertas"
 }

@@ -161,7 +161,7 @@
  "fb7c531dd2": "Une seule application : portefeuille, nœud et mineur.",
  "53023590c8": "Plusieurs portefeuilles, un seul total",
  "2040a0b488": "Minage proportionnel sur GPU ou CPU",
- "5f10e5ce9e": "Preuves de paiement, vérifiées sur la chaîne",
+ "ab2aa3e6e3": "Le marché, dans le portefeuille",
  "041c7dcc75": "Façons de l'utiliser",
  "121f78fb29": "Gratuit, open source, à vous de choisir.",
  "ad2ea94850": "Le plus populaire",
@@ -217,11 +217,11 @@
  "8d7fdb76e3": "Hash de bloc, de transaction ou de nullifier, adresse ou preuve de paiement",
  "e13f4083d4": "Hauteur de bloc, hash, identifiant de transaction, adresse ou preuve de paiement",
  "34269c4d8a": "Prix du GNR : ouvrir le marché",
- "af7f1d4674": "Vue d'ensemble du portefeuille de bureau Genoryn Krypton : hashrate du réseau, mineurs estimés, hauteur de bloc, part de minage, récompenses en cours d'accumulation et graphiques en direct",
+ "cbfa961859": "Le portefeuille de bureau Genoryn Krypton sur le mainnet : hashrate du réseau, adresses de minage, hauteur de bloc, offre et graphiques en direct",
  "3d5982af25": "Les composants de Genoryn Krypton",
  "58acc5109e": "Période",
  "63d30c5967": "L'onglet Minage du portefeuille Genoryn Krypton : hashrate, part du réseau et gains attendus",
  "f6cbbfa835": "Tous les portefeuilles dépliés dans l'onglet Portefeuille : plusieurs portefeuilles, chacun avec son propre mot de passe, et leur solde total",
  "cdb771f76e": "Onglet Minage avec le hashrate, la part du réseau, les gains attendus et les récompenses en cours d'accumulation",
- "e838c1c9ff": "Historique avec une preuve de paiement et sa vérification"
+ "c012875b18": "L'onglet Marché du portefeuille : le prix du GNR, les totaux du tableau et le carnet d'ordres"
 }
