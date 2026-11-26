@@ -675,6 +675,7 @@ async fn create(State(app): S, h: HeaderMap, Json(r): Json<CreateReq>) -> Respon
             password: r.password,
             mnemonic: r.mnemonic,
             birthday: r.birthday,
+            owner_password: String::new(),
         }),
     )
     .await
@@ -1478,8 +1479,16 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(r): Json<SaveSettingsRe
         return err(e);
     }
     s.proxy = (!new_proxy.is_empty()).then(|| new_proxy.clone());
-    // Which nodes are read, and the path to them, are confirmed with the password.
-    if app.settings.lock().nodes != s.nodes || cur_proxy != new_proxy {
+    // Which nodes are read, the path to them, light or full mode and whether other nodes
+    // may connect are confirmed with the password.
+    let changed = {
+        let cur = app.settings.lock();
+        cur.nodes != s.nodes
+            || cur.mode != s.mode
+            || s.accept_peers
+                .is_some_and(|a| Some(a) != cur.accept_peers && (a || cur.accept_peers.is_some()))
+    };
+    if changed || cur_proxy != new_proxy {
         let (a, password) = (app.clone(), zeroize::Zeroizing::new(r.password.clone()));
         if let Err(e) = blocking(move || confirm_source_change(&a, &password)).await {
             return err(e);
@@ -2339,9 +2348,13 @@ async fn serve(
     let url = format!("http://{}/#{}", listener.local_addr()?, token);
     let instance_file = app.dir.join("wallet-instance.url");
     let _ = std::fs::write(&instance_file, &url);
+    // The address with its session token is in the file only (readable by this user
+    // alone): printed, it would end up in terminal scrollback and logs.
     println!(
-        "Genoryn Krypton wallet ({}) running at:\n{url}",
-        network.as_str()
+        "Genoryn Krypton wallet ({}) running at http://{}/ (the link with its session token is in {})",
+        network.as_str(),
+        listener.local_addr()?,
+        instance_file.display()
     );
     let _ = ready.send(Ok((url, app.clone())));
     let q = app.clone();
@@ -2369,6 +2382,14 @@ fn main() -> Result<()> {
     verified::set_network(network);
     let dir = data_dir(network);
     std::fs::create_dir_all(&dir)?;
+    // Wallet files, settings and the session link: for this user alone.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for d in [dir.parent(), Some(dir.as_path())].into_iter().flatten() {
+            let _ = std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o700));
+        }
+    }
     // Before any thread exists (see `proxy::apply`).
     if let Some(p) = std::fs::read(dir.join("wallet-settings.json"))
         .ok()

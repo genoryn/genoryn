@@ -477,16 +477,28 @@ pub struct AddReq {
     pub password: String,
     pub mnemonic: Option<String>,
     pub birthday: Option<u64>,
+    /// The open wallet's password, once there is a wallet (see [`add`]).
+    #[serde(default)]
+    pub owner_password: String,
 }
 
 /// Adds a wallet (new or restored) with its own password. The first wallet becomes
-/// the active "main" wallet at the classic path.
+/// the active "main" wallet at the classic path. Once there is a wallet, adding another
+/// is confirmed with the open wallet's password: a wallet added here can be made the one
+/// that receives payments and mining rewards, so the session token alone must not do it.
 pub async fn add(State(app): S, h: HeaderMap, Json(r): Json<AddReq>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
     let a = app.clone();
     match blocking(move || {
+        if !a.vault.reg.lock().wallets.is_empty() {
+            ensure!(
+                a.wallet.lock().is_some(),
+                "unlock your wallet first: adding a wallet is confirmed with its password"
+            );
+            crate::confirm_password(&a, &r.owner_password)?;
+        }
         let name = valid_name(&r.name)?;
         // The file opens with this password alone: a stolen file can only be attacked by
         // guessing it, so new wallets need a strong one.
@@ -587,6 +599,7 @@ impl Drop for AddReq {
     fn drop(&mut self) {
         use zeroize::Zeroize;
         self.password.zeroize();
+        self.owner_password.zeroize();
         if let Some(m) = self.mnemonic.as_mut() {
             m.zeroize();
         }

@@ -69,7 +69,11 @@ impl FileKey {
         let tmp = path.with_extension("tmp");
         {
             use std::io::Write;
-            let mut f = std::fs::File::create(&tmp)?;
+            let mut o = std::fs::OpenOptions::new();
+            o.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+            let mut f = o.open(&tmp)?;
             f.write_all(&serde_json::to_vec_pretty(&env)?)?;
             // On disk before the rename, so a power cut leaves the old file or the new one.
             f.sync_all()?;

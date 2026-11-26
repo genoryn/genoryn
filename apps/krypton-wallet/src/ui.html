@@ -1649,8 +1649,12 @@ function toast(m, bad){ const t=$('toast'); t.textContent=m; t.className='toast 
 function words(el, m){ $(el).innerHTML = m.split(/\s+/).map((w,i)=>`<div><span>${i+1}</span>${esc(w)}</div>`).join(''); }
 let adding=false, restoreMode=false, W=null;
 const onbName = () => $('newName').value.trim() || T("Main wallet");
-async function createWallet(){ const p=$('newPass').value; if(p.length<12) return toast(T("Use at least 12 characters"), true); window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:p}); $('newPass').value=''; await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
-async function restoreWallet(){ window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0)}); ['restorePass','restoreWords'].forEach(i=>$(i).value=''); await afterAdd(r, name, adding); legacyNote(r); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+/* Adding a wallet next to yours is confirmed with the open wallet's password: an added wallet could otherwise take your payments and mining rewards. */
+async function ownerPass(){ if(!(S.wallet_count>0)) return ''; if(!await ask({pass:true, title:T("Add a wallet?"), icon:'wallet', ok:T("Continue"),
+    body:`<p class="mtext">${TE("Confirm with the password of the wallet that is open now. A wallet added here can receive payments and mining rewards in place of yours, so only you may add one.")}</p>`})) return null;
+  return takePass(); }
+async function createWallet(){ const p=$('newPass').value; if(p.length<12) return toast(T("Use at least 12 characters"), true); const owner_password=await ownerPass(); if(owner_password==null) return; window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:p, owner_password}); $('newPass').value=''; await afterAdd(r, name, adding); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
+async function restoreWallet(){ const owner_password=await ownerPass(); if(owner_password==null) return; window.fxBusy=true; try{ const name=onbName(); const r = await api('/api/wallets/add',{name, password:$('restorePass').value, mnemonic:$('restoreWords').value, birthday:Number($('restoreBirthday').value||0), owner_password}); ['restorePass','restoreWords'].forEach(i=>$(i).value=''); await afterAdd(r, name, adding); legacyNote(r); }catch(e){ toast(e.message,true) } window.fxBusy=false; }
 /* A phrase without numbers is a BIP-39 phrase: from Genoryn Mainnet 1.0, an earlier and
    separate chain, or from another wallet. Say plainly what that means for its coins. */
 function legacyNote(r){ if(!r||!r.legacy) return;
@@ -1803,7 +1807,8 @@ async function removeW(id){
 function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?T("Restore wallet"):T("Create new wallet"); $('addMode').textContent=restoreMode?T("Create a new one instead"):T("Restore from recovery phrase"); }
 async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass').value; if(!name) return toast(T("Give the wallet a name"), true); if(p.length<12) return toast(T("Use at least 12 characters for the password"), true);
   const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
-  try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); const was=restoreMode; if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); if(was) legacyNote(r); }catch(e){ toast(e.message,true) }
+  const owner_password=await ownerPass(); if(owner_password==null) return;
+  try{ const body={name, password:p, owner_password}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); const was=restoreMode; if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); if(was) legacyNote(r); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
 async function unlock(){ try{ const r=await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; lockFx('open'); await refresh(); weakWarn(r, (S.active&&S.active.name)?'“'+S.active.name+'”':''); }catch(e){ toast(e.message,true) } }
 const FEE={speed:'normal', opts:null, t:0};
@@ -2062,10 +2067,11 @@ async function confirmSource(title){ if(!await ask({pass:true, title, icon:'glob
 async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light';
   const nodes=$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean), cur=(S.settings&&S.settings.nodes)||[];
   const proxy=$('proxyUrl').value.trim(), curProxy=(S.settings&&S.settings.proxy)||'';
+  const peers=$('acceptPeers').checked, curPeers=!!(S.settings&&S.settings.accept_peers), curMode=(S.settings&&S.settings.mode)||'light';
   let password='';
-  if(nodes.join('\n')!==cur.join('\n') || proxy!==curProxy){ password=await confirmSource(proxy!==curProxy?T("Change how this wallet connects?"):T("Change the nodes this wallet reads from?")); if(password==null) return; }
-  try{ const r=await api('/api/settings',{mode, nodes, accept_peers:$('acceptPeers').checked, proxy, password});
-    if(S.settings){ S.settings.nodes=nodes; S.settings.proxy=proxy||null; } proxyState();
+  if(nodes.join('\n')!==cur.join('\n') || proxy!==curProxy || mode!==curMode || peers!==curPeers){ password=await confirmSource(proxy!==curProxy?T("Change how this wallet connects?"):T("Change the nodes this wallet reads from?")); if(password==null) return; }
+  try{ const r=await api('/api/settings',{mode, nodes, accept_peers:peers, proxy, password});
+    if(S.settings){ S.settings.nodes=nodes; S.settings.proxy=proxy||null; S.settings.mode=mode; S.settings.accept_peers=peers; } proxyState();
     toast(r.restart?T("Saved. The proxy setting is used from the next start of the wallet."):T("Saved")); }catch(e){ toast(e.message,true) } }
 function proxyState(){ const el=$('proxyState'); if(!el||!S.settings) return; const p=S.settings.proxy||'';
   el.textContent = S.proxy_active ? (p ? T("In use now.") : T("Still in use until the wallet restarts.")) : (p ? T("Restart the wallet to use it.") : ''); }
