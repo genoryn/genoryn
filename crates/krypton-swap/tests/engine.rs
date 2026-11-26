@@ -1497,3 +1497,65 @@ fn the_secret_is_found_in_a_claim_with_a_non_minimal_branch_argument() {
         Some(*derive_secret(a.wallet.swap_seed(), s.index).as_bytes())
     );
 }
+
+/// The seller took the bitcoin, but the buyer's wallet never claimed the GNR: once the
+/// lock ends the seller's wallet takes it back, even though its swap is done.
+#[test]
+fn a_done_sellers_gnr_comes_back_when_the_buyer_never_claims() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    paid(&mut a, &mut b, &src, &btc, &chain);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Done, "{}", a.swap().status);
+    // The buyer is gone: nobody claims the GNR. Mine past the lock's refund height.
+    let refund_at = a.swap().gnr_refund_height.unwrap();
+    while chain.tip().height() < refund_at {
+        mine(&src, &miner);
+    }
+    a.wallet.sync(&src, |_, _| {}).unwrap();
+    let pool = src.pool.borrow().len();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(
+        src.pool.borrow().len(),
+        pool + 1,
+        "the refund is sent: {}",
+        a.swap().status
+    );
+    assert!(a.swap().status.contains("refunded"), "{}", a.swap().status);
+}
+
+/// A swap record this version cannot read is kept as it was when the others are saved,
+/// never dropped: its bitcoin can only be recovered with it.
+#[test]
+fn unreadable_swap_records_are_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    agreed(&mut a, &mut b, &src, &btc, &chain);
+    let mut stored = b.wallet.app_data("swaps").cloned().unwrap();
+    let future = serde_json::json!({"id": "from-a-newer-wallet", "stage": "something_new"});
+    stored.as_array_mut().unwrap().push(future.clone());
+    b.wallet.set_app_data("swaps", stored).unwrap();
+    let swaps = load(&b.wallet);
+    assert_eq!(swaps.len(), 1, "the readable one");
+    krypton_swap::engine::save(&mut b.wallet, &swaps).unwrap();
+    let after = b.wallet.app_data("swaps").cloned().unwrap();
+    assert_eq!(after.as_array().unwrap().len(), 2);
+    assert!(after.as_array().unwrap().contains(&future));
+}

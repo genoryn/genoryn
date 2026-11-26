@@ -2952,8 +2952,15 @@ fn handle(
 ) -> Result<()> {
     match note {
         Note::Code { offer, code } => {
-            // A swap already linked to this sender: its next code.
+            // A swap already linked to this sender: its next code, for that swap only.
             if st.links.iter().any(|l| l.n == n && l.peer == from) {
+                let id = Msg::decode(&code)?.id().to_string();
+                ensure!(
+                    st.links
+                        .iter()
+                        .any(|l| l.n == n && l.peer == from && l.swap_id == id),
+                    "a code for another swap"
+                );
                 e.receive(&code)?;
                 return Ok(());
             }

@@ -447,14 +447,38 @@ impl Msg {
     }
 }
 
+/// The swaps this wallet keeps. Each record is read on its own: one this version cannot
+/// read (from a newer wallet, or damaged) is skipped here and kept by [`save`], never
+/// dropped, since a swap's bitcoin can only be recovered with its record.
 pub fn load(w: &Wallet) -> Vec<Swap> {
     w.app_data(STORE_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| v.as_array().cloned())
         .unwrap_or_default()
+        .into_iter()
+        .filter_map(|x| serde_json::from_value(x).ok())
+        .collect()
 }
 
 pub fn save(w: &mut Wallet, swaps: &[Swap]) -> Result<()> {
-    w.set_app_data(STORE_KEY, serde_json::to_value(swaps)?)
+    let stored = w.app_data(STORE_KEY).cloned();
+    let mut out = serde_json::to_value(swaps)?;
+    match stored {
+        Some(serde_json::Value::Array(old)) => {
+            let unread = old
+                .into_iter()
+                .filter(|x| serde_json::from_value::<Swap>(x.clone()).is_err());
+            if let Some(a) = out.as_array_mut() {
+                a.extend(unread);
+            }
+        }
+        // Not a list at all: set aside, not overwritten.
+        Some(other) if !other.is_null() => {
+            let key = format!("{STORE_KEY}_unreadable_{}", now());
+            w.set_app_data(&key, other)?;
+        }
+        _ => {}
+    }
+    w.set_app_data(STORE_KEY, out)
 }
 
 /// Outputs of this wallet's deposit addresses that it spent itself, with when (1.0.46).
@@ -627,6 +651,15 @@ impl<G: ChainSource> Engine<'_, G> {
     /// Random numbers from the upper half never meet the counted ones of older versions.
     fn next_index(swaps: &[Swap]) -> u32 {
         new_index(swaps.iter().map(|s| s.index))
+    }
+
+    /// A seller whose buyer never claimed the GNR is done but still has it locked: the
+    /// swap keeps being looked at until the lock is refunded.
+    fn lock_left(&self, s: &Swap) -> bool {
+        s.stage == Stage::Done
+            && s.role == Role::GnrSeller
+            && s.gnr_first()
+            && self.lock(s).is_some_and(|l| l.spent_height.is_none())
     }
 
     fn lock(&self, s: &Swap) -> Option<LockRecord> {
@@ -1121,7 +1154,10 @@ impl<G: ChainSource> Engine<'_, G> {
     pub fn step(&mut self, mempool: &[Transaction]) -> Result<Vec<Swap>> {
         self.wallet.learn_secrets(mempool);
         let mut swaps = load(self.wallet);
-        if swaps.iter().all(|s| s.stage.finished() && !s.watching()) {
+        if swaps
+            .iter()
+            .all(|s| s.stage.finished() && !s.watching() && !self.lock_left(s))
+        {
             return Ok(swaps);
         }
         // The chains may be out of reach (a Bitcoin server that does not answer, a wallet
@@ -1199,7 +1235,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     s.btc_refund_height.unwrap_or(0)
                 ));
             }
-            if s.stage.finished() {
+            if s.stage.finished() && !self.lock_left(s) {
                 changed |= before != (s.stage, s.status.clone());
                 continue;
             }
@@ -1901,19 +1937,29 @@ impl<G: ChainSource> Engine<'_, G> {
                     Some(u) => {
                         // The claim signs for the amount in the contract, which may be more
                         // than agreed: a claim signed for less would be invalid.
+                        // The payment's own transaction, where the server can show it
+                        // (Bitcoin Core without -txindex cannot), must pay this contract.
                         let spk = s.htlc()?.script_pubkey();
-                        let paid_sats = self
-                            .btc
-                            .tx(&u.outpoint.txid)?
-                            .and_then(|tx| tx.output.get(u.outpoint.vout as usize).cloned())
-                            .filter(|o| o.script_pubkey == spk)
-                            .map(|o| o.value.to_sat())
-                            .unwrap_or(u.value.to_sat());
-                        if let Some(d) = s.deposit.as_mut() {
-                            d.sats = paid_sats.max(s.sats);
+                        let paid_sats = match self.btc.tx(&u.outpoint.txid)? {
+                            Some(tx) => tx
+                                .output
+                                .get(u.outpoint.vout as usize)
+                                .filter(|o| o.script_pubkey == spk)
+                                .map(|o| o.value.to_sat()),
+                            None => Some(u.value.to_sat()),
+                        };
+                        if let (Some(d), Some(p)) = (s.deposit.as_mut(), paid_sats) {
+                            d.sats = p.max(s.sats);
                         }
-                        let confs = u.height.map(|h| btc_tip + 1 - h).unwrap_or(0);
-                        if confs < t.btc_confs_for(s.sats) {
+                        // A server whose block height is ahead of its tip counts none.
+                        let confs = u
+                            .height
+                            .map(|h| (btc_tip + 1).saturating_sub(h))
+                            .unwrap_or(0);
+                        if paid_sats.is_none_or(|p| p < s.sats) {
+                            s.say("The bitcoin server does not show the payment's transaction paying this swap; waiting.");
+                            false
+                        } else if confs < t.btc_confs_for(s.sats) {
                             s.say(format!(
                                 "Bitcoin payment seen, {confs} of {} confirmations.",
                                 t.btc_confs_for(s.sats)
@@ -1930,7 +1976,11 @@ impl<G: ChainSource> Engine<'_, G> {
                     }
                 };
                 if paid {
-                    self.btc_claim(s)?;
+                    // Sent before the wallet stopped (the stage was not written down yet):
+                    // the claim stage finds whose spend it is.
+                    if !self.btc.is_spent(&f.outpoint)? {
+                        self.btc_claim(s)?;
+                    }
                     s.stage = Stage::Claiming;
                 } else if let Some(l) = &lock
                     && refund_due(l)
@@ -1968,8 +2018,17 @@ impl<G: ChainSource> Engine<'_, G> {
                             ));
                         } else {
                             s.say("Taking the bitcoin: the claim is sent and waits for its first confirmation.");
-                            if btc_tip + 3 >= tl.btc_refund_height {
-                                let _ = self.btc_claim_bumped(s);
+                            // More fee as the bitcoin lock nears, signed again every block:
+                            // the buyer can refund once it ends.
+                            let left = tl.btc_refund_height.saturating_sub(btc_tip);
+                            let times = match left {
+                                0..=3 => 4,
+                                4..=6 => 3,
+                                7..=10 => 2,
+                                _ => 1,
+                            };
+                            if times > 1 {
+                                let _ = self.btc_claim_bumped(s, times);
                             }
                         }
                     } else if let Some(l) = &lock
@@ -2031,12 +2090,13 @@ impl<G: ChainSource> Engine<'_, G> {
         self.btc_claim_at(s, rate)
     }
 
-    /// The claim again with twice today's fee rate (at most the highest rate taken from a
-    /// server), when the bitcoin lock is near and the claim still waits for a block.
-    fn btc_claim_bumped(&mut self, s: &mut Swap) -> Result<()> {
+    /// The claim again with `times` today's fee rate (at most the highest rate taken from
+    /// a server), when the bitcoin lock is near and the claim still waits for a block.
+    fn btc_claim_bumped(&mut self, s: &mut Swap, times: u64) -> Result<()> {
         let r = self.btc.fee_rate()?.to_sat_per_vb_ceil();
-        let rate = bitcoin::FeeRate::from_sat_per_vb((r * 2).min(crate::btc::MAX_FEE_RATE as u64))
-            .context("fee rate")?;
+        let rate =
+            bitcoin::FeeRate::from_sat_per_vb((r * times).min(crate::btc::MAX_FEE_RATE as u64))
+                .context("fee rate")?;
         self.btc_claim_at(s, rate)
     }
 

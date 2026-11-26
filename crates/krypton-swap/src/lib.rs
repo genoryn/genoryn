@@ -401,7 +401,9 @@ impl Timing {
         btc_slow_secs: 1_200,
         gnr_fast_secs: 45,
         min_window2_secs: 4 * 3600,
-        btc_claim_margin: 6,
+        // The seller reveals the secret only with 10 blocks of the bitcoin lock left, so a
+        // claim that waits in a busy mempool has time to be bumped and mined.
+        btc_claim_margin: 10,
         pay_window_secs: 2 * 3600,
     };
     /// Short locks for test networks (signet, regtest, GNR devnet).
