@@ -1,6 +1,7 @@
 //! kryptond: the Genoryn Krypton full node.
 
 mod guard;
+mod history;
 mod mempool;
 mod node;
 mod rpc;

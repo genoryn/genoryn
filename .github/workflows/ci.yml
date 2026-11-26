@@ -27,6 +27,8 @@ jobs:
       - run: cargo test --release -p krypton-zk
       # Fork choice over a partition longer than a thousand blocks (mines thousands).
       - run: cargo test --release -p krypton-store -- --ignored
+      # The trade history with a million swaps.
+      - run: cargo test --release -p kryptond -- --ignored
   i18n:
     runs-on: ubuntu-latest
     steps:

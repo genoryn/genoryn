@@ -36,8 +36,12 @@ const MAX_MESSAGES: usize = 5_000;
 /// All stored messages together (coin swaps send ~200 KB ones).
 const MAX_MESSAGE_BYTES_TOTAL: usize = 96 * 1024 * 1024;
 const MESSAGE_SECS: u64 = 24 * 3600;
-/// Completed swaps are kept for good (the trade history); past this many the oldest go.
+/// Completed swaps kept in memory (the price and the market read them). The whole history
+/// is on disk (`crate::history`); with it, memory keeps the swaps of the last
+/// [`MEMORY_TRADE_SECS`] and at least the newest [`MEMORY_TRADES_MIN`].
 const MAX_TRADES: usize = 200_000;
+const MEMORY_TRADE_SECS: u64 = 30 * 24 * 3600;
+const MEMORY_TRADES_MIN: usize = 1_000;
 /// What one client (an address, IPv6 by /48) may put on the board: open offers, and
 /// sealed messages in a day, in all and into one inbox.
 const MAX_OFFERS_EACH: usize = 200;
@@ -128,6 +132,11 @@ struct Inner {
     /// Sealed messages each client sent in the current day, in all and into each inbox.
     sent: HashMap<IpAddr, (u64, u32)>,
     sent_to: HashMap<(IpAddr, String), (u64, u32)>,
+    /// The history on disk is open: memory may let old swaps go.
+    hist_ok: bool,
+    /// Swaps, and swaps whose status changed, not yet written to the history.
+    hist_new: Vec<(Trade, u64)>,
+    hist_touch: HashSet<String>,
 }
 
 /// Kept on disk with the board: a restart must not let one deposit be promised again.
@@ -281,6 +290,9 @@ pub struct Board {
     offers_snap: Mutex<Option<Snap>>,
     market_snap: Mutex<Option<Snap>>,
     summary_snap: Mutex<Option<Snap>>,
+    history: std::sync::OnceLock<crate::history::History>,
+    /// The all-time median price (it reads the whole history): (swaps then, when, median).
+    median_all: Mutex<Option<(u64, Instant, Option<f64>)>>,
 }
 
 /// A large answer as it was served, with the board's generation then.
@@ -385,7 +397,18 @@ impl Board {
         let day = t - t % 86_400;
         i.sent.retain(|_, (d, _)| *d == day);
         i.sent_to.retain(|_, (d, _)| *d == day);
-        // Completed swaps stay (the trade history); only beyond the cap do the oldest go.
+        // Completed swaps stay on disk (the trade history); memory keeps what the price
+        // needs, and without the history every swap up to the cap.
+        if i.hist_ok && i.trades.len() > MEMORY_TRADES_MIN {
+            let keep_from = i.trades.len() - MEMORY_TRADES_MIN;
+            let old = i.trades[..keep_from]
+                .iter()
+                .take_while(|(_, at)| at + MEMORY_TRADE_SECS <= t)
+                .count();
+            if old > 0 {
+                i.trades.drain(..old);
+            }
+        }
         if i.trades.len() > MAX_TRADES {
             let extra = i.trades.len() - MAX_TRADES;
             i.trades.drain(..extra);
@@ -476,6 +499,7 @@ impl Board {
                 .map(|(k, v)| (k, v.into_iter().collect()))
                 .collect();
         }
+        self.open_history(&p, i);
         Board::expire(i, now());
         // A sell offer without its proof cannot be on the board, whatever the file said:
         // not as an open offer, and not as a swap in progress carried over from before
@@ -489,6 +513,90 @@ impl Board {
             .retain(|id, (o, _)| o.side != Side::SellGnr || backing.contains_key(id));
         if purged {
             self.save_board(i);
+        }
+    }
+
+    /// Opens the history on disk next to the board's files. The first time, every swap the
+    /// files hold is imported (the files stay as they were, with a copy of the swaps from
+    /// before 1.0.53). Without it the board keeps working from memory, as before 1.0.53.
+    fn open_history(&self, p: &std::path::Path, i: &mut Inner) {
+        let h = match crate::history::History::open(&p.with_file_name("swap-history.redb")) {
+            Ok(h) => h,
+            Err(e) => {
+                tracing::error!("trade history unavailable, keeping it in memory: {e}");
+                return;
+            }
+        };
+        // Swaps the files have and the history not (it was written last before a crash):
+        // written with the next flush.
+        if h.count().unwrap_or(0) > 0 {
+            let missing: Vec<(Trade, u64)> = i
+                .trades
+                .iter()
+                .filter(|(x, _)| hash32(&x.hash).is_some_and(|k| !h.contains(&k).unwrap_or(true)))
+                .cloned()
+                .collect();
+            i.hist_new.extend(missing);
+        } else if !i.trades.is_empty() {
+            let backup = p.with_extension("json.pre-1.0.53");
+            if !backup.exists() {
+                let _ = std::fs::copy(p, &backup);
+            }
+            let recs: Vec<crate::history::Rec> = i
+                .trades
+                .iter()
+                .filter_map(|(x, at)| hist_rec(i, x, *at))
+                .collect();
+            if let Err(e) = h.write(&recs, &[]) {
+                tracing::error!("importing the trade history failed, keeping it in memory: {e}");
+                return;
+            }
+            tracing::info!(swaps = recs.len(), "trade history imported");
+        }
+        i.hist_ok = true;
+        let _ = self.history.set(h);
+    }
+
+    /// Whether the history on disk has the swap `hash` (one the memory may have let go).
+    fn in_history(&self, hash: &str) -> bool {
+        let (Some(h), Some(k)) = (self.history.get(), hash32(hash)) else {
+            return false;
+        };
+        h.contains(&k).unwrap_or(false)
+    }
+
+    /// Writes new swaps and changed statuses to the history (from `flush`, off the
+    /// requests). What fails to be written is tried again next time.
+    fn flush_history(&self) {
+        let Some(h) = self.history.get() else {
+            return;
+        };
+        let (new, touch, recs, updates) = {
+            let mut i = self.inner.lock();
+            if i.hist_new.is_empty() && i.hist_touch.is_empty() {
+                return;
+            }
+            let new = std::mem::take(&mut i.hist_new);
+            let touch = std::mem::take(&mut i.hist_touch);
+            let recs: Vec<crate::history::Rec> = new
+                .iter()
+                .filter_map(|(x, at)| hist_rec(&i, x, *at))
+                .collect();
+            let updates: Vec<([u8; 32], crate::history::Status)> = touch
+                .iter()
+                .filter_map(|hash| Some((hash32(hash)?, hist_status(&i, hash))))
+                .collect();
+            (new, touch, recs, updates)
+        };
+        if let Err(e) = h.write(&recs, &updates) {
+            tracing::error!("writing the trade history failed (tried again): {e}");
+            let mut i = self.inner.lock();
+            let mut back = new;
+            back.append(&mut i.hist_new);
+            i.hist_new = back;
+            i.hist_touch.extend(touch);
+        } else if !recs.is_empty() || !updates.is_empty() {
+            self.changed();
         }
     }
 
@@ -521,6 +629,7 @@ impl Board {
     /// it; turning it into JSON and writing it happen after.
     pub fn flush(&self) {
         let _one = self.flushing.lock();
+        self.flush_history();
         let Some(p) = self.path.lock().clone() else {
             return;
         };
@@ -794,15 +903,55 @@ fn scan_claims(node: &Node) {
     }
     let mut i = node.board.inner.lock();
     let known: HashSet<String> = i.trades.iter().map(|(x, _)| x.hash.clone()).collect();
-    let of_a_trade = found
+    let fresh: Vec<String> = found
         .iter()
-        .any(|(h, _)| known.contains(h) && !i.claims.contains_key(h));
+        .filter(|(h, _)| known.contains(h) && !i.claims.contains_key(h))
+        .map(|(h, _)| h.clone())
+        .collect();
+    let of_a_trade = !fresh.is_empty();
     i.claims.extend(found);
+    i.hist_touch.extend(fresh);
     if i.scanned.is_none_or(|s| s < tip) {
         i.scanned = Some(tip);
     }
     if of_a_trade {
         node.board.save(&i);
+    }
+}
+
+/// A swap for the history, with its status as the board knows it.
+fn hist_rec(i: &Inner, x: &Trade, at: u64) -> Option<crate::history::Rec> {
+    let st = hist_status(i, &x.hash);
+    Some(crate::history::Rec {
+        at,
+        hash: hash32(&x.hash)?,
+        gnr: x.gnr,
+        sats: x.sats,
+        verified: st.verified,
+        disputed: st.disputed,
+        claim: st.claim,
+    })
+}
+
+fn hist_status(i: &Inner, hash: &str) -> crate::history::Status {
+    crate::history::Status {
+        amounts: i
+            .trades
+            .iter()
+            .rev()
+            .find(|(x, _)| x.hash == hash)
+            .map(|(x, _)| (x.gnr, x.sats)),
+        verified: i.paid.contains_key(hash),
+        disputed: i.disputed.contains(hash),
+        claim: i.claims.get(hash).and_then(|c| {
+            Some(crate::history::ClaimRec {
+                height: c.height,
+                time: c.time,
+                refund_height: c.refund_height,
+                txid: hash32(&c.txid)?,
+                secret: hash32(&c.secret)?,
+            })
+        }),
     }
 }
 
@@ -1432,8 +1581,13 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                 found = Some((sats, key));
             }
         }
+        let on_disk = n.board.in_history(&t.hash);
         let mut i = n.board.inner.lock();
         let at = i.trades.iter().position(|(x, _)| x.hash == t.hash);
+        if at.is_none() && (on_disk || i.hist_new.iter().any(|(x, _)| x.hash == t.hash)) {
+            // Recorded long ago: never a second time, and its status no longer changes.
+            return Ok(json!({"ok": true, "added": false, "verified": false}));
+        }
         let mut added = false;
         match (found, at) {
             (Some(f), Some(k)) => {
@@ -1442,6 +1596,7 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                     // The swap's other wallet says something else: neither counts.
                     if !same {
                         i.disputed.insert(t.hash.clone());
+                        i.hist_touch.insert(t.hash.clone());
                     }
                 } else {
                     // The first proven report stands in for an unproven one.
@@ -1449,6 +1604,7 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                         i.trades[k].0 = t.clone();
                     }
                     i.paid.insert(t.hash.clone(), f);
+                    i.hist_touch.insert(t.hash.clone());
                 }
             }
             (Some(f), None) => {
@@ -1462,7 +1618,11 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
             if i.trades.len() >= MAX_TRADES {
                 i.trades.remove(0);
             }
-            i.trades.push((t.clone(), now()));
+            let at = now();
+            i.trades.push((t.clone(), at));
+            if i.hist_ok {
+                i.hist_new.push((t.clone(), at));
+            }
         }
         n.board.save(&i);
         let verified = i.paid.contains_key(&t.hash) && !i.disputed.contains(&t.hash);
@@ -1616,8 +1776,26 @@ pub async fn history(State(node): S, Query(q): Query<HistoryQuery>) -> Response 
         let limit = q.limit.unwrap_or(50).clamp(1, HISTORY_PAGE_MAX);
         let since = q.since.unwrap_or(0);
         let tip = node.chain.tip().height();
-        let mut i = node.board.inner.lock();
-        node.board.load(&mut i);
+        node.board.load(&mut node.board.inner.lock());
+        if let Some(h) = node.board.history.get() {
+            return match h.page(q.offset, limit, since, q.verified) {
+                Ok((recs, total)) => {
+                    let page: Vec<Value> = recs.iter().map(|r| rec_json(r, tip)).collect();
+                    let more = (q.offset.saturating_add(page.len()) as u64) < total;
+                    Json(json!({"swaps": page, "offset": q.offset, "more": more, "total": total, "now": now()}))
+                        .into_response()
+                }
+                Err(e) => {
+                    tracing::error!("trade history: {e}");
+                    (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(json!({"error": "the trade history is not available right now"})),
+                    )
+                        .into_response()
+                }
+            };
+        }
+        let i = node.board.inner.lock();
         let shown = |x: &Trade, at: u64| {
             at >= since
                 && (!q.verified || (i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash)))
@@ -1659,6 +1837,22 @@ pub async fn history_summary(State(node): S) -> Response {
 fn summary_body(node: &Arc<Node>) -> Vec<u8> {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
+    if let Some(h) = node.board.history.get() {
+        // The last 24 hours are in memory; everything else comes from the days on disk.
+        let t = now();
+        let last24: Vec<Done> = i
+            .trades
+            .iter()
+            .filter(|(x, at)| at + 86_400 > t && !i.disputed.contains(&x.hash) && x.gnr > 0)
+            .map(|(x, at)| (*at, x.price(), x.gnr, x.sats, i.paid.contains_key(&x.hash)))
+            .collect();
+        drop(i);
+        match store_summary(node, h, &last24, t) {
+            Ok(v) => return serde_json::to_vec(&v).unwrap_or_default(),
+            Err(e) => tracing::error!("trade history: {e}"),
+        }
+        i = node.board.inner.lock();
+    }
     let list: Vec<Done> = i
         .trades
         .iter()
@@ -1667,6 +1861,76 @@ fn summary_body(node: &Arc<Node>) -> Vec<u8> {
         .collect();
     drop(i);
     serde_json::to_vec(&history_figures(&list, now())).unwrap_or_default()
+}
+
+/// One swap of the history on disk as the history API shows it.
+fn rec_json(r: &crate::history::Rec, tip: u64) -> Value {
+    let c = r.claim.as_ref().map(|c| {
+        json!({
+            "height": c.height, "time": c.time, "txid": hex::encode(c.txid),
+            "secret": hex::encode(c.secret), "refund_height": c.refund_height,
+        })
+    });
+    json!({
+        "at": r.at, "gnr": r.gnr, "sats": r.sats, "price": r.price(), "hash": hex::encode(r.hash),
+        "verified": r.verified && !r.disputed,
+        "claim": c,
+        "confirmations": r.claim.as_ref().map(|c| (tip + 1).saturating_sub(c.height)),
+    })
+}
+
+/// The summary from the history on disk: totals from the days' figures (the all-time
+/// median read again at most every ten minutes, or when swaps were added).
+fn store_summary(
+    node: &Arc<Node>,
+    h: &crate::history::History,
+    last24: &[Done],
+    t: u64,
+) -> anyhow::Result<Value> {
+    let days = h.days()?;
+    let count = h.count()?;
+    let median = {
+        let mut m = node.board.median_all.lock();
+        match *m {
+            Some((n, at, v)) if n == count || at.elapsed() < Duration::from_secs(600) => v,
+            _ => {
+                let v = h.median_all()?;
+                *m = Some((count, Instant::now(), v));
+                v
+            }
+        }
+    };
+    let sum =
+        |f: fn(&crate::history::DayFig) -> u64| days.iter().map(f).fold(0u64, u64::saturating_add);
+    let (gnr, sats) = (sum(|d| d.gnr), sum(|d| d.sats));
+    let low = days
+        .iter()
+        .filter_map(|d| d.low)
+        .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.min(x))));
+    let high = days
+        .iter()
+        .filter_map(|d| d.high)
+        .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.max(x))));
+    let span = h.span()?;
+    let all = json!({
+        "swaps": sum(|d| d.swaps),
+        "verified": sum(|d| d.verified),
+        "gnr": gnr,
+        "sats": sats,
+        "low": low,
+        "high": high,
+        "median": median,
+        "vwap": if gnr > 0 { Some(sats as f64 / (gnr as f64 / 1e8)) } else { None },
+        "first": span.map(|s| s.0),
+        "last": span.map(|s| s.1),
+    });
+    let day = history_figures(last24, t)["all"].clone();
+    let days: Vec<Value> = days
+        .iter()
+        .filter(|d| d.swaps > 0)
+        .map(|d| json!({"day": d.day, "swaps": d.swaps, "verified": d.verified, "gnr": d.gnr, "sats": d.sats, "low": d.low, "high": d.high, "median": d.median, "vwap": d.vwap}))
+        .collect();
+    Ok(json!({"all": all, "day": day, "days": days, "now": t}))
 }
 
 /// A completed swap for the figures: (time, price, GNR, sat, verified).

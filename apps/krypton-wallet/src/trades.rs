@@ -27,7 +27,9 @@ fn hex64(s: &str) -> bool {
 fn swap_view(t: &Value) -> Option<Value> {
     let hash = t["hash"].as_str().filter(|h| hex64(h))?;
     let gnr = t["gnr"].as_u64().filter(|g| *g > 0)?;
-    let sats = t["sats"].as_u64().filter(|s| *s > 0 && *s <= MAX_OFFER_SATS)?;
+    let sats = t["sats"]
+        .as_u64()
+        .filter(|s| *s > 0 && *s <= MAX_OFFER_SATS)?;
     let at = t["at"].as_u64()?;
     let claim = t["claim"].as_object().and_then(|c| {
         Some(json!({
@@ -60,11 +62,7 @@ pub struct PageQ {
 
 /// A page of every completed swap, newest first. A board before 1.0.53 only shows its last
 /// 50 swaps (on its market): then those, marked `fallback`.
-pub async fn page(
-    axum::extract::State(app): S,
-    h: HeaderMap,
-    Query(q): Query<PageQ>,
-) -> Response {
+pub async fn page(axum::extract::State(app): S, h: HeaderMap, Query(q): Query<PageQ>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
@@ -165,7 +163,11 @@ fn mine_list(w: &Wallet) -> Vec<Value> {
         .filter(|s| s.stage == Stage::Done && s.gnr > 0)
         .map(|s| {
             let at = s.log.last().map(|l| l.0).unwrap_or(s.created);
-            let side = if s.role == Role::BtcSeller { "buy" } else { "sell" };
+            let side = if s.role == Role::BtcSeller {
+                "buy"
+            } else {
+                "sell"
+            };
             (
                 at,
                 json!({
@@ -187,7 +189,12 @@ pub async fn mine(axum::extract::State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check_open(&app, &h) {
         return x;
     }
-    let list = app.wallet.lock().as_ref().map(mine_list).unwrap_or_default();
+    let list = app
+        .wallet
+        .lock()
+        .as_ref()
+        .map(mine_list)
+        .unwrap_or_default();
     Json(json!({"trades": list})).into_response()
 }
 
@@ -217,11 +224,13 @@ fn units(v: u64) -> String {
 }
 
 fn csv(list: &[Value]) -> String {
-    let mut s = String::from(
-        "date_utc,side,gnr,btc,price_btc_per_gnr,price_sat_per_gnr,swap_hash\n",
-    );
+    let mut s =
+        String::from("date_utc,side,gnr,btc,price_btc_per_gnr,price_sat_per_gnr,swap_hash\n");
     for t in list {
-        let (gnr, sats) = (t["gnr"].as_u64().unwrap_or(0), t["sats"].as_u64().unwrap_or(0));
+        let (gnr, sats) = (
+            t["gnr"].as_u64().unwrap_or(0),
+            t["sats"].as_u64().unwrap_or(0),
+        );
         let price = t["price"].as_f64().unwrap_or(0.0);
         s += &format!(
             "{},{},{},{},{:.8},{:.2},{}\n",
@@ -250,7 +259,12 @@ pub async fn export(axum::extract::State(app): S, h: HeaderMap) -> Response {
     if let Err(x) = check_open(&app, &h) {
         return x;
     }
-    let list = app.wallet.lock().as_ref().map(mine_list).unwrap_or_default();
+    let list = app
+        .wallet
+        .lock()
+        .as_ref()
+        .map(mine_list)
+        .unwrap_or_default();
     if list.is_empty() {
         return err("no completed swaps to export yet");
     }
@@ -305,7 +319,12 @@ mod tests {
         ] {
             assert!(swap_view(&bad).is_none(), "{bad}");
         }
-        let csv = csv(&[json!({"at": 0, "side": "buy", "gnr": 150_000_000u64, "sats": 1_500, "price": 1000.0, "hash": "ab"})]);
-        assert!(csv.ends_with("1970-01-01 00:00:00,buy,1.50000000,0.00001500,0.00001000,1000.00,ab\n"), "{csv}");
+        let csv = csv(&[
+            json!({"at": 0, "side": "buy", "gnr": 150_000_000u64, "sats": 1_500, "price": 1000.0, "hash": "ab"}),
+        ]);
+        assert!(
+            csv.ends_with("1970-01-01 00:00:00,buy,1.50000000,0.00001500,0.00001000,1000.00,ab\n"),
+            "{csv}"
+        );
     }
 }
