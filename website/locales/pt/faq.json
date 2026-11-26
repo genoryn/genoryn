@@ -48,6 +48,7 @@
  "0e76192eb8": "Na carteira, com bitcoin, por meio de uma troca atômica com outra pessoa: o Quick Swap, na aba Troca, compra qualquer quantia com um clique; ou pegue uma oferta de venda ou publique uma oferta de compra na aba Mercado. Não há corretora, conta nem custódia. <0>Como obter GNR</0>.",
  "61eff42612": "O GNR está listado em alguma corretora?",
  "448724d72b": "Não. O GNR é obtido pela mineração ou trocado por bitcoin diretamente entre carteiras.",
+ "368d421d58": "Apenas a partir de trocas concluídas cujo bitcoin o quadro encontrou na cadeia do Bitcoin (as últimas 24 horas quando o mercado está movimentado; caso contrário, até 30 dias): o preço de mercado é onde metade desse bitcoin trocou de mãos abaixo e metade acima (uma mediana ponderada), com uma confiança de 0 a 100. Ofertas e trocas em andamento nunca o alteram. <0>Mercado ao vivo</0>.",
  "c77741802f": "Por que trocar bitcoin por GNR?",
  "30671c246e": "As moedas do Bitcoin são protegidas por assinaturas de curva elíptica, que um computador quântico grande poderia quebrar. Uma troca move valor para um sistema protegido por provas baseadas em hash, diretamente da sua própria carteira.",
  "05e02a177c": "Alguém pode oferecer GNR que não tem?",

@@ -199,7 +199,7 @@ proptest! {
                                         flip in any::<prop::sample::Index>(), bit in 0u8..8) {
         let a = kem::SecretKey::from_seed(&[1; 96]);
         let b = kem::SecretKey::from_seed(&[2; 96]);
-        let e = board::seal(&b.public(), &a, &body).unwrap();
+        let e = board::seal(b.public(), &a, &body).unwrap();
         let (from, got) = board::open(&b, &e.data).unwrap();
         prop_assert_eq!(from.to_bytes(), a.public().to_bytes());
         prop_assert_eq!(&got, &body);

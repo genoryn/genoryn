@@ -52,9 +52,9 @@ fn main() {
     let body = vec![7u8; 1024];
     out.push(format!(
         "\"seal_1kb_ms\":{:.2}",
-        per_call(20, || board::seal(&b.public(), &a, &body).unwrap())
+        per_call(20, || board::seal(b.public(), &a, &body).unwrap())
     ));
-    let e = board::seal(&b.public(), &a, &body).unwrap();
+    let e = board::seal(b.public(), &a, &body).unwrap();
     out.push(format!(
         "\"open_1kb_ms\":{:.3}",
         per_call(200, || board::open(&b, &e.data).unwrap())

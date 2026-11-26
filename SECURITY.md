@@ -4,10 +4,10 @@
 
 Genoryn Krypton has extensive automated tests (consensus, proofs, PoW, reorganizations,
 light-client forgery, parser property tests) but **no independent audit yet**. The internal
-reviews and the fixes they led to are in [docs/audit](docs/audit): the latest, a full audit
-of the whole system fixed in 1.0.52, is
-[docs/audit/2026-11-26-full-audit.md](docs/audit/2026-11-26-full-audit.md), and every review
-is summarised at [genoryn.io/audits](https://genoryn.io/audits).
+reviews and the fixes they led to are in [docs/audit](docs/audit): the latest, a review of the
+whole system fixed in 1.0.53, is
+[docs/audit/2026-11-26-system-audit-1.0.53.md](docs/audit/2026-11-26-system-audit-1.0.53.md),
+and every review is summarised at [genoryn.io/audits](https://genoryn.io/audits).
 Highest-value review targets:
 
 1. The spend AIR and its zero-knowledge masking (`crates/krypton-zk`, `docs/spec/spend-circuit.md`)

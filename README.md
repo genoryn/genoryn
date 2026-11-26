@@ -881,6 +881,13 @@ withdrawal is disputed. Guides: [docs/integration](docs/integration).
 
 ## Security and audits
 
+* **26 November 2026, 1.0.53 audit** ([full report](docs/audit/2026-11-26-system-audit-1.0.53.md),
+  [summary on genoryn.io](https://genoryn.io/audits)): four reviewers covered the swaps with
+  bitcoin, the node and its network, the desktop wallet, and cryptography with the light client.
+  No way was found to mint coins beyond the schedule, spend someone else's GNR, break transfer
+  privacy or forge a block for a full node. 27 findings are fixed in 1.0.53, among them light
+  wallets now checking every block above the release checkpoint as a full node does; no consensus
+  rule changes.
 * **26 November 2026, full audit** ([full report](docs/audit/2026-11-26-full-audit.md),
   [summary on genoryn.io](https://genoryn.io/audits)): six reviewers covered the desktop wallet,
   the atomic swaps and the offer board, Bitcoin keys and signing, the node, updater and

@@ -38,8 +38,9 @@ versa, nodes and wallets of both versions work together, and no coin, balance or
 changes. The swap changes are local to each wallet: a 1.0.52 wallet swaps with older ones as
 before.
 
-Some findings are still being worked on. They are not described here and will be published when
-they are fixed, as with every earlier report.
+Some findings were still being worked on. They are fixed in 1.0.53 and listed under
+[Fixed in 1.0.53](#fixed-in-1053) below; the [1.0.53 audit](2026-11-26-system-audit-1.0.53.md)
+reviewed the whole system again.
 
 ## How to stay safe
 
@@ -101,6 +102,26 @@ they are fixed, as with every earlier report.
 | G-5 | Low | Anyone could keep a member from signing in by spending the per-name sign-in budget, and names of any length were used as keys. | Sign-in attempts are counted per name and address, with a larger overall budget per name; names longer than the limit are refused at once. |
 | G-6 | Low | Brand-new forum accounts could post clickable links. | Links become clickable from the Member rank on. |
 | G-7 | Info | The site's HTML escaping did not cover the apostrophe. | It does. |
+
+## Fixed in 1.0.53
+
+The findings held back from this report, fixed in 1.0.53:
+
+* **The node's API on the same computer:** a request that reaches the node directly, without a
+  reverse proxy's `X-Real-IP`, counts as local only with a loopback `Host` and `Origin`; other
+  names a local proxy uses are named with `--api-host`.
+* **Request limits:** request bodies are capped at 1 MiB, the network hashrate is computed once a
+  block outside the async runtime, block sizes are read without encoding the block again, and the
+  mempool list is cut before it is built.
+* **Error messages:** internal error text and the names of Bitcoin servers go to the log only;
+  clients get a plain message.
+* **Bitcoin server replies** are read up to 16 MiB.
+* **Miner:** the first block height a node gives is checked for plausibility, and text from the
+  node is cleaned before it is shown.
+* **Server services:** environment files are readable by the service group only, and the node and
+  miner services carry more systemd hardening (the miner cannot read the node's data).
+* **Pending payment proofs** are checked as a node checks a transaction: structure, zk-STARK proof
+  and unspent inputs. Regression test: the pending payment proof in `mine_sync_send_receive`.
 
 ## What was checked and found correct
 

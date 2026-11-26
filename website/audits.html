@@ -25,25 +25,24 @@
   <section class="pg-sec" id="latest">
     <div class="glass au-hero reveal">
       <div class="au-hero-main">
-        <span class="au-date">26 November 2026 · <span translate="no">1.0.51 → 1.0.52</span></span>
-        <h2>Full audit of the whole system</h2>
-        <p>Six reviewers, each in one area in depth. The most serious findings were reproduced first, against the real swap engine and against Bitcoin's own script interpreter, then fixed and covered by tests.</p>
+        <span class="au-date">26 November 2026 · <span translate="no">1.0.52 → 1.0.53</span></span>
+        <h2>The whole system, reviewed again</h2>
+        <p>Four reviewers, each in one area in depth: the swaps with bitcoin, the node and its network, the desktop wallet, and cryptography with the light client. Every finding was checked against the code; fixes that change what honest users see were tried on the real chain first.</p>
         <ul class="au-verdict">
           <li><svg class="ni" aria-hidden="true"><use href="#n-check"/></svg>No way to mint GNR beyond the schedule</li>
           <li><svg class="ni" aria-hidden="true"><use href="#n-check"/></svg>No way to spend someone else's GNR</li>
           <li><svg class="ni" aria-hidden="true"><use href="#n-check"/></svg>No way to break the privacy of transfers</li>
-          <li><svg class="ni" aria-hidden="true"><use href="#n-check"/></svg>No way to forge a block</li>
+          <li><svg class="ni" aria-hidden="true"><use href="#n-check"/></svg>No way to forge a block for a full node</li>
         </ul>
-        <div class="row-btns"><a class="btn btn-primary" href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-26-full-audit.md" rel="noopener"><svg class="ni" aria-hidden="true"><use href="#n-docs"/></svg>Read the full report</a><a class="btn" href="/download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Get 1.0.52</a></div>
+        <div class="row-btns"><a class="btn btn-primary" href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-26-system-audit-1.0.53.md" rel="noopener"><svg class="ni" aria-hidden="true"><use href="#n-docs"/></svg>Read the full report</a><a class="btn" href="/download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Get 1.0.53</a></div>
       </div>
       <div class="au-hero-side">
-        <div class="au-big"><b>30</b><span>findings fixed in 1.0.52</span></div>
+        <div class="au-big"><b>27</b><span>findings fixed in 1.0.53</span></div>
         <div class="au-sev">
-          <span class="au-pill crit">Critical <b>1</b></span>
-          <span class="au-pill high">High <b>3</b></span>
-          <span class="au-pill med">Medium <b>13</b></span>
-          <span class="au-pill low">Low <b>11</b></span>
-          <span class="au-pill info">Info <b>2</b></span>
+          <span class="au-pill crit">Critical <b>2</b></span>
+          <span class="au-pill high">High <b>9</b></span>
+          <span class="au-pill med">Medium <b>11</b></span>
+          <span class="au-pill low">Low <b>5</b></span>
         </div>
         <p class="muted">No consensus rule changed: every node and wallet keeps working with every other, and no coin or balance moves.</p>
       </div>
@@ -52,14 +51,12 @@
 
   <section class="pg-sec" id="checked">
     <span class="eyebrow">What was checked</span>
-    <h2>Six areas, each read line by line</h2>
+    <h2>Four areas, each read line by line</h2>
     <div class="pg-grid">
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-wallet"/></svg></span><h3>The desktop wallet</h3><p>Its local interface, the password on every payment, the 24-hour lock, the recovery phrase, the wallet file's encryption, the updater, the console, and everything the window shows from the network.</p></div>
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-swap"/></svg></span><h3>Swaps with bitcoin</h3><p>Every step of a swap on both chains, what each side may do and when, the offer board, Quick Swap, and what happens when the other side, or the Bitcoin network, does not behave.</p></div>
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-coin"/></svg></span><h3>Bitcoin keys and signing</h3><p>Where every Bitcoin key comes from and how much entropy it has, how deposits and withdrawals are built and signed, fees, the Bitcoin contract script, and how the secret of a swap is learned.</p></div>
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>Node, network and updates</h3><p>The node's API, mining jobs and payouts, the peer-to-peer layer, the installer and uninstaller, release signing and the update script for servers.</p></div>
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Consensus and cryptography</h3><p>Every rule change since 1.0.2, the swap locks, the dormant token rules, the zk-STARK spend circuit, post-quantum note encryption and key derivation. All 93 consensus tests pass.</p></div>
-      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-globe"/></svg></span><h3>Website, forum and server</h3><p>How this site shows data from the node, the download page, translations, the security headers, and Genoryn Talks: sign-in, sessions, names, posts and live chat.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-swap"/></svg></span><h3>Swaps with bitcoin</h3><p>Every step of a swap and every way it can end: restarts at any moment, deadlines, refunds racing claims, fees in a busy Bitcoin network, and a counterparty or Bitcoin server that does not behave.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-node"/></svg></span><h3>Node and network</h3><p>The peer-to-peer layer under load from many addresses, the node's API and its limits, the offer board and its mailboxes, the files it keeps, and the server configuration.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-wallet"/></svg></span><h3>The desktop wallet</h3><p>What a web page, another program or another user of the computer could do with it, the password on every action that matters, updates, and everything the window shows from the network.</p></div>
+      <div class="glass pg-card"><span class="pg-ic"><svg aria-hidden="true"><use href="#n-check"/></svg></span><h3>Cryptography and the light client</h3><p>What a dishonest node can make a light wallet believe, key derivation and randomness, note encryption, and the decoding of everything that comes from the network.</p></div>
     </div>
   </section>
 
@@ -68,30 +65,29 @@
     <h2>Every finding, and what changed</h2>
     <p>The full report on GitHub has each finding with its fix and its test. In short:</p>
     <div class="table-wrap"><table class="data au-table">
-      <thead><tr><th>Area</th><th>Severity</th><th>What was wrong</th><th>What 1.0.52 does</th></tr></thead>
+      <thead><tr><th>Area</th><th>Severity</th><th>What was wrong</th><th>What 1.0.53 does</th></tr></thead>
       <tbody>
-        <tr><td data-label="Area">Swaps</td><td data-label="Severity"><span class="au-pill crit">Critical</span></td><td data-label="What was wrong">A buyer's refund could be taken over by the seller's claim, and the buyer's wallet then counted the swap as refunded.</td><td data-label="What 1.0.52 does">It reads which transaction spent the contract. If it carries the secret, the wallet takes the GNR with it.</td></tr>
-        <tr><td data-label="Area">Swaps</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">The seller's wallet counted its bitcoin claim as done before it was in a block.</td><td data-label="What 1.0.52 does">Done only once it is in a block. A dropped claim is sent again, with a higher fee near the deadline.</td></tr>
-        <tr><td data-label="Area">Swaps</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">The secret was read from a claim in one exact layout only.</td><td data-label="What 1.0.52 does">It is found in any claim, checked against the hash lock.</td></tr>
-        <tr><td data-label="Area">Wallet</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">A hostile offer board could have placed script in the wallet window.</td><td data-label="What 1.0.52 does">Everything from the board is checked before the window sees it, and encoded for where it goes.</td></tr>
-        <tr><td data-label="Area">Bitcoin</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">Amounts signed for Bitcoin payments came from the Bitcoin server's lists; a contract paid with a little more than agreed could not be claimed.</td><td data-label="What 1.0.52 does">Amounts are read from the real previous transactions, checked against their ids, and claims use the amount actually paid.</td></tr>
-        <tr><td data-label="Area">Bitcoin</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">Every Bitcoin payment spent all coins of the address, and the fee rate from the server was trusted up to 2,000 sat/vB.</td><td data-label="What 1.0.52 does">Only the coins a payment needs are spent, the fee is at most a tenth of what moves, and the fee rate is capped at 500 sat/vB.</td></tr>
-        <tr><td data-label="Area">Wallet</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">The nodes and the Bitcoin data source could be changed without the password.</td><td data-label="What 1.0.52 does">Both need the wallet's password. Real bitcoin trades only against mainnet GNR.</td></tr>
-        <tr><td data-label="Area">Wallet</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">The 24-hour lock could lock a wallet in the middle of a swap only it can finish.</td><td data-label="What 1.0.52 does">The lock waits while its coins are in a swap contract, seven days at most.</td></tr>
-        <tr><td data-label="Area">Installer</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">Uninstalling deleted everything in the chosen install folder.</td><td data-label="What 1.0.52 does">It removes only the files it installed, and the folder only if it is then empty.</td></tr>
-        <tr><td data-label="Area">Servers</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">The node update script checked packages against checksums only.</td><td data-label="What 1.0.52 does">It checks the release signature with the key the install carries and never installs an older version.</td></tr>
-        <tr><td data-label="Area">Website</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">The download page had no hash to compare a download with.</td><td data-label="What 1.0.52 does">Each button shows its file's SHA-256 from the signed release checksums, checked when the site is built.</td></tr>
-        <tr><td data-label="Area">Forum</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">Names that only look like the administrator's or another member's were accepted.</td><td data-label="What 1.0.52 does">Names are compared as they look on screen.</td></tr>
-        <tr><td data-label="Area">All areas</td><td data-label="Severity"><span class="au-pill low">Low</span></td><td data-label="What was wrong">Thirteen smaller issues (Low and Info): address checks, password attempt limits, more confirmations for large swaps, the installer's tools, forum sign-in and links, and others.</td><td data-label="What 1.0.52 does">All fixed; each one is in the full report.</td></tr>
+        <tr><td data-label="Area">Light wallet</td><td data-label="Severity"><span class="au-pill crit">Critical</span></td><td data-label="What was wrong">A dishonest node could get a light wallet to accept blocks nobody had worked for, with payments in them.</td><td data-label="What 1.0.53 does">Every block above the release checkpoint is checked as a full node checks it, and the chain must pass through the checkpoint.</td></tr>
+        <tr><td data-label="Area">Node</td><td data-label="Severity"><span class="au-pill crit">Critical</span></td><td data-label="What was wrong">One peer could slow a node's handling of every other peer's messages.</td><td data-label="What 1.0.53 does">Peers' transactions are checked outside the message loop, a few at a time and within a budget.</td></tr>
+        <tr><td data-label="Area">Light wallet</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">A tiny payment could be made to show as a huge amount.</td><td data-label="What 1.0.53 does">Such notes are refused.</td></tr>
+        <tr><td data-label="Area">Wallet</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">With the window's session token alone, a wallet could be added and made the one that receives payments and mining rewards.</td><td data-label="What 1.0.53 does">Adding a wallet needs the open wallet's password.</td></tr>
+        <tr><td data-label="Area">Node</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">Block announcements, bare connections and mailbox messages from one place could crowd out everyone else.</td><td data-label="What 1.0.53 does">Budgets per peer and client, room for new peers only after their handshake, and a daily quota of mailbox bytes.</td></tr>
+        <tr><td data-label="Area">Server</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">The client address the node counts requests by came from a header only the firewall protected.</td><td data-label="What 1.0.53 does">It is taken from Cloudflare's header only when the request comes from Cloudflare.</td></tr>
+        <tr><td data-label="Area">Swaps</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">A seller could reveal the secret with little time left, and a claim waiting in a busy mempool got more fee only once.</td><td data-label="What 1.0.53 does">The secret is revealed only with ten blocks left, and the claim is signed again every block with more fee.</td></tr>
+        <tr><td data-label="Area">Wallet</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">On Linux and macOS, other users of the computer could read the window's session link.</td><td data-label="What 1.0.53 does">The wallet's folder and files are for their user alone, and the link is no longer printed.</td></tr>
+        <tr><td data-label="Area">Light wallet</td><td data-label="Severity"><span class="au-pill high">High</span></td><td data-label="What was wrong">The work a node's tip claimed was remembered before its blocks were checked.</td><td data-label="What 1.0.53 does">Remembered only once every block up to it passed.</td></tr>
+        <tr><td data-label="Area">All areas</td><td data-label="Severity"><span class="au-pill med">Medium</span></td><td data-label="What was wrong">Eleven issues: payment-proof confirmations, pending payments, note-tree data from nodes, board files, proofs of funds, mode and peer settings, a crashed wallet's link, the payment check of swaps, a finished seller's unclaimed GNR, unreadable swap records, and a deposit code that came before the lock.</td><td data-label="What 1.0.53 does">All fixed; each one is in the full report.</td></tr>
+        <tr><td data-label="Area">All areas</td><td data-label="Severity"><span class="au-pill low">Low</span></td><td data-label="What was wrong">Five smaller issues: response limits, frame protection, and arithmetic and checks with numbers from the other side of a swap.</td><td data-label="What 1.0.53 does">All fixed, the arithmetic covered by property tests.</td></tr>
       </tbody>
     </table></div>
-    <p class="muted">Findings that are still being worked on are not described until they are fixed, so that nobody can use them first.</p>
+    <p class="muted">Findings that are still being worked on are not described until they are fixed, so that nobody can use them first. The findings of the 1.0.52 audit are in <a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-26-full-audit.md" rel="noopener">its report</a>.</p>
   </section>
 
   <section class="pg-sec" id="history">
     <span class="eyebrow">Every review</span>
     <h2>The record</h2>
     <ol class="au-tl">
+      <li class="glass"><span class="au-date">26 November 2026 · <span translate="no">1.0.52 → 1.0.53</span></span><h3>The whole system, reviewed again</h3><p>Swaps, node and network, desktop wallet, cryptography and the light client. 27 findings fixed in 1.0.53.</p><a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-26-system-audit-1.0.53.md" rel="noopener">Full report ↗</a></li>
       <li class="glass"><span class="au-date">26 November 2026 · <span translate="no">1.0.51 → 1.0.52</span></span><h3>Full audit of the whole system</h3><p>Wallet, swaps, Bitcoin signing, node and updates, consensus, website and forum. 30 findings fixed in 1.0.52.</p><a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-26-full-audit.md" rel="noopener">Full report ↗</a></li>
       <li class="glass"><span class="au-date">November 2026 · <span translate="no">1.0.33</span></span><h3>Private report by an independent researcher</h3><p>Light-client chain selection, swap board authorization and smaller hardening items, reported privately and fixed in 1.0.33.</p><a href="https://github.com/genoryn/genoryn#security-and-audits" rel="noopener">Summary ↗</a></li>
       <li class="glass"><span class="au-date">5 November 2026 · <span translate="no">1.0.6 → 1.0.7</span></span><h3>Internal audit</h3><p>Node and peer-to-peer layer, consensus and rewards, the wallets and light client, the website and server. Every fixable finding was fixed in 1.0.7.</p><a href="https://github.com/genoryn/genoryn/blob/main/docs/audit/2026-11-05-security-audit.md" rel="noopener">Full report ↗</a></li>
