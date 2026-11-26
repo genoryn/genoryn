@@ -1399,6 +1399,8 @@ header{padding:14px 30px}
         <label class="mcheck"><input type="checkbox" id="acceptPeers"> Let other nodes connect to my full node (helps the network; needs a restart of the node)</label>
         <p class="hero-note">Off by default: your node then only connects out to other nodes, so nothing on the internet can open a connection to this computer. Either way the node never runs commands or reads files for other nodes, and refuses invalid data from them.</p>
         <label for="nodes" style="margin-top:14px">Nodes for light mode (one per line; several are cross-checked)</label><textarea id="nodes"></textarea>
+        <label for="proxyUrl" style="margin-top:14px">Proxy for this wallet's connections (optional, for example Tor)</label><input id="proxyUrl" placeholder="socks5h://127.0.0.1:9050" spellcheck="false" autocomplete="off">
+        <p class="hero-note">With a proxy, the nodes, the offer board, the Bitcoin service and the update server see the proxy's address instead of this computer's. Tor: socks5h://127.0.0.1:9050 (Tor Browser: socks5h://127.0.0.1:9150). It is used from the next start of the wallet; a node or Bitcoin Core on this computer is reached directly. <b id="proxyState"></b></p>
         <div class="row-flex"><button class="btn btn-primary" onclick="saveSettings()">Save</button><button class="btn" onclick="api('/api/node/start',{}).then(refresh)">Start my full node</button><button class="btn" onclick="api('/api/node/stop',{}).then(refresh)">Stop node</button></div>
       </div>
     </div>
@@ -2059,9 +2061,14 @@ async function confirmSource(title){ if(!await ask({pass:true, title, icon:'glob
   return takePass(); }
 async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light';
   const nodes=$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean), cur=(S.settings&&S.settings.nodes)||[];
+  const proxy=$('proxyUrl').value.trim(), curProxy=(S.settings&&S.settings.proxy)||'';
   let password='';
-  if(nodes.join('\n')!==cur.join('\n')){ password=await confirmSource(T("Change the nodes this wallet reads from?")); if(password==null) return; }
-  try{ await api('/api/settings',{mode, nodes, accept_peers:$('acceptPeers').checked, password}); if(S.settings) S.settings.nodes=nodes; toast(T("Saved")); }catch(e){ toast(e.message,true) } }
+  if(nodes.join('\n')!==cur.join('\n') || proxy!==curProxy){ password=await confirmSource(proxy!==curProxy?T("Change how this wallet connects?"):T("Change the nodes this wallet reads from?")); if(password==null) return; }
+  try{ const r=await api('/api/settings',{mode, nodes, accept_peers:$('acceptPeers').checked, proxy, password});
+    if(S.settings){ S.settings.nodes=nodes; S.settings.proxy=proxy||null; } proxyState();
+    toast(r.restart?T("Saved. The proxy setting is used from the next start of the wallet."):T("Saved")); }catch(e){ toast(e.message,true) } }
+function proxyState(){ const el=$('proxyState'); if(!el||!S.settings) return; const p=S.settings.proxy||'';
+  el.textContent = S.proxy_active ? (p ? T("In use now.") : T("Still in use until the wallet restarts.")) : (p ? T("Restart the wallet to use it.") : ''); }
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 /* Password strength while typing (estimated by the wallet; nothing is stored or sent away). */
 document.querySelectorAll('.pw-meter').forEach(m=>{ const inp=$(m.dataset.for); if(!inp) return; let t=null, seq=0;
@@ -3151,7 +3158,7 @@ async function refresh(){
   mnSample(); renderMining();
   renderValue();
   if(!settingsLoaded && S.settings){ $('showVal').checked=VAL.show; }
-  if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); $('acceptPeers').checked=!!S.settings.accept_peers;
+  if(!settingsLoaded && S.settings){ settingsLoaded=true; $('nodes').value=S.settings.nodes.join('\n'); [...document.getElementsByName('mode')].forEach(x=>x.checked = x.value===S.settings.mode); $('acceptPeers').checked=!!S.settings.accept_peers; $('proxyUrl').value=S.settings.proxy||''; proxyState();
     $('uiLang').value=S.settings.language||'en';
     // First start: the system's language, once; the choice in Settings always wins.
     if(S.settings.language==null){ const l=firstLanguage(); if(l!=='en') setLanguage(l); else api('/api/language',{language:'en'}).catch(()=>{}); } }

@@ -1177,7 +1177,11 @@ pub async fn btc_send(
                 let fee = btc_fee(e);
                 let max = r.amount.trim().eq_ignore_ascii_case("max");
                 let amount = if max {
-                    let keep = if b.committed == 0 { fee } else { b.committed + fee * 2 };
+                    let keep = if b.committed == 0 {
+                        fee
+                    } else {
+                        b.committed + fee * 2
+                    };
                     b.total.saturating_sub(keep)
                 } else {
                     Amount::from_str_in(r.amount.trim(), Denomination::Bitcoin)

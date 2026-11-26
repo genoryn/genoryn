@@ -31,6 +31,7 @@ mod board;
 mod coins;
 mod console;
 mod i18n;
+mod proxy;
 mod swaps;
 mod trades;
 mod update;
@@ -101,6 +102,10 @@ struct Settings {
     /// Language of the page ("en", "de", ...); None until the first start has chosen one.
     #[serde(default)]
     language: Option<String>,
+    /// SOCKS5 proxy for the wallet's own connections (`socks5h://host:port`, e.g. Tor);
+    /// used from the next start. None or empty: direct.
+    #[serde(default)]
+    proxy: Option<String>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -570,6 +575,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "synced_height": wv["synced_height"],
             "history": wv["history"],
             "settings": s,
+            "proxy_active": proxy::active(),
             "tip": info,
             "node_running": node_running,
             "miner": ms,
@@ -1462,13 +1468,23 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(r): Json<SaveSettingsRe
     if let Some(u) = s.nodes.iter().find(|u| !node_url_ok(u)) {
         return err(format!("use https:// for remote nodes: {u}"));
     }
-    if app.settings.lock().nodes != s.nodes {
+    let mut s = s;
+    let cur_proxy = app.settings.lock().proxy.clone().unwrap_or_default();
+    let new_proxy = match &s.proxy {
+        Some(p) => p.trim().to_string(),
+        None => cur_proxy.clone(),
+    };
+    if let Err(e) = proxy::check(&new_proxy) {
+        return err(e);
+    }
+    s.proxy = (!new_proxy.is_empty()).then(|| new_proxy.clone());
+    // Which nodes are read, and the path to them, are confirmed with the password.
+    if app.settings.lock().nodes != s.nodes || cur_proxy != new_proxy {
         let (a, password) = (app.clone(), zeroize::Zeroizing::new(r.password.clone()));
         if let Err(e) = blocking(move || confirm_source_change(&a, &password)).await {
             return err(e);
         }
     }
-    let mut s = s;
     // The update preference and the swap connection have their own forms; saving nodes
     // must not reset them.
     {
@@ -1485,7 +1501,7 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(r): Json<SaveSettingsRe
     }
     *app.settings.lock() = s;
     match app.save_settings() {
-        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Ok(()) => Json(json!({"ok": true, "restart": cur_proxy != new_proxy})).into_response(),
         Err(e) => err(e),
     }
 }
@@ -1736,6 +1752,7 @@ fn data_dir(network: Network) -> PathBuf {
 
 /// Child processes (node, miner, browser launcher) never open console windows.
 fn hidden(cmd: &mut Command) -> &mut Command {
+    proxy::strip(cmd);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -2060,6 +2077,7 @@ async fn serve(
             share_prices: None,
             accept_peers: None,
             language: None,
+            proxy: None,
         });
     settings.language = settings.language.filter(|l| i18n::known(l));
     let token = hex::encode(rand::random::<[u8; 24]>());
@@ -2351,6 +2369,14 @@ fn main() -> Result<()> {
     verified::set_network(network);
     let dir = data_dir(network);
     std::fs::create_dir_all(&dir)?;
+    // Before any thread exists (see `proxy::apply`).
+    if let Some(p) = std::fs::read(dir.join("wallet-settings.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .and_then(|v| v.get("proxy")?.as_str().map(str::to_string))
+    {
+        proxy::apply(&p);
+    }
     // Second launch (desktop icon clicked again): show the running wallet instead.
     if let Some(url) = running_instance(&dir, false) {
         if !a.no_browser {

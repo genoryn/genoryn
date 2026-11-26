@@ -242,6 +242,12 @@ in its own window. Keys, scanning and proving never leave your computer.
 * **Full node**: one click starts `kryptond`, which downloads and validates the whole chain;
   the wallet then uses only your own node. It connects only out to other nodes unless you
   enable **Let other nodes connect to my full node**.
+* **Proxy (Tor)**, optional: the wallet's own connections (the nodes it reads, the offer board,
+  the Bitcoin service, the BTC price and updates) go through a SOCKS5 proxy, so those servers
+  see the proxy's address instead of yours. Use `socks5h://127.0.0.1:9050` for Tor or
+  `socks5h://127.0.0.1:9150` for Tor Browser; only `socks5h` is accepted, so names are resolved
+  through the proxy too. It applies from the next start of the wallet, changing it needs the
+  wallet password, and a node or Bitcoin Core on this computer is still reached directly.
 
 **Background mining:** while the miner runs, closing the window keeps the wallet, node and
 miner running; **Quit** stops everything. If the miner stops, the Mining tab shows why (for
@@ -329,6 +335,11 @@ random peer and announced to everyone only after 20 seconds, which hides their o
 download the whole mempool, so nodes cannot tell which pending transaction is whose. Offers on
 the board carry one-time keys, never your address, and the board cannot read the messages it
 passes.
+
+**Your IP address** is not on chain, but the servers a light wallet talks to see it. Set a Tor
+proxy in Network → Connection mode to hide it from them. The full node (`kryptond`) has no
+proxy setting: its peers see its address. If that matters, use the light wallet over Tor, or
+run the node with `--no-listen` so nothing can connect to it.
 
 ## Cryptography and quantum security
 
