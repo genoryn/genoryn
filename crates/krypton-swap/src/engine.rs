@@ -1807,6 +1807,26 @@ impl<G: ChainSource> Engine<'_, G> {
     fn step2_seller(&mut self, s: &mut Swap, btc_tip: u32, gnr_tip: u64) -> Result<()> {
         let t = self.timing;
         let gnr_refund = s.gnr_refund_height.context("no GNR refund height")?;
+        // The buyer's deposit code may come before the lock was written down (the wallet
+        // stopped right after sending it): the lock this swap's number has is taken on in
+        // any stage, so it is never left without the swap that refunds it.
+        if s.lock_cm.is_none()
+            && s.stage != Stage::Accepted
+            && let Some(terms) = s.terms()
+            && let Some(cm) = self
+                .wallet
+                .locks()
+                .iter()
+                .find(|l| {
+                    l.swap == s.index
+                        && l.role == LockRole::Refunder
+                        && l.terms == terms
+                        && l.value == s.gnr
+                })
+                .map(|l| l.cm)
+        {
+            s.lock_cm = Some(hex::encode(cm));
+        }
         if s.stage == Stage::Accepted && s.lock_cm.is_none() {
             let terms = s.terms().context("terms")?;
             // The lock may have been sent already: the wallet stopped after sending it

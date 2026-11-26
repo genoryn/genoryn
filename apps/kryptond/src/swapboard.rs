@@ -325,6 +325,25 @@ fn client_of(c: Option<Extension<ClientKey>>) -> Option<IpAddr> {
 }
 
 /// A day's counter: (start of the day, count), started over each day.
+/// A board file read back. One that exists but cannot be read is moved aside (and
+/// logged), never written over by the empty state that replaces it.
+fn read_json<T: serde::de::DeserializeOwned>(p: &std::path::Path) -> Option<T> {
+    let b = std::fs::read(p).ok()?;
+    match serde_json::from_slice(&b) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            let aside = p.with_extension(format!("unreadable-{}", now()));
+            tracing::error!(
+                "{} cannot be read ({e}); kept as {}",
+                p.display(),
+                aside.display()
+            );
+            let _ = std::fs::rename(p, &aside);
+            None
+        }
+    }
+}
+
 fn count_today(slot: &mut (u64, u32), t: u64) -> u32 {
     let day = t - t % 86_400;
     if slot.0 != day {
@@ -439,19 +458,15 @@ impl Board {
         let Some(p) = self.path.lock().clone() else {
             return;
         };
-        if let Ok(b) = std::fs::read(&p)
-            && let Ok(t) = serde_json::from_slice::<Vec<(Trade, u64)>>(&b)
-        {
+        if let Some(t) = read_json::<Vec<(Trade, u64)>>(&p) {
             i.trades = t;
         }
-        if let Ok(b) = std::fs::read(p.with_file_name("swap-coin-trades.json"))
-            && let Ok(t) = serde_json::from_slice::<Vec<(CoinTrade, u64)>>(&b)
+        if let Some(t) =
+            read_json::<Vec<(CoinTrade, u64)>>(&p.with_file_name("swap-coin-trades.json"))
         {
             i.coin_trades = t;
         }
-        if let Ok(b) = std::fs::read(p.with_file_name("swap-trades-paid.json"))
-            && let Ok(v) = serde_json::from_slice::<SavedPaid>(&b)
-        {
+        if let Some(v) = read_json::<SavedPaid>(&p.with_file_name("swap-trades-paid.json")) {
             i.paid = v.paid.into_iter().map(|(h, s, k)| (h, (s, k))).collect();
             i.disputed = v.disputed.into_iter().collect();
             i.claims = v.claims.into_iter().collect();
@@ -459,9 +474,7 @@ impl Board {
         // Offers and sealed messages survive restarts too (a node update must not drop
         // them, or a swap in progress could lose a code).
         let mut purged = false;
-        if let Ok(b) = std::fs::read(p.with_file_name("swap-board.json"))
-            && let Ok(s) = serde_json::from_slice::<Saved>(&b)
-        {
+        if let Some(s) = read_json::<Saved>(&p.with_file_name("swap-board.json")) {
             // Offers from before sell offers had to prove their GNR are not carried over.
             // Mailboxes are, and swaps in progress as far as the board can stand for them
             // (see below): a running swap must not lose a code.
@@ -607,9 +620,14 @@ impl Board {
         }
     }
 
+    /// On disk before it replaces the old file, so a crash leaves one or the other.
     fn write(path: &std::path::Path, b: Vec<u8>) {
+        use std::io::Write;
         let tmp = path.with_extension("tmp");
-        if std::fs::write(&tmp, b).is_ok() {
+        let ok = std::fs::File::create(&tmp)
+            .and_then(|mut f| f.write_all(&b).and_then(|()| f.sync_all()))
+            .is_ok();
+        if ok {
             let _ = std::fs::rename(tmp, path);
         }
     }
@@ -1167,6 +1185,12 @@ pub async fn post_offer(
         if hex_tx.len() > MAX_RESERVE_HEX {
             return bad("the proof of funds is too large");
         }
+        // Its zk-STARK proof is checked with the transactions' proofs: a few at a time.
+        let Ok(Ok(_verifying)) =
+            tokio::time::timeout(Duration::from_secs(10), node.tx_verify.acquire()).await
+        else {
+            return bad("the board is busy checking proofs; try again in a moment");
+        };
         let (n, o2) = (node.clone(), o.clone());
         let checked = tokio::task::spawn_blocking(move || -> Result<Backing, String> {
             // A proof of funds is a transfer that expired at block `RESERVE_EXPIRY`; the
@@ -1196,7 +1220,7 @@ pub async fn post_offer(
         match checked {
             Ok(Ok(b)) => Some(b),
             Ok(Err(e)) => return bad(e),
-            Err(e) => return bad(e),
+            Err(_) => return bad("the proof of funds could not be checked; try again"),
         }
     } else {
         None
@@ -2389,6 +2413,40 @@ mod tests {
             i.list(offer("c", Side::SellGnr), backing("n2", "d9"), T),
             Ok(())
         );
+    }
+
+    /// A board file that cannot be read is moved aside, never written over by the empty
+    /// board that starts in its place.
+    #[test]
+    fn an_unreadable_board_file_is_kept_aside() {
+        let dir =
+            std::env::temp_dir().join(format!("gk-board-bad-{}-{}", std::process::id(), now()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("swap-board.json");
+        std::fs::write(&file, b"{ damaged").unwrap();
+        let b = Board::default();
+        b.set_path(dir.join("swap-trades.json"));
+        let mut i = Inner::default();
+        b.load(&mut i);
+        assert!(i.offers.is_empty());
+        let kept: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("swap-board.unreadable-")
+            })
+            .collect();
+        assert_eq!(kept.len(), 1, "moved aside");
+        assert_eq!(std::fs::read(kept[0].path()).unwrap(), b"{ damaged");
+        b.write_board_now(&i);
+        assert_eq!(
+            std::fs::read(kept[0].path()).unwrap(),
+            b"{ damaged",
+            "not written over"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A board file from before sell offers proved their GNR. None of its offers is

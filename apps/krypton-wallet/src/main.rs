@@ -455,7 +455,26 @@ async fn local_only(req: axum::extract::Request, next: axum::middleware::Next) -
         }
     });
     if name == "127.0.0.1" || name == "localhost" {
-        next.run(req).await
+        let mut r = next.run(req).await;
+        // No other page may frame the wallet or have its answers read as something else.
+        let h = r.headers_mut();
+        h.insert(
+            header::X_FRAME_OPTIONS,
+            header::HeaderValue::from_static("DENY"),
+        );
+        h.insert(
+            header::X_CONTENT_TYPE_OPTIONS,
+            header::HeaderValue::from_static("nosniff"),
+        );
+        h.insert(
+            header::CONTENT_SECURITY_POLICY,
+            header::HeaderValue::from_static("frame-ancestors 'none'"),
+        );
+        h.insert(
+            header::REFERRER_POLICY,
+            header::HeaderValue::from_static("no-referrer"),
+        );
+        r
     } else {
         (StatusCode::FORBIDDEN, "not a local request").into_response()
     }
@@ -2398,17 +2417,11 @@ fn main() -> Result<()> {
     {
         proxy::apply(&p);
     }
-    // Second launch (desktop icon clicked again): show the running wallet instead.
-    if let Some(url) = running_instance(&dir, false) {
-        if !a.no_browser {
-            window::show(&url, None, None);
-        }
-        return Ok(());
-    }
     // Only one wallet may use a data directory: two would overwrite each other's wallet
-    // files. The lock is held until this process ends. A wallet that holds it but did not
-    // answer above is busy (proving) or just closing: wait for it instead of starting a
-    // second one.
+    // files. The lock is held until this process ends. The lock is taken first: only a
+    // wallet that holds it is asked to show itself (a second launch, the desktop icon
+    // clicked again), so a link left by one that crashed is never followed. A wallet that
+    // holds it but does not answer is busy (proving) or just closing: wait for it.
     let instance_lock = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
@@ -2417,7 +2430,7 @@ fn main() -> Result<()> {
         .context("open the wallet lock file")?;
     let mut waited = 0;
     while instance_lock.try_lock().is_err() {
-        if let Some(url) = running_instance(&dir, true) {
+        if let Some(url) = running_instance(&dir, waited > 0) {
             if !a.no_browser {
                 window::show(&url, None, None);
             }
@@ -2430,6 +2443,7 @@ fn main() -> Result<()> {
         );
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
+    let _ = std::fs::remove_file(dir.join("wallet-instance.url"));
     let (tx, rx) = std::sync::mpsc::channel();
     let port = a.port;
     let server = std::thread::spawn(move || -> Result<()> {
