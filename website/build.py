@@ -6,9 +6,13 @@ Run: python website/build.py
 """
 import hashlib
 import json
+import os
 import pathlib
 import re
 import shutil
+import subprocess
+import tempfile
+import urllib.request
 
 import i18n
 import seo
@@ -20,6 +24,72 @@ DIST = ROOT / "dist"
 JS_FILES = [ROOT / "site.js", ROOT / "explorer.js", ROOT / "market.js", ROOT / "miner-check.js",
             DESIGN / "assets" / "value.js", DESIGN / "assets" / "charts.js"]
 _TR = {}
+RELEASE = "https://github.com/genoryn/genoryn/releases/download/v{v}/{f}"
+# The files the download page offers, by placeholder (<!--SUM:win-setup--> and so on).
+DOWNLOADS = {
+    "win-setup": "GenorynKrypton-{v}-Windows-x64-Setup.exe",
+    "win-zip": "genoryn-krypton-{v}-windows-x64-portable.zip",
+    "deb": "genoryn-krypton_{v}_amd64.deb",
+    "tgz": "genoryn-krypton-{v}-linux-x64.tar.gz",
+}
+KEY = ROOT.parent / "docs" / "release-key.pub"
+_SUMS = {}
+
+
+def key_fingerprint():
+    """SHA-256 of the release key (the first 16 digits are the short fingerprint)."""
+    return hashlib.sha256(bytes.fromhex(KEY.read_text(encoding="utf-8").strip().lstrip("\ufeff"))).hexdigest()
+
+
+def release_sums():
+    """SHA-256 of each file of the current release, from its SHA256SUMS, taken only when
+    SHA256SUMS.sig checks out against docs/release-key.pub. They come from GK_RELEASE_DIR
+    when set (a release about to be published), otherwise from the GitHub release of
+    seo.VERSION. Without them, or without the krypton-release checker, the page shows no
+    hashes; a list whose signature fails stops the build."""
+    tool = next((t for t in (ROOT.parent / "target" / "release" / n for n in ("krypton-release.exe", "krypton-release")) if t.is_file()), None)
+    if tool is None:
+        print("note: no krypton-release checker built; the download page shows no hashes")
+        return {}
+
+    def fetch(name):
+        d = os.environ.get("GK_RELEASE_DIR")
+        if d:
+            return (pathlib.Path(d) / name).read_bytes()
+        with urllib.request.urlopen(RELEASE.format(v=seo.VERSION, f=name), timeout=20) as r:
+            return r.read(1 << 20)
+
+    try:
+        sums, sig = fetch("SHA256SUMS"), fetch("SHA256SUMS.sig")
+    except Exception as e:
+        print(f"note: no checksums for {seo.VERSION} yet ({e}); the download page shows no hashes")
+        return {}
+    with tempfile.TemporaryDirectory() as t:
+        (pathlib.Path(t) / "SHA256SUMS").write_bytes(sums)
+        (pathlib.Path(t) / "SHA256SUMS.sig").write_bytes(sig)
+        r = subprocess.run([str(tool), "verify", str(KEY), str(pathlib.Path(t) / "SHA256SUMS"), str(pathlib.Path(t) / "SHA256SUMS.sig")],
+                           capture_output=True, text=True)
+    if r.returncode != 0:
+        raise SystemExit(f"SHA256SUMS of {seo.VERSION} does not verify against docs/release-key.pub: {r.stderr.strip() or r.stdout.strip()}")
+    out = {}
+    for line in sums.decode("utf-8").splitlines():
+        m = re.fullmatch(r"([0-9a-f]{64})  (\S+)", line.strip())
+        if m:
+            out[m.group(2)] = m.group(1)
+    want = [f.format(v=seo.VERSION) for f in DOWNLOADS.values()]
+    if not all(f in out for f in want):
+        raise SystemExit(f"SHA256SUMS of {seo.VERSION} does not list every download: {', '.join(f for f in want if f not in out)}")
+    print(f"download hashes: {len(want)} files of {seo.VERSION}, signature checked")
+    return out
+
+
+def sums_html(html):
+    """The verified SHA-256 under each download button (code, never translated)."""
+    for k, f in DOWNLOADS.items():
+        name = f.format(v=seo.VERSION)
+        h = _SUMS.get(name)
+        html = html.replace(f"<!--SUM:{k}-->", f'<p class="dl-sum"><code>{name}</code><code>SHA-256 {h}</code></p>' if h else "")
+    return html
 
 
 def built_langs():
@@ -72,6 +142,7 @@ def assemble(page, key, lang, langs, head, nav, foot):
     # line about the latest one, the feed and the repository's CHANGELOG.md.
     html = html.replace("<!--UPDATES-->", updates.page_html())
     html = html.replace("<!--LATEST_UPDATE-->", updates.latest_html())
+    html = sums_html(html).replace("<!--KEYFP-->", key_fingerprint())
     # Guides name the files of the current release.
     return html.replace("<!--VERSION-->", seo.VERSION)
 
@@ -109,6 +180,7 @@ def llms_full():
 
 
 def main():
+    _SUMS.update(release_sums())
     if DIST.exists():
         shutil.rmtree(DIST)
     DIST.mkdir()
@@ -154,6 +226,8 @@ def main():
     # The project's signed list of verified Krypton coins (wallets check the signature).
     for f in ["verified-assets.json", "verified-assets.json.sig"]:
         shutil.copy(ROOT.parent / "docs" / f, DIST / f)
+    # The release key, so the download page can be checked without GitHub.
+    shutil.copy(KEY, DIST / "release-key.pub")
     (DIST / "sitemap.xml").write_text(seo.sitemap(langs), encoding="utf-8")
     (DIST / "robots.txt").write_text(seo.ROBOTS, encoding="utf-8")
     (DIST / "site.webmanifest").write_text(seo.MANIFEST, encoding="utf-8")

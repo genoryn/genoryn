@@ -122,22 +122,16 @@
     api: function (p) { return fetch(p, { headers: { accept: "application/json" } }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); },
     gnr: function (v, d) { return GKI18N.num(Number(v || 0) / 1e8, { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 8 : d }); },
     rate: function (r) { r = Number(r || 0); return r >= 1e15 ? (r / 1e15).toFixed(2) + " PH/s" : r >= 1e12 ? (r / 1e12).toFixed(2) + " TH/s" : r >= 1e9 ? (r / 1e9).toFixed(2) + " GH/s" : r >= 1e6 ? (r / 1e6).toFixed(2) + " MH/s" : r >= 1e3 ? (r / 1e3).toFixed(1) + " kH/s" : r.toFixed(0) + " H/s"; },
-    esc: function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); },
+    esc: function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); },
     ago: function (t) {
       var s = Math.max(0, Math.floor(Date.now() / 1000 - t));
       return s < 60 ? T("{n} s ago", { n: s }) : s < 3600 ? T("{n} min ago", { n: Math.floor(s / 60) }) : T("{n} h ago", { n: Math.floor(s / 3600) });
     },
-    miners: function (st) {
-      var m = document.getElementById("sMiners"), g = document.getElementById("sGpus");
-      if (!m || !st) return;
-      m.textContent = GKI18N.num(st.estimated_miners || 0);
-      var eq = Number(st.gpu_equivalents || 0);
-      // An address is counted when it earned a share in the last six hours. Over a day
-      // more addresses mine, and one address can stand for many computers.
-      var day = Number(st.miners_24h || 0);
-      var gpus = eq < 10 ? GKI18N.num(eq, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : GKI18N.num(Math.round(eq));
-      if (g) g.textContent = (day > Number(st.estimated_miners || 0) ? T("{n} in 24 h", { n: GKI18N.num(day) }) + " · " : "") + "≈ " +
-        Tn(eq >= 0.95 && eq < 1.05 ? 1 : 2, "{n} GPU", "{n} GPUs", { n: gpus });
+    // The difficulty of the next block. How many computers mine is known to nobody, so it
+    // is never shown: the hashrate and the difficulty measure the work itself.
+    difficulty: function (info) {
+      var d = document.getElementById("sDiff");
+      if (d && info && info.difficulty && window.GKCharts) d.textContent = GKCharts.fmtNum(Number(info.difficulty));
     }
   };
   // The language picked by hand wins; the browser's language is used once, on the home page.
@@ -205,12 +199,45 @@
       fmt: function (v, axis) { var u = GKValue.market(v, btc); return axis ? GKCharts.fmtNum(v) + " sat" : GKValue.btc(v) + (u != null ? " · ≈ " + GKValue.usd(u) : ""); } };
     if (homePriceChart) homePriceChart.update(series, opts); else homePriceChart = GKCharts.chart(host, series, opts);
   };
+  // Home: the latest completed swaps, each with its proof on the Genoryn chain.
+  gk.swapFeed = function () {
+    var list = document.getElementById("homeSwaps");
+    if (!list || !window.GKValue) return;
+    var put = function (id, t) { var el = document.getElementById(id); if (el) el.textContent = t; };
+    var mk = gk.mk || {}, btcUsd = Number(gk.btcUsd) || 0, now = Date.now() / 1000;
+    var at = function (x) { return (x.claim && x.claim.time) || x.at || 0; };
+    var all = (gk.mkRecent || []).slice().sort(function (a, b) { return at(b) - at(a); });
+    var done = all.filter(function (x) { return x.claim; });
+    var g = 0, s = 0;
+    done.forEach(function (x) { g += Number(x.gnr) || 0; s += Number(x.sats) || 0; });
+    var gnr = function (v) { return GKI18N.num(v / 1e8, { maximumFractionDigits: v >= 1e10 ? 0 : 2 }); };
+    var btc = function (v) { return GKI18N.num(v / 1e8, { minimumFractionDigits: 4, maximumFractionDigits: 8 }); };
+    var ago = function (sec) { return sec >= 86400 ? Tn(Math.floor(sec / 86400), "{n} day", "{n} days") : sec >= 3600 ? T("{n} h", { n: Math.floor(sec / 3600) }) : T("{n} min", { n: Math.max(1, Math.floor(sec / 60)) }); };
+    put("hsDone", GKI18N.num(done.length));
+    put("hsGnr", done.length ? gnr(g) + " GNR" : "—");
+    put("hsBtc", done.length ? btc(s) + " BTC" : "—");
+    put("hsLast", all.length ? T("{t} ago", { t: ago(Math.max(0, now - at(all[0]))) }) : "—");
+    put("hsRun", T("Swaps, 24 h") + ": " + T("{done} done · {running} in progress", { done: GKI18N.num(mk.trades || 0), running: GKI18N.num(mk.pending || 0) }));
+    var explorer = GKI18N.path("/explorer");
+    var e = gk.esc;
+    list.innerHTML = all.length ? all.slice(0, 6).map(function (x) {
+      var c = x.claim, p = Number(x.price) || 0, u = GKValue.market(p, btcUsd);
+      return "<li class=\"hs-row\">" +
+        "<span class=\"hs-pair\"><span class=\"hs-c\">" + GKValue.coin("gnr") + "<b>" + e(gnr(Number(x.gnr) || 0)) + "</b><em>GNR</em></span>" +
+        "<i aria-hidden=\"true\">⇄</i><span class=\"hs-c\">" + GKValue.coin("btc") + "<b>" + e(btc(Number(x.sats) || 0)) + "</b><em>BTC</em></span></span>" +
+        "<span class=\"hs-px\"><b>" + e(GKValue.btc(p)) + "</b>" + (u != null ? "<em>≈ " + e(GKValue.usd(u)) + "</em>" : "") + "</span>" +
+        "<span class=\"hs-when\">" + e(T("{t} ago", { t: ago(Math.max(0, now - at(x))) })) + "</span>" +
+        (c ? "<a class=\"hs-proof\" href=\"" + explorer + "#/tx/" + encodeURIComponent(String(c.txid || "")) + "\">" + e(T("Block #{h}", { h: GKI18N.num(Number(c.height) || 0) })) + " ↗</a>"
+           : "<span class=\"hs-proof wait\">" + e(T("Reported")) + "</span>") +
+        "</li>";
+    }).join("") : "<li class=\"hs-empty muted\">" + e(T("No completed swaps yet.")) + "</li>";
+  };
   if (document.querySelector("[data-mk-usd], [data-main], [data-mk-price]")) {
     var loadMarket = function () {
       var info = gk.api("/v1/info").catch(function () { return null; });
       var mk = gk.api("/v1/swap/market").then(function (m) { gk.mk = m.market; gk.mkRecent = m.recent || []; }).catch(function () {});
       var btc = gk.api("/v1/btc-price").then(function (p) { gk.btcUsd = p.USD; }).catch(function () {});
-      Promise.all([info, mk, btc]).then(function (r) { gk.value(r[0]); gk.priceChart(); });
+      Promise.all([info, mk, btc]).then(function (r) { gk.value(r[0]); gk.priceChart(); gk.swapFeed(); });
     };
     loadMarket();
     setInterval(function () { if (!document.hidden) loadMarket(); }, 60000);
@@ -221,7 +248,7 @@
   if (calcEl && window.GKValue) {
     var liveInfo = {}, liveMk = {}, liveBtc = 0;
     var calc = GKValue.mountCalc(calcEl, function () {
-      return { height: liveInfo.height, miners: liveInfo.stats && liveInfo.stats.estimated_miners, hashrate: liveInfo.hashrate,
+      return { height: liveInfo.height, hashrate: liveInfo.hashrate,
         supply: liveInfo.supply, sat: liveMk.price, btcUsd: liveBtc };
     });
     var loadCalc = function () {
@@ -266,7 +293,7 @@
       var last = pts[pts.length - 1] || {};
       var avg = function (k) { return pts.length ? pts.reduce(function (a, p) { return a + Number(p[k] || 0); }, 0) / pts.length : 0; };
       hk("hashrate", gk.rate(s.hashrate));
-      hk("miners", String(s.estimated_miners || 0));
+      hk("shares", T("{n} avg", { n: GKI18N.num(avg("shares"), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }));
       hk("block_time", T("{n} s avg", { n: avg("block_time").toFixed(0) }));
       hk("difficulty", GKCharts.fmtNum(last.difficulty || 0));
       hk("issued", gk.gnr(s.issued, 0) + " GNR");
@@ -298,7 +325,7 @@
         h.textContent = GKI18N.num(i.height);
         document.getElementById("sSupply").textContent = gk.gnr(i.supply, 0);
         document.getElementById("sRate").textContent = gk.rate(i.hashrate);
-        gk.miners(i.stats);
+        gk.difficulty(i);
         var lt = document.getElementById("liveText");
         if (lt) lt.textContent = (i.network === "mainnet" ? T("Mainnet is live · block {h}", { h: GKI18N.num(i.height) }) : T("Testnet is live · block {h}", { h: GKI18N.num(i.height) }));
       }).catch(function () {

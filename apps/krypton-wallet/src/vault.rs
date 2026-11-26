@@ -14,6 +14,9 @@ use std::path::Path;
 use std::time::{Duration, Instant, SystemTime};
 
 pub const UNLOCK_TTL: Duration = Duration::from_secs(24 * 3600);
+/// The longest a wallet stays unlocked past its 24 hours because coins of it are in a swap
+/// contract that only it can claim or refund (locked, it could lose them).
+pub const STAKE_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
 /// When a wallet was unlocked. The monotonic clock may stop while the computer sleeps,
 /// so the wall clock is kept too and whichever shows more time wins.
@@ -175,8 +178,11 @@ pub struct Vault {
     /// Wallets temporarily taken out of `others` by the background sync.
     pub syncing: Mutex<HashSet<String>>,
     /// Wallets with a swap in progress or an open offer (closing the window keeps the app
-    /// running for them). The 24-hour lock applies to them as to any other.
+    /// running for them).
     pub hold: Mutex<HashSet<String>>,
+    /// Wallets with coins in a swap contract that only they can finish: the 24-hour lock
+    /// waits for the swap (up to [`STAKE_TTL`]).
+    pub stake: Mutex<HashSet<String>>,
 }
 
 impl Vault {
@@ -211,11 +217,33 @@ impl Vault {
             h.remove(id);
         }
     }
+    /// Records what a wallet has going on after a round of its swaps and offers.
+    pub fn note_work(&self, id: &str, w: &Wallet) {
+        self.set_hold(id, crate::swaps::busy(w));
+        let mut s = self.stake.lock();
+        if crate::swaps::at_stake(w) {
+            s.insert(id.to_string());
+        } else {
+            s.remove(id);
+        }
+    }
+    /// Whether the 24-hour lock of `id` is waiting for one of its swaps.
+    pub fn held(&self, id: &str) -> bool {
+        self.stake.lock().contains(id)
+    }
+    /// How long `id` may stay unlocked in all.
+    fn ttl(&self, id: &str) -> Duration {
+        if self.held(id) { STAKE_TTL } else { UNLOCK_TTL }
+    }
     pub fn locks_in(&self, id: &str) -> Option<u64> {
-        self.unlocked
-            .lock()
-            .get(id)
-            .map(|t| UNLOCK_TTL.saturating_sub(t.elapsed()).as_secs())
+        let since = self.unlocked.lock().get(id).copied()?;
+        let e = since.elapsed();
+        let ttl = if e < UNLOCK_TTL {
+            UNLOCK_TTL
+        } else {
+            self.ttl(id)
+        };
+        Some(ttl.saturating_sub(e).as_secs())
     }
 }
 
@@ -242,10 +270,12 @@ pub fn lock_wallet(app: &App, id: &str) {
         *app.account.lock() = None;
         app.vault.unlocked.lock().remove(id);
         app.vault.set_hold(id, false);
+        app.vault.stake.lock().remove(id);
     } else {
         // `put_back` checks the record, so it goes first here.
         app.vault.unlocked.lock().remove(id);
         app.vault.others.lock().remove(id);
+        app.vault.stake.lock().remove(id);
     }
 }
 
@@ -289,24 +319,27 @@ pub fn put_back(app: &App, id: &str, w: Wallet) {
 }
 
 /// Whether `id` was unlocked more than 24 hours ago (it must not be used any more,
-/// even before the background task gets to lock it).
+/// even before the background task gets to lock it), or longer than [`STAKE_TTL`] while
+/// a swap of it holds the lock back.
 pub fn expired(app: &App, id: &str) -> bool {
-    app.vault
-        .unlocked
-        .lock()
-        .get(id)
-        .is_some_and(|t| t.elapsed() >= UNLOCK_TTL)
+    let since = app.vault.unlocked.lock().get(id).copied();
+    since.is_some_and(|t| t.elapsed() >= app.vault.ttl(id))
 }
 
-/// Locks every wallet whose 24 hours are over.
+/// Locks every wallet whose 24 hours are over, unless coins of it are in a swap contract
+/// only it can finish (then when the swap is, or after [`STAKE_TTL`]).
 pub fn expire(app: &App) {
-    let due: Vec<String> = app
+    let open: Vec<(String, Since)> = app
         .vault
         .unlocked
         .lock()
         .iter()
-        .filter(|(_, t)| t.elapsed() >= UNLOCK_TTL)
-        .map(|(id, _)| id.clone())
+        .map(|(id, t)| (id.clone(), *t))
+        .collect();
+    let due: Vec<String> = open
+        .into_iter()
+        .filter(|(id, t)| t.elapsed() >= app.vault.ttl(id))
+        .map(|(id, _)| id)
         .collect();
     for id in due {
         lock_wallet(app, &id);
@@ -338,7 +371,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         };
         app.vault.syncing.lock().insert(id.clone());
         let _ = w.sync(src, |_, _| {});
-        app.vault.set_hold(&id, crate::swaps::busy(&w));
+        app.vault.note_work(&id, &w);
         app.vault.note(&id, &w);
         remember_fp(app, &id, &w);
         crate::snapshot(&w);
@@ -361,7 +394,7 @@ pub fn sync_others(app: &App, src: &Multi, pool: Option<&Pool>) {
         };
         app.vault.syncing.lock().insert(id.clone());
         crate::swaps::tick(app, &mut w, src, txs);
-        app.vault.set_hold(&id, crate::swaps::busy(&w));
+        app.vault.note_work(&id, &w);
         crate::snapshot(&w);
         put_back(app, &id, w);
     }
@@ -417,7 +450,8 @@ pub async fn list(State(app): S, h: HeaderMap) -> Response {
                 "name": e.name,
                 "active": e.id == reg.active,
                 "unlocked": open,
-                "locks_in": unlocked.get(&e.id).map(|t| UNLOCK_TTL.saturating_sub(t.elapsed()).as_secs()),
+                "locks_in": app.vault.locks_in(&e.id),
+                "held": open && app.vault.held(&e.id),
                 "balance": c.map(|c| c.balance),
                 "balance_is_last_known": c.is_some() && !open,
                 "short": c.map(|c| c.short.clone()),
@@ -575,7 +609,7 @@ pub async fn unlock_one(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Re
     match blocking(move || {
         let path = a.vault.path(&a.dir, &r.id).context("no such wallet")?;
         let pw = r.password.as_deref().unwrap_or("");
-        let w = Wallet::open(&path, pw)?;
+        let w = crate::password_check(|| Wallet::open(&path, pw))?;
         let weak = !krypton_wallet_core::password::strength(pw).ok;
         remember_fp(&a, &r.id, &w);
         a.vault.note(&r.id, &w);
@@ -625,8 +659,15 @@ pub async fn change_password(State(app): S, h: HeaderMap, Json(r): Json<Password
         );
         let path = a.vault.path(&a.dir, &r.id).context("no such wallet")?;
         // The old password must open the file as it is on disk.
-        krypton_wallet_core::file::FileKey::open(&path, &r.old)
-            .map_err(|_| anyhow::anyhow!("the current password is wrong"))?;
+        crate::password_check(|| krypton_wallet_core::file::FileKey::open(&path, &r.old)).map_err(
+            |e| {
+                if format!("{e:#}").contains("wrong password") {
+                    anyhow::anyhow!("the current password is wrong")
+                } else {
+                    e
+                }
+            },
+        )?;
         // Change the open copy if there is one: it would otherwise save under the old key.
         {
             let mut g = a.wallet.lock();
@@ -734,25 +775,129 @@ pub async fn rename(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Respon
     }
 }
 
-/// Removes a wallet from the app. Its file is moved to `removed/`, never destroyed:
-/// the coins stay safe and the 24 words (or that file) bring it back.
-pub async fn remove(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Response {
+#[derive(Deserialize)]
+pub struct RemoveReq {
+    id: String,
+    password: String,
+    /// Overwrite and delete the file (and earlier removed copies of it) instead of
+    /// moving it to `removed/`.
+    #[serde(default)]
+    permanent: bool,
+}
+
+impl Drop for RemoveReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+    }
+}
+
+/// Whether removing wallet `id` would leave something only its file can finish: a swap
+/// in progress, an open offer, a deposit to send back or a lock to refund.
+fn unfinished(app: &App, id: &str, path: &Path, on_disk: &Wallet) -> Result<bool> {
+    if crate::swaps::has_work(on_disk) {
+        return Ok(true);
+    }
+    if app.vault.active_id() == id {
+        let g = app
+            .wallet
+            .try_lock_for(Duration::from_secs(3))
+            .context("the wallet is busy; try again in a few seconds")?;
+        if let Some(w) = g.as_ref()
+            && w.path() == path
+        {
+            return Ok(crate::swaps::has_work(w));
+        }
+    }
+    Ok(app
+        .vault
+        .others
+        .lock()
+        .get(id)
+        .is_some_and(crate::swaps::has_work))
+}
+
+/// Overwrites a file with zeros before deleting it, so its bytes do not linger on disk
+/// in the clear sectors of an ordinary delete (the file is encrypted either way).
+fn destroy(path: &Path) -> Result<()> {
+    use std::io::Write;
+    let len = std::fs::metadata(path)?.len();
+    {
+        let mut f = std::fs::OpenOptions::new().write(true).open(path)?;
+        let zeros = vec![0u8; 64 * 1024];
+        let mut left = len;
+        while left > 0 {
+            let n = left.min(zeros.len() as u64) as usize;
+            f.write_all(&zeros[..n])?;
+            left -= n as u64;
+        }
+        f.sync_all()?;
+    }
+    std::fs::remove_file(path)?;
+    Ok(())
+}
+
+/// Removes a wallet from this computer. Its password must open its file, and a wallet with
+/// a swap in progress or an offer on the board is refused: only its own file can finish
+/// those, refunds included. By default the file moves to `removed/` (the coins stay on the
+/// chain, and that file or the 24 words bring the wallet back); `permanent` overwrites and
+/// deletes it together with every earlier removed copy, refused while the miner pays it.
+pub async fn remove(State(app): S, h: HeaderMap, Json(r): Json<RemoveReq>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    let res = (|| -> Result<()> {
-        let entry = app
+    let a = app.clone();
+    let res = blocking(move || -> Result<()> {
+        let entry = a
             .vault
             .reg
             .lock()
             .get(&r.id)
             .cloned()
             .context("no such wallet")?;
-        lock_wallet(&app, &r.id);
-        app.vault.cache.lock().remove(&r.id);
-        let src = app.dir.join(&entry.file);
+        ensure!(
+            !a.vault.syncing.lock().contains(&r.id),
+            "the wallet is busy syncing; try again in a few seconds"
+        );
+        let src = a.dir.join(&entry.file);
         if src.exists() {
-            let bin = app.dir.join("removed");
+            let w = crate::password_check(|| Wallet::open(&src, &r.password)).map_err(|e| {
+                if format!("{e:#}").contains("wrong password") {
+                    anyhow::anyhow!("the password is wrong")
+                } else {
+                    e
+                }
+            })?;
+            ensure!(
+                !unfinished(&a, &r.id, &src, &w)?,
+                "this wallet has a swap in progress or an offer on the board: finish or cancel them first, and wait for any refund. Only this wallet can take its coins back from them"
+            );
+            if r.permanent {
+                let mining = a.miner.lock().as_mut().is_some_and(|c| c.try_wait().ok().flatten().is_none())
+                    && std::fs::read_to_string(a.dir.join("miner-address.txt"))
+                        .is_ok_and(|m| m.trim() == w.address().encode());
+                ensure!(
+                    !mining,
+                    "the miner pays this wallet: stop the miner, or start it for another wallet, first"
+                );
+            }
+        }
+        lock_wallet(&a, &r.id);
+        a.vault.cache.lock().remove(&r.id);
+        let bin = a.dir.join("removed");
+        if r.permanent {
+            if src.exists() {
+                destroy(&src)?;
+            }
+            if let Ok(rd) = std::fs::read_dir(&bin) {
+                let prefix = format!("{}-", entry.id);
+                for f in rd.flatten() {
+                    if f.file_name().to_string_lossy().starts_with(&prefix) {
+                        destroy(&f.path())?;
+                    }
+                }
+            }
+        } else if src.exists() {
             std::fs::create_dir_all(&bin)?;
             let dst = bin.join(format!(
                 "{}-{}-{}.krypton",
@@ -762,7 +907,7 @@ pub async fn remove(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Respon
             ));
             std::fs::rename(&src, &dst)?;
         }
-        let mut reg = app.vault.reg.lock();
+        let mut reg = a.vault.reg.lock();
         reg.wallets.retain(|e| e.id != r.id);
         if reg.active == r.id {
             reg.active = reg
@@ -772,14 +917,15 @@ pub async fn remove(State(app): S, h: HeaderMap, Json(r): Json<IdReq>) -> Respon
                 .unwrap_or_default();
             let next = reg.active.clone();
             drop(reg);
-            let w = app.vault.others.lock().remove(&next);
-            *app.wallet.lock() = w;
-            app.vault.reg.lock().save(&app.dir)?;
+            let w = a.vault.others.lock().remove(&next);
+            *a.wallet.lock() = w;
+            a.vault.reg.lock().save(&a.dir)?;
         } else {
-            reg.save(&app.dir)?;
+            reg.save(&a.dir)?;
         }
         Ok(())
-    })();
+    })
+    .await;
     match res {
         Ok(()) => Json(json!({"ok": true})).into_response(),
         Err(e) => err(e),

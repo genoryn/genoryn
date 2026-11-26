@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.51"
+VERSION = "1.0.52"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "
@@ -84,6 +84,9 @@ PAGES = {
     "bug-reports": {"path": "/bug-reports", "file": "bug-reports.html", "priority": "0.6", "freq": "monthly", "crumb": "Bug reports",
                     "og_title": "Bug reports: how to report a problem in Genoryn Krypton",
                     "og_desc": "Where to report a bug in the wallet, miner, node or website, what to include, what never to post, and how vulnerabilities are reported privately."},
+    "audits": {"path": "/audits", "file": "audits.html", "type": "article", "priority": "0.7", "freq": "monthly", "crumb": "Security audits",
+               "og_title": "Security audits of Genoryn Krypton: what was checked, and what was fixed",
+               "og_desc": "Every security review of the Genoryn Krypton wallet, node, swaps, Bitcoin signing, website and forum: what was checked and found correct, what was found, and how each issue was fixed."},
     "contribute": {"path": "/contribute", "file": "contribute.html", "priority": "0.7", "freq": "monthly", "crumb": "Contribute",
                    "og_title": "Contribute to Genoryn Krypton: code, documentation, translations",
                    "og_desc": "Build and test the code, send a change, review what matters most, improve the documentation, and where translations stand. Open source under MIT or Apache-2.0."},

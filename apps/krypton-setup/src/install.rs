@@ -12,6 +12,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(windows)]
 const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\GenorynKrypton";
 pub const UNINSTALLER: &str = "Uninstall Genoryn Krypton.exe";
+/// Every file an install put into the folder (one relative path per line): uninstalling
+/// removes these and nothing else.
+const MANIFEST: &str = "installed-files.txt";
 
 #[derive(Clone)]
 pub struct Options {
@@ -46,6 +49,66 @@ pub fn default_dir() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("Programs").join(APP_NAME)
+}
+
+/// Whether `dir` holds an install of ours (or a copy of the app).
+fn is_ours(dir: &Path) -> bool {
+    dir.join(MANIFEST).is_file()
+        || dir.join(UNINSTALLER).is_file()
+        || dir.join("krypton-wallet.exe").is_file()
+}
+
+/// The folder an install goes into: the chosen one when it is ours or empty, otherwise
+/// a "Genoryn Krypton" folder inside it, so a drive, the profile or any folder with other
+/// files in it is never treated as the app's own.
+pub fn install_dir(chosen: &Path) -> PathBuf {
+    let empty = std::fs::read_dir(chosen).map_or(true, |mut rd| rd.next().is_none());
+    if chosen.parent().is_some() && (is_ours(chosen) || empty) {
+        chosen.to_path_buf()
+    } else {
+        chosen.join(APP_NAME)
+    }
+}
+
+/// The files of this installer's payload, as relative paths.
+fn payload_files() -> Vec<PathBuf> {
+    let Ok(mut z) = zip::ZipArchive::new(Cursor::new(PAYLOAD)) else {
+        return Vec::new();
+    };
+    (0..z.len())
+        .filter_map(|i| {
+            let f = z.by_index(i).ok()?;
+            (!f.is_dir()).then(|| f.enclosed_name()).flatten()
+        })
+        .collect()
+}
+
+/// A relative path that stays inside the install folder.
+fn inside(rel: &Path) -> bool {
+    !rel.as_os_str().is_empty()
+        && rel
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)))
+}
+
+fn read_manifest(dir: &Path) -> Vec<PathBuf> {
+    std::fs::read_to_string(dir.join(MANIFEST))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| PathBuf::from(l.trim()))
+        .filter(|p| inside(p))
+        .collect()
+}
+
+/// The program's own Windows tools, from the system folder only (a `powershell.exe` or
+/// `cmd.exe` next to the installer, say in Downloads, is never the one run).
+#[cfg(windows)]
+fn system_tool(rel: &str) -> PathBuf {
+    std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+        .join("System32")
+        .join(rel)
 }
 
 /// Resolves a per-user shell folder the way Explorer does, so redirected folders
@@ -114,7 +177,7 @@ fn stop_running(dir: &Path) {
             "Get-Process krypton-wallet,kryptond,krypton-miner -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{}\\*' }} | Stop-Process -Force",
             dir.display().to_string().replace('\'', "''")
         );
-        let _ = std::process::Command::new("powershell")
+        let _ = std::process::Command::new(system_tool(r"WindowsPowerShell\v1.0\powershell.exe"))
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])
             .creation_flags(0x0800_0000)
             .output();
@@ -123,13 +186,24 @@ fn stop_running(dir: &Path) {
     let _ = dir;
 }
 
-/// Removes leftovers of interrupted or in-place upgrades.
-fn sweep(dir: &Path) {
-    if let Ok(rd) = std::fs::read_dir(dir) {
-        for e in rd.flatten() {
-            let n = e.file_name().to_string_lossy().into_owned();
-            if n.ends_with(".new") || n.contains(".old-") {
-                let _ = std::fs::remove_file(e.path());
+/// Removes leftovers of interrupted or in-place upgrades: the `.new` and `.old-*` copies
+/// [`replace_file`] makes of the program's own files, and no other file.
+fn sweep(dir: &Path, files: &[PathBuf]) {
+    for rel in files {
+        let dest = dir.join(rel);
+        let _ = std::fs::remove_file(dest.with_extension("new"));
+        let (Some(parent), Some(stem)) = (dest.parent(), dest.file_stem()) else {
+            continue;
+        };
+        let aside = format!("{}.old-", stem.to_string_lossy());
+        if let Ok(rd) = std::fs::read_dir(parent) {
+            for e in rd.flatten() {
+                let n = e.file_name().to_string_lossy().into_owned();
+                if n.strip_prefix(&aside)
+                    .is_some_and(|pid| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()))
+                {
+                    let _ = std::fs::remove_file(e.path());
+                }
             }
         }
     }
@@ -157,9 +231,18 @@ pub fn install(opts: &Options, p: &Arc<Progress>) -> Result<()> {
     let mut z =
         zip::ZipArchive::new(Cursor::new(PAYLOAD)).context("this installer has no payload")?;
     std::fs::create_dir_all(&opts.dir).context("create install directory")?;
+    let mut files = read_manifest(&opts.dir);
+    for f in payload_files()
+        .into_iter()
+        .chain([PathBuf::from(UNINSTALLER)])
+    {
+        if !files.contains(&f) {
+            files.push(f);
+        }
+    }
     p.step.set("Preparing");
     stop_running(&opts.dir);
-    sweep(&opts.dir);
+    sweep(&opts.dir, &files);
     let total: u64 = (0..z.len())
         .filter_map(|i| z.by_index(i).ok().map(|f| f.size()))
         .sum::<u64>()
@@ -195,7 +278,9 @@ pub fn install(opts: &Options, p: &Arc<Progress>) -> Result<()> {
     if me != uninst {
         replace_file(&uninst, &std::fs::read(&me)?).context("copy uninstaller")?;
     }
-    sweep(&opts.dir);
+    sweep(&opts.dir, &files);
+    let list: String = files.iter().map(|f| format!("{}\n", f.display())).collect();
+    std::fs::write(opts.dir.join(MANIFEST), list).context("write the list of installed files")?;
     p.permille.store(920, Ordering::Relaxed);
     p.step.set("Creating shortcuts");
     let wallet = opts.dir.join("krypton-wallet.exe");
@@ -301,19 +386,11 @@ pub fn uninstall(dir: &Path, p: &Arc<Progress>) -> Result<()> {
     }
     p.permille.store(450, Ordering::Relaxed);
     p.step.set("Removing program files");
-    if let Ok(rd) = std::fs::read_dir(dir) {
-        for e in rd.flatten() {
-            let path = e.path();
-            if path.file_name().and_then(|n| n.to_str()) == Some(UNINSTALLER) {
-                continue;
-            }
-            let _ = if path.is_dir() {
-                std::fs::remove_dir_all(&path)
-            } else {
-                std::fs::remove_file(&path)
-            };
-        }
-    }
+    // Only what an install put there: other files in the folder stay, and so does the
+    // folder then.
+    let mut files = read_manifest(dir);
+    files.extend(payload_files());
+    remove_installed(dir, &files);
     p.permille.store(800, Ordering::Relaxed);
     #[cfg(windows)]
     {
@@ -321,8 +398,9 @@ pub fn uninstall(dir: &Path, p: &Arc<Progress>) -> Result<()> {
         use winreg::enums::HKEY_CURRENT_USER;
         let _ = RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(UNINSTALL_KEY);
     }
-    // The running uninstaller removes itself and the folder after it exits. The path goes
-    // into a cmd line, so one with characters cmd would interpret is left in place.
+    // The running uninstaller removes itself after it exits, then the folder if nothing
+    // else is left in it. The path goes into a cmd line, so one with characters cmd would
+    // interpret is left in place.
     #[cfg(windows)]
     if !dir
         .to_string_lossy()
@@ -330,10 +408,11 @@ pub fn uninstall(dir: &Path, p: &Arc<Progress>) -> Result<()> {
     {
         use std::os::windows::process::CommandExt;
         let script = format!(
-            "ping 127.0.0.1 -n 3 > nul & rmdir /s /q \"{}\"",
+            "ping 127.0.0.1 -n 3 > nul & del /f /q \"{}\" & rmdir \"{}\"",
+            dir.join(UNINSTALLER).display(),
             dir.display()
         );
-        let _ = std::process::Command::new("cmd")
+        let _ = std::process::Command::new(system_tool("cmd.exe"))
             .args(["/C", &script])
             .creation_flags(0x0800_0000)
             .spawn();
@@ -344,8 +423,95 @@ pub fn uninstall(dir: &Path, p: &Arc<Progress>) -> Result<()> {
     Ok(())
 }
 
+/// Deletes the listed files (and the folders they leave empty) and the manifest; the
+/// uninstaller itself goes after it exits.
+fn remove_installed(dir: &Path, files: &[PathBuf]) {
+    let files: Vec<&PathBuf> = files
+        .iter()
+        .filter(|f| inside(f) && f.as_os_str() != UNINSTALLER)
+        .collect();
+    let owned: Vec<PathBuf> = files.iter().map(|f| (*f).clone()).collect();
+    sweep(dir, &owned);
+    for rel in &files {
+        let _ = std::fs::remove_file(dir.join(rel));
+    }
+    for rel in &files {
+        let mut d = dir.join(rel);
+        while d.pop() && d != dir && d.starts_with(dir) {
+            if std::fs::remove_dir(&d).is_err() {
+                break;
+            }
+        }
+    }
+    let _ = std::fs::remove_file(dir.join(MANIFEST));
+}
+
 pub fn launch(dir: &Path) {
     let _ = std::process::Command::new(dir.join("krypton-wallet.exe"))
         .current_dir(dir)
         .spawn();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("gk-setup-test-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn a_folder_with_other_files_gets_its_own_subfolder() {
+        let d = temp("dir");
+        assert_eq!(install_dir(&d), d, "an empty folder is used as it is");
+        assert_eq!(install_dir(&d.join("new")), d.join("new"));
+        std::fs::write(d.join("notes.txt"), "mine").unwrap();
+        assert_eq!(install_dir(&d), d.join(APP_NAME));
+        std::fs::write(d.join(UNINSTALLER), "").unwrap();
+        assert_eq!(install_dir(&d), d, "an install of ours is updated in place");
+        let root = d.ancestors().last().unwrap().to_path_buf();
+        assert_eq!(install_dir(&root), root.join(APP_NAME));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn uninstalling_removes_only_what_was_installed() {
+        let d = temp("rm");
+        std::fs::create_dir_all(d.join("lib")).unwrap();
+        for f in [
+            "krypton-wallet.exe",
+            "lib/a.dll",
+            "photo.jpg",
+            "keep.new",
+            "krypton-wallet.old-123",
+            "krypton-wallet.new",
+        ] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        std::fs::write(
+            d.join(MANIFEST),
+            "krypton-wallet.exe\nlib/a.dll\n../outside.txt\n",
+        )
+        .unwrap();
+        let files = read_manifest(&d);
+        assert_eq!(files.len(), 2, "a path out of the folder is never listed");
+        remove_installed(&d, &files);
+        assert!(!d.join("krypton-wallet.exe").exists());
+        assert!(
+            !d.join("lib").exists(),
+            "an emptied folder of ours goes too"
+        );
+        assert!(!d.join("krypton-wallet.old-123").exists());
+        assert!(!d.join("krypton-wallet.new").exists());
+        assert!(!d.join(MANIFEST).exists());
+        assert!(d.join("photo.jpg").exists(), "other files stay");
+        assert!(
+            d.join("keep.new").exists(),
+            "only leftovers of our own files are swept"
+        );
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }

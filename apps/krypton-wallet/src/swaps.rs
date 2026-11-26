@@ -23,8 +23,10 @@ pub fn btc_network(a: &App) -> krypton_swap::bitcoin::Network {
         return B::Bitcoin;
     }
     let set = a.settings.lock().btc_network.clone();
+    // Test GNR never trades against real bitcoin either.
     if let Some(n) = set.as_deref()
         && let Ok(n) = B::from_core_arg(n)
+        && n != B::Bitcoin
     {
         return n;
     }
@@ -361,6 +363,15 @@ pub struct SettingsReq {
     backend: String,
     #[serde(default)]
     network: Option<String>,
+    #[serde(default)]
+    password: String,
+}
+
+impl Drop for SettingsReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+    }
 }
 
 /// The Bitcoin connection: an Esplora API over https (or on this computer), or a Bitcoin
@@ -373,19 +384,20 @@ pub async fn settings(
     if let Err(x) = crate::check(&app, &h) {
         return x;
     }
+    use krypton_swap::btc::{is_local_http, is_local_rpc, is_remote_https};
     let b = r.backend.trim().to_string();
-    let local = |u: &str| u.starts_with("http://127.0.0.1") || u.starts_with("http://localhost");
     let ok = b.is_empty()
         || b.strip_prefix("esplora:")
-            .is_some_and(|u| u.starts_with("https://") || local(u))
-        || b.strip_prefix("rpc:").is_some_and(local);
-    if !ok || b.len() > 300 || b.chars().any(char::is_whitespace) {
+            .is_some_and(|u| is_remote_https(u) || is_local_http(u))
+        || b.strip_prefix("rpc:").is_some_and(is_local_rpc);
+    if !ok || b.len() > 300 || b.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return err(
             "use esplora:https://… or a node on this computer (rpc:http://user:pass@127.0.0.1:8332)",
         );
     }
     let net = r
         .network
+        .as_deref()
         .map(|n| n.trim().to_string())
         .filter(|n| !n.is_empty());
     if let Some(n) = &net
@@ -393,10 +405,31 @@ pub async fn settings(
     {
         return err("Bitcoin network: main, signet, testnet4 or regtest");
     }
+    if net
+        .as_deref()
+        .and_then(|n| krypton_swap::bitcoin::Network::from_core_arg(n).ok())
+        == Some(krypton_swap::bitcoin::Network::Bitcoin)
+        && app.network != krypton_core::Network::Mainnet
+    {
+        return err("real bitcoin trades against mainnet GNR only");
+    }
+    let backend = (!b.is_empty()).then_some(b);
+    let changed = {
+        let s = app.settings.lock();
+        s.btc_backend != backend || (r.network.is_some() && s.btc_network != net)
+    };
+    if changed {
+        let (a, password) = (app.clone(), zeroize::Zeroizing::new(r.password.clone()));
+        if let Err(e) = blocking(move || crate::confirm_source_change(&a, &password)).await {
+            return err(e);
+        }
+    }
     {
         let mut s = app.settings.lock();
-        s.btc_backend = (!b.is_empty()).then_some(b);
-        s.btc_network = net;
+        s.btc_backend = backend;
+        if r.network.is_some() {
+            s.btc_network = net;
+        }
     }
     match app.save_settings() {
         Ok(()) => Json(json!({"ok": true, "btc_backend": backend_spec(&app), "btc_network": btc_network(&app).to_core_arg()})).into_response(),
@@ -410,6 +443,14 @@ pub async fn settings(
 /// or one of its offers is open (someone may take it now).
 pub fn busy(w: &Wallet) -> bool {
     engine::load(w).iter().any(|s| !s.stage.finished()) || crate::board::open_offers(w) > 0
+}
+
+/// Whether coins of this wallet are in a swap contract that only it can claim or refund
+/// (nothing can be cancelled any more): locked now, it could lose them.
+pub fn at_stake(w: &Wallet) -> bool {
+    engine::load(w)
+        .iter()
+        .any(|s| !s.stage.finished() && !s.cancellable())
 }
 
 pub fn has_work(w: &Wallet) -> bool {

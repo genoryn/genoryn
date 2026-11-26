@@ -29,7 +29,7 @@
     <div class="glass stat tilt-card"><b id="sHeight">—</b><span>Height</span></div>
     <div class="glass stat tilt-card"><b id="sSupply">—</b><span>GNR issued</span></div>
     <div class="glass stat tilt-card"><b id="sRate">—</b><span>Hashrate</span></div>
-    <div class="glass stat tilt-card"><b id="sMiners">—</b><span>Mining addresses, last 6 h <em id="sGpus" class="stat-sub"></em></span></div>
+    <div class="glass stat tilt-card"><b id="sDiff">—</b><span>Difficulty</span></div>
     <div class="glass stat tilt-card"><b id="sPool">—</b><span>Pending transactions</span></div>
   </div>
   <section class="dash" id="dash" data-default-range="24h" aria-labelledby="dash-h">
@@ -46,10 +46,9 @@
       <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Difficulty</h3><b data-kpi="difficulty">—</b></div><div data-chart="difficulty"></div></div>
       <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Block time</h3><b data-kpi="block_time">—</b></div><div data-chart="block_time"></div></div>
       <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Shares per block</h3><b data-kpi="shares">—</b></div><div data-chart="shares"></div></div>
-      <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Active miners</h3><b data-kpi="miners">—</b></div><div data-chart="miners"></div></div>
       <div class="glass card chart-card wide tilt-card"><div class="gk-card-head"><h3>GNR issued over time</h3><b data-kpi="issued2">—</b></div><div data-chart="issued"></div></div>
     </div>
-    <p class="muted dash-note"><b>How miners are counted.</b> The chain knows payout addresses, not people or computers. "Mining addresses" are the distinct addresses credited with at least one share in the last 360 blocks (about 6 hours); over 24 hours more addresses appear, because not everyone mines all day. One address may pay for many computers, and one person may use several addresses, so the number of machines is not known to anyone. The hashrate is measured from the shares every block credits (about 32 per block), and GPU equivalents divide it by one RTX 5090 (about 74 MH/s).</p>
+    <p class="muted dash-note"><b>How the work is measured.</b> The chain does not know how many people or computers mine: one payout address may stand for many machines, and one person may use several. What it does know is the work. The hashrate is measured from the shares every block credits (about 32 per block), and the difficulty is how much work one block takes; together they show how much work secures the network.</p>
   </section>
   <div id="view"></div>
 </main>

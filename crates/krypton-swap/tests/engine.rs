@@ -5,7 +5,7 @@
 use anyhow::{Context, Result, bail};
 use bitcoin::hashes::Hash;
 use bitcoin::key::CompressedPublicKey;
-use bitcoin::{Address, Amount, Network as BtcNet, OutPoint, Transaction, TxOut, Txid};
+use bitcoin::{Address, Amount, FeeRate, Network as BtcNet, OutPoint, Transaction, TxOut, Txid};
 use krypton_core::address::Address as GnrAddress;
 use krypton_core::types::{BlockHeader, Transaction as GnrTx};
 use krypton_core::{Hash32, Network};
@@ -14,7 +14,7 @@ use krypton_light::CompactBlock;
 use krypton_store::Chain;
 use krypton_swap::btc::{BtcChain, Utxo};
 use krypton_swap::engine::{Engine, Role, Stage, Swap, load};
-use krypton_swap::{Timing, derive_key, public_key};
+use krypton_swap::{Timing, derive_key, derive_secret, public_key};
 use krypton_wallet_core::{ChainSource, Wallet, keys};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -142,6 +142,32 @@ impl MockBtc {
     }
     fn broadcasts(&self) -> usize {
         self.inner.lock().unwrap().spent.len()
+    }
+    /// Takes an unconfirmed transaction out of the mempool (dropped, or replaced).
+    fn evict(&self, id: Txid) {
+        let mut s = self.inner.lock().unwrap();
+        let Some(tx) = s.txs.remove(&id) else { return };
+        for i in &tx.input {
+            s.spent.remove(&i.previous_output);
+        }
+        for n in 0..tx.output.len() {
+            s.utxos.remove(&OutPoint::new(id, n as u32));
+        }
+        s.mempool.retain(|t| t.compute_txid() != id);
+    }
+    /// A conflicting transaction with a higher fee takes the place of the one in the mempool.
+    fn replace(&self, tx: &Transaction) -> Result<Txid> {
+        let old: Vec<Txid> = {
+            let s = self.inner.lock().unwrap();
+            tx.input
+                .iter()
+                .filter_map(|i| s.spent.get(&i.previous_output).copied())
+                .collect()
+        };
+        for id in old {
+            self.evict(id);
+        }
+        self.broadcast(tx)
     }
 }
 
@@ -719,9 +745,10 @@ fn old_requests_and_unsafe_terms_are_refused() {
         [3, 3, 6, 6, 15, 30]
     );
     assert_eq!(
-        (t.btc_confs_for(500_000), t.btc_confs_for(2_000_000)),
-        (1, 2)
+        [500_000, 2_000_000, 10_000_001, 100_000_000, 100_000_001].map(|s| t.btc_confs_for(s)),
+        [1, 2, 3, 3, 4]
     );
+    assert_eq!(Timing::TEST.btc_confs_for(100_000_001), 1);
     assert_eq!(Timing::TEST.gnr_confs_for(50_000_000), 2);
     // The pay check: a week at most, and the GNR must outlast the bitcoin.
     let ok = krypton_swap::Timelocks {
@@ -1299,4 +1326,174 @@ fn a_swap_ends_in_time_without_a_bitcoin_server() {
         assert_eq!(s.stage, Stage::Failed, "{}", s.status);
         assert!(s.ended_unlocked());
     }
+}
+
+/// The buyer pays `sats` and sends the deposit code; the seller records it.
+fn paid_sats(
+    a: &mut Side,
+    b: &mut Side,
+    src: &Local,
+    btc: &MockBtc,
+    chain: &Chain,
+    sats: u64,
+) -> Address {
+    let htlc = locked(a, b, src, btc, chain);
+    btc.pay(&htlc, sats);
+    let s = b.engine(src, btc, chain).step(&[]).unwrap().pop().unwrap();
+    assert_eq!(s.stage, Stage::Deposited, "{}", s.status);
+    let s = a
+        .engine(src, btc, chain)
+        .receive(s.code.as_ref().unwrap())
+        .unwrap();
+    assert_eq!(s.stage, Stage::Deposited);
+    htlc
+}
+
+fn funding_of(s: &Swap) -> krypton_swap::Funding {
+    let d = s.deposit.clone().unwrap();
+    krypton_swap::Funding {
+        outpoint: OutPoint::new(std::str::FromStr::from_str(&d.txid).unwrap(), d.vout),
+        value: Amount::from_sat(d.sats),
+    }
+}
+
+/// The seller holds its claim back and, when the buyer's wallet refunds at the bitcoin lock,
+/// replaces that refund with its claim. The buyer's wallet reads the secret from that claim
+/// and claims the GNR, which is still locked for it: the buyer ends with the GNR, never
+/// with a swap marked refunded while the bitcoin went to the seller.
+#[test]
+fn a_refund_replaced_by_the_sellers_claim_still_gets_the_buyer_its_gnr() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    paid_sats(&mut a, &mut b, &src, &btc, &chain, SATS);
+    btc.mine();
+    let refund_btc = b.swap().btc_refund_height.unwrap();
+    while btc.tip().unwrap() < refund_btc {
+        btc.mine();
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
+    let s = a.swap();
+    let claim = s
+        .htlc()
+        .unwrap()
+        .claim(
+            funding_of(&s),
+            &btc_addr(1).script_pubkey(),
+            FeeRate::from_sat_per_vb(20).unwrap(),
+            &derive_key(a.wallet.swap_seed(), s.index),
+            &derive_secret(a.wallet.swap_seed(), s.index),
+        )
+        .unwrap();
+    btc.replace(&claim).unwrap();
+    btc.mine();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert!(
+        b.swap().learned.is_some(),
+        "the buyer learns the secret from the claim"
+    );
+    assert_ne!(b.swap().stage, Stage::Refunded, "{}", b.swap().status);
+    for _ in 0..4 {
+        b.engine(&src, &btc, &chain).step(&[]).unwrap();
+        mine_both(&src, &miner, &mut a, &mut b);
+    }
+    assert_eq!(b.swap().stage, Stage::Done, "{}", b.swap().status);
+}
+
+/// A claim the seller makes is done only once it is in a block: while it waits, a claim
+/// that left the mempool is sent again (the secret is out, so the buyer could otherwise
+/// refund after the lock and keep both the bitcoin and the GNR).
+#[test]
+fn the_sellers_claim_is_done_only_in_a_block_and_is_sent_again_when_dropped() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    paid_sats(&mut a, &mut b, &src, &btc, &chain, SATS);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
+    let first: Txid = std::str::FromStr::from_str(a.swap().btc_spend.as_deref().unwrap()).unwrap();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(
+        a.swap().stage,
+        Stage::Claiming,
+        "not done while unconfirmed: {}",
+        a.swap().status
+    );
+    btc.evict(first);
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert!(
+        btc.is_spent(&funding_of(&a.swap()).outpoint).unwrap(),
+        "the claim is sent again"
+    );
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Done, "{}", a.swap().status);
+    assert!(btc.received(&btc_addr(1)) > 0);
+}
+
+/// A buyer who pays more than agreed does not block the seller's claim: it signs for the
+/// amount in the contract.
+#[test]
+fn an_overpaid_contract_can_still_be_claimed() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    paid_sats(&mut a, &mut b, &src, &btc, &chain, SATS + 1);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
+}
+
+/// The secret is found in any valid claim, also one whose branch argument is not the
+/// minimal 0x01 (relay policy, not consensus, asks for that).
+#[test]
+fn the_secret_is_found_in_a_claim_with_a_non_minimal_branch_argument() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    paid_sats(&mut a, &mut b, &src, &btc, &chain, SATS);
+    let s = a.swap();
+    let mut claim = s
+        .htlc()
+        .unwrap()
+        .claim(
+            funding_of(&s),
+            &btc_addr(1).script_pubkey(),
+            FeeRate::from_sat_per_vb(3).unwrap(),
+            &derive_key(a.wallet.swap_seed(), s.index),
+            &derive_secret(a.wallet.swap_seed(), s.index),
+        )
+        .unwrap();
+    let w: Vec<Vec<u8>> = claim.input[0].witness.iter().map(|x| x.to_vec()).collect();
+    assert_eq!(w.len(), 4);
+    let odd = vec![w[0].clone(), w[1].clone(), vec![0x02], w[3].clone()];
+    claim.input[0].witness = bitcoin::Witness::from_slice(&odd);
+    let found = b.swap().htlc().unwrap().find_secret(&claim);
+    assert_eq!(
+        found.map(|x| *x.as_bytes()),
+        Some(*derive_secret(a.wallet.swap_seed(), s.index).as_bytes())
+    );
 }

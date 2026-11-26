@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentação do Genoryn Krypton (GNR): carteira, mineração, trocas, API",
- "30500a2488": "Documentação · mainnet · versão 1.0.51",
+ "97f322a92f": "Documentação · mainnet · versão 1.0.52",
  "503bc1b9c1": "Documentação do Genoryn Krypton",
  "be0c07c7b6": "Tudo o que você precisa para usar, minerar, negociar, executar, integrar e auditar o Genoryn Krypton: dinheiro resistente à computação quântica e privado por padrão, com lançamento justo, limite de 21,000,000 GNR e trocas atômicas com bitcoin. Comece pelo início rápido ou vá direto a qualquer tópico pelo sumário.",
  "437aea62a5": "Sumário",
@@ -318,7 +318,6 @@
  "938cdf0ee5": "Escolha do fork: a cadeia válida com o maior trabalho acumulado. Os ramos laterais têm a prova de trabalho verificada antes de serem armazenados e são totalmente validados quando ficam mais pesados; um ramo muito atrás da cadeia principal nem é armazenado. Especificação completa: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Toda transferência gasta duas notas (uma pode ser fictícia, de valor zero) e cria duas saídas (pagamento e troco). A prova STARK mostra que as entradas existem sob uma raiz de árvore recente, que seus nullifiers estão corretos, que as saídas se comprometem com os proprietários e valores declarados, que todos os valores estão abaixo de 2^60 e que as entradas são iguais às saídas mais a taxa.",
  "652bcc3a47": "Item",
- "7fbb3ccf96": "Prova",
  "eec26ddd9a": "Transação",
  "b497d88da4": "Geração da prova (CPU de desktop)",
  "7140f4f19d": "Verificação",

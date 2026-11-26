@@ -128,7 +128,7 @@
         <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#n-explorer"/></svg><b id="sHeight">—</b><span>Block height</span></div>
         <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-layers"/></svg><b id="sSupply">—</b><span>GNR issued of 21,000,000</span></div>
         <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-bolt"/></svg><b id="sRate">—</b><span>Network hashrate</span></div>
-        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-users"/></svg><b id="sMiners">—</b><span>Mining addresses, last 6 h <em id="sGpus" class="stat-sub"></em></span></div>
+        <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-gauge"/></svg><b id="sDiff">—</b><span>Difficulty</span></div>
         <div class="glass stat reveal tilt-card"><svg class="ic st-ic" aria-hidden="true"><use href="#i-tag"/></svg><b data-main>—</b><span><span data-vlabel>GNR price</span> <em class="stat-sub">per GNR</em></span></div>
       </div>
       <div class="lp-dash" id="homeDash" data-default-range="24h">
@@ -142,7 +142,7 @@
           <div class="glass card chart-card wide tilt-card"><div class="gk-card-head"><h3>Network hashrate</h3><b data-kpi="hashrate">—</b></div><div data-chart="hashrate"></div></div>
           <div class="glass card chart-card supply-card tilt-card"><div class="gk-card-head"><h3>Supply</h3><b>21,000,000 GNR</b></div><div id="homeDisc"></div>
             <div class="supply-legend"><div><i class="sw on"></i>Issued <b data-kpi="issued">—</b></div><div><i class="sw"></i>Remaining <b data-kpi="remaining">—</b></div></div></div>
-          <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Active miners</h3><b data-kpi="miners">—</b></div><div data-chart="miners"></div></div>
+          <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Shares per block</h3><b data-kpi="shares">—</b></div><div data-chart="shares"></div></div>
           <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Block time</h3><b data-kpi="block_time">—</b></div><div data-chart="block_time"></div></div>
           <div class="glass card chart-card tilt-card"><div class="gk-card-head"><h3>Difficulty</h3><b data-kpi="difficulty">—</b></div><div data-chart="difficulty"></div></div>
         </div>
@@ -238,6 +238,23 @@
         </article>
       </div>
       <!--LATEST_UPDATE-->
+    </div>
+  </section>
+
+  <section class="block lp-swaps" aria-labelledby="swaps-h">
+    <div class="wrap">
+      <div class="section-head"><div class="pool" aria-hidden="true"></div><span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swaps, live</span><h2 id="swaps-h" class="h2 glow">Bitcoin and GNR change hands here, wallet to wallet.</h2><p class="lead">Every completed swap, as the board records it. Each one locked GNR on the Genoryn chain and paid bitcoin on the Bitcoin chain, and anyone can check both.</p></div>
+      <div class="hs-kpis">
+        <div class="glass stat reveal"><svg class="ic st-ic" aria-hidden="true"><use href="#i-check"/></svg><b id="hsDone">—</b><span>Swaps completed</span></div>
+        <div class="glass stat reveal"><svg class="ic st-ic" aria-hidden="true"><use href="#i-layers"/></svg><b id="hsGnr">—</b><span>GNR swapped</span></div>
+        <div class="glass stat reveal"><svg class="ic st-ic" aria-hidden="true"><use href="#i-bolt"/></svg><b id="hsBtc">—</b><span>Bitcoin paid</span></div>
+        <div class="glass stat reveal"><svg class="ic st-ic" aria-hidden="true"><use href="#i-clock"/></svg><b id="hsLast">—</b><span>Last swap</span></div>
+      </div>
+      <div class="glass hs-feed reveal">
+        <div class="hs-head"><span>Swap</span><span>Price per GNR</span><span>When</span><span>Proof</span></div>
+        <ol class="hs-list" id="homeSwaps"><li class="hs-empty muted">Loading the latest swaps…</li></ol>
+        <div class="hs-foot"><span class="hs-live"><span class="dot live ok" aria-hidden="true"></span><span id="hsRun">—</span></span><a class="btn" href="/market#recent"><svg class="ic" aria-hidden="true"><use href="#n-market"/></svg>Every swap, with its proofs</a><a class="btn btn-primary" href="/swap"><svg class="ic" aria-hidden="true"><use href="#n-swap"/></svg>Swap now</a></div>
+      </div>
     </div>
   </section>
 

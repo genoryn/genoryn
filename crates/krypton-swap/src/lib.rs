@@ -308,15 +308,19 @@ impl Htlc {
     /// The secret, if `tx` claims this contract (the BTC seller watches for it when it
     /// claims on Bitcoin first in the reverse flow, and for the record otherwise).
     pub fn find_secret(&self, tx: &Transaction) -> Option<Secret> {
+        // Any spend through this contract's script that reveals the secret, whatever else
+        // its witness holds: only relay policy, not consensus, makes the claim's branch
+        // argument exactly 0x01, and a miner may take a claim that is valid either way.
         let script = self.script().to_bytes();
-        tx.input.iter().find_map(|i| {
-            let w: Vec<&[u8]> = i.witness.iter().collect();
-            if w.len() != 4 || w[2] != [1] || w[3] != script.as_slice() {
-                return None;
-            }
-            let s = Secret(w[1].try_into().ok()?);
-            (s.hash() == self.hash).then_some(s)
-        })
+        tx.input
+            .iter()
+            .filter(|i| i.witness.last() == Some(script.as_slice()))
+            .find_map(|i| {
+                i.witness.iter().filter(|w| w.len() == 32).find_map(|w| {
+                    let s = Secret(w.try_into().ok()?);
+                    (s.hash() == self.hash).then_some(s)
+                })
+            })
     }
 }
 
@@ -470,12 +474,19 @@ impl Timing {
         tier.min(self.gnr_confirmations)
     }
 
-    /// Bitcoin confirmations the seller waits for on the payment: one up to 0.01 BTC.
+    /// Bitcoin confirmations the seller waits for on the payment before revealing the
+    /// secret, by what is paid: undoing the payment must cost more than it is worth. Up to
+    /// 0.01 BTC: 1; up to 0.1 BTC: `btc_confirmations`; up to 1 BTC: 3; more: 4 (the
+    /// bitcoin lock of 18 blocks leaves the claim time for that). Test networks: 1.
     pub fn btc_confs_for(&self, sats: u64) -> u32 {
-        if sats <= 1_000_000 {
-            1
-        } else {
-            self.btc_confirmations
+        if self.btc_confirmations <= 1 {
+            return 1;
+        }
+        match sats {
+            0..=1_000_000 => 1,
+            1_000_001..=10_000_000 => self.btc_confirmations,
+            10_000_001..=100_000_000 => self.btc_confirmations.max(3),
+            _ => self.btc_confirmations.max(4),
         }
     }
 

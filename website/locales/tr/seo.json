@@ -26,6 +26,7 @@
  "6377a06e81": "Evet, tıpkı GNR gibi: token, miktar, gönderici ve alıcı bir sıfır bilgi kanıtıyla gizlenecek. Yalnızca tokenlerin oluşturulması ve yok edilmesi herkese açık olacak.",
  "377ed0c796": "Hayır. Hiçbir ihraççı token alamayacak, bakiyeleri göremeyecek veya tek bir sahibin varlıklarını donduramayacak; bir ihraççının yapabileceği her şey token var olmadan önce beyan edilecek.",
  "c914a0c430": "Hayır. Cüzdanınızı güncel tutun; Tokenler sekmesi, tokenler etkinleştirildiğinde kendiliğinden açılır.",
+ "84457cacbc": "Genoryn Krypton 1.0.52: Tam bir güvenlik denetimi ve doğrudan Bitcoin bakiyenizden takas",
  "b3483934d1": "Genoryn Krypton 1.0.51: Takas ve Piyasa, her biri kendi sekmesinde ve kendi sayfasında",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Başka yerde biten takaslar kapanır ve her cüzdan kendi Bitcoin bakiyesini ve madencisini gösterir",
  "910087c4ff": "Genoryn Krypton 1.0.49: Teklif panosunun satış ve alış tabloları artık üst üste binmiyor",
@@ -43,6 +44,5 @@
  "feeb690ede": "Genoryn Krypton 1.0.37: Kuantum coinler gelecekteki bir sürüme erteleniyor",
  "1c40d47eef": "Genoryn Krypton 1.0.36: Yeniden yapılmış Coinler sekmesi ve daha sade bir tasarım",
  "db188fe582": "Genoryn Krypton 1.0.35: Kuantum coinler duyuruldu",
- "31b6065dc3": "Genoryn Krypton 1.0.34: Bir haftalık, bir aylık veya bir yıllık teklifler; yeni bir piyasa sayfası; eksiksiz belgeler",
- "35179132ee": "Genoryn Krypton 1.0.33: Güvenlik düzeltmeleri, adil bir piyasa fiyatı, serbest teklif fiyatları"
+ "31b6065dc3": "Genoryn Krypton 1.0.34: Bir haftalık, bir aylık veya bir yıllık teklifler; yeni bir piyasa sayfası; eksiksiz belgeler"
 }

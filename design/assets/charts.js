@@ -210,7 +210,6 @@
       difficulty: { kind: "line", fmt: fmtNum, label: T("Difficulty"), zero: false },
       block_time: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0) + " s"; }, target: 60, targetLabel: T("target 60 s"), label: T("Block time") },
       shares: { kind: "area", fmt: function (v) { return v.toFixed(1); }, target: 32, targetLabel: T("expected 32"), label: T("Shares per block") },
-      miners: { kind: "bars", fmt: function (v) { return String(Math.round(v)); }, integer: true, label: T("Active miners") },
       txs: { kind: "bars", fmt: function (v) { return v.toFixed(v < 10 ? 1 : 0); }, label: T("Transactions per block") },
       issued: { kind: "area", fmt: function (v, axis) { v = v / 1e8; return axis ? fmtNum(v) : GKI18N.num(v, { maximumFractionDigits: 0 }) + " GNR"; }, label: T("GNR issued") }
     };

@@ -28,7 +28,7 @@
     }
   };
   window.T = function (s, v) { var x = cat[s]; return fill(typeof x === "string" && x ? x : s, v); };
-  var esc = function (x) { return String(x).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var esc = function (x) { return String(x).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   /* T() escaped for HTML. */
   window.TE = function (s, v) { return esc(window.T(s, v)); };
   /* T() for HTML with emphasis: escaped, then **bold** becomes <b>bold</b>. */

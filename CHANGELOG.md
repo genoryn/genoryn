@@ -4,6 +4,32 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.52](https://github.com/genoryn/genoryn/releases/tag/v1.0.52) · 2026-11-26: A full security audit, and trading straight from your Bitcoin balance
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- Trade from your Bitcoin balance: take an offer and pay from the balance at once, publish a buy offer paid from it, and have what you sell paid into it. No address to type, no transfer each time.
+- Swap, Market, Publish an offer and Your swaps are one Trade group, with your GNR and Bitcoin balances at the top of each page. Publishing an offer has a page of its own.
+- Delete a wallet from this computer: with its password, never while a swap or an offer of it is open; keep an encrypted copy or erase it for good.
+- genoryn.io: a Trade menu, the latest completed swaps on the home page, the security audits page, and a SHA-256 under every download button.
+
+### Changed
+
+- A new Wallet page with the Bitcoin balance beside your GNR, a QR code to receive and a clearer send form; a console that looks like a terminal; a bigger About page with Genoryn Talks and the security audits; a start animation and a lock animation.
+- The number of miners is no longer shown anywhere: it cannot be measured honestly. The hashrate and the difficulty are.
+
+### Fixed
+
+- The totals on the History page no longer run into each other with long numbers.
+
+### Security
+
+- A full audit of the whole system: the wallet, the swaps with bitcoin, Bitcoin keys and signing, the node and updates, consensus, the website and the forum. Every finding it lists is fixed in this release; what was checked and what was fixed is at genoryn.io/audits.
+- Swaps with bitcoin are safer at the step where a wallet decides that a Bitcoin transaction has done its job: a refund or a claim counts only once it is in a block, a dropped one is sent again, and a refund overtaken by the other side's claim still gets you your GNR.
+- Changing the nodes or the Bitcoin connection needs the wallet's password, and the 24-hour lock waits while your coins are in a swap.
+
 ## [1.0.51](https://github.com/genoryn/genoryn/releases/tag/v1.0.51) · 2026-11-23: Swap and Market, each on a tab and a page of its own
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

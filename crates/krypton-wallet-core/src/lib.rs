@@ -958,13 +958,16 @@ impl Wallet {
             else {
                 continue;
             };
+            // The memo as sent: clearing a coin marker below rewrites its last bytes, where
+            // a lock memo may have data.
+            let sent = note.clone();
             if note.coin().is_some() && note_cm(&owner, &note) != o.cm {
                 // Marked as a coin but committed as GNR: it is GNR.
                 note.set_coin(None);
             }
             if note_cm(&owner, &note) != o.cm {
                 // Not our note, but possibly a lock note we funded (recovery from the phrase).
-                self.recover_lock(&note, &o.cm, height);
+                self.recover_lock(&sent, &o.cm, height);
                 continue;
             }
             {

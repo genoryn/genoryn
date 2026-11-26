@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Genoryn Krypton (GNR) Dokümantasyonu: Cüzdan, Madencilik, Takaslar, API",
- "30500a2488": "Dokümantasyon · ana ağ · sürüm 1.0.51",
+ "97f322a92f": "Dokümantasyon · ana ağ · sürüm 1.0.52",
  "503bc1b9c1": "Genoryn Krypton dokümantasyonu",
  "be0c07c7b6": "Genoryn Krypton'u kullanmak, madenciliğini yapmak, alıp satmak, çalıştırmak, entegre etmek ve denetlemek için ihtiyacınız olan her şey: adil başlangıçlı, 21,000,000 GNR üst sınırlı ve bitcoin ile atomik takas imkânı sunan, kuantuma dayanıklı ve varsayılan olarak gizli para. Hızlı başlangıçla başlayın veya içindekiler bölümünden istediğiniz konuya geçin.",
  "437aea62a5": "İçindekiler",
@@ -318,7 +318,6 @@
  "938cdf0ee5": "Çatal seçimi: en fazla toplam işe sahip geçerli zincir. Yan dallar depolanmadan önce iş kanıtı açısından denetlenir ve daha ağır hâle geldiklerinde tamamen doğrulanır; ana zincirin çok gerisinde kalan bir dal hiç depolanmaz. Tam spesifikasyon: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Her transfer iki not harcar (biri sıfır değerli sahte bir not olabilir) ve iki çıktı oluşturur (ödeme ve para üstü). STARK kanıtı; girdilerin yeni bir ağaç kökü altında var olduğunu, nullifier'larının doğru olduğunu, çıktıların belirtilen sahiplere ve değerlere bağlandığını, tüm değerlerin 2^60'ın altında olduğunu ve girdilerin çıktılar artı ücrete eşit olduğunu gösterir.",
  "652bcc3a47": "Öğe",
- "7fbb3ccf96": "Kanıt",
  "eec26ddd9a": "İşlem",
  "b497d88da4": "Kanıt oluşturma (masaüstü CPU)",
  "7140f4f19d": "Doğrulama",

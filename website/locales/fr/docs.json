@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentation de Genoryn Krypton (GNR) : portefeuille, minage, échanges, API",
- "30500a2488": "Documentation · mainnet · version 1.0.51",
+ "97f322a92f": "Documentation · mainnet · version 1.0.52",
  "503bc1b9c1": "Documentation de Genoryn Krypton",
  "be0c07c7b6": "Tout ce qu’il faut pour utiliser, miner, échanger, exploiter, intégrer et auditer Genoryn Krypton : une monnaie résistante aux ordinateurs quantiques, privée par défaut, avec un lancement équitable, un plafond de 21,000,000 GNR et des échanges atomiques avec le bitcoin. Commencez par le démarrage rapide, ou accédez directement à n’importe quel sujet depuis le sommaire.",
  "437aea62a5": "Sommaire",
@@ -318,7 +318,6 @@
  "938cdf0ee5": "Choix de la fourche : la chaîne valide ayant le plus de travail cumulé. Les branches latérales sont vérifiées quant à leur preuve de travail avant d’être stockées, et entièrement validées lorsqu’elles deviennent plus lourdes ; une branche très en retard sur la chaîne principale n’est pas stockée du tout. Spécification complète : <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Chaque transfert dépense deux notes (l’une peut être une note fictive de valeur nulle) et crée deux sorties (paiement et monnaie rendue). La preuve STARK montre que les entrées existent sous une racine d’arbre récente, que leurs nullifiers sont corrects, que les sorties s’engagent sur les propriétaires et valeurs indiqués, que toutes les valeurs sont inférieures à 2^60 et que les entrées sont égales aux sorties plus les frais.",
  "652bcc3a47": "Élément",
- "7fbb3ccf96": "Preuve",
  "eec26ddd9a": "Transaction",
  "b497d88da4": "Génération de la preuve (CPU de bureau)",
  "7140f4f19d": "Vérification",

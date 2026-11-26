@@ -26,6 +26,8 @@
   <symbol id="n-people" viewBox="0 0 24 24"><path d="M16 19v-1.5A3.5 3.5 0 0 0 12.5 14h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
   <symbol id="n-caret" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
   <symbol id="n-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="n-audit" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><circle cx="11.5" cy="11.5" r="2.8"/><path d="m13.6 13.6 2.4 2.4"/></symbol>
+  <symbol id="n-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/><path d="M12 8v4l3 2"/></symbol>
 </svg>
 <header class="nav float" id="nav">
   <div class="wrap">
@@ -45,17 +47,24 @@
       </div>
       <a href="/explorer" data-page="explorer"><svg class="ni" aria-hidden="true"><use href="#n-explorer"/></svg>Explorer</a>
       <a href="/mining" data-page="mining"><svg class="ni" aria-hidden="true"><use href="#n-mining"/></svg>Mining</a>
-      <a href="/swap" data-page="swap"><svg class="ni" aria-hidden="true"><use href="#n-swap"/></svg>Swap</a>
-      <a href="/market" data-page="market"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Market</a>
+      <div class="nav-dd" data-pages="swap market">
+        <button type="button" class="nav-dd-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menu-trade"><svg class="ni" aria-hidden="true"><use href="#n-swap"/></svg>Trade<svg class="caret" aria-hidden="true"><use href="#n-caret"/></svg></button>
+        <div class="nav-menu" id="menu-trade">
+          <a href="/swap" data-page="swap"><svg class="ni" aria-hidden="true"><use href="#n-swap"/></svg><span><b>Swap</b><em>Bitcoin for GNR and back, wallet to wallet</em></span></a>
+          <a href="/market" data-page="market"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg><span><b>Market</b><em>The price, the order book and live offers</em></span></a>
+          <a href="/market#recent"><svg class="ni" aria-hidden="true"><use href="#n-history"/></svg><span><b>Swap history</b><em>Every completed swap, with its proofs</em></span></a>
+        </div>
+      </div>
       <a href="/tokens" data-page="tokens"><svg class="ni" aria-hidden="true"><use href="#n-coins"/></svg>Tokens<em class="nav-soon">soon</em></a>
       <a href="/download" data-page="download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Download</a>
-      <div class="nav-dd" data-pages="help full-node docs faq">
+      <div class="nav-dd" data-pages="help full-node docs faq audits">
         <button type="button" class="nav-dd-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menu-help"><svg class="ni" aria-hidden="true"><use href="#n-help"/></svg>Help<svg class="caret" aria-hidden="true"><use href="#n-caret"/></svg></button>
         <div class="nav-menu" id="menu-help">
           <a href="/help" data-page="help"><svg class="ni" aria-hidden="true"><use href="#n-help"/></svg><span><b>Get help</b><em>Where to ask, and what to check first</em></span></a>
           <a href="/full-node" data-page="full-node"><svg class="ni" aria-hidden="true"><use href="#n-node"/></svg><span><b>Run a full node</b><em>Why it matters, and how, step by step</em></span></a>
           <a href="/docs" data-page="docs"><svg class="ni" aria-hidden="true"><use href="#n-docs"/></svg><span><b>Documentation</b><em>Everything, from wallet to API</em></span></a>
           <a href="/faq" data-page="faq"><svg class="ni" aria-hidden="true"><use href="#n-people"/></svg><span><b>FAQ</b><em>Short answers to common questions</em></span></a>
+          <a href="/audits" data-page="audits"><svg class="ni" aria-hidden="true"><use href="#n-audit"/></svg><span><b>Security audits</b><em>What was checked, and what was fixed</em></span></a>
         </div>
       </div>
       <div class="nav-dd" data-pages="contribute bug-reports">
@@ -87,8 +96,11 @@
   <a href="/"><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg>Home</a>
   <a href="/explorer"><svg class="ni" aria-hidden="true"><use href="#n-explorer"/></svg>Explorer</a>
   <a href="/mining"><svg class="ni" aria-hidden="true"><use href="#n-mining"/></svg>Mining</a>
+  <span class="drawer-h">Trade</span>
   <a href="/swap"><svg class="ni" aria-hidden="true"><use href="#n-swap"/></svg>Swap</a>
   <a href="/market"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Market</a>
+  <a href="/market#recent"><svg class="ni" aria-hidden="true"><use href="#n-history"/></svg>Swap history</a>
+  <span class="drawer-h">More</span>
   <a href="/tokens"><svg class="ni" aria-hidden="true"><use href="#n-coins"/></svg>Quantum tokens (planned)</a>
   <a href="/get"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Get GNR</a>
   <a href="/download"><svg class="ni" aria-hidden="true"><use href="#n-download"/></svg>Download</a>
@@ -106,6 +118,7 @@
   <a href="/full-node"><svg class="ni" aria-hidden="true"><use href="#n-node"/></svg>Run a full node</a>
   <a href="/docs"><svg class="ni" aria-hidden="true"><use href="#n-docs"/></svg>Documentation</a>
   <a href="/faq"><svg class="ni" aria-hidden="true"><use href="#n-people"/></svg>FAQ</a>
+  <a href="/audits"><svg class="ni" aria-hidden="true"><use href="#n-audit"/></svg>Security audits</a>
   <a href="/about"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>What is GNR?</a>
   <span class="drawer-h">Contribute</span>
   <a href="/bug-reports"><svg class="ni" aria-hidden="true"><use href="#n-bug"/></svg>Bug reports</a>

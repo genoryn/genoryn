@@ -593,19 +593,25 @@ pub async fn market(axum::extract::State(app): S, h: HeaderMap) -> Response {
         let mine: Vec<String> = book.offers.iter().map(|o| o.offer.id.clone()).collect();
         let t = now();
         let view = |o: &Value| -> Option<Value> {
+            // Board data reaches the page: only an id in the form wallets make, and a known side.
+            let oid = o["id"]
+                .as_str()
+                .filter(|s| s.len() == 32 && s.bytes().all(|c| c.is_ascii_hexdigit()))?;
+            let side: Side = serde_json::from_value(o["side"].clone()).ok()?;
             let id = o["coin"].as_str().and_then(AssetId::from_hex)?;
             let i = map.get(&id)?;
             let d = i.manifest.decimals;
             let (g, u) = (o["gnr"].as_u64()?, o["units"].as_u64()?);
             let whole = u as f64 / 10f64.powi(d as i32);
+            let own = mine.iter().any(|m| m == oid);
             Some(json!({
-                "id": o["id"], "coin": id, "ticker": i.manifest.ticker, "name": i.manifest.name,
-                "verified": is_verified(&id), "side": o["side"],
+                "id": oid, "coin": id, "ticker": i.manifest.ticker, "name": i.manifest.name,
+                "verified": is_verified(&id), "side": side,
                 "gnr": gnr_text(g), "units": format_units(u, d),
                 "price": if whole > 0.0 { g as f64 / 1e8 / whole } else { 0.0 },
                 "expires_in": o["expires"].as_u64().unwrap_or(0).saturating_sub(t),
-                "online": o["online"].as_bool().unwrap_or(false) || mine.contains(&o["id"].as_str().unwrap_or("").to_string()),
-                "mine": mine.iter().any(|m| Some(m.as_str()) == o["id"].as_str()),
+                "online": o["online"].as_bool().unwrap_or(false) || own,
+                "mine": own,
             }))
         };
         let offers: Vec<Value> = raw["offers"].as_array().into_iter().flatten().filter_map(view).collect();

@@ -133,6 +133,10 @@ impl App {
 
     fn start(&mut self, now: f64) {
         self.opts.dir = PathBuf::from(self.path_text.trim());
+        if !self.uninstall {
+            self.opts.dir = install::install_dir(&self.opts.dir);
+            self.path_text = self.opts.dir.display().to_string();
+        }
         self.screen = Screen::Working;
         self.started = now;
         let (opts, p, res, un) = (
@@ -665,7 +669,24 @@ impl eframe::App for App {
     }
 }
 
+/// DLLs load from the system folder only, not from the folder the installer runs in
+/// (usually Downloads, where a planted one could sit).
+#[cfg(windows)]
+fn system_dlls_only() {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetDefaultDllDirectories(flags: u32) -> i32;
+    }
+    const LOAD_LIBRARY_SEARCH_SYSTEM32: u32 = 0x0000_0800;
+    // SAFETY: a plain Win32 call with a constant flag; it only changes the search order.
+    unsafe {
+        SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32);
+    }
+}
+
 fn main() -> eframe::Result<()> {
+    #[cfg(windows)]
+    system_dlls_only();
     let uninstall = std::env::args().any(|a| a == "--uninstall");
     // Unattended mode for automation and in-app updates:
     // --silent [--dir PATH] [--no-shortcuts] [--launch]
@@ -677,6 +698,11 @@ fn main() -> eframe::Result<()> {
             .and_then(|i| args.get(i + 1))
             .map(PathBuf::from)
             .unwrap_or_else(install::default_dir);
+        let dir = if uninstall {
+            dir
+        } else {
+            install::install_dir(&dir)
+        };
         let shortcuts = !args.iter().any(|a| a == "--no-shortcuts");
         let p = Arc::new(Progress::default());
         let r = if uninstall {

@@ -530,7 +530,7 @@ fn net_name(n: bitcoin::Network) -> String {
 }
 
 pub fn btc_address(s: &str, n: bitcoin::Network) -> Result<Address> {
-    Address::from_str(s.trim())
+    let a = Address::from_str(s.trim())
         .map_err(|e| anyhow!("not a Bitcoin address: {e}"))?
         .require_network(n)
         .map_err(|_| {
@@ -538,7 +538,15 @@ pub fn btc_address(s: &str, n: bitcoin::Network) -> Result<Address> {
                 "this Bitcoin address is for another network than {}",
                 net_name(n)
             )
-        })
+        })?;
+    // Witness versions above 1 have no rules yet: anyone could take what is sent there.
+    if let Some(p) = a.witness_program() {
+        ensure!(
+            p.version().to_num() <= 1,
+            "this Bitcoin address uses a witness version no wallet can spend yet"
+        );
+    }
+    Ok(a)
 }
 
 impl Swap {
@@ -668,8 +676,8 @@ impl<G: ChainSource> Engine<'_, G> {
         ensure!(gnr > 2 * DEFAULT_FEE, "the GNR amount is too small");
         let mut swaps = load(self.wallet);
         let index = Self::next_index(&swaps);
-        let seed = *self.wallet.swap_seed();
-        let refund_pub = public_key(&derive_key(&seed, index));
+        let seed = zeroize::Zeroizing::new(*self.wallet.swap_seed());
+        let refund_pub = public_key(&derive_key(&*seed, index));
         let claim_fee = DEFAULT_FEE;
         let claim_outputs = self.wallet.claim_outputs(index, gnr, claim_fee)?;
         let id = hex::encode(rand::random::<[u8; 16]>());
@@ -682,7 +690,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     &refund_pub.to_string(),
                     &net_name(self.btc_network),
                 ),
-                &crate::deposit::key(&seed, d),
+                &crate::deposit::key(&*seed, d),
             )
         });
         let msg = Msg::Request2 {
@@ -782,6 +790,12 @@ impl<G: ChainSource> Engine<'_, G> {
                 Msg::Request { .. } => bail!(UPDATE_HINT),
                 _ => bail!("this is not a swap request"),
             };
+        // The id comes from the other wallet and is shown and acted on by this one: only the
+        // form every wallet makes (32 hexadecimal digits) is taken.
+        ensure!(
+            id.len() == 32 && id.bytes().all(|c| c.is_ascii_hexdigit()),
+            "the request has an invalid swap id"
+        );
         ensure!(sats >= 10_000, "a swap of at least 10,000 sat");
         ensure!(gnr > 2 * DEFAULT_FEE, "the GNR amount is too small");
         ensure!(
@@ -827,8 +841,8 @@ impl<G: ChainSource> Engine<'_, G> {
             }
         }
         let index = Self::next_index(&swaps);
-        let seed = *self.wallet.swap_seed();
-        let claim_pub = public_key(&derive_key(&seed, index));
+        let seed = zeroize::Zeroizing::new(*self.wallet.swap_seed());
+        let claim_pub = public_key(&derive_key(&*seed, index));
         let refund_fee = DEFAULT_FEE;
         let refund_outputs = self.wallet.refund_outputs(index, gnr, refund_fee)?;
         ensure!(
@@ -838,7 +852,7 @@ impl<G: ChainSource> Engine<'_, G> {
         );
         // We hold the secret and lock first; the lock lasts through the buyer's payment,
         // the bitcoin lock and the buyer's window to claim.
-        let hash = derive_secret(&seed, index).hash();
+        let hash = derive_secret(&*seed, index).hash();
         // A buyer's wallet from 1.0.43 works with the shorter lock; an older one would
         // refuse to pay into it.
         let lock_blocks = if v >= PROTOCOL {
@@ -1169,7 +1183,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     .btc
                     .outputs(&addr)
                     .ok()
-                    .and_then(|v| v.into_iter().next())
+                    .and_then(|v| v.into_iter().find(|u| u.value.to_sat() >= s.sats))
             {
                 s.deposit = Some(Deposit {
                     txid: u.outpoint.txid.to_string(),
@@ -1311,9 +1325,8 @@ impl<G: ChainSource> Engine<'_, G> {
                 }
             }
             Stage::Refunding => {
-                if s.deposit.is_some() && self.btc.is_spent(&s.funding()?.outpoint)? {
-                    s.stage = Stage::Refunded;
-                    s.say("Refunded: the bitcoin is back.");
+                if s.deposit.is_some() {
+                    self.after_refund(s, btc_tip, &tl)?;
                 }
                 return Ok(());
             }
@@ -1337,8 +1350,10 @@ impl<G: ChainSource> Engine<'_, G> {
         let htlc = s.htlc()?;
         let f = s.funding()?;
         if self.btc.is_spent(&f.outpoint)? {
-            s.stage = Stage::Refunded;
-            s.say("The deposit has already been spent.");
+            // Spent by a refund (ours, or another copy's) or by the seller's claim: what it
+            // was is read in the Refunding stage, and a claim gives the GNR its secret.
+            s.stage = Stage::Refunding;
+            s.say("The bitcoin in the contract is spent already; looking at which way.");
             return Ok(());
         }
         let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
@@ -1349,6 +1364,81 @@ impl<G: ChainSource> Engine<'_, G> {
         s.stage = Stage::Refunding;
         s.say(format!("Bitcoin refund sent ({id})."));
         Ok(())
+    }
+
+    /// After the bitcoin refund was sent: the swap is refunded only once a refund of the
+    /// contract has a confirmation. The seller may still claim the bitcoin with the secret
+    /// until then (its branch has no time lock, and it can replace the refund with a higher
+    /// fee): the wallet then learns the secret from that claim and claims the GNR with it,
+    /// which outlasts the bitcoin lock by hours for exactly this case. A refund that fell out
+    /// of the mempool is sent again.
+    fn after_refund(&mut self, s: &mut Swap, btc_tip: u32, tl: &Timelocks) -> Result<()> {
+        let f = s.funding()?;
+        if !self.btc.is_spent(&f.outpoint)? {
+            if btc_tip >= tl.btc_refund_height {
+                self.btc_refund(s)?;
+            }
+            return Ok(());
+        }
+        let from = s
+            .deposit
+            .as_ref()
+            .and_then(|d| d.height)
+            .unwrap_or(btc_tip.saturating_sub(self.timing.btc_lock2_blocks + 10));
+        let Some(tx) = self.btc.spender(&f.outpoint, from)? else {
+            return Ok(());
+        };
+        if let Some(secret) = s.htlc()?.find_secret(&tx) {
+            s.learned = Some(hex::encode(secret.as_bytes()));
+            s.btc_spend = None;
+            s.stage = Stage::Deposited;
+            s.say("The seller took the bitcoin after all; claiming your GNR with the secret it revealed.");
+            return Ok(());
+        }
+        let id = tx.compute_txid();
+        let dest = btc_address(&s.btc_address, self.btc_network)?;
+        let confirmed = self
+            .btc
+            .outputs(&dest)?
+            .iter()
+            .any(|u| u.outpoint.txid == id && u.height.is_some());
+        if confirmed {
+            s.stage = Stage::Refunded;
+            s.say("Refunded: the bitcoin is back.");
+        } else {
+            s.say(format!(
+                "Bitcoin refund sent ({id}); waiting for its confirmation."
+            ));
+        }
+        Ok(())
+    }
+
+    /// [`Self::deposit_coins`] with each amount read from the coin's own transaction where
+    /// the Bitcoin server gives it: a signature commits to the amount of the output it spends
+    /// only, so the amounts a payment is signed for are never the server's word alone.
+    fn checked_coins(&self, n: u32) -> Result<Vec<Utxo>> {
+        let script = self.deposit_address(n).script_pubkey();
+        let mut out = Vec::new();
+        for c in self.deposit_coins(n)? {
+            match self.btc.tx(&c.outpoint.txid)? {
+                Some(tx) => {
+                    let o = tx
+                        .output
+                        .get(c.outpoint.vout as usize)
+                        .context("the Bitcoin server listed an output that does not exist")?;
+                    ensure!(
+                        o.script_pubkey == script,
+                        "the Bitcoin server listed an output of another address"
+                    );
+                    out.push(Utxo {
+                        value: o.value,
+                        ..c
+                    });
+                }
+                None => out.push(c),
+            }
+        }
+        Ok(out)
     }
 
     /// The address of deposit number `n` of this wallet (`crate::deposit`).
@@ -1385,7 +1475,7 @@ impl<G: ChainSource> Engine<'_, G> {
     /// bitcoin of a buy offer that ended unsold goes back. `None` if nothing is there.
     pub fn sweep_deposit(&mut self, n: u32, dest: &str) -> Result<Option<Txid>> {
         let dest = btc_address(dest, self.btc_network)?.script_pubkey();
-        let coins = self.deposit_coins(n)?;
+        let coins = self.checked_coins(n)?;
         if coins.is_empty() {
             return Ok(None);
         }
@@ -1399,7 +1489,7 @@ impl<G: ChainSource> Engine<'_, G> {
     /// comes out of what is left.
     pub fn pay_from(&mut self, n: u32, to: &[(Address, u64)], rest: u32) -> Result<Txid> {
         ensure!(!to.is_empty(), "nothing to pay");
-        let coins = self.deposit_coins(n)?;
+        let coins = self.checked_coins(n)?;
         let key = crate::deposit::key(self.wallet.swap_seed(), n);
         let scripts: Vec<(bitcoin::ScriptBuf, Amount)> = to
             .iter()
@@ -1452,7 +1542,7 @@ impl<G: ChainSource> Engine<'_, G> {
         self.timing
             .check_pay(&tl, btc_tip, gnr_tip)
             .map_err(|e| anyhow!("not paying: {e}"))?;
-        let coins = self.deposit_coins(n)?;
+        let coins = self.checked_coins(n)?;
         let have: u64 = coins.iter().map(|c| c.value.to_sat()).sum();
         ensure!(
             have > s.sats,
@@ -1667,11 +1757,9 @@ impl<G: ChainSource> Engine<'_, G> {
                     self.btc_refund(s)?;
                 }
             }
-            Stage::Refunding
-                if s.deposit.is_some() && self.btc.is_spent(&s.funding()?.outpoint)? =>
-            {
-                s.stage = Stage::Refunded;
-                s.say("Refunded: the bitcoin is back.");
+            Stage::Refunding if s.deposit.is_some() => {
+                let tl = s.timelocks().context("timelocks")?;
+                self.after_refund(s, btc_tip, &tl)?;
             }
             _ => {}
         }
@@ -1811,6 +1899,19 @@ impl<G: ChainSource> Engine<'_, G> {
                         false
                     }
                     Some(u) => {
+                        // The claim signs for the amount in the contract, which may be more
+                        // than agreed: a claim signed for less would be invalid.
+                        let spk = s.htlc()?.script_pubkey();
+                        let paid_sats = self
+                            .btc
+                            .tx(&u.outpoint.txid)?
+                            .and_then(|tx| tx.output.get(u.outpoint.vout as usize).cloned())
+                            .filter(|o| o.script_pubkey == spk)
+                            .map(|o| o.value.to_sat())
+                            .unwrap_or(u.value.to_sat());
+                        if let Some(d) = s.deposit.as_mut() {
+                            d.sats = paid_sats.max(s.sats);
+                        }
                         let confs = u.height.map(|h| btc_tip + 1 - h).unwrap_or(0);
                         if confs < t.btc_confs_for(s.sats) {
                             s.say(format!(
@@ -1848,12 +1949,29 @@ impl<G: ChainSource> Engine<'_, G> {
                     let from = btc_tip.saturating_sub(t.btc_lock2_blocks + 10);
                     let htlc = s.htlc()?;
                     let spender = self.btc.spender(&f.outpoint, from)?;
-                    if spender.is_some_and(|tx| htlc.find_secret(&tx).is_some()) {
-                        s.stage = Stage::Done;
-                        s.say(format!(
-                            "Done: received {} BTC.",
-                            Amount::from_sat(s.sats).to_btc()
-                        ));
+                    if let Some(tx) = spender.filter(|tx| htlc.find_secret(tx).is_some()) {
+                        // Ours (or a fee bump of it). Done once it has a confirmation: until
+                        // then the buyer could still replace it with its refund after the
+                        // bitcoin lock, and the claim is sent again with more fee near it.
+                        let id = tx.compute_txid();
+                        let dest = btc_address(&s.btc_address, self.btc_network)?;
+                        let confirmed = self
+                            .btc
+                            .outputs(&dest)?
+                            .iter()
+                            .any(|u| u.outpoint.txid == id && u.height.is_some());
+                        if confirmed {
+                            s.stage = Stage::Done;
+                            s.say(format!(
+                                "Done: received {} BTC.",
+                                Amount::from_sat(s.sats).to_btc()
+                            ));
+                        } else {
+                            s.say("Taking the bitcoin: the claim is sent and waits for its first confirmation.");
+                            if btc_tip + 3 >= tl.btc_refund_height {
+                                let _ = self.btc_claim_bumped(s);
+                            }
+                        }
                     } else if let Some(l) = &lock
                         && refund_due(l)
                     {
@@ -1870,8 +1988,10 @@ impl<G: ChainSource> Engine<'_, G> {
                     }
                     return Ok(());
                 }
-                // Still unconfirmed: send it again at today's fee (it replaces the old one).
-                if t.may_claim_btc(&tl, btc_tip) {
+                // The claim is not on the Bitcoin chain or in its mempool (dropped): send it
+                // again. Once the secret is out the claim may go at any time; before, only
+                // while the buyer cannot refund yet.
+                if s.btc_spend.is_some() || t.may_claim_btc(&tl, btc_tip) {
                     let _ = self.btc_claim(s);
                 } else if let Some(l) = &lock
                     && refund_due(l)
@@ -1907,13 +2027,25 @@ impl<G: ChainSource> Engine<'_, G> {
 
     /// GNR first, the seller takes the bitcoin with its secret.
     fn btc_claim(&mut self, s: &mut Swap) -> Result<()> {
+        let rate = self.btc.fee_rate()?;
+        self.btc_claim_at(s, rate)
+    }
+
+    /// The claim again with twice today's fee rate (at most the highest rate taken from a
+    /// server), when the bitcoin lock is near and the claim still waits for a block.
+    fn btc_claim_bumped(&mut self, s: &mut Swap) -> Result<()> {
+        let r = self.btc.fee_rate()?.to_sat_per_vb_ceil();
+        let rate = bitcoin::FeeRate::from_sat_per_vb((r * 2).min(crate::btc::MAX_FEE_RATE as u64))
+            .context("fee rate")?;
+        self.btc_claim_at(s, rate)
+    }
+
+    fn btc_claim_at(&mut self, s: &mut Swap, rate: bitcoin::FeeRate) -> Result<()> {
         let f = s.funding()?;
         let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
         let key = derive_key(self.wallet.swap_seed(), s.index);
         let secret = derive_secret(self.wallet.swap_seed(), s.index);
-        let tx = s
-            .htlc()?
-            .claim(f, &dest, self.btc.fee_rate()?, &key, &secret)?;
+        let tx = s.htlc()?.claim(f, &dest, rate, &key, &secret)?;
         let id = tx.compute_txid();
         match self.btc.broadcast(&tx) {
             Ok(_) => {}

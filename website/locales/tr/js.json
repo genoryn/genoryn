@@ -3,7 +3,6 @@
  "e8e07263b9": "{n} sn önce",
  "2879d031fa": "{n} dk önce",
  "a25f26fdd6": "{n} sa önce",
- "8827e75c7e": "24 saatte {n}",
  "7fa43eaab4": "henüz takas yok",
  "b1044df319": "henüz takas yok",
  "e902d132ca": "{done} tamamlandı · {running} sürüyor",
@@ -18,19 +17,27 @@
  "a84215984a": "piyasa fiyatıyla günde {usd}",
  "f3602026dd": "henüz piyasa fiyatı yok",
  "621886ba0d": "Tamamlanan her takasın GNR başına fiyatı",
+ "068deca46a": "{n} sa",
+ "913185ba21": "{n} dk",
+ "c27e9e6bd4": "{t} önce",
+ "a634606cba": "Takaslar, 24 sa",
+ "4ac68a1958": "Blok #{h}",
+ "34540bb7b0": "Bildirildi",
+ "7bb6a93903": "Henüz tamamlanan takas yok.",
  "cc74741300": "Ağ hashrate'i, son 24 saat",
+ "25a85aeb27": "ort. {n}",
  "cf6430e429": "ort. {n} sn",
  "682d8d958d": "{n} işlem",
  "c002fa6699": "Ana ağ yayında · blok {h}",
  "bb71a4a58c": "Test ağı yayında · blok {h}",
  "f1d87efb64": "Ağ durumu alınamıyor",
- "84c00b7a41": {
-  "one": "{n} GPU",
-  "other": "{n} GPU"
- },
  "b0cffb0ac1": {
   "one": "tamamlanan {n} takasın ortalaması",
   "other": "tamamlanan {n} takasın ortalaması"
+ },
+ "18c80a2d0a": {
+  "one": "{n} gün",
+  "other": "{n} gün"
  },
  "773c4486c9": {
   "one": "{n} share",
@@ -56,7 +63,6 @@
  "211d0bb8cf": "Blok",
  "49e96d7cdf": "Miktar",
  "8e8252533c": "Harcanabilir",
- "25a85aeb27": "ort. {n}",
  "4630a703a9": "Son bloklar",
  "b2b7a8c7a3": "İşlem",
  "271732c929": "Ödül GNR",
@@ -155,8 +161,6 @@
   "one": "{n} ödemede {gnr} GNR",
   "other": "{n} ödemede {gnr} GNR"
  },
- "068deca46a": "{n} sa",
- "913185ba21": "{n} dk",
  "91647badc3": "1 yıl",
  "d4056c9c4e": "Piyasa fiyatından %25'ten fazla uzak: Quick Swap onu asla almaz ve takasa hazır sayılmaz",
  "b0c6a6075a": "piyasadan uzak",
@@ -179,9 +183,7 @@
  "4a3b16f102": "{n} ödendi ve sürüyor",
  "29a63619c6": "şu anda ödenmiş olan yok",
  "6e346bf5ac": "{n} alındı, henüz ödenmedi",
- "c27e9e6bd4": "{t} önce",
  "c0e0bd11fe": "Şu anda süren takas yok.",
- "7bb6a93903": "Henüz tamamlanan takas yok.",
  "7927ddb37c": "bitcoin başına",
  "e6b8dc8457": "fiyat okunamadı",
  "e6ef42054e": "satış teklifi yok",
@@ -196,7 +198,6 @@
  "2c2f9661c8": "Kopyala: {what}",
  "e21f935f11": "Kopyala",
  "22a970d2e5": "Tamamlandı",
- "34540bb7b0": "Bildirildi",
  "8e95a420fa": "GNR kilitlendi",
  "ae2fd2dbb0": "yalnızca alıcı için",
  "721c6e4e22": "Bitcoin ödendi",
@@ -207,7 +208,6 @@
  "fa25b844fa": "blok #{h}",
  "80cfa3e7f2": "bekleniyor",
  "b991e31dd2": "GNR talebi {tx}",
- "4ac68a1958": "Blok #{h}",
  "2c66b37ba5": "Blok zincirinin kanıtladıkları",
  "d40d5e7861": "Hash kilidi (SHA-256)",
  "7b9af1e1b1": "Sırrın hash'i kilide eşittir ve aynı sır bitcoin tarafının kilidini açtı. GNR satıcıya ancak blok #{h} itibarıyla iade edilebilirdi; bundan önce talep edildi.",
@@ -238,10 +238,6 @@
  "a17cce4a43": "Artı bitcoin ağ ücreti.",
  "a50bbae6e1": "Hiçbir parça piyasa fiyatından %{pct}'ten fazla uzak değildir.",
  "8d525e5f15": "Kopyalandı",
- "18c80a2d0a": {
-  "one": "{n} gün",
-  "other": "{n} gün"
- },
  "e04a07d1e8": {
   "one": "{n} ay",
   "other": "{n} ay"
@@ -312,10 +308,10 @@
  "6497e4b3d7": "hiçbir zaman",
  "fcae70b5e3": "Şimdi ({year})",
  "f5987e237b": "Şu anki blok",
- "f7f0ea803e": "Şu anda madencilik yapan bilgisayarlar",
- "6f235cc876": "share'lerden tahmin edildi",
- "180ce7c33f": "Her birinin şu anki kazancı",
- "b40a636331": "1 GNR için bir bilgisayara gereken süre",
+ "32ee566e15": "Ağ hashrate'i",
+ "363da69f90": "her bloğun paylarından ölçülür",
+ "99539c53cb": "Bir {gpu} şu anda kazıyor",
+ "61052389d9": "1 GNR için bir {gpu} gereken süre",
  "4b9c2c876f": "ortalama, şu anda",
  "6f62218ebf": "Şimdi katılın: bilgisayarlarınız ne kadar kazardı",
  "e6e0b3b0d3": "GPU'larınız (her biri bir {gpu} gibi, {rate} MH/s)",
@@ -336,11 +332,12 @@
  "9ec3900dac": "Gelecek: yıla ve bilgisayar sayısına göre",
  "cf9c7aa24a": "Ne zaman",
  "9815673530": "Madencilik yapan bilgisayarlar",
- "66bd37a4fd": "Şu anki kadar",
+ "89249d3e54": "Şimdiki kadar hash oranı",
  "90cbad3d23": "Bilgisayar sayısı",
  "8d23fdedeb": "Her biri günde",
  "0a772ab2a2": "ayda",
  "54526b8b3d": "yılda",
+ "b40a636331": "1 GNR için bir bilgisayara gereken süre",
  "9c63af3d34": "Her blok, ödülünü tüm madencilere birlikte öder ve her birinin yaptığı işe göre böler; burada her bilgisayar eşit hızdadır. Dakikada bir blok; ödül 5 GNR ile başlar ve her 2,100,000 blokta (yaklaşık her 4 yılda) yarıya iner; en fazla 21,000,000 GNR var olacaktır. Elektrik ve donanım hesaba katılmaz.",
  "6bcd4199b6": "Kıtlık: GNR ne kadar nadir hale gelir",
  "594b8a0c22": "Stock-to-flow: var olan GNR'nin, sonraki yıl kazılacak yeni GNR'ye bölümü; yani kaç yıllık madenciliğin zaten birikmiş olduğu. Ne kadar yüksekse coin o kadar nadirdir. Altında bu değer yaklaşık {gold}. Her yarılanma bunu ikiye katlar ve asla 21,000,000 GNR'den fazlası olmayacaktır.",
@@ -408,12 +405,13 @@
  "aa7d1daa7b": "{have} GNR var · yılda {fresh} yeni",
  "bda204a8b0": "{year}: {have} GNR · yılda {fresh} yeni",
  "ed5eb9a37e": "şimdi",
- "b09d0c12a8": "Bugün {now} bilgisayardan biri **günde {day} GNR** kazıyor; GNR başına {price} fiyatla değeri {worth}",
+ "9412397162": "Bugün bir {gpu} **günde {day} GNR** kazıyor; GNR başına {price} fiyatla {worth} değerinde",
  "92dba9a0a5": "(henüz piyasa fiyatı yok: {usd} varsayıldı)",
  "3eddb9de4a": "**{year}** yılında **{n}** bilgisayarla günde {day} GNR kazıyor; yani bir GNR **{x}× iş** gerektiriyor. Bu bir günlük madenciliğin aynı değerde kalması için bir GNR **{one}**, 1,000 GNR ise {thousand} değerinde olurdu.",
  "9c8d2c0579": "Bitcoin bugün yaklaşık {cap} değerinde ({price} × {supply} BTC). Tüm GNR birlikte bunun bir kısmı kadar değerli hale gelseydi, bir GNR o kısmın o zaman var olan GNR'ye bölümü olurdu.",
  "6d535b4015": "Bitcoin fiyatı bekleniyor…",
  "30b82259db": "**{year}**: Bitcoin'in değerinin **%{pct}** kadarı ({cap}) ve {coins} GNR ile bir GNR **{price}**{vs} değerinde olurdu ve {n} bilgisayarın her biri günde {day} kazanırdı.",
+ "9cb5fb7b05": "Blok zincirinden canlı: ağ {rate} hızında hash üretiyor ve günde {day} GNR paylaştırıyor. Kendi GPU'larınızı ekleyin ve payınızı görün.",
  "d10cbf9193": "Ağ hashrate'i bekleniyor…",
  "546266ebfe": "ayda {usd}",
  "8040898a2d": "GNR başına {price} fiyatla",
@@ -439,22 +437,16 @@
   "one": "{year} ({n} yıl içinde)",
   "other": "{year} ({n} yıl içinde)"
  },
- "209cdda75d": {
-  "one": "Blok zincirinden canlı: ağ {rate} hızında hash hesaplıyor; bu, {n} bilgisayarda yaklaşık {gpus} adet {gpu} sınıfı GPU demek ve ağ günde {day} GNR paylaştırıyor. Kendi GPU'larınızı ekleyin ve payınızı görün.",
-  "other": "Blok zincirinden canlı: ağ {rate} hızında hash hesaplıyor; bu, {n} bilgisayarda yaklaşık {gpus} adet {gpu} sınıfı GPU demek ve ağ günde {day} GNR paylaştırıyor. Kendi GPU'larınızı ekleyin ve payınızı görün."
- },
- "bb99c15802": {
-  "one": "Şu anda madencilik yapan {all} GPU'ya eklenen {n} GPU",
-  "other": "Şu anda madencilik yapan {all} GPU'ya eklenen {n} GPU"
+ "4a582ace7a": {
+  "one": "Bugünkü {rate} değerine {n} GPU eklendi",
+  "other": "Bugünkü {rate} değerine {n} GPU eklendi"
  },
  "ce42f17b6d": "Bu aralıkta henüz veri yok",
  "c91a3cc769": "ihraç edildi",
- "32ee566e15": "Ağ hashrate'i",
  "0464470978": "hedef 60 sn",
  "f2528d9689": "Blok süresi",
  "e45099e4ae": "beklenen 32",
  "965d440b64": "Blok başına share",
- "92a1ee9f5c": "Aktif madenciler",
  "de4faf647b": "Blok başına işlem",
  "5e9e11f65d": "İhraç edilen GNR"
 }

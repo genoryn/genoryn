@@ -90,10 +90,10 @@
   function options(list, sel, f) {
     return list.map(function (v) { return '<option value="' + v + '"' + (v === sel ? " selected" : "") + ">" + f(v) + "</option>"; }).join("");
   }
-  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
 
   /* The miner and price calculator, the same on genoryn.io and in the wallet. live() returns
-     { height, miners, hashrate (H/s), supply (krypton), sat (market sat per GNR), btcUsd } from the node. */
+     { height, hashrate (H/s), supply (krypton), sat (market sat per GNR), btcUsd } from the node. */
   function mountCalc(root, live) {
     var now = new Date(), y0 = now.getFullYear();
     var years = "";
@@ -111,9 +111,9 @@
     root.innerHTML =
       '<div class="mc-now">' +
       '<div><span>' + TE("Block now") + '</span><b data-c="h">—</b><em data-c="hr">—</em></div>' +
-      box(TE("Computers mining now"), "n", TE("estimated from the shares")) +
-      '<div><span>' + TE("Each one mines now") + '</span><b data-c="d">—</b><em data-c="dm">—</em></div>' +
-      box(TE("1 GNR takes one computer"), "t", TE("on average, right now"), "mc-hl") + "</div>" +
+      box(TE("Network hashrate"), "n", TE("measured from the shares of every block")) +
+      '<div><span>' + TE("One {gpu} mines now", { gpu: REF.name }) + '</span><b data-c="d">—</b><em data-c="dm">—</em></div>' +
+      box(TE("1 GNR takes one {gpu}", { gpu: REF.name }), "t", TE("on average, right now"), "mc-hl") + "</div>" +
       '<div class="mc-px mc-first">' +
       '<h4 class="mc-h">' + TE("Join now: what your computers would mine") + "</h4>" +
       '<p class="mc-sub" data-c="js">—</p>' +
@@ -129,7 +129,7 @@
       '<h4 class="mc-h">' + TE("The future: by year and number of computers") + "</h4>" +
       '<div class="mc-in"><label>' + TE("When") + '<select data-c="y">' + years + "</select></label>" +
       '<label>' + TE("Computers mining") + '<select data-c="s">' + options(sizes, 100, fmtN) +
-      '<option value="now">' + TE("As many as now") + '</option><option value="custom">' + TE("Other number") + "</option></select></label>" +
+      '<option value="now">' + TE("As much hashrate as now") + '</option><option value="custom">' + TE("Other number") + "</option></select></label>" +
       '<label class="mc-custom" style="display:none">' + TE("Number of computers") + '<input data-c="c" type="number" min="1" step="1" inputmode="numeric" value="50000"></label></div>' +
       '<div class="mc-res" data-c="r"></div>' +
       '<div class="mc-tw"><table class="mc-table">' + head([TE("Computers mining"), TE("Each one a day"), TE("a month"), TE("a year"), TE("1 GNR takes one computer")]) + '<tbody data-c="rows"></tbody></table></div>' +
@@ -181,17 +181,20 @@
       return v === "custom" ? Math.max(1, Number(q(input).value) || 1) : Number(v);
     }
     function draw() {
-      var L = live() || {}, h = Number(L.height) || 0, nNow = Math.max(1, Number(L.miners) || 1);
+      // "Computers" are computers as fast as one REF GPU: the network's hashrate is measured from
+      // its shares, while how many machines produce it is known to nobody.
+      var L = live() || {}, h = Number(L.height) || 0, H = Number(L.hashrate) || 0, nNow = H > 0 ? Math.max(1, H / REF.hashrate) : 1;
+      var hs = function (v) { return v >= 1e12 ? amt(v / 1e12) + " TH/s" : v >= 1e9 ? amt(v / 1e9) + " GH/s" : v >= 1e6 ? amt(v / 1e6) + " MH/s" : v >= 1e3 ? amt(v / 1e3) + " kH/s" : amt(v) + " H/s"; };
       var k = Number(q("y").value), at = h + Math.round(k * 365.25 * 86400 / BLOCK_SECS);
       var sel = q("s").value;
       show(".mc-custom", sel === "custom");
-      var n = sel === "now" ? nNow : sel === "custom" ? Math.max(1, Math.round(Number(q("c").value) || 1)) : Number(sel);
+      var n = sel === "now" ? Math.max(1, Math.round(nNow)) : sel === "custom" ? Math.max(1, Math.round(Number(q("c").value) || 1)) : Number(sel);
       var btcUsd = Number(L.btcUsd) || 0, mkt = market(L.sat, btcUsd);
       var p0 = perComputer(nNow, h || 1);
       var yearName = k ? String(y0 + k) : T("Now");
       q("h").textContent = h ? "#" + num(h) : "—";
       q("hr").textContent = h ? T("{r} GNR a block · next halving at #{h}", { r: amt(p0.reward), h: num((Math.floor(Math.max(0, h - 1) / HALVING) + 1) * HALVING + 1) }) : "—";
-      q("n").textContent = L.miners != null ? num(nNow) : "—";
+      q("n").textContent = H > 0 ? hs(H) : "—";
       q("d").textContent = h ? T("{gnr} GNR a day", { gnr: amt(p0.day) }) : "—";
       q("dm").textContent = h ? T("{m} a month · {y} a year", { m: amt(p0.month), y: amt(p0.year) }) + (mkt != null ? " · " + T("≈ {usd} a day now", { usd: dollars(p0.day * mkt) }) : "") : "—";
       q("t").textContent = h ? span(p0.secsPer1) : "—";
@@ -263,7 +266,7 @@
       var dayNow = perComputer(nNow, h || 1).day;
       var workPx = function (m) { var d = perComputer(m, at || 1).day; return d > 0 ? px0 * dayNow / d : null; };
       var wp = workPx(n);
-      q("wres").innerHTML = TH("Today one computer of {now} mines **{day} GNR a day**, worth {worth} at {price} a GNR", { now: num(nNow), day: amt(dayNow), worth: dollars(dayNow * px0), price: usd(px0) }) +
+      q("wres").innerHTML = TH("Today one {gpu} mines **{day} GNR a day**, worth {worth} at {price} a GNR", { gpu: REF.name, day: amt(dayNow), worth: dollars(dayNow * px0), price: usd(px0) }) +
         (wsel === "market" && mkt == null ? " " + TH("(no market price yet: {usd} assumed)", { usd: usd(0.003) }) : "") + ". " +
         TH("**{year}** with **{n}** computers it mines {day} GNR a day, so one GNR takes **{x}× the work**. For that day of mining to be worth the same, one GNR would be worth **{one}** and 1,000 GNR {thousand}.",
           { year: yearName, n: num(n), day: amt(p.day), x: amt(dayNow / Math.max(p.day, 1e-18)), one: wp != null ? dollars(wp) : "—", thousand: wp != null ? dollars(wp * 1000) : "—" });
@@ -286,20 +289,17 @@
       }).join("") : "";
 
       // Join now: your GPUs added to the network's live hashrate, sharing today's block reward.
-      var H = Number(L.hashrate) || 0, gpus = H / REF.hashrate, D = Math.round(pick("jd", "jdc", ".mc-cjd"));
+      var D = Math.round(pick("jd", "jdc", ".mc-cjd"));
       var perDay = rewardAt(h || 1) / 1e8 * 86400 / BLOCK_SECS;
       var join = function (d) {
         var mine = d * REF.hashrate, sh = mine / (H + mine), day = perDay * sh;
         return { sh: sh, day: day, secs: day > 0 ? 86400 / day : null };
       };
       var pct = function (x) { return x * 100 >= 0.01 ? amt(x * 100) + " %" : "< " + num(0.01) + " %"; };
-      var hs = function (v) { return v >= 1e12 ? amt(v / 1e12) + " TH/s" : v >= 1e9 ? amt(v / 1e9) + " GH/s" : v >= 1e6 ? amt(v / 1e6) + " MH/s" : v >= 1e3 ? amt(v / 1e3) + " kH/s" : amt(v) + " H/s"; };
       var ok = H > 0 && h > 0, j = join(D);
-      q("js").textContent = ok ? Tn(nNow, "Live from the blockchain: the network hashes at {rate}, about {gpus} {gpu}-class GPUs on {n} computer, and shares {day} GNR a day. Add your own GPUs and see your share.",
-        "Live from the blockchain: the network hashes at {rate}, about {gpus} {gpu}-class GPUs on {n} computers, and shares {day} GNR a day. Add your own GPUs and see your share.",
-        { rate: hs(H), gpus: amt(gpus), gpu: REF.name, n: num(nNow), day: amt(perDay) }) : T("Waiting for the network hashrate…");
+      q("js").textContent = ok ? T("Live from the blockchain: the network hashes at {rate} and shares {day} GNR a day. Add your own GPUs and see your share.", { rate: hs(H), day: amt(perDay) }) : T("Waiting for the network hashrate…");
       q("jsh").textContent = ok ? pct(j.sh) : "—";
-      q("jshe").textContent = ok ? Tn(D, "{n} GPU added to the {all} mining now", "{n} GPUs added to the {all} mining now", { n: num(D), all: amt(gpus) }) : "—";
+      q("jshe").textContent = ok ? Tn(D, "{n} GPU added to today's {rate}", "{n} GPUs added to today's {rate}", { n: num(D), rate: hs(H) }) : "—";
       q("jg").textContent = ok ? T("{gnr} GNR a day", { gnr: amt(j.day) }) : "—";
       q("jge").textContent = ok ? T("{m} a month · {y} a year", { m: amt(j.day * 30.44), y: amt(j.day * 365.25) }) : "—";
       q("jt").textContent = ok ? span(j.secs) : "—";
@@ -371,5 +371,77 @@
     return '<svg class="coin coin-' + kind + (cls ? " " + cls : "") + '" aria-label="' + (kind === "btc" ? "BTC" : "GNR") + '" role="img"><use href="#c-' + kind + '"/></svg>';
   }
 
-  window.GKValue = { REF: REF, perGpu: perGpu, rewardAt: rewardAt, perComputer: perComputer, supplyAt: supplyAt, gnrScarcity: gnrScarcity, btcScarcity: btcScarcity, mountCalc: mountCalc, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
+  /* Every amount written as "<number> GNR" or "<number> BTC" gets its coin mark in front, also
+     amounts scripts write later. Only an icon is inserted, never text, so what a script reads
+     back from an element (textContent) stays the same. Inputs, code, addresses and anything
+     marked data-nocoin are left alone; an amount that already has a mark in front keeps it. */
+  var AMOUNT = /[−+\-≈~]?\s?\d(?:[\d.,'\u00a0\u202f ]*\d)?[\u00a0 ]?(?:GNR|BTC)(?![A-Za-z])/g;
+  var NOCOIN = "script,style,textarea,input,select,option,pre,code,svg,title,.mono,[data-nocoin],.coin-free";
+  function markText(node) {
+    var t = node.nodeValue, p = node.parentNode;
+    if (!t || (t.indexOf("GNR") < 0 && t.indexOf("BTC") < 0) || !p || p.nodeType !== 1 || (p.closest && p.closest(NOCOIN))) return;
+    AMOUNT.lastIndex = 0;
+    var m, last = 0, out = null;
+    while ((m = AMOUNT.exec(t))) {
+      var at = m.index;
+      while (at < t.length && /\s/.test(t.charAt(at))) at++;
+      var before = at === 0 ? node.previousSibling : null;
+      if (before && before.nodeType === 1 && before.classList && before.classList.contains("coin")) continue;
+      if (at > 0 && /[\w.]/.test(t.charAt(at - 1))) continue;
+      out = out || document.createDocumentFragment();
+      if (at > last) out.appendChild(document.createTextNode(t.slice(last, at)));
+      var kind = m[0].slice(-3) === "BTC" ? "btc" : "gnr";
+      var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      s.setAttribute("class", "coin cm cm-" + kind + " coin-" + kind);
+      s.setAttribute("aria-hidden", "true");
+      var u = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      u.setAttribute("href", "#c-" + kind);
+      s.appendChild(u);
+      out.appendChild(s);
+      last = at;
+    }
+    if (!out) return;
+    out.appendChild(document.createTextNode(t.slice(last)));
+    p.replaceChild(out, node);
+  }
+  function markCoins(root) {
+    if (!root) return;
+    if (root.nodeType === 3) { markText(root); return; }
+    if (root.nodeType !== 1 || (root.closest && root.closest(NOCOIN))) return;
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [];
+    for (var n = w.nextNode(); n; n = w.nextNode()) list.push(n);
+    list.forEach(markText);
+  }
+  function watchCoins() {
+    if (!document.body || !window.MutationObserver || watchCoins.on) return;
+    watchCoins.on = true;
+    if (!document.getElementById("gk-coin-css")) {
+      var st = document.createElement("style");
+      st.id = "gk-coin-css";
+      st.textContent = ".cm{width:1.05em;height:1.05em;margin:0 .3em 0 .05em;vertical-align:-.17em;flex:none}" +
+        ".cm-gnr{filter:drop-shadow(0 0 5px color-mix(in srgb,currentColor 38%,transparent))}.cm-btc{opacity:.82}";
+      document.head.appendChild(st);
+    }
+    var todo = [], queued = false;
+    var mo = new MutationObserver(function (ms) {
+      ms.forEach(function (m) {
+        if (m.type === "characterData") todo.push(m.target);
+        else for (var i = 0; i < m.addedNodes.length; i++) todo.push(m.addedNodes[i]);
+      });
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function () {
+        queued = false;
+        var l = todo; todo = [];
+        mo.disconnect();
+        l.forEach(function (n) { if (n.isConnected) markCoins(n); });
+        mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+      });
+    });
+    markCoins(document.body);
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchCoins); else watchCoins();
+
+  window.GKValue = { markCoins: markCoins, REF: REF, perGpu: perGpu, rewardAt: rewardAt, perComputer: perComputer, supplyAt: supplyAt, gnrScarcity: gnrScarcity, btcScarcity: btcScarcity, mountCalc: mountCalc, market: market, usd: usd, approx: approx, btc: btc, coin: coin, sprite: sprite };
 })();

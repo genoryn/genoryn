@@ -238,8 +238,10 @@ curl -s http://127.0.0.1:30334/rpc -H 'content-type: application/json' \
     <p>New versions fix problems and sometimes prepare a change of rules that takes effect at a block height announced in advance. A node that is never updated will one day stop following the network. Every release is listed, with what changed, under <a href="/updates">News</a>.</p>
     <ul>
       <li><b>The wallet</b> checks for updates every hour, verifies the project's signature and installs them while no swap is running. Its node is updated with it.</li>
-      <li><b>Ubuntu and Debian</b>, one command. It downloads the newest package, checks it against its checksums, installs it and restarts the service if there is one:
-<pre class="code">curl -fsSL https://raw.githubusercontent.com/genoryn/genoryn/main/deploy/update.sh | sudo bash</pre></li>
+      <li><b>Ubuntu and Debian</b>: the update script of your release. It downloads the newest package, checks the release signature against the key your install carries and the package against its checksums, never installs an older version, installs it and restarts the service if there is one. Read it before you run it:
+<pre class="code">curl -fsSLO https://raw.githubusercontent.com/genoryn/genoryn/v<!--VERSION-->/deploy/update.sh
+less update.sh
+sudo bash update.sh</pre></li>
       <li><b>Everything else:</b> stop the node, replace the programs with the new ones, start it. The chain on disk stays as it is.</li>
     </ul>
   </section>

@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Genoryn Krypton (GNR) Dokumentation: Wallet, Mining, Swaps, API",
- "30500a2488": "Dokumentation · Mainnet · Release 1.0.51",
+ "97f322a92f": "Dokumentation · Mainnet · Release 1.0.52",
  "503bc1b9c1": "Genoryn Krypton Dokumentation",
  "be0c07c7b6": "Alles, was du brauchst, um Genoryn Krypton zu nutzen, zu minen, zu handeln, zu betreiben, zu integrieren und zu prüfen: quantenresistentes Geld, standardmäßig privat, mit Fair Launch, einer Obergrenze von 21,000,000 GNR und Atomic Swaps mit Bitcoin. Beginne mit dem Schnellstart oder springe über das Inhaltsverzeichnis zu einem beliebigen Thema.",
  "437aea62a5": "Inhalt",
@@ -318,7 +318,6 @@
  "938cdf0ee5": "Fork-Wahl: die gültige Chain mit der meisten kumulierten Arbeit. Seitenzweige werden vor dem Speichern auf Proof of Work geprüft und vollständig validiert, wenn sie schwerer werden; ein Zweig weit hinter der Haupt-Chain wird gar nicht gespeichert. Vollständige Spezifikation: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Jede Überweisung gibt zwei Notes aus (eine kann ein Dummy mit Wert null sein) und erzeugt zwei Outputs (Zahlung und Wechselgeld). Der STARK-Beweis zeigt, dass die Inputs unter einer aktuellen Baumwurzel existieren, dass ihre Nullifier korrekt sind, dass die Outputs sich auf die angegebenen Besitzer und Werte festlegen, dass alle Werte unter 2^60 liegen und dass die Inputs den Outputs plus Gebühr entsprechen.",
  "652bcc3a47": "Element",
- "7fbb3ccf96": "Beweis",
  "eec26ddd9a": "Transaktion",
  "b497d88da4": "Beweiserstellung (Desktop-CPU)",
  "7140f4f19d": "Verifikation",

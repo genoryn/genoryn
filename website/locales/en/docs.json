@@ -1,6 +1,6 @@
 {
  "4e487f0922": "Genoryn Krypton (GNR) Documentation: Wallet, Mining, Swaps, API",
- "30500a2488": "Documentation · mainnet · release 1.0.51",
+ "97f322a92f": "Documentation · mainnet · release 1.0.52",
  "503bc1b9c1": "Genoryn Krypton documentation",
  "be0c07c7b6": "Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.",
  "437aea62a5": "Contents",
@@ -317,7 +317,6 @@
  "938cdf0ee5": "Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Full specification: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Every transfer spends two notes (one may be a zero-value dummy) and creates two outputs (payment and change). The STARK proof shows that the inputs exist under a recent tree root, that their nullifiers are correct, that the outputs commit to the stated owners and values, that all values are below 2^60 and that inputs equal outputs plus fee.",
  "652bcc3a47": "Item",
- "7fbb3ccf96": "Proof",
  "eec26ddd9a": "Transaction",
  "b497d88da4": "Proving (desktop CPU)",
  "7140f4f19d": "Verification",

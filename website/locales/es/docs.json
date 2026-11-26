@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentación de Genoryn Krypton (GNR): billetera, minería, intercambios, API",
- "30500a2488": "Documentación · mainnet · versión 1.0.51",
+ "97f322a92f": "Documentación · mainnet · versión 1.0.52",
  "503bc1b9c1": "Documentación de Genoryn Krypton",
  "be0c07c7b6": "Todo lo que necesitas para usar, minar, intercambiar, ejecutar, integrar y auditar Genoryn Krypton: dinero resistente a la computación cuántica y privado por defecto, con un lanzamiento justo, un límite de 21,000,000 GNR e intercambios atómicos con bitcoin. Empieza por el inicio rápido o salta a cualquier tema desde el índice.",
  "437aea62a5": "Índice",
@@ -318,7 +318,6 @@
  "938cdf0ee5": "Elección de bifurcación: la cadena válida con más trabajo acumulado. Las ramas laterales se comprueban en cuanto a prueba de trabajo antes de almacenarse y se validan por completo cuando pasan a pesar más; una rama muy por detrás de la cadena principal no se almacena en absoluto. Especificación completa: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Cada transferencia gasta dos notas (una puede ser una nota ficticia de valor cero) y crea dos salidas (pago y cambio). La prueba STARK demuestra que las entradas existen bajo una raíz de árbol reciente, que sus anuladores son correctos, que las salidas se comprometen con los propietarios y valores indicados, que todos los valores son inferiores a 2^60 y que las entradas son iguales a las salidas más la comisión.",
  "652bcc3a47": "Elemento",
- "7fbb3ccf96": "Prueba",
  "eec26ddd9a": "Transacción",
  "b497d88da4": "Generación de la prueba (CPU de escritorio)",
  "7140f4f19d": "Verificación",

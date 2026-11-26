@@ -2,7 +2,6 @@
  "e8e07263b9": "{n} s ago",
  "2879d031fa": "{n} min ago",
  "a25f26fdd6": "{n} h ago",
- "8827e75c7e": "{n} in 24 h",
  "7fa43eaab4": "no swaps yet",
  "b1044df319": "no swap yet",
  "e902d132ca": "{done} done · {running} in progress",
@@ -17,19 +16,27 @@
  "a84215984a": "{usd} a day at the market price",
  "f3602026dd": "no market price yet",
  "621886ba0d": "Price per GNR of every completed swap",
+ "068deca46a": "{n} h",
+ "913185ba21": "{n} min",
+ "c27e9e6bd4": "{t} ago",
+ "a634606cba": "Swaps, 24 h",
+ "4ac68a1958": "Block #{h}",
+ "34540bb7b0": "Reported",
+ "7bb6a93903": "No completed swaps yet.",
  "cc74741300": "Network hashrate, last 24 hours",
+ "25a85aeb27": "{n} avg",
  "cf6430e429": "{n} s avg",
  "682d8d958d": "{n} tx",
  "c002fa6699": "Mainnet is live · block {h}",
  "bb71a4a58c": "Testnet is live · block {h}",
  "f1d87efb64": "Network status unavailable",
- "84c00b7a41": {
-  "one": "{n} GPU",
-  "other": "{n} GPUs"
- },
  "b0cffb0ac1": {
   "one": "average of {n} completed swap",
   "other": "average of {n} completed swaps"
+ },
+ "18c80a2d0a": {
+  "one": "{n} day",
+  "other": "{n} days"
  },
  "773c4486c9": {
   "one": "{n} share",
@@ -55,7 +62,6 @@
  "211d0bb8cf": "Block",
  "49e96d7cdf": "Amount",
  "8e8252533c": "Spendable",
- "25a85aeb27": "{n} avg",
  "4630a703a9": "Latest blocks",
  "b2b7a8c7a3": "Txs",
  "271732c929": "Reward GNR",
@@ -154,8 +160,6 @@
   "one": "{gnr} GNR in {n} payout",
   "other": "{gnr} GNR in {n} payouts"
  },
- "068deca46a": "{n} h",
- "913185ba21": "{n} min",
  "91647badc3": "1 year",
  "d4056c9c4e": "More than 25 % from the market price: Quick Swap never takes it, and it is not counted as ready to swap",
  "b0c6a6075a": "far from market",
@@ -178,9 +182,7 @@
  "4a3b16f102": "{n} paid and running",
  "29a63619c6": "none paid right now",
  "6e346bf5ac": "{n} taken, not paid yet",
- "c27e9e6bd4": "{t} ago",
  "c0e0bd11fe": "No swap running right now.",
- "7bb6a93903": "No completed swaps yet.",
  "7927ddb37c": "per bitcoin",
  "e6b8dc8457": "the price could not be read",
  "e6ef42054e": "no sell offers",
@@ -195,7 +197,6 @@
  "2c2f9661c8": "Copy {what}",
  "e21f935f11": "Copy",
  "22a970d2e5": "Completed",
- "34540bb7b0": "Reported",
  "8e95a420fa": "GNR locked",
  "ae2fd2dbb0": "for the buyer only",
  "721c6e4e22": "Bitcoin paid",
@@ -206,7 +207,6 @@
  "fa25b844fa": "block #{h}",
  "80cfa3e7f2": "waiting",
  "b991e31dd2": "GNR claim {tx}",
- "4ac68a1958": "Block #{h}",
  "2c66b37ba5": "What the blockchain proves",
  "d40d5e7861": "Hash lock (SHA-256)",
  "7b9af1e1b1": "The secret hashes to the lock, and the same secret unlocked the bitcoin side. The GNR could only have been refunded to the seller from block #{h}; it was claimed before that.",
@@ -237,10 +237,6 @@
  "a17cce4a43": "Plus the bitcoin network fee.",
  "a50bbae6e1": "No part is more than {pct} % from the market price.",
  "8d525e5f15": "Copied",
- "18c80a2d0a": {
-  "one": "{n} day",
-  "other": "{n} days"
- },
  "e04a07d1e8": {
   "one": "{n} month",
   "other": "{n} months"
@@ -311,10 +307,10 @@
  "6497e4b3d7": "never",
  "fcae70b5e3": "Now ({year})",
  "f5987e237b": "Block now",
- "f7f0ea803e": "Computers mining now",
- "6f235cc876": "estimated from the shares",
- "180ce7c33f": "Each one mines now",
- "b40a636331": "1 GNR takes one computer",
+ "32ee566e15": "Network hashrate",
+ "363da69f90": "measured from the shares of every block",
+ "99539c53cb": "One {gpu} mines now",
+ "61052389d9": "1 GNR takes one {gpu}",
  "4b9c2c876f": "on average, right now",
  "6f62218ebf": "Join now: what your computers would mine",
  "e6e0b3b0d3": "Your GPUs (each like one {gpu}, {rate} MH/s)",
@@ -335,11 +331,12 @@
  "9ec3900dac": "The future: by year and number of computers",
  "cf9c7aa24a": "When",
  "9815673530": "Computers mining",
- "66bd37a4fd": "As many as now",
+ "89249d3e54": "As much hashrate as now",
  "90cbad3d23": "Number of computers",
  "8d23fdedeb": "Each one a day",
  "0a772ab2a2": "a month",
  "54526b8b3d": "a year",
+ "b40a636331": "1 GNR takes one computer",
  "9c63af3d34": "Every block pays its reward to all miners together, split by the work each one does; here every computer is equally fast. One block a minute; the reward starts at 5 GNR and halves every 2,100,000 blocks (about every 4 years); at most 21,000,000 GNR will ever exist. Electricity and hardware are not counted.",
  "6bcd4199b6": "Scarcity: how rare GNR becomes",
  "594b8a0c22": "Stock-to-flow: the GNR that exist divided by the new GNR mined in the next year, so how many years of mining are already stored. The higher it is, the rarer the coin. Gold is about {gold}. Every halving doubles it, and there will never be more than 21,000,000 GNR.",
@@ -407,12 +404,13 @@
  "aa7d1daa7b": "{have} GNR exist · {fresh} new in a year",
  "bda204a8b0": "{year}: {have} GNR · {fresh} new a year",
  "ed5eb9a37e": "now",
- "b09d0c12a8": "Today one computer of {now} mines **{day} GNR a day**, worth {worth} at {price} a GNR",
+ "9412397162": "Today one {gpu} mines **{day} GNR a day**, worth {worth} at {price} a GNR",
  "92dba9a0a5": "(no market price yet: {usd} assumed)",
  "3eddb9de4a": "**{year}** with **{n}** computers it mines {day} GNR a day, so one GNR takes **{x}× the work**. For that day of mining to be worth the same, one GNR would be worth **{one}** and 1,000 GNR {thousand}.",
  "9c8d2c0579": "Bitcoin is worth about {cap} today ({price} × {supply} BTC). If all GNR together became worth a part of that, one GNR would be that part divided by the GNR that exist then.",
  "6d535b4015": "Waiting for the Bitcoin price…",
  "30b82259db": "**{year}**: at **{pct} %** of Bitcoin's value ({cap}) and {coins} GNR, one GNR would be worth **{price}**{vs}, and each of {n} computers would earn {day} a day.",
+ "9cb5fb7b05": "Live from the blockchain: the network hashes at {rate} and shares {day} GNR a day. Add your own GPUs and see your share.",
  "d10cbf9193": "Waiting for the network hashrate…",
  "546266ebfe": "{usd} a month",
  "8040898a2d": "at {price} a GNR",
@@ -438,22 +436,16 @@
   "one": "{year} (in {n} year)",
   "other": "{year} (in {n} years)"
  },
- "209cdda75d": {
-  "one": "Live from the blockchain: the network hashes at {rate}, about {gpus} {gpu}-class GPUs on {n} computer, and shares {day} GNR a day. Add your own GPUs and see your share.",
-  "other": "Live from the blockchain: the network hashes at {rate}, about {gpus} {gpu}-class GPUs on {n} computers, and shares {day} GNR a day. Add your own GPUs and see your share."
- },
- "bb99c15802": {
-  "one": "{n} GPU added to the {all} mining now",
-  "other": "{n} GPUs added to the {all} mining now"
+ "4a582ace7a": {
+  "one": "{n} GPU added to today's {rate}",
+  "other": "{n} GPUs added to today's {rate}"
  },
  "ce42f17b6d": "No data in this range yet",
  "c91a3cc769": "issued",
- "32ee566e15": "Network hashrate",
  "0464470978": "target 60 s",
  "f2528d9689": "Block time",
  "e45099e4ae": "expected 32",
  "965d440b64": "Shares per block",
- "92a1ee9f5c": "Active miners",
  "de4faf647b": "Transactions per block",
  "5e9e11f65d": "GNR issued"
 }

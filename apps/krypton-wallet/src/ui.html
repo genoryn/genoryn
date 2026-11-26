@@ -182,6 +182,9 @@ td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.amt-in{co
 .wmenu .menu button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;color:var(--text-primary);font:500 13.5px var(--font-sans);cursor:pointer}.wmenu .menu button:hover{background:var(--bg-inset)}
 .wempty{padding:26px 8px;text-align:center;color:var(--text-tertiary)}
 .hsums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.hs-k{display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden}.hs-k b{font-size:26px;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;min-width:0}
+.hs-l{display:flex;align-items:center;gap:8px;font-size:12px!important;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary)!important}.hs-l .coin,.hs-l .ic{width:17px;height:17px;color:var(--text-primary)}
+.hs-sub{font-style:normal;font-size:12px;color:var(--text-tertiary)}
 .htable td.t{white-space:nowrap;color:var(--text-secondary)}.ty{display:inline-block;padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-size:11.5px;color:var(--text-secondary);white-space:nowrap}.ty.mining{border-color:var(--line-strong);color:var(--text-primary)}
 .kpis-8{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:900px){.kpis-8{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -378,7 +381,7 @@ header{padding:14px 30px}
 .tab-soon{font-style:normal;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px dashed var(--line-strong);color:var(--text-tertiary);margin-left:auto}
 .rail-foot{display:none}
 @media (min-width:1080px){
-  #app:not(.hidden){display:grid;grid-template-columns:244px minmax(0,1fr);column-gap:30px;align-items:start}
+  #app:not(.hidden){display:grid;grid-template-columns:244px minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:30px;align-items:start}
   #app>nav.tabs{grid-column:1;grid-row:1/span 2;flex-direction:column;gap:3px;position:sticky;top:86px;padding:10px;margin:0;border-radius:20px;overflow:visible}
   #app>nav.tabs button{justify-content:flex-start;width:100%;min-height:48px;padding:10px 14px;font-size:15px;border-radius:13px;position:relative}
   #app>nav.tabs button.on{box-shadow:inset 0 0 0 1px var(--line-strong)}
@@ -553,9 +556,105 @@ header{padding:14px 30px}
 @media (max-width:1100px){.sw-why ul{grid-template-columns:1fr 1fr}}
 @media (max-width:1080px){.qs-wrap{grid-template-columns:1fr}}
 @media (max-width:640px){.sw-why ul{grid-template-columns:1fr}.qs{padding:20px 18px 18px}}
+/* Deleting a wallet (1.0.52) */
+.rm-sum{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:2px 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset)}.rm-sum .rm-coin{width:28px;height:28px}.rm-sum b{display:block;font:600 17px var(--font-mono)}.rm-sum span{font-size:12px;color:var(--text-tertiary)}
+.rm-modes{display:grid;gap:8px;margin:12px 0}
+.rm-mode{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border:1px solid var(--line);border-radius:12px;cursor:pointer;margin:0;transition:border-color .2s,background .2s}.rm-mode:has(input:checked){border-color:var(--text-secondary);background:var(--bg-inset)}
+.rm-mode input{width:auto;min-height:0;margin:3px 0 0}.rm-mode>span>b{display:block;font-size:13.5px;color:var(--text-primary)}.rm-mode em b{color:var(--text-secondary)}.rm-mode em{display:block;font-style:normal;font-size:12px;color:var(--text-tertiary);margin-top:2px;line-height:1.45}
+.sec-wl{display:grid;gap:6px;margin-top:12px}
+.sec-w{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg-inset)}.sec-wi .coin{width:22px;height:22px}.sec-wn{flex:1;min-width:0}.sec-wn b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sec-wn em{display:block;font-style:normal;font-size:12px;color:var(--text-tertiary)}
+.btn-danger-soft{height:34px;padding:0 14px;font-size:12.5px;color:var(--status-error,#f87171);border-color:color-mix(in srgb,var(--status-error,#f87171) 45%,transparent)}.btn-danger-soft:hover{background:color-mix(in srgb,var(--status-error,#f87171) 12%,transparent)}.btn-danger-soft .ic{width:14px;height:14px}
+.menu button.danger{color:var(--status-error,#f87171)}
+/* Trade: Swap, Market, Publish an offer and Your swaps under one heading (1.0.52) */
+.rail-group{display:contents}.rail-gh{display:none}
+@media (min-width:1080px){
+  #app>nav.tabs .rail-group{display:flex;flex-direction:column;gap:2px;margin:6px 0;padding:6px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  #app>nav.tabs .rail-gh{display:flex;align-items:center;gap:10px;padding:6px 14px 4px;font:600 11.5px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--text-tertiary)}.rail-gh .ic{width:15px;height:15px}
+  #app>nav.tabs .rail-sub{min-height:40px;padding:8px 12px 8px 24px;font-size:14px;white-space:normal;text-align:left;line-height:1.25}#app>nav.tabs .rail-sub .ic{width:16px;height:16px}
+}
+.tbar{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) auto;gap:0;align-items:stretch;padding:0;margin-bottom:18px;border-radius:20px;overflow:hidden}
+.tb-c{display:flex;align-items:center;gap:14px;padding:16px 22px;min-width:0}.tb-c+.tb-c{border-left:1px solid var(--line)}
+.tb-c>.coin{width:38px;height:38px;flex:none}.tb-c div{min-width:0}
+.tb-c span{display:block;font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-tertiary)}
+.tb-c b{display:block;font:700 22px/1.2 var(--font-mono);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.tb-c em{display:block;font-style:normal;font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-gnr>.coin{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--text-primary) 40%,transparent))}.tb-gnr b{font-size:24px;text-shadow:0 0 18px color-mix(in srgb,var(--text-primary) 22%,transparent)}
+.tb-btc>.coin{opacity:.85}
+.tb-acts{display:flex;flex-direction:column;justify-content:center;gap:8px;padding:12px 18px;border-left:1px solid var(--line)}.tb-acts .btn{height:36px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;justify-content:center}.tb-acts .btn .coin{width:16px;height:16px}
+@media (max-width:860px){.tbar{grid-template-columns:1fr}.tb-c+.tb-c,.tb-acts{border-left:0;border-top:1px solid var(--line)}.tb-acts{flex-direction:row}.tb-acts .btn{flex:1}}
+.bd-bal{display:flex;align-items:flex-start;gap:10px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-inset);cursor:pointer;transition:border-color .2s}.bd-bal:has(input:checked){border-color:var(--text-secondary)}
+.bd-bal input{width:auto;min-height:0;margin:3px 0 0}.bd-bal-ic .coin{width:22px;height:22px}.bd-bal b{display:block;font-size:13.5px;color:var(--text-primary)}.bd-bal em{display:block;font-style:normal;font-size:12px;color:var(--text-tertiary);margin-top:2px;line-height:1.45}
+.rm-mode.dis{opacity:.55;cursor:not-allowed}
+.bd-cta p{margin:6px 0 14px;font-size:13px}.bd-cta .btn{width:100%;height:44px}
+.bd-mini{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}.bd-mini .linkbtn{margin-left:auto;padding:0}
+.pub-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:18px;align-items:start}
+.pub-side .bd-trade{padding:24px 26px}
+@media (max-width:1180px){.pub-layout{grid-template-columns:1fr}}
+/* Wallet tab (1.0.52) */
+.wl-top{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px;margin-bottom:18px}
+.wl-io{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;margin-bottom:18px;align-items:start}
+.wl-bal{position:relative;overflow:hidden}.wl-bal::after{content:"";position:absolute;right:-90px;top:-90px;width:260px;height:260px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--text-primary) 9%,transparent),transparent);pointer-events:none}
+.wl-bal .bal-main .coin{filter:drop-shadow(0 0 18px color-mix(in srgb,var(--text-primary) 45%,transparent))}
+.wl-btc{display:flex;flex-direction:column}.wl-btc h2 .coin{width:20px;height:20px;margin-right:2px}
+.wl-btc-n{display:block;font:700 30px/1.15 var(--font-mono);letter-spacing:-.02em;margin:6px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-btc-u{display:block;font-style:normal;font-size:12.5px;color:var(--text-secondary);margin-bottom:10px}
+.wl-btc .muted{font-size:12.5px;margin:4px 0 14px}.wl-btc .row-flex{margin-top:auto}.wl-btc .btn{flex:1;justify-content:center}
+.recv-wrap{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:start}
+.recv-qr{width:150px;height:150px;border-radius:16px;background:#fff;padding:10px;box-sizing:border-box;display:grid;place-items:center;box-shadow:0 0 0 1px var(--line)}.recv-qr svg{width:100%;height:100%}
+.recv-t .muted{margin-top:0}.recv-full{margin-top:14px}.recv-full .addr{margin-top:8px}
+.wl-send textarea,.wl-send input{font-size:14px}.wl-send #sendBtn{width:100%;height:48px;font-size:15px;justify-content:center;display:inline-flex;align-items:center;gap:8px;margin-top:14px!important}
+@media (max-width:1180px){.wl-top,.wl-io{grid-template-columns:1fr}}
+@media (max-width:560px){.recv-wrap{grid-template-columns:1fr}.recv-qr{margin:0 auto}}
+/* Console as a terminal (1.0.52) */
+.con-warn.glass{border:0;margin-bottom:16px;padding:14px 16px;border-radius:16px}
+.term{padding:0;border-radius:20px;overflow:hidden}
+.term-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg-inset)}
+.term-dots{display:inline-flex;gap:6px}.term-dots i{width:11px;height:11px;border-radius:50%;background:var(--line-strong)}.term-dots i:first-child{background:var(--text-tertiary)}
+.term-bar b{font:600 13.5px var(--font-sans)}.term-ro{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;border:1px solid var(--line-strong);font:600 11px var(--font-sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)}.term-ro .ic{width:12px;height:12px}
+.term-node{margin-left:auto;font-size:12px;color:var(--text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
+.term .con-out{border:0;border-radius:0;margin:0;height:min(56vh,580px);padding:16px 20px;background:color-mix(in srgb,var(--bg-solid) 88%,#000)}
+[data-theme="light"] .term .con-out{background:color-mix(in srgb,var(--bg-solid) 92%,#000 2%)}
+.term .con-l.cmd::before{content:"gnr ❯ ";color:var(--status-success)}.term .con-l.out{color:var(--text-primary);opacity:.86}.term .con-l.err{border-left-color:var(--status-error,#f87171)}
+.term-chips{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px 0;border-top:1px solid var(--line)}
+.term-chips button{border:1px solid var(--line);background:var(--bg-inset);color:var(--text-secondary);border-radius:99px;padding:5px 12px;font:12.5px var(--font-mono);cursor:pointer;transition:border-color .2s,color .2s}.term-chips button:hover{border-color:var(--line-strong);color:var(--text-primary)}
+.term .con-in{margin:0;padding:12px 16px 16px}.term-ps{font:600 14px var(--font-mono);color:var(--status-success)!important;white-space:nowrap}
+.term .con-in input{border-radius:12px}
+/* About (1.0.52) */
+.about-talks{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:center;padding:22px 26px;margin:0 0 18px;border-radius:22px;position:relative;overflow:hidden}
+.about-talks::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 120% at 0% 50%,color-mix(in srgb,var(--status-success) 12%,transparent),transparent 70%);pointer-events:none}
+.at-ic{position:relative;display:grid;place-items:center;width:52px;height:52px;border-radius:16px;border:1px solid var(--line-strong);background:var(--bg-inset)}.at-ic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.at-ic .dot{position:absolute;top:8px;right:8px;width:9px;height:9px}
+.about-talks h3{font:700 22px/1.15 var(--font-display);margin:4px 0 6px}.about-talks p{margin:0;max-width:720px}.about-talks .btn{white-space:nowrap}
+.about-feats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.af{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:12px;row-gap:3px;padding:16px 18px;border-radius:16px}.af .ic{grid-row:1/3;width:22px;height:22px;margin-top:2px}.af b{font-size:14px}.af span{font-size:12.5px;color:var(--text-secondary);line-height:1.45}
+@media (max-width:1180px){.about-feats{grid-template-columns:1fr 1fr}}@media (max-width:700px){.about-feats{grid-template-columns:1fr}.about-talks{grid-template-columns:1fr}}
+/* Opening, unlocking and locking (1.0.52) */
+#splash{position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:20px;background:var(--bg-solid,#000);transition:opacity .6s ease,visibility .6s}
+#splash.out{opacity:0;visibility:hidden}
+.sp-core{position:relative;width:132px;height:132px;display:grid;place-items:center}
+.sp-core img{position:relative;width:66px;height:66px;animation:spIn 1s cubic-bezier(.2,.8,.2,1) both}
+.sp-ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 55%,color-mix(in srgb,var(--text-primary,#fff) 80%,transparent) 86%,transparent 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px));animation:spSpin 1.3s linear infinite,spFade .7s ease both}
+.sp-glow{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--text-primary,#fff) 22%,transparent),transparent);animation:spPulse 2s ease-in-out infinite}
+.sp-name{font:700 21px var(--font-display);letter-spacing:.04em;color:var(--text-primary,#fff);animation:spUp .8s .2s both}
+.sp-line{width:150px;height:2px;border-radius:2px;background:var(--line,#333);overflow:hidden;animation:spFade .6s .35s both}.sp-line i{display:block;height:100%;width:38%;border-radius:2px;background:var(--text-primary,#fff);animation:spBar 1.15s ease-in-out infinite}
+@keyframes spIn{from{opacity:0;transform:scale(.6) rotate(-25deg);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes spSpin{to{transform:rotate(360deg)}}@keyframes spFade{from{opacity:0}}@keyframes spUp{from{opacity:0;transform:translateY(8px)}}
+@keyframes spPulse{50%{transform:scale(1.12);opacity:.6}}@keyframes spBar{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
+.lockfx{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;pointer-events:none;opacity:0;visibility:hidden;background:color-mix(in srgb,var(--bg-solid) 55%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:opacity .26s ease,visibility .26s}
+.lockfx.on{opacity:1;visibility:visible}
+.lockfx svg{width:120px;height:120px;fill:none;stroke:var(--text-primary);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.lockfx .lk-body{fill:color-mix(in srgb,var(--text-primary) 10%,transparent)}.lockfx .lk-ring{stroke-width:2;opacity:0;transform-origin:32px 34px}
+.lockfx .lk-shackle{transform-origin:42px 30px;transition:transform .45s cubic-bezier(.3,1.4,.5,1)}
+.lockfx.open .lk-shackle{animation:lkOpen .5s .15s cubic-bezier(.3,1.4,.5,1) forwards}.lockfx.open .lk-ring{animation:lkBurst .8s .3s ease-out forwards}.lockfx.open svg{animation:lkPop .9s ease both}
+.lockfx.close .lk-shackle{transform:translateY(-6px) rotate(28deg);animation:lkClose .45s .1s cubic-bezier(.3,1.4,.5,1) forwards}.lockfx.close svg{animation:lkPop .76s ease both}
+@keyframes lkOpen{to{transform:translateY(-6px) rotate(28deg)}}@keyframes lkClose{to{transform:none}}
+@keyframes lkBurst{0%{opacity:.8;transform:scale(.7)}100%{opacity:0;transform:scale(1.6)}}@keyframes lkPop{0%{transform:scale(.85);opacity:0}25%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+#app:not(.hidden){animation:appIn .45s cubic-bezier(.2,.8,.2,1) both}@keyframes appIn{from{opacity:0;transform:translateY(10px) scale(.995)}}
+@media (prefers-reduced-motion:reduce){.sp-core img,.sp-ring,.sp-glow,.sp-name,.sp-line,.sp-line i,.lockfx svg,.lockfx .lk-shackle,.lockfx .lk-ring,#app:not(.hidden){animation:none!important}}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><div class="sp-core"><div class="sp-ring"></div><div class="sp-glow"></div><img src="/assets/genoryn-mark-dark.svg" alt=""></div><b class="sp-name">Genoryn Krypton</b><span class="sp-line"><i></i></span></div>
+<div id="lockFx" class="lockfx" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="lk-ring" cx="32" cy="34" r="26"/><path class="lk-shackle" d="M22 30v-8a10 10 0 0 1 20 0v8"/><rect class="lk-body" x="16" y="30" width="32" height="24" rx="6"/><circle class="lk-hole" cx="32" cy="41" r="3"/><path class="lk-hole" d="M32 43v5"/></svg></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M13.5 9.5l2 2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16"/><path d="m7.5 14 3.5-4 3 2.5L19 7"/></symbol><symbol id="i-display" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17a1 1 0 0 1 1 1v2"/><path d="M4 7.5v10A2.5 2.5 0 0 0 6.5 20H19a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 5.5"/><circle cx="16" cy="14" r="1.3"/></symbol>
   <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -584,11 +683,11 @@ header{padding:14px 30px}
   <button id="wChip" class="badge chip-btn hidden" aria-haspopup="dialog" onclick="chipClick()" title="Manage wallets"><svg class="ic" aria-hidden="true"><use href="#i-wallets"/></svg><b id="wChipName"></b><span id="wChipCount"></span></button>
   <span id="totBadge" class="badge tot-badge hidden" title="All wallets"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>Σ&nbsp;<b id="totGnr">-</b>&nbsp;GNR<span id="totUsd" class="muted"></span></span>
   <span class="spacer"></span>
-  <span id="netBadge" class="badge net-badge hidden" title="Payout addresses that mined in the last 6 hours · network hashrate. One address may be many computers."><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
+  <span id="netBadge" class="badge net-badge hidden" title="Network hashrate, measured from the shares of every block, and the difficulty of the next block"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
   <button class="btn" onclick="openLink('explorer')" title="Open the block explorer on genoryn.io"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg><span class="lbl">Explorer</span></button>
   <button class="btn" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme" title="Theme">◐</button>
-  <button id="lockBtn" class="btn hidden" onclick="api('/api/lock',{}).then(refresh)" title="Lock this wallet (other wallets stay as they are)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="lbl">Lock</span></button>
+  <button id="lockBtn" class="btn hidden" onclick="lockNow()" title="Lock this wallet (other wallets stay as they are)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="lbl">Lock</span></button>
   <button class="btn" onclick="quitApp()" title="Close the wallet, node and miner"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span class="lbl">Quit</span></button>
 </header>
 <main>
@@ -637,8 +736,12 @@ header{padding:14px 30px}
     <nav class="tabs glass" aria-label="Wallet sections">
       <button class="rail on" data-tab="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><span>Wallet</span></button>
       <button class="rail" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>History</span></button>
-      <button class="rail" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Swap</span><em class="tab-badge hidden" id="swBadge"></em></button>
-      <button class="rail" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>Market</span></button>
+      <div class="rail-group" role="group" aria-labelledby="railTradeH"><span class="rail-gh" id="railTradeH"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Trade</span></span>
+        <button class="rail rail-sub" data-tab="swap"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Swap</span></button>
+        <button class="rail rail-sub" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>Market</span></button>
+        <button class="rail rail-sub" data-tab="publish"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span>Publish an offer</span></button>
+        <button class="rail rail-sub" data-tab="swaps"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>Your swaps</span><em class="tab-badge hidden" id="swBadge"></em></button>
+      </div>
       <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Tokens</span><em class="tab-soon">soon</em></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
       <button class="rail" data-tab="network"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><span>Network</span></button>
@@ -694,8 +797,8 @@ header{padding:14px 30px}
       <div class="wrows" id="wList" role="list"></div>
       <div class="pager" id="wPager"></div>
     </section>
-    <div class="grid">
-      <div class="glass card">
+    <div class="wl-top">
+      <div class="glass card wl-bal">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Balance</h2>
         <div class="big glow bal-main"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><span id="bal" class="num">0</span><small>GNR</small></div>
         <div class="kr-line" id="balKRow" title="The krypton is the smallest unit of GNR: 1 GNR = 100,000,000 krypton, as a satoshi is to a bitcoin."><b id="balK" class="num">0</b> krypton</div>
@@ -709,16 +812,28 @@ header{padding:14px 30px}
         <div class="row hidden" id="bIncRow">Incoming, not confirmed yet<b id="bInc">0</b></div>
         <p id="busy" class="warn"></p>
       </div>
-      <div class="glass card">
-        <h2><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Receive</h2>
-        <p class="muted">Short address (resolvable on published nodes):</p>
-        <div class="mono addr inset" id="short"></div>
-        <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
-        <div id="pubStatus" class="pub-status" aria-live="polite"></div>
-        <p class="muted" style="margin-top:14px">Full post-quantum address:</p>
-        <div class="mono addr inset" id="full"></div>
+      <div class="glass card wl-btc">
+        <h2><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin balance</h2>
+        <b class="wl-btc-n" data-tb="btc">-</b><em class="wl-btc-u" data-tb="btcu">&nbsp;</em>
+        <p class="muted">For Swap and Market: buy GNR in one click, and receive the bitcoin of what you sell. An address of this wallet's own, from your 24 words.</p>
+        <div class="row-flex"><button class="btn btn-primary" type="button" onclick="btcAdd()">Add bitcoin</button><button class="btn" type="button" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Trade</button></div>
       </div>
-      <div class="glass card">
+    </div>
+    <div class="wl-io">
+      <div class="glass card wl-recv">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Receive</h2>
+        <div class="recv-wrap">
+          <div class="recv-qr" id="recvQr" aria-label="QR code of your short address"></div>
+          <div class="recv-t">
+            <p class="muted">Short address (resolvable on published nodes):</p>
+            <div class="mono addr inset" id="short"></div>
+            <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
+            <div id="pubStatus" class="pub-status" aria-live="polite"></div>
+          </div>
+        </div>
+        <details class="mk-how recv-full"><summary>Full post-quantum address</summary><div class="mono addr inset" id="full"></div></details>
+      </div>
+      <div class="glass card wl-send">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send privately</h2>
         <label for="to">To (address or short address)</label><textarea id="to" style="min-height:64px"></textarea>
         <label for="amount">Amount (GNR)</label><input id="amount" placeholder="0.0" inputmode="decimal">
@@ -739,7 +854,7 @@ header{padding:14px 30px}
       </div>
       <div class="ov-kpis">
         <div class="glass ov-kpi" data-tone="cyan"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg></span><b id="oRate">-</b><span>Network hashrate</span><em id="oRateSub">&nbsp;</em><div class="ov-spark" id="spRate"></div></div>
-        <div class="glass ov-kpi" data-tone="pink"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg></span><b id="oMiners">-</b><span title="Distinct payout addresses with a share in the last 6 hours. One address may pay for many computers.">Mining addresses, 6 h</span><em id="oMinersSub">&nbsp;</em><div class="ov-spark" id="spMiners"></div></div>
+        <div class="glass ov-kpi" data-tone="pink"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg></span><b id="oDiff">-</b><span>Difficulty</span><em id="oDiffSub">&nbsp;</em><div class="ov-spark" id="spDiff"></div></div>
         <div class="glass ov-kpi" data-tone="violet"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg></span><b id="oHeight">-</b><span>Block height</span><em id="oHeightSub">&nbsp;</em><div class="ov-spark" id="spTime"></div></div>
         <div class="glass ov-kpi" data-tone="green"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg></span><b id="oShare">-</b><span>Your share of mining</span><em id="oShareSub">&nbsp;</em><div class="ov-spark" id="spShare"></div></div>
         <div class="glass ov-kpi" data-tone="amber"><span class="ov-ic"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span><b id="oUnpaid">-</b><span>Rewards accruing</span><em id="oUnpaidSub">&nbsp;</em><div class="ov-bar"><i id="oPayBar"></i></div></div>
@@ -750,7 +865,7 @@ header{padding:14px 30px}
         <div class="glass card" data-tone="green"><div class="gk-card-head"><h3>Your balance</h3><b id="ocBal">-</b></div><div id="ocBalance"></div></div>
         <div class="glass card" data-tone="amber"><div class="gk-card-head"><h3>Block time</h3><b id="ocTime">-</b></div><div id="ocBlockTime"></div></div>
         <div class="glass card" data-tone="violet"><div class="gk-card-head"><h3>Shares per block</h3><b id="ocShares">-</b></div><div id="ocShareChart"></div></div>
-        <div class="glass card" data-tone="pink"><div class="gk-card-head"><h3>Active miners</h3><b id="ocMiners">-</b></div><div id="ocMinerChart"></div></div>
+        <div class="glass card" data-tone="pink"><div class="gk-card-head"><h3>Transactions per block</h3><b id="ocTxs">-</b></div><div id="ocTxChart"></div></div>
         <div class="glass card wide" data-tone="blue"><div class="gk-card-head"><h3>GNR issued</h3><b id="ocIssued">-</b></div><div id="ocIssuedChart"></div></div>
         <div class="glass card" data-tone="violet"><div class="gk-card-head"><h3>Difficulty</h3><b id="ocDiff">-</b></div><div id="ocDiffChart"></div></div>
       </div>
@@ -763,10 +878,10 @@ header{padding:14px 30px}
     </div>
     <div id="tab-history" class="hidden">
       <div class="hsums" id="hSums">
-        <div class="glass kpi"><b id="hsIn">-</b><span>Received</span></div>
-        <div class="glass kpi"><b id="hsMine">-</b><span>Mining rewards</span></div>
-        <div class="glass kpi"><b id="hsOut">-</b><span>Sent <em id="hsFees"></em></span></div>
-        <div class="glass kpi"><b id="hsCount">-</b><span>Transactions</span></div>
+        <div class="glass kpi hs-k"><span class="hs-l"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>Received</span><b id="hsIn" class="fit">-</b></div>
+        <div class="glass kpi hs-k"><span class="hs-l"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>Mining rewards</span><b id="hsMine" class="fit">-</b></div>
+        <div class="glass kpi hs-k"><span class="hs-l"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>Sent</span><b id="hsOut" class="fit">-</b><em id="hsFees" class="hs-sub"></em></div>
+        <div class="glass kpi hs-k"><span class="hs-l"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Transactions</span><b id="hsCount" class="fit">-</b></div>
       </div>
       <div class="glass card">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>History</h2>
@@ -793,6 +908,7 @@ header{padding:14px 30px}
     </div>
     <div id="tab-swap" class="hidden">
       <div class="glass card swap-off hidden" id="swOff"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><div><b>Atomic swaps are coming</b><p class="muted" id="swOffWhy"></p></div></div>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
       <div class="qs-wrap">
         <section class="glass card qs" id="qsCard" aria-label="Quick Swap">
           <div class="qs-head">
@@ -831,14 +947,7 @@ header{padding:14px 30px}
         </aside>
       </div>
       <section class="glass card qs-orders hidden" id="qsOrdersBox"><div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Your Quick Swaps</h2></div><div id="qsOrders"></div></section>
-      <section class="glass card sw-mine">
-        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
-        <div class="sw-keep"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Keep this wallet open (running and unlocked) until your swaps are done.</b> Only your wallet holds the keys that lock, take and refund your coins, so only it can do these steps; genoryn.io never has your keys, which is also why nobody can take your coins. You do not need to watch: closing the window keeps the wallet working in the background. If the wallet locks itself (after 24 hours), unlock it again: the swap waits, and the timelocks give hours of room.</div></div>
-        <div id="swElse"></div>
-        <div id="swTakes"></div>
-        <div id="swapList"><p class="muted">No swaps yet.</p></div>
-        <details class="sw-past hidden" id="swPastBox" open><summary>Completed and past swaps <em id="swPastN"></em></summary><div id="swapPast" class="swr-grid"></div></details>
-      </section>
+      <div class="mk-run hidden" id="swRun"><span class="bd-live"></span><span id="swRunT"></span><button type="button" class="btn" onclick="goTab('swaps')">Follow them</button></div>
       <section class="glass card sw-why">
         <div><span class="eyebrow-s">Why swap bitcoin for GNR</span><h3>Move value out of reach of quantum computers.</h3>
           <p class="muted">Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could one day break. A swap moves that value into GNR, which is guarded by hash-based proofs instead, directly between two wallets: no exchange, no custody, no account. You can swap back to bitcoin the same way at any time.</p></div>
@@ -883,7 +992,8 @@ header{padding:14px 30px}
       </details>
     </div>
     <div id="tab-market" class="hidden">
-      <div class="mk-run hidden" id="mkRun"><span class="bd-live"></span><span id="mkRunT"></span><button type="button" class="btn" onclick="goTab('swap')">Follow on Swap</button></div>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <div class="mk-run hidden" id="mkRun"><span class="bd-live"></span><span id="mkRunT"></span><button type="button" class="btn" onclick="goTab('swaps')">Follow them</button></div>
       <section class="glass card mk-hero">
         <div class="mk-price">
           <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
@@ -934,6 +1044,18 @@ header{padding:14px 30px}
           <details class="mk-how"><summary>How the offer board works</summary><p class="hero-note"><b>Every sell offer is proven</b> (✓): its GNR sits in a note of its own, the board has checked a zero-knowledge proof of that, and it takes the offer down the moment that GNR moves. <b>A buy offer with a ✓ has its bitcoin deposited</b>: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself. Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: from the swaps completed in the last 72 hours whose bitcoin the board found on the Bitcoin chain. It is their volume-weighted median: half of that bitcoin changed hands below it, half above, and no single swap counts for more than a fifth. Offers and swaps in progress never move it, so offer at any price you like.</p></details>
         </section>
         <aside class="bd-side">
+          <section class="glass card bd-cta"><h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Publish an offer</h2>
+            <p class="muted">Sell GNR or buy it at a price of your own, paid from or into your Bitcoin balance. Your offer can set the market price.</p>
+            <button class="btn btn-primary" type="button" onclick="goTab('publish')">Publish an offer</button>
+            <div id="bdMineMini" class="bd-minelist"></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+    <div id="tab-publish" class="hidden">
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <div class="pub-layout">
+        <div class="pub-side">
           <section class="glass card bd-trade">
             <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
             <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
@@ -953,7 +1075,8 @@ header{padding:14px 30px}
               <p id="bdFolNote"></p>
             </div>
             <div class="bd-preview" id="bdPreview"><span>Price per GNR</span><b id="bdPerP">-</b><em id="bdPer">Set any price you like: your offer can set the first market price.</em></div>
-            <label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off">
+            <label class="bd-bal" id="bdBalRow"><input type="checkbox" id="bdBal" checked onchange="bdBalSet()"><span class="bd-bal-ic"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span><b id="bdBalT">Receive the bitcoin into my Bitcoin balance</b><em id="bdBalN">&nbsp;</em></span></label>
+            <div id="bdAddrBox" class="hidden"><label for="bdAddr" id="bdAddrL">Your Bitcoin address to receive the bitcoin</label><input id="bdAddr" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"></div>
             <label class="mcheck qs-auto" id="bdAutoRow"><input type="checkbox" id="bdAuto" onchange="bdAutoSet()"> <span><b>Quick Swap</b>: swap it in parts with anyone, by itself. People buy (or sell) exactly the amount they want from it in one click.</span></label>
             <div class="bd-fol hidden" id="bdAutoBox">
               <label for="bdAutoMin">Smallest part</label>
@@ -964,10 +1087,24 @@ header{padding:14px 30px}
             <label class="mcheck hidden" id="bdDepRow"><input type="checkbox" id="bdDep" checked> Pay the bitcoin now, to an address of this wallet: the swap then completes by itself</label>
             <label for="bdDur">Keep it on the board for</label><select id="bdDur" aria-label="How long the offer stays on the board"><option value="1">1 hour</option><option value="6">6 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option><option value="168">1 week</option><option value="720">1 month</option><option value="8760">1 year</option></select>
             <button class="btn btn-primary bdpub" id="bdPubBtn" onclick="boardPublish()">Publish for 24 hours</button>
-            <div id="bdMine" class="bd-minelist"></div>
           </section>
-        </aside>
+        </div>
+        <section class="glass card pub-how"><h2><svg class="ic" aria-hidden="true"><use href="#i-docs"/></svg>Your offers</h2>
+          <div id="bdMine" class="bd-minelist"></div>
+          <details class="mk-how" open><summary>What an offer commits you to</summary><p class="hero-note"><b>A sell offer</b> sets its GNR aside and proves it to the board; it is sold only to buyers whose bitcoin is already there, and the GNR comes back if a buyer never pays. <b>A buy offer</b> is paid from your Bitcoin balance into an address of this wallet; a seller's GNR is locked for you before your wallet pays, and unsold bitcoin comes back to the balance. You see the rules once more before anything is published.</p></details>
+        </section>
       </div>
+    </div>
+    <div id="tab-swaps" class="hidden">
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <section class="glass card sw-mine">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
+        <div class="sw-keep"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Keep this wallet open (running and unlocked) until your swaps are done.</b> Only your wallet holds the keys that lock, take and refund your coins, so only it can do these steps; genoryn.io never has your keys, which is also why nobody can take your coins. You do not need to watch: closing the window keeps the wallet working in the background. If the wallet locks itself (after 24 hours), unlock it again: the swap waits, and the timelocks give hours of room.</div></div>
+        <div id="swElse"></div>
+        <div id="swTakes"></div>
+        <div id="swapList"><p class="muted">No swaps yet.</p></div>
+        <details class="sw-past hidden" id="swPastBox" open><summary>Completed and past swaps <em id="swPastN"></em></summary><div id="swapPast" class="swr-grid"></div></details>
+      </section>
     </div>
     <div id="tab-coins" class="hidden">
       <section class="glass card cx-soon hidden" id="cxSoon">
@@ -1155,7 +1292,7 @@ header{padding:14px 30px}
       <div class="netdash-head">
         <div class="kpis kpis-8">
           <div class="glass kpi"><b id="kRate">-</b><span>Network hashrate</span></div>
-          <div class="glass kpi"><b id="kMiners">-</b><span title="Distinct payout addresses with a share in the last 6 hours. One address may pay for many computers.">Mining addresses, 6 h <em id="kGpus"></em></span></div>
+          <div class="glass kpi"><b id="kReward">-</b><span>Block reward</span></div>
           <div class="glass kpi"><b id="kIssued">-</b><span>GNR issued</span></div>
           <div class="glass kpi"><b id="kLeft">-</b><span>GNR remaining</span></div>
           <div class="glass kpi"><b id="kHeight">-</b><span>Block height</span></div>
@@ -1168,7 +1305,6 @@ header{padding:14px 30px}
       <div class="netdash-grid">
         <div class="glass card wide"><div class="gk-card-head"><h3>Network hashrate</h3><b id="cRate2">-</b></div><div data-chart="hashrate"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>Supply</h3><b>21,000,000 GNR</b></div><div id="wDisc"></div></div>
-        <div class="glass card"><div class="gk-card-head"><h3>Active miners</h3><b id="cMiners2">-</b></div><div data-chart="miners"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>Difficulty</h3></div><div data-chart="difficulty"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>GNR issued</h3></div><div data-chart="issued"></div></div>
         <div class="glass card"><div class="gk-card-head"><h3>Block time</h3><b id="cBt2">-</b></div><div data-chart="block_time"></div></div>
@@ -1221,18 +1357,20 @@ header{padding:14px 30px}
     </div>
     </div>
     <div id="tab-console" class="hidden">
-      <div class="glass card">
-        <div class="con-warn"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><div><b>This console only reads.</b> No command here can send GNR, show your recovery phrase or a key, or change this wallet, so nothing typed here can take your coins. Nobody needs you to type anything here to "verify" or "repair" a wallet, and nobody ever needs your 24 words or your password.</div></div>
+      <div class="con-warn glass"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><div><b>This console only reads.</b> No command here can send GNR, show your recovery phrase or a key, or change this wallet, so nothing typed here can take your coins. Nobody needs you to type anything here to "verify" or "repair" a wallet, and nobody ever needs your 24 words or your password.</div></div>
+      <section class="term glass" aria-label="Console">
+        <div class="term-bar"><span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span><b>Genoryn console</b><span class="term-ro"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>read only</span><span class="term-node mono" id="conNode"></span></div>
         <div class="con-out" id="conOut" role="log" aria-live="polite" aria-label="Console output" tabindex="0"></div>
+        <div class="term-chips" id="conChips" aria-label="Frequent commands"></div>
         <div class="con-in">
-          <span aria-hidden="true">&gt;</span>
+          <span class="term-ps" aria-hidden="true">gnr ❯</span>
           <input id="conIn" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="4096" placeholder="Type a command, for example getblockchaininfo, or help" aria-label="Command" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="conSug">
           <button class="btn btn-primary" type="button" onclick="conRun()">Run</button>
           <button class="btn" type="button" onclick="conClear()">Clear</button>
           <div id="conSug" class="con-sug hidden" role="listbox" aria-label="Commands"></div>
         </div>
-        <p class="hero-note"><b>Tab</b> completes a command · <b>↑ ↓</b> bring back earlier lines · <b>Esc</b> closes the list. Questions about the chain go to the node this wallet uses (your own in full-node mode); questions about the wallet are answered on this computer.</p>
-      </div>
+      </section>
+      <p class="hero-note"><b>Tab</b> completes a command · <b>↑ ↓</b> bring back earlier lines · <b>Esc</b> closes the list. Questions about the chain go to the node this wallet uses (your own in full-node mode); questions about the wallet are answered on this computer.</p>
       <div class="glass card" style="margin-top:18px"><h2><svg class="ic" aria-hidden="true"><use href="#i-console"/></svg>Commands</h2>
         <div id="conHelp" class="con-help"></div>
         <p class="hero-note">Press a command to put it on the line. The same questions can be put to any node over its API and JSON-RPC: see the documentation.</p>
@@ -1260,6 +1398,10 @@ header{padding:14px 30px}
         <label for="revealPass">Show recovery phrase (enter password)</label><input id="revealPass" type="password" autocomplete="current-password"><button class="btn" onclick="reveal()">Reveal</button>
         <div id="revealWords" class="words"></div>
       </div>
+      <div class="glass card sec-del"><h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Delete a wallet</h2>
+        <p class="muted">Remove a wallet from this computer, with its password. Its coins stay on the chain: write down its 24 words first, because only they bring it back.</p>
+        <div id="secWallets" class="sec-wl"></div>
+      </div>
     </div>
     </div>
     <div id="tab-about" class="hidden">
@@ -1277,6 +1419,20 @@ header{padding:14px 30px}
         <div class="glass kpi"><b>5 GNR</b><span>Block reward, halving every 2.1M blocks</span></div>
         <div class="glass kpi"><b>60 s</b><span>Target block time</span></div>
         <div class="glass kpi"><b>0 %</b><span>Premine, founder or dev fee</span></div>
+      </div>
+      <section class="glass about-talks" aria-labelledby="aTalksH">
+        <span class="at-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 13.5Z"/><path d="M8 8.5h8M8 11.5h5"/></svg><span class="dot live"></span></span>
+        <div><span class="eyebrow-s">Community</span><h3 id="aTalksH">Genoryn Talks</h3>
+          <p class="muted">The forum and live chat of Genoryn Krypton: questions and answers, mining and swaps, releases, translations and ideas. Anyone can read; post with an account of your own. Nobody there will ever need your 24 words or your password.</p></div>
+        <button class="btn btn-primary" type="button" onclick="openLink('talks')"><svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>Open Genoryn Talks</button>
+      </section>
+      <div class="about-feats">
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg><b>Private payments</b><span>Amounts, sender and recipient hidden on chain by a zk-STARK proof.</span></div>
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><b>Swap and Market</b><span>Bitcoin and GNR between two wallets: atomic, no exchange, no custody.</span></div>
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><b>Fair mining</b><span>GPU or CPU, rewards in proportion to the work, no pools needed.</span></div>
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg><b>Verified light sync</b><span>Every block it reads is checked here; a full node is optional.</span></div>
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><b>Post-quantum keys</b><span>No elliptic curve guards your coins: hashes and ML-KEM.</span></div>
+        <div class="glass af"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><b>Signed updates</b><span>Installed only with the project's post-quantum release signature.</span></div>
       </div>
       <div class="grid">
       <div class="glass card">
@@ -1321,10 +1477,18 @@ header{padding:14px 30px}
           <button class="btn" onclick="openLink('releases')"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Releases</button>
           <button class="btn" onclick="openLink('node-guide')"><svg class="ic" aria-hidden="true"><use href="#i-network"/></svg>Run a full node</button>
           <button class="btn" onclick="openLink('news')"><svg class="ic" aria-hidden="true"><use href="#i-docs"/></svg>News</button>
+          <button class="btn" onclick="openLink('talks')"><svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>Genoryn Talks</button>
           <button class="btn" onclick="openLink('help')"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg>Get help</button>
           <button class="btn" onclick="openLink('bugs')"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Report a bug</button>
         </div>
         <p class="hero-note">Your keys and balance never leave this computer; the explorer only shows public chain data.</p>
+      </div>
+      <div class="glass card">
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg>Security audits</h2>
+        <p class="muted">The whole system is reviewed end to end: the wallet and its Bitcoin side, swaps and the offer board, the node, consensus and the cryptography, updates, the website and Talks. What was checked, what was found and how it was fixed is public.</p>
+        <div class="row">Latest review<b>26 November 2026 · version 1.0.52</b></div>
+        <div class="row">Earlier reviews<b>5 November 2026 · version 1.0.7</b></div>
+        <div class="row-flex" style="margin-top:14px"><button class="btn btn-primary" type="button" onclick="openLink('audits')"><svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>Read the audits</button></div>
       </div>
       <div class="glass card">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Open source</h2>
@@ -1360,7 +1524,10 @@ GKI18N.translatePage(document.body);
 const token = location.hash.slice(1) || sessionStorage.getItem('t') || ''; sessionStorage.setItem('t', token); history.replaceState(null,'',location.pathname);
 const $ = id => document.getElementById(id); const show = id => $(id).classList.remove('hidden'); const hide = id => $(id).classList.add('hidden');
 const gnr = v => GKI18N.num(Number(v||0)/1e8,{minimumFractionDigits:2,maximumFractionDigits:8});
-const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s||'').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+/* A value as a JavaScript string inside an inline handler (onclick="f(${jsq(x)})"): the
+   attribute is decoded before the script runs, so HTML escaping alone does not keep it a string. */
+const jsq = s => esc(JSON.stringify(String(s??'')));
 let S = {};
 async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET', headers:{'x-token':token,'content-type':'application/json'}, body: body?JSON.stringify(body):undefined}); const j = await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(TR(j.error)||r.statusText); e.raw=j.error||''; throw e; } return j; }
 /* The language is saved with the settings and the page reloads in it; the wallet itself keeps
@@ -1450,7 +1617,10 @@ async function afterAdd(r, name, activate){
 function startAdding(){ adding=true; const n=(S.wallet_count||0)+1; $('newName').value=T("Wallet {n}", {n}); refresh(); }
 function chipClick(){ if(S.unlocked) openSwitcher($('wChip')); else { show('uPick'); $('uSel').focus(); } }
 function dur(s){ if(s==null) return ''; const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?T("{h} h {m} min", {h, m}):m?T("{m} min", {m}):T("less than a minute"); }
-async function loadWallets(){ try{ W=await api('/api/wallets'); renderBar(); if(!$('allWallets').classList.contains('hidden')) renderWallets(); }catch(e){} }
+async function loadWallets(){ try{ W=await api('/api/wallets'); renderBar(); if(!$('allWallets').classList.contains('hidden')) renderWallets(); renderSecWallets(); }catch(e){} }
+/* Security tab: every wallet of this app, each with its delete button. */
+function renderSecWallets(){ const box=$('secWallets'); if(!box||!W) return;
+  box.innerHTML=W.wallets.length?W.wallets.map(w=>`<div class="sec-w"><span class="sec-wi">${coin('gnr')}</span><span class="sec-wn"><b>${esc(w.name)}</b><em>${w.balance?gnr(w.balance.total)+' GNR'+(w.balance_is_last_known?' · '+TE("last known"):''):TE("Balance not known yet")}${w.active?' · '+TE("active"):''}</em></span><button class="btn btn-danger-soft" onclick="removeW(${jsq(w.id)})"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>${TE("Delete")}</button></div>`).join(''):`<p class="muted">${TE("No wallets yet.")}</p>`; }
 function renderWallets(){
   if(!W) return;
   const t=W.total||{}; $('tTotal').textContent=gnr(t.total); $('tSpend').textContent=gnr(t.spendable); $('tPend').textContent=gnr(t.pending); $('tImm').textContent=gnr(t.immature);
@@ -1466,7 +1636,7 @@ function renderWallets(){
   const pages=Math.max(1,Math.ceil(list.length/WV.per)); WV.page=Math.min(WV.page,pages-1);
   const keep=$('wpw')?$('wpw').value:'', hadFocus=document.activeElement&&document.activeElement.id==='wpw';
   $('wList').innerHTML = list.length ? list.slice(WV.page*WV.per,(WV.page+1)*WV.per).map(w=>{ const id=esc(w.id), b=w.balance, unl=WV.unlocking===w.id;
-    const status = w.unlocked ? TE("Unlocked · locks in {time}", {time: dur(w.locks_in)}) : (b ? TE("Locked · last known balance") : TE("Locked"));
+    const status = w.unlocked ? (w.held ? TE("Unlocked · stays open until its swap is done") : TE("Unlocked · locks in {time}", {time: dur(w.locks_in)})) : (b ? TE("Locked · last known balance") : TE("Locked"));
     return `<div class="wrow${w.active?' active':''}${w.unlocked?' open':''}" role="listitem">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
       <div class="wn"><b>${esc(w.name)}${w.active?' <span class="pill">'+TE("active")+'</span>':''}</b><span>${w.short?esc(w.short.slice(0,30))+'…':TE("address appears after the first unlock")}</span></div>
@@ -1475,7 +1645,7 @@ function renderWallets(){
       <div class="wa">
         ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')">${TE("Lock")}</button>`:(unl?'':`<button class="btn btn-primary" onclick="WV.unlocking='${id}';renderWallets();setTimeout(()=>$('wpw')&&$('wpw').focus(),0)">${TE("Unlock")}</button>`)}
         ${w.active?'':`<button class="btn" onclick="useWallet('${id}')">${TE("Use")}</button>`}
-        <span class="wmenu"><button class="btn" aria-label="${TE("More actions")}" onclick="event.stopPropagation();WV.menu=WV.menu==='${id}'?null:'${id}';renderWallets()">⋯</button>${WV.menu===w.id?`<span class="menu glass float"><button onclick="renameW('${id}')">${TE("Rename")}</button>${w.short?`<button onclick="copyText('${esc(w.short)}')">${TE("Copy short address")}</button>`:''}<button onclick="removeW('${id}')">${TE("Remove from app")}</button></span>`:''}</span>
+        <span class="wmenu"><button class="btn" aria-label="${TE("More actions")}" onclick="event.stopPropagation();WV.menu=WV.menu==='${id}'?null:'${id}';renderWallets()">⋯</button>${WV.menu===w.id?`<span class="menu glass float"><button onclick="renameW('${id}')">${TE("Rename")}</button>${w.short?`<button onclick="copyText(${jsq(w.short)})">${TE("Copy short address")}</button>`:''}<button class="danger" onclick="removeW('${id}')">${TE("Delete wallet…")}</button></span>`:''}</span>
       </div></div>`; }).join('') : `<div class="wempty">${all.length?TE("No wallet matches this search."):TE("No wallets yet.")}</div>`;
   if($('wpw')){ $('wpw').value=keep; if(hadFocus) $('wpw').focus(); }
   pager($('wPager'), WV.page, pages, list.length, WV.per, p=>{ WV.page=p; renderWallets(); }, T("wallets"));
@@ -1506,7 +1676,7 @@ function closeSwitcher(){ $('switcher').classList.add('hidden'); document.queryS
 function renderSwitcher(){
   const ws=(W?W.wallets:(S.wallet_names||[]).map(w=>({...w, active:w.id===(S.active||{}).id}))), q=WV.sq.toLowerCase();
   const list=ws.filter(w=>!q||w.name.toLowerCase().includes(q)||(w.short||'').toLowerCase().includes(q));
-  $('swList').innerHTML=list.map(w=>`<button type="button" class="sw-it${w.active?' on':''}" role="option" aria-selected="${!!w.active}" onclick="pickWallet('${esc(w.id)}')">
+  $('swList').innerHTML=list.map(w=>`<button type="button" class="sw-it${w.active?' on':''}" role="option" aria-selected="${!!w.active}" onclick="pickWallet(${jsq(w.id)})">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
       <span class="swn"><b>${esc(w.name)}</b><small>${w.short?esc(w.short.slice(0,26))+'…':TE("address after first unlock")}</small></span>
       <i>${w.balance?gnr(w.balance.total):'—'}<small>${Number(w.incoming)?TE("+{amount} incoming", {amount: gnr(w.incoming)}):(w.active?TE("active"):(w.unlocked?TE("unlocked"):TE("locked")))}</small></i></button>`).join('')||'<div class="wempty">'+TE("No wallet matches.")+'</div>';
@@ -1533,8 +1703,16 @@ $('wSort').onchange=e=>{ WV.sort=e.target.value; WV.page=0; renderWallets(); };
 document.querySelectorAll('#wFilter button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#wFilter button').forEach(x=>x.classList.toggle('on',x===b)); WV.f=b.dataset.f; WV.page=0; renderWallets(); });
 const wname = id => ((W&&W.wallets.find(w=>w.id===id)) || (S.wallet_names||[]).find(w=>w.id===id) || {}).name || T("this wallet");
 async function unlockOne(id){ const i=$('wpw'); window.fxBusy=true; try{ const r=await api('/api/wallets/unlock',{id, password:i?i.value:''}); if(i) i.value=''; WV.unlocking=null; toast(T("“{name}” unlocked for 24 hours", {name: wname(id)})); weakWarn(r, '“'+wname(id)+'”'); }catch(e){ toast(e.message,true) } window.fxBusy=false; await loadWallets(); refresh(); }
-async function lockOne(id){ try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
-async function lockAll(){ if(!await ask({title:T("Lock all wallets?"), icon:'lock', ok:T("Lock all"), body:'<p class="mtext">'+TE("Each wallet asks for its own password again. The miner keeps running.")+'</p>'})) return; try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+/* Locked, a wallet cannot claim or refund what it has in a swap contract: say so first. */
+async function stakeLockOk(held){ if(!held) return true;
+  return !!await ask({title:T("A swap of this wallet is under way"), icon:'lock', ok:T("Lock anyway"), danger:true,
+    body:'<p class="mtext">'+TE("Its coins are in a swap contract that only this wallet can claim or refund. Left unlocked, it finishes the swap by itself. Locked, it can do neither: unlock it again well before the swap's deadline, or the coins can be lost.")+'</p>'}); }
+async function lockOne(id){ const w=((W&&W.wallets)||[]).find(x=>x.id===id); if(!await stakeLockOk(w&&w.held)) return;
+  try{ await api('/api/wallets/lock',{id}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function lockAll(){ const held=((W&&W.wallets)||[]).some(w=>w.held);
+  if(held){ if(!await stakeLockOk(true)) return; }
+  else if(!await ask({title:T("Lock all wallets?"), icon:'lock', ok:T("Lock all"), body:'<p class="mtext">'+TE("Each wallet asks for its own password again. The miner keeps running.")+'</p>'})) return;
+  await lockFx('close'); try{ await api('/api/wallets/lock-all',{}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 async function useWallet(id){
   try{ await api('/api/wallets/use',{id}); toast(T("Switched to “{name}”", {name: wname(id)})); }catch(e){ toast(e.message,true); return; }
   // Everything shown belongs to the new wallet now: drop what was loaded for the old one,
@@ -1543,27 +1721,42 @@ async function useWallet(id){
   QS.bal=null; QS.balAt=0; QS.q=null; ++QS.seq; $('btcBal').textContent='-'; $('btcBalSub').textContent=T("Loading this wallet's Bitcoin balance…");
   await refresh(); loadWallets();
   const vis=t=>!$('tab-'+t).classList.contains('hidden');
-  if(vis('history')) loadHistory(); if(vis('swap')||vis('market')) loadSwaps(); if(vis('swap')){ btcLoad(true); qsAsk(); } if(vis('network')) loadNetExtras();
+  if(vis('history')) loadHistory(); if(TRADE.some(vis)){ loadSwaps(); btcLoad(true); } if(vis('swap')) qsAsk(); if(vis('network')) loadNetExtras();
 }
 /* Which wallet the miner pays, at the top of the Mining tab: by name, and a way to it when
    another wallet is the one shown (the payouts and amounts below are the shown wallet's). */
 function mnWho(m){ const box=$('mnWho'); if(!box) return; const act=(S.active||{}).name||'';
   if(!m.running){ box.innerHTML=`<span class="mn-dot"></span><span>${act?TE("Not mining. Starting the miner pays the wallet shown now: “{name}”.", {name: act}):TE("Not mining.")}</span>`; return; }
   const to=m.wallet||act, other=!!(m.wallet&&act&&m.wallet!==act), id=other&&((S.wallet_names||[]).find(w=>w.name===m.wallet)||{}).id;
-  box.innerHTML=`<span class="mn-dot on"></span><span><b>${TE("Mining pays “{name}”", {name: to})}</b>${other?' · '+TE("You are looking at “{name}”: the payouts and amounts below are this wallet's.", {name: act}):''}</span>${id?`<button class="btn" onclick="pickWallet('${esc(id)}')">${TE("Show “{name}”", {name: m.wallet})}</button>`:''}`; }
+  box.innerHTML=`<span class="mn-dot on"></span><span><b>${TE("Mining pays “{name}”", {name: to})}</b>${other?' · '+TE("You are looking at “{name}”: the payouts and amounts below are this wallet's.", {name: act}):''}</span>${id?`<button class="btn" onclick="pickWallet(${jsq(id)})">${TE("Show “{name}”", {name: m.wallet})}</button>`:''}`; }
 async function renameW(id){ WV.menu=null; renderWallets(); const n=await ask({title:T("Rename wallet"), icon:'wallet', ok:T("Save"), input:{value:wname(id), max:40, placeholder:T("Wallet name")}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+/* Deleting a wallet from this computer: its password, its 24 words written down, and a
+   choice between keeping an encrypted copy (the default) and destroying the file. */
 async function removeW(id){
-  WV.menu=null; const n=wname(id); const paysMiner = S.miner&&S.miner.running&&S.miner.wallet===n;
-  if(!await ask({title:T("Remove “{name}” from this app?", {name: n}), icon:'lock', ok:T("Remove"), danger:true,
-    body:'<p class="mtext">'+TH("Nothing is deleted: the wallet file moves to the **removed** folder next to your other wallets, and its coins stay on the chain. You can add it back at any time with its 24 words, so make sure you have them.")+'</p>'+(paysMiner?'<p class="mtext">'+TE("The running miner pays this wallet and keeps doing so until you restart it.")+'</p>':'')})) return;
-  try{ await api('/api/wallets/remove',{id}); toast(T("“{name}” removed from the app", {name: n})); }catch(e){ toast(e.message,true) } await loadWallets(); refresh();
+  WV.menu=null; if(W) renderWallets(); const n=wname(id), w=(W&&W.wallets.find(x=>x.id===id))||{}, paysMiner=S.miner&&S.miner.running&&S.miner.wallet===n;
+  const bal=w.balance?Number(w.balance.total||0):null; window.rmPerm=false; window.rmWords=false;
+  if(!await ask({title:T("Delete “{name}” from this computer?", {name: n}), icon:'lock', ok:T("Delete wallet"), danger:true, pass:true,
+    body:`<div class="rm-sum coin-free">${coin('gnr','rm-coin')}<div><b>${bal==null?TE("Balance not known yet"):gnr(bal)+' GNR'}</b><span>${bal==null?TE("Unlock it once to see its balance."):w.balance_is_last_known?TE("last known balance"):TE("balance now")}</span></div></div>
+    <p class="mtext">${TE("Its coins stay on the chain. Only its 24 words bring them back on this or any other computer: without them, deleting it loses the coins for good.")}</p>
+    <div class="rm-modes">
+      <label class="rm-mode"><input type="radio" name="rmMode" checked onchange="window.rmPerm=false"><span><b>${TE("Remove and keep an encrypted copy")}</b><em>${TH("The file moves to the **removed** folder next to your wallets. Recommended.")}</em></span></label>
+      <label class="rm-mode"><input type="radio" name="rmMode" onchange="window.rmPerm=true"><span><b>${TE("Delete permanently")}</b><em>${TE("The file and every earlier removed copy of it are overwritten and deleted.")}</em></span></label>
+    </div>
+    <label class="mcheck"><input type="checkbox" onchange="window.rmWords=this.checked"> ${TE("I have this wallet's 24 words written down")}</label>
+    ${paysMiner?'<p class="mtext warn">'+TE("The running miner pays this wallet. Stop it, or start it for another wallet, before deleting this one permanently.")+'</p>':''}
+    <p class="mtext muted">${TE("A wallet with a swap in progress or an offer on the board cannot be deleted until they are finished: only it can take its coins back from them.")}</p>`})) { takePass(); return; }
+  const pw=takePass();
+  if(!window.rmWords) return toast(T("Write down this wallet's 24 words first, then tick the box"), true);
+  if(!pw) return toast(T("Enter this wallet's password"), true);
+  try{ await api('/api/wallets/remove',{id, password:pw, permanent:!!window.rmPerm}); toast(window.rmPerm?T("“{name}” deleted permanently", {name: n}):T("“{name}” removed; an encrypted copy is in the removed folder", {name: n})); }catch(e){ toast(e.message,true) }
+  await loadWallets(); refresh(); if(typeof renderSecWallets==='function') renderSecWallets();
 }
 function toggleRestore(){ restoreMode=!restoreMode; $('addRestore').classList.toggle('hidden',!restoreMode); $('addBtn').textContent=restoreMode?T("Restore wallet"):T("Create new wallet"); $('addMode').textContent=restoreMode?T("Create a new one instead"):T("Restore from recovery phrase"); }
 async function addWallet(){ const name=$('addName').value.trim(), p=$('addPass').value; if(!name) return toast(T("Give the wallet a name"), true); if(p.length<12) return toast(T("Use at least 12 characters for the password"), true);
   const b=$('addBtn'); b.disabled=true; window.fxBusy=true;
   try{ const body={name, password:p}; if(restoreMode){ body.mnemonic=$('addWords').value; body.birthday=Number($('addBirthday').value||0); } const r=await api('/api/wallets/add',body); ['addName','addPass','addWords'].forEach(i=>$(i).value=''); const was=restoreMode; if(restoreMode) toggleRestore(); toggleAdd(false); await afterAdd(r, name, false); if(was) legacyNote(r); }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; }
-async function unlock(){ try{ const r=await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; await refresh(); weakWarn(r, (S.active&&S.active.name)?'“'+S.active.name+'”':''); }catch(e){ toast(e.message,true) } }
+async function unlock(){ try{ const r=await api('/api/unlock',{password:$('unlockPass').value}); $('unlockPass').value=''; lockFx('open'); await refresh(); weakWarn(r, (S.active&&S.active.name)?'“'+S.active.name+'”':''); }catch(e){ toast(e.message,true) } }
 const FEE={speed:'normal', opts:null, t:0};
 const gnrShort=v=>GKI18N.num(Number(v||0)/1e8,{maximumFractionDigits:8});
 async function loadFees(){ FEE.t=Date.now(); try{ FEE.opts=await api('/api/fees'); }catch(e){ return; }
@@ -1633,14 +1826,14 @@ function renderOvCharts(){
   GKCharts.chart($('ocHash'), ser('hashrate'), {fmt:rate, height:200, target:mine, targetLabel:mine?T("you · {rate}", {rate: rate(mine)}):'', label:T("Network hashrate")});
   GKCharts.chart($('ocBlockTime'), ser('block_time'), {kind:'bars', fmt:v=>Math.round(v)+' s', target:60, targetLabel:T("target 60 s"), label:T("Block time")});
   GKCharts.chart($('ocShareChart'), ser('shares'), {kind:'bars', fmt:v=>fmtN(v,1), target:32, targetLabel:'32', label:T("Shares per block")});
-  GKCharts.chart($('ocMinerChart'), ser('miners'), {kind:'line', integer:true, fmt:v=>fmtN(v), label:T("Active miners")});
+  GKCharts.chart($('ocTxChart'), ser('txs'), {kind:'bars', integer:true, fmt:v=>fmtN(v), label:T("Transactions per block")});
   GKCharts.chart($('ocIssuedChart'), P.map(p=>({t:p.t,h:p.h,v:Number(p.issued||0)/1e8})), {fmt:v=>GKCharts.fmtNum?GKCharts.fmtNum(v):fmtN(v), zero:false, label:T("GNR issued")});
   GKCharts.chart($('ocDiffChart'), ser('difficulty'), {kind:'line', zero:false, fmt:v=>GKCharts.fmtNum?GKCharts.fmtNum(v):fmtN(v), label:T("Difficulty")});
   const last=P[P.length-1]||{};
   $('ocRate').textContent=rate(sum.hashrate||last.hashrate); $('ocTime').textContent=last.block_time?Math.round(last.block_time)+' s':'-';
-  $('ocShares').textContent=last.shares!=null?fmtN(last.shares,1):'-'; $('ocMiners').textContent=sum.estimated_miners??'-';
+  $('ocShares').textContent=last.shares!=null?fmtN(last.shares,1):'-'; $('ocTxs').textContent=last.txs!=null?fmtN(last.txs):'-';
   $('ocIssued').textContent=gnr(sum.issued).replace(/\.\d+$/,'')+' GNR'; $('ocDiff').textContent=last.difficulty?(GKCharts.fmtNum?GKCharts.fmtNum(last.difficulty):fmtN(last.difficulty)):'-';
-  spark($('spRate'), P.map(p=>p.hashrate)); spark($('spMiners'), P.map(p=>p.miners)); spark($('spTime'), P.map(p=>p.block_time));
+  spark($('spRate'), P.map(p=>p.hashrate)); spark($('spDiff'), P.map(p=>p.difficulty)); spark($('spTime'), P.map(p=>p.block_time));
   if(mine) spark($('spShare'), P.map(p=>p.hashrate>0?Math.min(1,mine/p.hashrate)*100:0)); else $('spShare').innerHTML='';
   renderOvBalance(); renderOvKpis();
 }
@@ -1657,8 +1850,9 @@ function renderOvBalance(){
 }
 function renderOvKpis(){
   const sum=(OV.stats||{}).summary||{}, tip=S.tip||{}, m=S.miner||{}, rw=S.rewards, P=(OV.stats||{}).points||[];
-  $('oRate').textContent=rate(sum.hashrate||tip.hashrate); $('oRateSub').textContent=sum.gpu_equivalents?'≈ '+fmtN(sum.gpu_equivalents,1)+' RTX 5090':' ';
-  $('oMiners').textContent=sum.estimated_miners??'-'; $('oMinersSub').textContent=sum.miners_24h!=null?T("{n} in 24 h", {n: sum.miners_24h})+(sum.miners_last_hour!=null?' · '+T("{n} in the last hour", {n: sum.miners_last_hour}):''):sum.miners_last_hour!=null?T("{n} in the last hour", {n: sum.miners_last_hour}):' ';
+  $('oRate').textContent=rate(sum.hashrate||tip.hashrate); $('oRateSub').textContent=T("measured from the shares of every block");
+  const dNow=Number(tip.difficulty||((P[P.length-1]||{}).difficulty)||0), d0=Number((P[0]||{}).difficulty||0);
+  $('oDiff').textContent=dNow?GKCharts.fmtNum(dNow):'-'; $('oDiffSub').textContent=dNow&&d0?((dNow>=d0?'+':'')+((dNow/d0-1)*100).toFixed(1)+' % '+T("in this range")):' ';
   $('oHeight').textContent=tip.height!=null?fmtN(tip.height):'-'; const bt=P.length?P.slice(-6).reduce((a,p)=>a+p.block_time,0)/Math.min(6,P.length):0; $('oHeightSub').textContent=bt?T("blocks every ~{n} s", {n: Math.round(bt)}):' ';
   const f=m.running&&m.hashrate>0?m.network_fraction:null; $('oShare').textContent=f!=null?(f*100).toFixed(f<0.01?3:1)+' %':T("not mining");
   $('oShareSub').textContent=f!=null?T("≈ {amount} GNR / day", {amount: fmtN(m.expected_per_day,1)})+' · '+rate(m.hashrate):T("start the miner in Mining");
@@ -1670,6 +1864,14 @@ function renderOvKpis(){
   $('oIssued').textContent=gnr(iss).replace(/\.\d+$/,''); $('oIssuedSub').textContent=T("{pct} % of 21,000,000", {pct: (iss/mx*100).toFixed(4)});
   $('oIssBar').style.width=Math.max(1,iss/mx*100)+'%';
 }
+/* The QR code of the short address on the Wallet tab, drawn again only when the address changes. */
+let RQ='';
+async function recvQr(v){ const box=$('recvQr'); if(!box||!v||v===RQ) return; RQ=v;
+  try{ const r=await fetch('/api/qr?d='+encodeURIComponent(v),{headers:{'x-token':token}}); if(r.ok&&RQ===v) box.innerHTML=await r.text(); }catch(e){ RQ=''; } }
+/* A number fits its box: the font shrinks until the whole number shows (never below 13 px). */
+function fitText(el, max){ if(!el) return; max=max||Number(el.dataset.max)||26; el.style.fontSize=max+'px'; let f=max; while(f>13&&el.scrollWidth>el.clientWidth+1){ f-=1; el.style.fontSize=f+'px'; } }
+function fitAll(root){ (root||document).querySelectorAll('.fit').forEach(e=>fitText(e)); }
+window.addEventListener('resize', ()=>fitAll($('hSums')));
 /* ---- History: paged, filtered, searched on the wallet side ---- */
 const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
 const fmtTime=t=>t?new Date(t*1000).toLocaleString(GKI18N.lang, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
@@ -1677,7 +1879,7 @@ const KIND={in:TE("Received"), out:TE("Sent"), mining:TE("Mining reward"), merge
 /* A payment's place on the explorer: its transaction when the wallet knows the id (what it
    sent, and what is still pending), else the block that holds it. */
 function histLink(h){ const tx=/^[0-9a-f]{64}$/i.test(h.txid||'')&&h.kind!=='merge';
-  if(tx) return `<button class="btn" title="${TE("See this transaction on genoryn.io. The explorer shows that it exists, its block and its fee: never the amount or who paid whom.")}" onclick="openLink('tx','${esc(h.txid)}')">${TE("View ↗")}</button>`;
+  if(tx) return `<button class="btn" title="${TE("See this transaction on genoryn.io. The explorer shows that it exists, its block and its fee: never the amount or who paid whom.")}" onclick="openLink('tx',${jsq(h.txid)})">${TE("View ↗")}</button>`;
   if(h.height!=null) return `<button class="btn" title="${h.kind==='mining'?TE("See block {height} on genoryn.io: the block that paid this reward", {height: fmtN(h.height)}):TE("See block {height} on genoryn.io: the block that holds this payment", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${TE("Block ↗")}</button>`;
   return ''; }
 const SEEN_IN=new Set();
@@ -1688,8 +1890,8 @@ async function loadHistory(){
   const pages=Math.max(1,Math.ceil(r.total/H.per)); if(r.total&&H.page>=pages){ H.page=pages-1; return loadHistory(); }
   const s=r.sums||{};
   $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
-  $('hsFees').textContent=Number(s.fees)?'· '+T("fees {amount}", {amount: gnr(s.fees)}):''; $('hsCount').textContent=fmtN(r.all);
-  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:'<span class=warn>'+TE("pending")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}"><span class="ty ${h.kind}">${h.incoming?TE("Incoming · pending"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}">${esc(h.memo)}</td><td data-label="${TE("To")}" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="${TE("Proof")}"><span class="hx">${h.provable?`<button class="btn" onclick="makeProof('${esc(h.txid)}')" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${histLink(h)}</span></td></tr>`).join('')
+  $('hsFees').textContent=Number(s.fees)?T("fees {amount}", {amount: gnr(s.fees)}):''; $('hsCount').textContent=fmtN(r.all); fitAll($('hSums'));
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:'<span class=warn>'+TE("pending")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}"><span class="ty ${h.kind}">${h.incoming?TE("Incoming · pending"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}">${esc(h.memo)}</td><td data-label="${TE("To")}" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="${TE("Proof")}"><span class="hx">${h.provable?`<button class="btn" onclick="makeProof(${jsq(h.txid)})" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${histLink(h)}</span></td></tr>`).join('')
     || `<tr><td colspan=7 class=muted>${r.all?TE("Nothing matches this filter."):TE("No transactions yet")}</td></tr>`;
   pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, Tn(r.total, "entry", "entries"));
 }
@@ -1784,7 +1986,7 @@ function renderMining(){
   mnChart('pays', $('mnPayChart'), pays, {kind:'bars', fmt:v=>GKI18N.num(Number(v),{maximumFractionDigits:4})+' GNR', label:T("Mining payouts"), height:150}); }
   $('mnPayN').textContent=MN.pays.length?T("{amount} last", {amount: gnr(MN.pays[0].amount).replace(/0+$/,'').replace(/\.$/,'')}):T("none yet");
   renderMnBlocks();
-  if(window.GKValue&&$('mnCalc')){ if(!MN.calc) MN.calc=GKValue.mountCalc($('mnCalc'), ()=>{ const t=S.tip||{}, m=(S.market&&S.market.market)||{}; return {height:t.height, miners:(t.stats||{}).estimated_miners, hashrate:t.hashrate, supply:t.supply, sat:m.price, btcUsd:btcUsd()}; }); else MN.calc.update(); }
+  if(window.GKValue&&$('mnCalc')){ if(!MN.calc) MN.calc=GKValue.mountCalc($('mnCalc'), ()=>{ const t=S.tip||{}, m=(S.market&&S.market.market)||{}; return {height:t.height, hashrate:t.hashrate, supply:t.supply, sat:m.price, btcUsd:btcUsd()}; }); else MN.calc.update(); }
 }
 function renderMnBlocks(){
   const own=S.owner, bl=(MN.blocks||[]).filter(b=>MN.f==='all'||(own&&b.miner===own));
@@ -1800,7 +2002,16 @@ function renderMnBlocks(){
 }
 document.querySelectorAll('#mnBf button').forEach(b=>b.onclick=()=>{ MN.f=b.dataset.f; MN.page=0; document.querySelectorAll('#mnBf button').forEach(x=>x.classList.toggle('on',x===b)); renderMnBlocks(); });
 setInterval(()=>{ if(!document.hidden && !$('tab-mining').classList.contains('hidden') && Date.now()-MN.t>30000) loadMining(); }, 5000);
-async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light'; try{ await api('/api/settings',{mode, nodes:$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean), accept_peers:$('acceptPeers').checked}); toast(T("Saved")); }catch(e){ toast(e.message,true) } }
+/* Which nodes (and which Bitcoin connection) the wallet reads decides what it believes was
+   paid: changing them is confirmed with the password. */
+async function confirmSource(title){ if(!await ask({pass:true, title, icon:'globe', ok:T("Save"),
+    body:`<p class="mtext">${TE("What this source reports decides which payments the wallet sees. Use only sources you trust.")}</p>`})) return null;
+  return takePass(); }
+async function saveSettings(){ const mode=[...document.getElementsByName('mode')].find(x=>x.checked)?.value||'light';
+  const nodes=$('nodes').value.split('\n').map(s=>s.trim()).filter(Boolean), cur=(S.settings&&S.settings.nodes)||[];
+  let password='';
+  if(nodes.join('\n')!==cur.join('\n')){ password=await confirmSource(T("Change the nodes this wallet reads from?")); if(password==null) return; }
+  try{ await api('/api/settings',{mode, nodes, accept_peers:$('acceptPeers').checked, password}); if(S.settings) S.settings.nodes=nodes; toast(T("Saved")); }catch(e){ toast(e.message,true) } }
 async function reveal(){ try{ const r = await api('/api/reveal',{password:$('revealPass').value}); words('revealWords', r.mnemonic); $('revealPass').value=''; setTimeout(()=>$('revealWords').innerHTML='', 60000); }catch(e){ toast(e.message,true) } }
 /* Password strength while typing (estimated by the wallet; nothing is stored or sent away). */
 document.querySelectorAll('.pw-meter').forEach(m=>{ const inp=$(m.dataset.for); if(!inp) return; let t=null, seq=0;
@@ -1822,11 +2033,12 @@ function weakWarn(r, name){ if(!r||!r.weak_password) return;
 async function quitApp(){ if(!await ask({title:T("Quit Genoryn Krypton?"), icon:'power', ok:T("Quit"), danger:true, body:'<p class="mtext">'+TE("The miner and your own node stop too. To keep mining, just close the window instead.")+'</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>'+TE("Closed")+'</h2><p class="muted">'+TE("Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.")+'</p></div>'; }
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast(T("Copied")); }
 const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'); };
-const TABS=['wallet','history','swap','market','coins','mining','network','settings','console','security','about'];
-const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
+const TRADE=['swap','market','publish','swaps'];
+const TABS=['wallet','history','swap','market','publish','swaps','coins','mining','network','settings','console','security','about'];
+const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],publish:[T("Publish an offer"),T("Sell or buy GNR at a price of your own, paid from or into your Bitcoin balance.")],swaps:[T("Your swaps"),T("Every swap of this wallet: running, completed and refunded.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
-  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(t==='swap'||t==='market') loadSwaps(true); if(t==='coins') loadCoins(); if(t==='wallet') fitBig($('bal')); if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(TRADE.includes(t)){ loadSwaps(true); btcLoad(true); renderTradeBars(); } if(t==='publish') bdBalSet(); if(t==='coins') loadCoins(); if(t==='wallet'){ fitBig($('bal')); if(S.unlocked) btcLoad(); renderTradeBars(); } if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=[TE("Request"),TE("Accept"),TE("Deposit"),TE("Lock"),TE("Claim"),TE("Done")];
@@ -1841,7 +2053,7 @@ async function loadSwaps(first){
   const list=SW.swaps||[], live=list.filter(s=>!s.finished), past=list.filter(s=>s.finished);
   loadBoard();
   $('swCount').textContent=live.length?T("{n} in progress", {n: live.length}):'';
-  $('mkRun').classList.toggle('hidden', !live.length); $('mkRunT').textContent=live.length?T("Your swaps")+': '+T("{n} in progress", {n: live.length}):'';
+  ['mkRun','swRun'].forEach(i=>{ $(i).classList.toggle('hidden', !live.length); $(i+'T').textContent=live.length?T("Your swaps")+': '+T("{n} in progress", {n: live.length}):''; });
   live.filter(s=>s.gnr_first&&s.role==='btc_seller'&&s.stage==='await_deposit'&&s.htlc_address&&!swAuto(s)&&!PAY_SHOWN.has(s.id)).slice(0,1).forEach(s=>showPay(s));
   $('swElse').innerHTML=(SW.mirrored||[]).map(swMirror).join('')+(SW.elsewhere||[]).map(l=>`<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin('gnr','coin-pair')}</span><b>${TE("{amount} GNR locked in a swap on another computer", {amount: l.gnr_text})}</b><span class="pill">${l.refunding?TE("returning"):TE("runs elsewhere")}</span></div>
     <p class="swc-status">${l.height?TE("This wallet (the same 24 words) is open on another computer too, and a swap was started there. That computer runs the swap and shows its progress; this one sees only the GNR, locked on chain since block {height}.", {height: GKI18N.num(Number(l.height))}):TE("This wallet (the same 24 words) is open on another computer too, and a swap was started there. That computer runs the swap and shows its progress; this one sees only the GNR, locked on chain.")}</p>
@@ -1889,7 +2101,7 @@ function swMirror(m){ const buy=m.role==='btc_seller';
   return `<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin(buy?'btc':'gnr','coin-pair')}${coin(buy?'gnr':'btc','coin-pair')}</span><b>${buy?TE("Buy {amount} GNR", {amount: m.gnr_text}):TE("Sell {amount} GNR", {amount: m.gnr_text})}</b><span>${TE("for {coin}{amount} BTC", {amount: m.btc_text}).replace('{coin}', ()=>coin('btc','coin-sm'))}</span><span class="pill">${m.finished?TE("ended on another computer"):TE("on another computer")}</span></div>
     <p class="swc-status">${esc(TR(m.status)||'')}</p>
     <p class="swc-keep">${TE("This wallet runs this swap on another computer, which reported it {time} ago.", {time: swLeft(m.age||0)})} ${m.finished?'':TE("That computer carries it through. If it is switched off or lost, you can carry the swap on here.")}</p>
-    ${m.finished?'':`<div class="swc-acts"><button class="btn" onclick="swapAdopt('${esc(m.id)}')">${TE("Carry on here")}</button><span class="muted">${TE("Only if the other computer no longer runs this wallet.")}</span></div>`}</div>`; }
+    ${m.finished?'':`<div class="swc-acts"><button class="btn" onclick="swapAdopt(${jsq(m.id)})">${TE("Carry on here")}</button><span class="muted">${TE("Only if the other computer no longer runs this wallet.")}</span></div>`}</div>`; }
 async function swapAdopt(id){
   const okA=await ask({pass:true, title:T("Carry this swap on at this computer?"), icon:'swap', ok:T("Carry on here"), cancel:T("Leave it"),
     body:'<p class="mtext">'+TE("This computer takes the swap over as the other one last reported it, and does every step that is still open: lock, pay from the deposit, claim or refund. Do this when the other computer is switched off, broken or lost. If both run the swap, nothing is paid or locked twice (each step spends something that can be spent once), but keep to one computer.")+'</p>'}); const pw=takePass(); if(!okA) return;
@@ -1916,7 +2128,7 @@ function swapCelebrate(s){ ask({title:T("Your swap is complete"), icon:'swap', o
 function swapCard(s){
   if(s.gnr_first) return swapCard2(s);
   const at=SW_AT[s.stage]||0, buy=s.role==='btc_seller';
-  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel('${esc(s.id)}')">${TE("Cancel swap")}</button><span class="muted">${s.expires_in!=null?TE("Ends by itself in {time} if no bitcoin deposit arrives.", {time: swLeft(s.expires_in)}):''}</span></div>`:'';
+  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel(${jsq(s.id)})">${TE("Cancel swap")}</button><span class="muted">${s.expires_in!=null?TE("Ends by itself in {time} if no bitcoin deposit arrives.", {time: swLeft(s.expires_in)}):''}</span></div>`:'';
   const showCode=s.code&&['requested','accepted','deposited'].includes(s.stage)&&!(s.role==='gnr_seller'&&s.stage==='deposited');
   const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
   const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString(GKI18N.lang)} · ${esc(TR(m))}</li>`).join('');
@@ -1934,7 +2146,7 @@ function swapCard(s){
 }
 function swapCard2(s){
   const at=SW_AT2[s.stage]||0, buy=s.role==='btc_seller';
-  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel('${esc(s.id)}')">${TE("Cancel swap")}</button><span class="muted">${buy?TE("You have paid nothing yet."):TE("Nothing is locked yet.")}</span></div>`:'';
+  const acts=s.cancellable?`<div class="swc-acts"><button class="btn" onclick="swapCancel(${jsq(s.id)})">${TE("Cancel swap")}</button><span class="muted">${buy?TE("You have paid nothing yet."):TE("Nothing is locked yet.")}</span></div>`:'';
   const row=(k,v)=>v==null||v===''?'':`<div class="row">${k}<b class="mono">${esc(v)}</b></div>`;
   const log=(s.log||[]).slice(-12).reverse().map(([t,m])=>`<li>${new Date(t*1000).toLocaleString(GKI18N.lang)} · ${esc(TR(m))}</li>`).join('');
   const pay=buy&&s.stage==='await_deposit'&&s.htlc_address;
@@ -1944,7 +2156,7 @@ function swapCard2(s){
     ${!s.finished?'<p class="swc-keep">'+TE("Keep this wallet open and unlocked until this swap is done: only it can lock, take or refund these coins.")+'</p>':''}
     ${s.code?`<label>${TE("Send this code to the other person")}</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">${TE("Copy code")}</button>`:''}
     ${pay&&swAuto(s)?'<div class="swc-safe"><b>'+TE("Nothing to do.")+'</b> '+TE("The seller's GNR is locked for you on chain, and your wallet pays the swap contract from the bitcoin you deposited with the offer.")+'</div>':''}
-    ${pay&&!swAuto(s)?`<button class="btn btn-primary" type="button" onclick="showPayId('${esc(s.id)}')">${TE("Show payment details")}</button><div class="swc-safe"><b>${TE("The seller's GNR is locked for you on chain.")}</b> ${TE("Only you can claim it, with the secret the seller reveals when taking your bitcoin.")}</div><label>${s.pay_in!=null?TE("Pay exactly {amount} BTC to this contract address within {time}", {amount: s.btc_text, time: swLeft(s.pay_in)}):TE("Pay exactly {amount} BTC to this contract address", {amount: s.btc_text})}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">${TE("Copy address")}</button>`:''}
+    ${pay&&!swAuto(s)?`<button class="btn btn-primary" type="button" onclick="showPayId(${jsq(s.id)})">${TE("Show payment details")}</button><div class="swc-safe"><b>${TE("The seller's GNR is locked for you on chain.")}</b> ${TE("Only you can claim it, with the secret the seller reveals when taking your bitcoin.")}</div><label>${s.pay_in!=null?TE("Pay exactly {amount} BTC to this contract address within {time}", {amount: s.btc_text, time: swLeft(s.pay_in)}):TE("Pay exactly {amount} BTC to this contract address", {amount: s.btc_text})}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">${TE("Copy address")}</button>`:''}
     ${acts}
     <details><summary>${TE("Details")}</summary>
       ${row(TE("You receive"),s.receive_text)}${row(TE("Your Bitcoin address"),s.btc_address)}${row(TE("Contract address"),pay||!buy?s.htlc_address:'')}
@@ -2000,7 +2212,7 @@ async function loadBoard(){
   renderBook(); renderMine(); bdPer(); swTotals(); qsBoard(); qsOrders(); btcLoad();
   $('swTakes').innerHTML=(BD.my_takes||[]).map(o=>`<div class="swc swc-else"><div class="swc-head"><span class="swc-pair">${coin('btc','coin-pair')}${coin('gnr','coin-pair')}</span><b>${o.sell?TE("Sell {amount} GNR", {amount: o.gnr_text}):TE("Buy {amount} GNR", {amount: o.gnr_text})}</b><span>${TE("for {coin}{amount} BTC", {amount: o.btc_text}).replace('{coin}', ()=>coin('btc','coin-sm'))}</span><span class="pill">${o.waiting?(o.fund?TE("Waiting for your bitcoin"):TE("Waiting for an answer")):TE("Ended")}</span></div>
     <p class="swc-status">${esc(TR(o.status)||'')}</p>
-    ${o.waiting?`<div class="swc-acts">${o.fund?`<button class="btn btn-primary" onclick="showTakeId('${esc(o.id)}')">${TE("Deposit address")}</button>`:''}<button class="btn" onclick="boardUntake('${esc(o.id)}',${o.fund?1:0})">${TE("Call off")}</button><span class="muted">${o.fund?TE("The swap starts by itself once the bitcoin has one confirmation."):TE("Nothing is locked or paid yet.")}</span></div>`:''}</div>`).join('');
+    ${o.waiting?`<div class="swc-acts">${o.fund?`<button class="btn btn-primary" onclick="showTakeId(${jsq(o.id)})">${TE("Deposit address")}</button>`:''}<button class="btn" onclick="boardUntake(${jsq(o.id)},${o.fund?1:0})">${TE("Call off")}</button><span class="muted">${o.fund?TE("The swap starts by itself once the bitcoin has one confirmation."):TE("Nothing is locked or paid yet.")}</span></div>`:''}</div>`).join('');
 }
 /* What the board holds, in bitcoin and in dollars: offers on each side, swaps running, swaps done. */
 function swTotals(){
@@ -2030,7 +2242,7 @@ function bdDepth(list, mp){ if(!mp) return '';
 function bdList(){
   const all=BD.offers||[], mine=BD.my_offers||[];
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
-  let v = BDV.tab==='mine' ? mine.filter(o=>(!o.cancelled&&!o.expired&&!o.taken)||(o.fund&&o.fund.closed&&o.fund.recent&&!o.fund.handed)) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({pending:true, expires_in:0}, o)) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(o.online!==false||o.mine));
+  let v = BDV.tab==='mine' ? mine.filter(o=>(!o.cancelled&&!o.expired&&!o.taken)||(o.fund&&o.fund.closed&&o.fund.recent&&!o.fund.handed)) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({}, o, {pending:true, expires_in:0})) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(o.online!==false||o.mine));
   v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max; });
   const best = BDV.tab==='buy' ? (a,b)=>b.price-a.price : (a,b)=>a.price-b.price;
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
@@ -2054,12 +2266,12 @@ function renderBook(){
   const act=o=>{
     if(o.pending) return o.funded?'<span class="pill ok" title="'+TE("The bitcoin is in its contract: the swap is running")+'">'+TE("bitcoin paid")+'</span>':'<span class="pill" title="'+TE("The offer was taken and the GNR is locked, but no bitcoin has been paid yet")+'">'+TE("taken, not paid yet")+'</span>';
     if(BDV.tab==='mine'&&o.fund&&o.fund.closed) return '<span class="pill">'+TE("ended")+'</span>';
-    if(BDV.tab==='mine') return o.taken?'<span class="pill">'+TE("taken")+'</span>':o.expired?'<span class="pill">'+TE("expired")+'</span>':`${o.fund&&!o.fund.posted?'<button class="btn" onclick="showDepositId(\''+esc(o.id)+'\')">'+TE("Deposit address")+'</button> ':''}${o.follow?'<span class="pill" title="'+(o.side==='sell_gnr'?TE("Its price follows the market price, never below {price}", {price: fmtPx(o.follow.limit)}):TE("Its price follows the market price, never above {price}", {price: fmtPx(o.follow.limit)}))+'">'+TE("follows market")+'</span> ':''}${o.preparing?'<span class="pill" title="'+esc(TR(o.status)||'')+'">'+TE("preparing")+'</span> ':''}<button class="btn" onclick="boardCancel('${esc(o.id)}')">${TE("Cancel")}</button>`;
+    if(BDV.tab==='mine') return o.taken?'<span class="pill">'+TE("taken")+'</span>':o.expired?'<span class="pill">'+TE("expired")+'</span>':`${o.fund&&!o.fund.posted?'<button class="btn" onclick="showDepositId(\''+esc(o.id)+'\')">'+TE("Deposit address")+'</button> ':''}${o.follow?'<span class="pill" title="'+(o.side==='sell_gnr'?TE("Its price follows the market price, never below {price}", {price: fmtPx(o.follow.limit)}):TE("Its price follows the market price, never above {price}", {price: fmtPx(o.follow.limit)}))+'">'+TE("follows market")+'</span> ':''}${o.preparing?'<span class="pill" title="'+esc(TR(o.status)||'')+'">'+TE("preparing")+'</span> ':''}<button class="btn" onclick="boardCancel(${jsq(o.id)})">${TE("Cancel")}</button>`;
     if(o.mine) return '<span class="pill">'+TE("yours")+'</span>';
     if(o.online===false) return '<span class="pill" title="'+TE("The maker's wallet is not online right now, so the swap could not start at once")+'">'+TE("offline")+'</span>';
     const label=o.side==='sell_gnr'?TE("Buy"):TE("Sell");
     if(!SW.active) return `<button class="btn" title="${TE("Swaps start at the network upgrade")}" onclick="bdNotYet()">${label}</button>`;
-    return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake('${esc(o.id)}','${o.side}','${esc(o.gnr_text)}','${esc(o.btc_text)}')">${label}</button>`;
+    return `<button class="btn ${o.side==='sell_gnr'?'btn-primary':''}" onclick="boardTake(${jsq(o.id)},${jsq(o.side)},${jsq(o.gnr_text)},${jsq(o.btc_text)})">${label}</button>`;
   };
   const big=Math.max(1,...rows.map(o=>o.gnr)), usd=p=>{ const u=btcUsd(); return u?GKValue.usd(p*u/1e8):''; };
   const live=o=>o.pending?'':`<span class="bd-live${o.online===false?' off':''}" title="${o.online===false?TE("Maker offline"):TE("Maker online: the swap starts within seconds")}"></span>`;
@@ -2082,7 +2294,8 @@ function renderMine(){
   const open=(BD.my_offers||[]).filter(o=>!o.cancelled&&!o.taken&&!o.expired);
   const stopped=(BD.my_offers||[]).filter(o=>o.stopped&&o.cancelled&&!o.taken&&!o.expired).slice(0,3);
   const cool=S.cooling||[];
-  $('bdMine').innerHTML=(open.length?`<label>${TE("Your open offers")}</label>`+open.slice(0,3).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?TE("Selling {amount} GNR", {amount: o.gnr_text}):TE("Buying {amount} GNR", {amount: o.gnr_text})} · ${fmtPx(o.price)}${o.follow?'<em>'+(o.side==='sell_gnr'?TE("Follows the market, never below {price}", {price: fmtPx(o.follow.limit)}):TE("Follows the market, never above {price}", {price: fmtPx(o.follow.limit)}))+(o.follow.moves?' · '+esc(Tn(o.follow.moves, "price moved {n} time", "price moved {n} times", {n: o.follow.moves})):'')+'</em>':''}${o.preparing?'<em>'+esc(TR(o.status)||T("Preparing."))+'</em>':''}</span><button class="btn" onclick="boardCancel('${esc(o.id)}')">${TE("Cancel")}</button></div>`).join('')+(open.length>3?`<button type="button" class="linkbtn" onclick="document.querySelector('#bdTab [data-t=mine]').click()">${TE("and {n} more under Mine", {n: open.length-3})}</button>`:''):'')
+  $('bdMineMini').innerHTML=open.length?`<div class="bd-mini"><span class="bd-live"></span><span>${TE("Your open offers")}: <b>${open.length}</b></span><button type="button" class="linkbtn" onclick="goTab('publish')">${TE("See them")}</button></div>`:'';
+  $('bdMine').innerHTML=(open.length?`<label>${TE("Your open offers")}</label>`+open.slice(0,8).map(o=>`<div class="bd-mine"><span>${o.side==='sell_gnr'?TE("Selling {amount} GNR", {amount: o.gnr_text}):TE("Buying {amount} GNR", {amount: o.gnr_text})} · ${fmtPx(o.price)}${o.follow?'<em>'+(o.side==='sell_gnr'?TE("Follows the market, never below {price}", {price: fmtPx(o.follow.limit)}):TE("Follows the market, never above {price}", {price: fmtPx(o.follow.limit)}))+(o.follow.moves?' · '+esc(Tn(o.follow.moves, "price moved {n} time", "price moved {n} times", {n: o.follow.moves})):'')+'</em>':''}${o.preparing?'<em>'+esc(TR(o.status)||T("Preparing."))+'</em>':''}</span><button class="btn" onclick="boardCancel(${jsq(o.id)})">${TE("Cancel")}</button></div>`).join('')+(open.length>8?`<button type="button" class="linkbtn" onclick="goTab('market');document.querySelector('#bdTab [data-t=mine]').click()">${TE("and {n} more under Mine", {n: open.length-8})}</button>`:''):`<p class="muted">${TE("No open offers yet. The form on the left publishes one.")}</p>`)
     +stopped.map(o=>`<div class="bd-cool"><b>${o.side==='sell_gnr'?TE("Selling {amount} GNR", {amount: o.gnr_text}):TE("Buying {amount} GNR", {amount: o.gnr_text})}</b><em>${esc(TR(o.stopped))}</em></div>`).join('')
     +(cool.length?`<div class="bd-cool"><b>${TE("{amount} GNR committed by ended offers", {amount: gnrShort(cool.reduce((a,c)=>a+Number(c.value||0),0))})}</b>${cool.slice(0,3).map(c=>`<span>${gnrShort(c.value)} GNR · ${TE("free {time}", {time: fmtTime(c.until)})}</span>`).join('')}<em>${TE("You can put it into a new offer now.")}</em></div>`:'');
 }
@@ -2093,7 +2306,15 @@ const durText=h=>h>=8760?T("1 year"):h>=720?T("1 month"):h>=168?T("1 week"):h>=4
 $('bdDur').onchange=e=>{ $('bdPubBtn').textContent=T("Publish for {time}", {time: durText(Number(e.target.value))}); };
 $('bdMin').oninput=e=>{ BDV.min=e.target.value; BDV.page=0; renderBook(); };
 $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
-document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?T("Your Bitcoin address to receive the bitcoin"):T("Your Bitcoin address: unsold bitcoin and change come back here"); $('bdDepRow').classList.toggle('hidden', bdSide==='sell_gnr'); $('bdPreRow').classList.toggle('hidden', bdSide!=='sell_gnr'); bdFolSet(true); bdAutoSet(); bdPer(); });
+document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); $('bdAddrL').textContent=bdSide==='sell_gnr'?T("Your Bitcoin address to receive the bitcoin"):T("Your Bitcoin address: unsold bitcoin and change come back here"); $('bdPreRow').classList.toggle('hidden', bdSide!=='sell_gnr'); bdFolSet(true); bdAutoSet(); bdBalSet(); bdPer(); });
+/* The Bitcoin balance on the offer form: a sell offer is paid into it, a buy offer is paid from it (1.0.52). */
+const bdBal=()=>$('bdBal').checked;
+function bdBalSet(){ const on=bdBal(), sell=bdSide==='sell_gnr', b=QS.bal, free=b?Math.max(0,(b.confirmed||0)-(b.committed||0)):null;
+  $('bdBalT').textContent=sell?T("Receive the bitcoin into my Bitcoin balance"):T("Pay from my Bitcoin balance");
+  $('bdBalN').textContent=sell?T("Ready for your next purchase at once; or turn this off to name another address."):free==null?T("Loading your Bitcoin balance…"):T("{btc} BTC free and confirmed; bitcoin that is not spent comes back to the balance.", {btc: btcFmt(free/1e8)});
+  $('bdAddrBox').classList.toggle('hidden', on);
+  $('bdDepRow').classList.toggle('hidden', sell||on||bdAuto());
+  if(!b) btcLoad(true); }
 function bdPer(){
   const g=Number($('bdGnr').value), b=Number($('bdBtc').value), mp=bdMkt().price;
   if(!(g>0&&b>0)){ $('bdPerP').textContent='-'; $('bdPer').textContent=mp?T("Market price now: {price}. Set any price you like.", {price: fmtPx(mp)+satUsd(mp)}):T("Set any price you like: your offer can set the first market price."); return; }
@@ -2149,24 +2370,25 @@ function bdAutoSet(){ const on=bdAuto(), sell=bdSide==='sell_gnr';
   const mp=bdMkt().price, f=BD.follow||{};
   if(on&&!bdFol()&&mp&&Number(bdMkt().priced)>=(f.min_swaps||1)){ $('bdFol').checked=true; bdFolSet(true); }
   if(on&&sell){ $('bdPre').checked=true; } $('bdPre').disabled=on&&sell;
-  $('bdDepRow').classList.toggle('hidden', sell||on);
+  $('bdDepRow').classList.toggle('hidden', sell||on||bdBal());
   const b=QS.bal, free=b?Math.max(0,(b.confirmed||0)-(b.committed||0)):0;
   $('bdAutoNote').textContent=on?(sell?T("Listed as up to three lots, so several people can buy at once. Each lot sets its GNR aside and proves it, like any sell offer; it is sold only to buyers whose bitcoin is already there. After a part is sold, the rest is listed again by itself after the next block. Leave the smallest part empty for the least that 10,000 sat buy.")
     :T("Paid from your Bitcoin balance ({btc} BTC free and confirmed), in up to three lots so several people can sell to you at once. A seller's GNR is always locked for you before your wallet pays. After a part, the rest is listed again once its change has one confirmation.", {btc: btcFmt(free/1e8)})):'';
   if(on&&!sell) btcLoad(true); }
 async function boardPublish(){
-  const g=$('bdGnr').value.trim(), b=$('bdBtc').value.trim(), a=$('bdAddr').value.trim();
-  const auto=bdAuto(), sell=bdSide==='sell_gnr', dep=!sell&&!auto&&$('bdDep').checked, fol=bdFol(), lim=Number($('bdLim').value)*1e8;
+  const bal=bdBal(), g=$('bdGnr').value.trim(), b=$('bdBtc').value.trim(), a=bal?'':$('bdAddr').value.trim();
+  const auto=bdAuto(), sell=bdSide==='sell_gnr', dep=!sell&&!auto&&!bal&&$('bdDep').checked, fol=bdFol(), lim=Number($('bdLim').value)*1e8;
   if(fol&&!(lim>0)) return toast(sell?T("Say the lowest price the offer may go to"):T("Say the highest price the offer may go to"),true);
-  if(!g||!b||!a) return toast(fol?(sell?T("Enter the GNR amount and your Bitcoin address"):T("Enter the bitcoin amount and your Bitcoin address")):T("Enter both amounts and your Bitcoin address"),true);
+  if(!g||!b||(!bal&&!a)) return toast(fol?(sell?T("Enter the GNR amount and your Bitcoin address"):T("Enter the bitcoin amount and your Bitcoin address")):T("Enter both amounts and your Bitcoin address"),true);
   const when=SW.active?'':'<p class="mtext"><b>'+TE("Swaps start at the network upgrade.")+'</b> '+TE("Until then your offer is listed and counts for the market price, and it can be taken once swaps are live.")+'</p>';
   const per=Number(b)*1e8/Number(g), far=bdFar(per), u=btcUsd(), hours=Number($('bdDur').value)||24;
   const soon=lockSoonMsg();
   const farMsg=far?`<p class="mtext warn"><b>${TE("Check the price:")}</b> ${far>=1?TE("{price} per GNR is {n}× the market price ({market}).", {price: fmtPx(per), n: GKI18N.num(Math.round(far)), market: fmtPx(bdMkt().price)}):TE("{price} per GNR is {n}× below the market price ({market}).", {price: fmtPx(per), n: GKI18N.num(Math.round(1/far)), market: fmtPx(bdMkt().price)})} ${sell?TE("Buyers are unlikely to take it."):TE("You would pay far more than the market.")}</p>`:'';
   const okP=await ask({pass:true, title:fol?(sell?T("Sell {gnr} GNR at the market price?", {gnr: g}):T("Buy GNR for {btc} BTC at the market price?", {btc: b})):(sell?T("Sell {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}):T("Buy {gnr} GNR for {btc} BTC?", {gnr: g, btc: b})), icon:'globe', ok:far?T("Publish anyway"):T("Publish"), danger:!!far,
-    body:`<p class="mtext">${(v=>fol?TE("Now {price} per GNR{usd}, {btc} BTC{usd2} for {gnr} GNR, on the board for {time} or until someone takes it.", v):TE("{price} per GNR{usd}, {btc} BTC{usd2} in total, on the board for {time} or until someone takes it.", v))({price: fmtPx(per), usd: u?' ('+GKValue.usd(per*u/1e8)+')':'', btc: btcFmt(Number(b)), usd2: u?' ≈ '+GKValue.usd(Number(b)*u):'', gnr: g, time: durText(hours)})}</p>${farMsg}${soon}${fol?bdRulesFollow(sell,lim):''}${auto?bdRulesAuto(sell):''}${sell?bdRulesSell(g):dep?bdRulesBuyDep(b,a):auto?'':bdRulesBuy()}${when}`}); const pw=takePass(); if(!okP) return;
-  try{ toast(sell?T("Setting your GNR aside…"):dep?T("Preparing your offer…"):auto?T("Paying the lots from your Bitcoin balance…"):T("Publishing (a moment of proof of work)…")); const r=await api('/api/board/publish',Object.assign({side:bdSide, gnr:g, btc:b, address:a, hours, password:pw, deposit:dep, prepaid_only:sell&&$('bdPre').checked}, fol?{follow:true, limit:lim, margin:(sell?1:-1)*bdMargin()*100, trigger:Number($('bdTrig').value)*1e8||0}:{}, auto?{auto:true, min:$('bdAutoMin').value.trim()}:{}));
+    body:`<p class="mtext">${(v=>fol?TE("Now {price} per GNR{usd}, {btc} BTC{usd2} for {gnr} GNR, on the board for {time} or until someone takes it.", v):TE("{price} per GNR{usd}, {btc} BTC{usd2} in total, on the board for {time} or until someone takes it.", v))({price: fmtPx(per), usd: u?' ('+GKValue.usd(per*u/1e8)+')':'', btc: btcFmt(Number(b)), usd2: u?' ≈ '+GKValue.usd(Number(b)*u):'', gnr: g, time: durText(hours)})}</p>${farMsg}${soon}${fol?bdRulesFollow(sell,lim):''}${auto?bdRulesAuto(sell):''}${sell?bdRulesSell(g):auto?'':bal?bdRulesBuyBal(b):dep?bdRulesBuyDep(b,a):bdRulesBuy()}${when}`}); const pw=takePass(); if(!okP) return;
+  try{ toast(sell?T("Setting your GNR aside…"):(auto||bal)?T("Paying from your Bitcoin balance…"):dep?T("Preparing your offer…"):T("Publishing (a moment of proof of work)…")); const r=await api('/api/board/publish',Object.assign({side:bdSide, gnr:g, btc:b, address:a, hours, password:pw, deposit:dep, balance:bal, prepaid_only:sell&&$('bdPre').checked}, fol?{follow:true, limit:lim, margin:(sell?1:-1)*bdMargin()*100, trigger:Number($('bdTrig').value)*1e8||0}:{}, auto?{auto:true, min:$('bdAutoMin').value.trim()}:{}));
     if(r.auto){ toast(Tn(r.lots, "Quick Swap offer saved as {n} lot.", "Quick Swap offer saved as {n} lots.", {n: r.lots})+' '+(sell?T("They appear on the board by themselves, one after another, usually within a few minutes."):T("They appear on the board once the payment from your balance has one confirmation."))); $('bdAuto').checked=false; bdAutoSet(); btcLoad(true); }
+    else if(r.from_balance){ toast(T("Paid from your Bitcoin balance. The offer is published by itself once that payment has one confirmation; see it under Your offers.")); btcLoad(true); }
     else if(r.fund&&r.listed===false){ toast(T("Offer saved. It is published by itself once your bitcoin has one confirmation; see it under Mine.")); showDeposit(r.fund); }
     else toast(r.listed===false?T("Your GNR is being set aside. The offer appears on the board by itself, usually after the next block; see it under Mine."):T("Offer published"));
     $('bdGnr').value=''; $('bdBtc').value=''; if(fol){ $('bdFol').checked=false; bdFolSet(); } loadBoard(); refresh(); }catch(e){ toast(e.message,true) }
@@ -2200,6 +2422,12 @@ async function showDeposit(f){
   try{ const r=await fetch('/api/qr?d='+encodeURIComponent(uri),{headers:{'x-token':token}}); if(r.ok){ const q=$('payQr'); if(q) q.innerHTML=await r.text(); } }catch(e){}
 }
 function showDepositId(id){ const o=(BD.my_offers||[]).find(x=>x.id===id); if(o&&o.fund) showDeposit(Object.assign({fee_text:btcFmt(Math.max(0,o.fund.need-o.sats)/1e8)}, o.fund)); }
+function bdRulesBuyBal(b){ return `<div class="rules"><b>${TE("How a buy offer works")}</b><ol>
+  <li>${TH("**Paid from your Bitcoin balance, now.** {amount} BTC and a little set aside for the network fee move from your balance to an address of this offer, also your wallet's own. You do not send anything by hand.", {amount: b})}</li>
+  <li>${TH("**The offer is published by itself** once that payment has one confirmation (about ten minutes). The board checks on the Bitcoin chain that the bitcoin is there, and marks the offer with a ✓.")}</li>
+  <li>${TH("**When a seller takes it, everything happens by itself.** Their wallet locks the GNR for you on chain. Once that lock has confirmed, your wallet pays the swap contract, the seller takes the bitcoin, and your wallet claims the GNR.")}</li>
+  <li>${TH("**If you cancel, or nobody sells,** the bitcoin goes back to your Bitcoin balance, less the network fee of that one transaction.")}</li>
+  <li>${TH("**Keep the wallet running.** It holds the key, so it must be online to pay, to claim your GNR and to send unsold bitcoin back.")}</li></ol></div>`; }
 function bdRulesBuyDep(b,a){ return `<div class="rules"><b>${TE("How a buy offer works")}</b><ol>
   <li>${TH("**You pay the bitcoin now, to an address of this wallet.** After you confirm, the wallet shows the address and the amount: {amount} BTC and a little set aside for the network fee. Only this wallet has the key of that address; it comes from your 24 words.", {amount: b})}</li>
   <li>${TH("**The offer is published by itself** once your payment has one confirmation (about ten minutes). The board checks on the Bitcoin chain that the bitcoin is there, and marks the offer with a ✓.")}</li>
@@ -2230,25 +2458,35 @@ function bdRulesBuy(){ return `<div class="rules"><b>${TE("How a buy offer works
   <li>${TH("**Pay within two hours** of that. If you do not, nothing is paid and the seller's GNR returns to them.")}</li>
   <li>${TH("**Keep the wallet running** until the swap is done: it claims your GNR by itself.")}</li></ol></div>`; }
 /* The wallet must stay unlocked through a swap: say so when it locks itself soon. */
-function lockSoonMsg(){ const s=(S.active||{}).locks_in; return s!=null&&s<6*3600?`<p class="mtext warn">${TE("This wallet locks itself in {time}. A swap needs it unlocked until it is done: unlock it again then.", {time: dur(s)})}</p>`:''; }
+function lockSoonMsg(){ const s=(S.active||{}).locks_in; return s!=null&&s<6*3600?`<p class="mtext">${TE("This wallet locks itself in {time}. Once its coins are in the swap it stays unlocked until the swap is done.", {time: dur(s)})}</p>`:''; }
+/* Taking an offer: by default with the wallet's Bitcoin balance (buying pays from it at once,
+   selling is paid into it); or a new deposit address, or by hand, with an address of your own. */
 async function boardTake(id, side, g, b){
-  const buy=side==='sell_gnr', of=(BD.offers||[]).find(x=>x.id===id)||{}; window.tkDep=true;
-  const addr=await ask({title:buy?T("Buy {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}):T("Sell {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}), icon:'swap', ok:buy?T("Buy"):T("Sell"),
-    body:`<p class="mtext">${buy?TE("Enter your Bitcoin address: change and refunds come back to it."):TE("Enter your Bitcoin address to receive the bitcoin. Your wallet locks the GNR for the buyer at once; if they do not pay, it comes back to you after about 21 hours.")} ${TE("Keep the wallet open until the swap is done.")}</p>
-    ${buy&&of.prepaid?'<p class="mtext"><b>'+TE("This seller sells only to buyers whose bitcoin is deposited first.")+'</b></p>':''}
-    ${buy?`<label class="mcheck"><input type="checkbox" checked ${of.prepaid?'disabled':''} onchange="window.tkDep=this.checked"> ${TE("Pay the bitcoin now, to an address of this wallet (recommended)")}</label>
+  const buy=side==='sell_gnr', of=(BD.offers||[]).find(x=>x.id===id)||{}, q=QS.bal;
+  const free=q?Math.max(0,(q.confirmed||0)-(q.committed||0)):0, need=Math.round(Number(b)*1e8), canBal=!buy||(q&&free>=need+1000);
+  window.tkMode=canBal?'bal':(buy?'dep':'addr');
+  const opt=(v,on,dis,head,sub)=>`<label class="rm-mode${dis?' dis':''}"><input type="radio" name="tkMode" value="${v}" ${on?'checked':''} ${dis?'disabled':''} onchange="window.tkMode='${v}';$('tkAddrBox').classList.toggle('hidden','${v}'==='bal')"><span><b>${head}</b><em>${sub}</em></span></label>`;
+  const modes=buy?opt('bal', canBal, !canBal, TE("Pay from my Bitcoin balance"), canBal?TE("{btc} BTC free and confirmed. Nothing to send: the swap runs by itself, and change or any refund comes back to the balance.", {btc: btcFmt(free/1e8)}):q?TE("Your balance has {free} BTC free and confirmed; this needs {need} BTC and the network fee.", {free: btcFmt(free/1e8), need: btcFmt(need/1e8)}):TE("Loading your Bitcoin balance…"))
+      +opt('dep', !canBal, false, TE("Pay now, to a new address of this wallet"), TE("You send the bitcoin yourself; the swap starts by itself once it has one confirmation."))
+      +(of.prepaid?'':opt('later', false, false, TE("Pay by hand after the seller's GNR is locked"), TE("The wallet shows where to pay once the lock has confirmed; you have two hours.")))
+    :opt('bal', true, false, TE("Receive into my Bitcoin balance"), TE("Ready for your next purchase at once; send it out whenever you like."))
+      +opt('addr', false, false, TE("Receive at another Bitcoin address"), TE("An address of your own, in another wallet."));
+  const ok=await ask({title:buy?T("Buy {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}):T("Sell {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}), icon:'swap', ok:buy?T("Buy"):T("Sell"), pass:true,
+    body:`${buy&&of.prepaid?'<p class="mtext"><b>'+TE("This seller sells only to buyers whose bitcoin is deposited first.")+'</b></p>':''}
+    <div class="rm-modes">${modes}</div>
+    <div id="tkAddrBox" class="${window.tkMode==='bal'?'hidden':''}"><label for="tkAddr" class="mpass-l">${buy?TE("Your Bitcoin address: change and refunds come back to it"):TE("Your Bitcoin address to receive the bitcoin")}</label><input id="tkAddr" class="mono" maxlength="100" placeholder="bc1q…" spellcheck="false" autocomplete="off"></div>
     <div class="rules"><ol>
-      <li>${TH("**You pay once, now.** The wallet shows an address of its own and the amount. When your payment has one confirmation, the swap starts by itself.")}</li>
-      <li>${TH("**The seller's GNR is locked for you first.** Only when that lock has confirmed does your wallet pay the swap contract from your deposit; then it claims the GNR. You do nothing more.")}</li>
-      <li>${TH("**If the offer is gone meanwhile, or the seller does not lock,** the wallet sends your bitcoin back to your address, less the network fee.")}</li>
-      <li>${TH("**Without the tick** you pay by hand later: the wallet shows where to pay once the seller's GNR is locked and confirmed, and you have two hours.")}</li></ol></div>`:''}${lockSoonMsg()}`,
-    input:{placeholder:'bc1q…', max:100}, pass:true});
-  const pw=takePass();
-  if(!addr) return;
-  try{ const r=await api('/api/board/take',{id, address:String(addr).trim(), password:pw, deposit:buy&&window.tkDep!==false});
-    if(r.fund){ toast(T("The swap starts by itself once your bitcoin has one confirmation")); showDeposit(Object.assign({back_to:String(addr).trim(), fee_text:btcFmt(Math.max(0,r.fund.need-Math.round(Number(b)*1e8))/1e8)}, r.fund)); }
-    else toast(tabOn('market')?T("Swap started: follow it on the Swap tab, under Your swaps"):T("Swap started: follow it under Your swaps"));
-    loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
+      ${buy?`<li>${TH("**The seller's GNR is locked for you first.** Only when that lock has confirmed does your wallet pay the swap contract; then it claims the GNR. You do nothing more.")}</li>
+      <li>${TH("**If the offer is gone meanwhile, or the seller does not lock,** nothing is paid; bitcoin already sent to a deposit address comes back, less the network fee.")}</li>`
+      :`<li>${TH("**Your wallet locks the GNR for the buyer at once.** If they do not pay, it comes back to you after about 21 hours.")}</li>`}
+      <li>${TH("**Keep the wallet open until the swap is done.**")}</li></ol></div>${lockSoonMsg()}`});
+  const pw=takePass(), addr=($('tkAddr')?$('tkAddr').value:'').trim(), mode=window.tkMode;
+  if(!ok) return;
+  if(mode!=='bal'&&!addr) return toast(T("Enter your Bitcoin address"), true);
+  try{ const r=await api('/api/board/take', mode==='bal'?{id, address:'', password:pw, balance:true}:{id, address:addr, password:pw, deposit:buy&&mode==='dep'});
+    if(r.fund){ toast(T("The swap starts by itself once your bitcoin has one confirmation")); showDeposit(Object.assign({back_to:addr, fee_text:btcFmt(Math.max(0,r.fund.need-need)/1e8)}, r.fund)); }
+    else toast(mode==='bal'&&buy?T("Swap started: paid from your Bitcoin balance once the seller's GNR is locked. Follow it under Your swaps"):T("Swap started: follow it under Your swaps"));
+    btcLoad(true); loadBoard(); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
 async function boardUntake(id, funded){
   if(!await ask({title:T("Call this off?"), icon:'swap', ok:T("Call it off"), cancel:T("Keep it"),
@@ -2269,7 +2507,10 @@ async function boardCancel(id){
   if(o.fund && !o.fund.closed && !await ask({title:T("Cancel this offer?"), icon:'swap', ok:T("Cancel the offer"), cancel:T("Keep it"),
     body:`<p class="mtext">${TE("The offer is taken off the board.")} ${o.fund.seen>0?TH("Its **{amount} BTC is sent back to {address}** within a minute, less the network fee of that transaction.", {amount: o.fund.seen_text, address: o.fund.back_to}):TE("No bitcoin has arrived at its address yet; if a payment still arrives there in the next three days, the wallet sends it back to {address}.", {address: o.fund.back_to})} ${TE("Keep the wallet running until then.")}</p>`})) return;
   try{ await api('/api/board/cancel',{id}); toast(o.fund?T("Offer cancelled; its bitcoin goes back to you"):T("Offer cancelled")); loadBoard(); refresh(); }catch(e){ toast(e.message,true) } }
-async function swapSettings(){ try{ const r=await api('/api/swap/settings',{backend:$('swBackend').value.trim()}); $('swBackend').value=r.btc_backend; toast(T("Saved")); loadSwaps(); }catch(e){ toast(e.message,true) } }
+async function swapSettings(){ const backend=$('swBackend').value.trim();
+  if(backend===(SW.btc_backend||'')){ toast(T("Saved")); return; }
+  const password=await confirmSource(T("Change where the wallet reads Bitcoin from?")); if(password==null) return;
+  try{ const r=await api('/api/swap/settings',{backend, password}); $('swBackend').value=r.btc_backend; SW.btc_backend=r.btc_backend; toast(T("Saved")); loadSwaps(); }catch(e){ toast(e.message,true) } }
 /* Quick Swap (1.0.46): buy or sell any amount at the best prices on the board, in one step. */
 const QS={side:'buy', unit:'btc', q:null, seq:0, t:null, busy:false, bal:null, balAt:0};
 const qsWant=()=>{ const buy=QS.side==='buy';
@@ -2366,7 +2607,13 @@ async function btcLoad(force){ if(!force&&Date.now()-QS.balAt<15000) return; QS.
   $('btcNet').textContent=b.network==='main'?'Bitcoin':b.network;
   $('btcBal').textContent=btcFmt(b.total/1e8)+' BTC';
   $('btcBalSub').textContent=(u?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)})+' · ':'')+(b.committed?T("{amount} BTC promised to running Quick Swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy"):T("add bitcoin to buy in one click"));
-  if(QS.q) qsShow(); }
+  if(QS.q) qsShow(); renderTradeBars(); if(tabOn('publish')) bdBalSet(); }
+/* The balances at the top of every Trade page and on the Wallet tab: GNR that can be traded
+   (spendable) and the Bitcoin balance, each with its coin and its dollar value. */
+function renderTradeBars(){ const u=btcUsd(), b=QS.bal, sp=Number((S.balance||{}).spendable||0), set=(k,v)=>document.querySelectorAll('[data-tb="'+k+'"]').forEach(e=>{ if(e.textContent!==v) e.textContent=v; });
+  set('gnr', S.balance?gnr(sp)+' GNR':'-'); const mv=valueOf(sp); set('gnru', mv!=null&&sp?'≈ '+GKValue.usd(mv):(S.balance?T("spendable now"):' '));
+  set('btc', b?btcFmt(b.total/1e8)+' BTC':'-');
+  set('btcu', b?((u&&b.total?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)}):b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy in one click"):T("add bitcoin to buy in one click"))):' '); }
 async function btcAdd(){ let b=QS.bal; if(!b){ await btcLoad(true); b=QS.bal; } if(!b) return toast(T("The Bitcoin server did not answer; try again in a moment"),true);
   const uri='bitcoin:'+b.address;
   ask({title:T("Add bitcoin to your Quick Swap balance"), icon:'swap', ok:T("Done"), hideCancel:true, body:`
@@ -2381,7 +2628,7 @@ async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There
   const addr=(($('btcTo')||{}).value||'').trim(), amt=(($('btcAmt')||{}).value||'max').trim(), pw=takePass(); if(!okS) return; if(!addr) return toast(T("Enter the Bitcoin address"),true);
   try{ const r=await api('/api/btc/send',{address:addr, amount:amt, password:pw}); toast(T("Sent: {txid}", {txid: r.txid})); btcLoad(true); }catch(e){ toast(e.message,true) } }
 qsLabels();
-setInterval(()=>{ if(!document.hidden && (tabOn('swap')||tabOn('market'))) loadSwaps(); }, 8000);
+setInterval(()=>{ if(!document.hidden && TRADE.some(tabOn)){ loadSwaps(); btcLoad(); } if(!document.hidden && tabOn('wallet') && S.unlocked && Date.now()-QS.balAt>60000) btcLoad(true); }, 8000);
 
 /* Krypton coins: an overview of your coins, private sends, the coin market and issuing. */
 let CN={holdings:[],all:[],mine:[],history:[]}, CM={offers:[],markets:{},deals:[]}, cxView='home', cxCoin=null, cxMk=null, cxSideV='sell_gnr', cxFeeV='normal', cxAllF='all', cwStep=1, cwOk=false;
@@ -2409,14 +2656,14 @@ function renderCxCards(){
   const h=CN.holdings||[];
   if(!h.length){ $('cxCards').innerHTML=`<div class="glass cx-empty"><b>${TE("No coins yet")}</b><p class="muted">${TE("Coins sent to your address appear here, with what their issuer can do. Buy one on the market or issue your own.")}</p><div class="row-flex" style="justify-content:center;margin-top:10px"><button class="btn" onclick="cxGo('send')">${TE("Receive")}</button><button class="btn" onclick="cxGo('market')">${TE("Market")}</button><button class="btn btn-primary" onclick="cxGo('issue')">${TE("Issue a coin")}</button></div></div>`; return; }
   $('cxCards').innerHTML=h.map(c=>{ const p=cxPrice(c.ticker), v=p!=null?num(c.spendable)*p:null;
-    return `<div class="glass cx-card" onclick="cxDetail('${esc(c.id)}')"><div class="cx-ct">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span></div><span style="margin-left:auto">${cxTag(c)}</span></div>
+    return `<div class="glass cx-card" onclick="cxDetail(${jsq(c.id)})"><div class="cx-ct">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span>${esc(c.name)}</span></div><span style="margin-left:auto">${cxTag(c)}</span></div>
       <div class="cx-bal">${esc(c.spendable)}<small>${esc(c.ticker)}</small></div><div class="cx-val">${v!=null?'≈ '+cxN(v,4)+' GNR':'&nbsp;'}${c.pending&&c.pending!=='0'?' · '+TE("{amount} pending", {amount: c.pending}):''}</div>
-      <div class="cx-acts" onclick="event.stopPropagation()"><button class="btn" onclick="cxSendCoin('${esc(c.id)}')">${TE("Send")}</button><button class="btn" onclick="cxGo('send')">${TE("Receive")}</button><button class="btn" onclick="cxTrade('${esc(c.id)}')">${TE("Trade")}</button></div></div>`; }).join('');
+      <div class="cx-acts" onclick="event.stopPropagation()"><button class="btn" onclick="cxSendCoin(${jsq(c.id)})">${TE("Send")}</button><button class="btn" onclick="cxGo('send')">${TE("Receive")}</button><button class="btn" onclick="cxTrade(${jsq(c.id)})">${TE("Trade")}</button></div></div>`; }).join('');
 }
 function renderCxAll(){
   const q=($('cxQ').value||'').trim().toLowerCase();
   const list=(CN.all||[]).filter(c=>cxAllF!=='verified'||c.verified).filter(c=>!q||String(c.ticker).toLowerCase().includes(q)||String(c.name).toLowerCase().includes(q));
-  $('cxAll').innerHTML=list.length?list.map(c=>{ const p=cxPrice(c.ticker); return `<div class="cx-row">${cxAv(c)}<div><b>${esc(c.ticker)}</b> ${cxTag(c)}<span class="sub">${esc(c.name)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">${TE("in circulation")}</span></div><div class="r">${p!=null?cxN(p,6)+' GNR':'-'}<span class="sub"><button class="linkbtn" onclick="cxDetail('${esc(c.id)}')">${TE("Details")}</button></span></div></div>`; }).join(''):`<p class="muted">${(CN.all||[]).length?TE("No coin matches."):TE("No coins on chain yet.")}</p>`;
+  $('cxAll').innerHTML=list.length?list.map(c=>{ const p=cxPrice(c.ticker); return `<div class="cx-row">${cxAv(c)}<div><b>${esc(c.ticker)}</b> ${cxTag(c)}<span class="sub">${esc(c.name)}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">${TE("in circulation")}</span></div><div class="r">${p!=null?cxN(p,6)+' GNR':'-'}<span class="sub"><button class="linkbtn" onclick="cxDetail(${jsq(c.id)})">${TE("Details")}</button></span></div></div>`; }).join(''):`<p class="muted">${(CN.all||[]).length?TE("No coin matches."):TE("No coins on chain yet.")}</p>`;
 }
 document.querySelectorAll('#cxAllF button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cxAllF button').forEach(x=>x.classList.toggle('on',x===b)); cxAllF=b.dataset.f; renderCxAll(); });
 $('cxQ').oninput=renderCxAll;
@@ -2435,7 +2682,7 @@ function cxSendCoin(id){ cxCoin=id; cxGo('send'); renderCxPick(); $('cxTo').focu
 function cxTrade(id){ cxMk=id; cxGo('market'); }
 function renderCxPick(){
   const h=CN.holdings||[]; if(!cxCoin&&h.length) cxCoin=h[0].id;
-  $('cxPick').innerHTML=h.length?h.map(c=>`<button type="button" class="${c.id===cxCoin?'on':''}" onclick="cxCoin='${esc(c.id)}';renderCxPick()">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span> ${esc(c.spendable)}</span></div></button>`).join(''):'<span class="muted">'+TE("You hold no coins yet.")+'</span>';
+  $('cxPick').innerHTML=h.length?h.map(c=>`<button type="button" class="${c.id===cxCoin?'on':''}" onclick="cxCoin=${jsq(c.id)};renderCxPick()">${cxAv(c)}<div><b>${esc(c.ticker)}</b><span> ${esc(c.spendable)}</span></div></button>`).join(''):'<span class="muted">'+TE("You hold no coins yet.")+'</span>';
   const c=h.find(x=>x.id===cxCoin); $('cxUnit').textContent=c?c.ticker:'-'; cxSum();
 }
 function cxMax(){ const c=(CN.holdings||[]).find(x=>x.id===cxCoin); if(c){ $('cxAmt').value=String(c.spendable).replace(/,/g,''); cxSum(); } }
@@ -2454,18 +2701,18 @@ async function coinSend(){
 async function loadCoinMarket(){ try{ CM=await api('/api/coin/market'); }catch(e){ return; } renderCxMarket(); }
 function renderCxMarket(){
   const all=CN.all||[]; if(!cxMk&&all.length) cxMk=(all.find(c=>c.verified)||all[0]).id;
-  $('cxMkCoins').innerHTML=all.length?all.map(c=>`<button type="button" class="${c.id===cxMk?'on':''}" onclick="cxMk='${esc(c.id)}';renderCxMarket()">${cxAv(c)}${esc(c.ticker)}</button>`).join(''):'<span class="muted">'+TE("No coins on chain yet.")+'</span>';
+  $('cxMkCoins').innerHTML=all.length?all.map(c=>`<button type="button" class="${c.id===cxMk?'on':''}" onclick="cxMk=${jsq(c.id)};renderCxMarket()">${cxAv(c)}${esc(c.ticker)}</button>`).join(''):'<span class="muted">'+TE("No coins on chain yet.")+'</span>';
   const c=all.find(x=>x.id===cxMk); $('cxOUnit').textContent=c?c.ticker:'-';
   const p=c?cxPrice(c.ticker):null, m=c?(CM.markets||{})[c.ticker]:null;
   $('cxMkPrice').innerHTML=c?`<b>${p!=null?cxN(p,6)+' GNR':TE("No price yet")}</b><span>${m?esc(Tn(m.swaps, "average of {n} completed swap", "average of {n} completed swaps", {n: m.swaps})):TE("the first completed swap sets it")}</span>`:'';
   const offers=(CM.offers||[]).filter(o=>c&&o.coin===c.id);
-  const row=(o,act)=>`<div class="cx-row t4"><div><b>${esc(o.units)}</b> ${esc(o.ticker)}<span class="sub">${o.mine?TE("your order"):o.online?TE("online"):TE("offline")}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">${TE("GNR each")}</span></div><div class="r">${esc(o.gnr)}<span class="sub">${TE("GNR total")}</span></div><div class="r">${o.mine?`<button class="btn" onclick="cnCancel('${esc(o.id)}')">${TE("Cancel")}</button>`:o.online?`<button class="btn btn-primary" onclick="cnTake('${esc(o.id)}')">${act}</button>`:'<span class="muted">-</span>'}</div></div>`;
+  const row=(o,act)=>`<div class="cx-row t4"><div><b>${esc(o.units)}</b> ${esc(o.ticker)}<span class="sub">${o.mine?TE("your order"):o.online?TE("online"):TE("offline")}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">${TE("GNR each")}</span></div><div class="r">${esc(o.gnr)}<span class="sub">${TE("GNR total")}</span></div><div class="r">${o.mine?`<button class="btn" onclick="cnCancel(${jsq(o.id)})">${TE("Cancel")}</button>`:o.online?`<button class="btn btn-primary" onclick="cnTake(${jsq(o.id)})">${act}</button>`:'<span class="muted">-</span>'}</div></div>`;
   const asks=offers.filter(o=>o.side==='buy_gnr').sort((a,b)=>a.price-b.price), bids=offers.filter(o=>o.side==='sell_gnr').sort((a,b)=>b.price-a.price);
   $('cxAsks').innerHTML=asks.length?asks.map(o=>row(o,TE("Buy"))).join(''):'<p class="muted">'+TE("No sell orders.")+'</p>';
   $('cxBids').innerHTML=bids.length?bids.map(o=>row(o,TE("Sell"))).join(''):'<p class="muted">'+TE("No buy orders.")+'</p>';
   const d=CM.deals||[], mine=(CM.offers||[]).filter(o=>o.mine);
   const stage=s=>s.startsWith('failed')?T("stopped"):({asked:T("starting"),half_sent:T("waiting for the seller"),tx_sent:T("waiting for the buyer"),submitted:T("confirming"),done:T("done")}[s]||s);
-  $('cxMine').innerHTML=(mine.length||d.length)?mine.map(o=>`<div class="cx-row t4"><div><b>${o.side==='buy_gnr'?TE("Sell {units} {ticker}", {units: o.units, ticker: o.ticker}):TE("Buy {units} {ticker}", {units: o.units, ticker: o.ticker})}</b><span class="sub">${TE("open order")}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">${TE("GNR each")}</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR</span></div><div class="r"><button class="btn" onclick="cnCancel('${esc(o.id)}')">${TE("Cancel")}</button></div></div>`).join('')+d.slice(0,10).map(x=>`<div class="cx-row t4"><div><b>${x.role==='buyer'?TE("Bought {units} {ticker}", {units: x.units, ticker: x.ticker}):TE("Sold {units} {ticker}", {units: x.units, ticker: x.ticker})}</b><span class="sub">${esc(stage(x.stage))}${x.stage.startsWith('failed')?': '+esc(TR(x.stage.slice(8))):''}</span></div><div class="r">${esc(x.gnr)}<span class="sub">GNR</span></div><div class="r sub">${x.txid?esc(x.txid.slice(0,10))+'…':''}</div><div></div></div>`).join(''):'<p class="muted">'+TE("No orders or swaps yet.")+'</p>';
+  $('cxMine').innerHTML=(mine.length||d.length)?mine.map(o=>`<div class="cx-row t4"><div><b>${o.side==='buy_gnr'?TE("Sell {units} {ticker}", {units: o.units, ticker: o.ticker}):TE("Buy {units} {ticker}", {units: o.units, ticker: o.ticker})}</b><span class="sub">${TE("open order")}</span></div><div class="r">${cxN(o.price,6)}<span class="sub">${TE("GNR each")}</span></div><div class="r">${esc(o.gnr)}<span class="sub">GNR</span></div><div class="r"><button class="btn" onclick="cnCancel(${jsq(o.id)})">${TE("Cancel")}</button></div></div>`).join('')+d.slice(0,10).map(x=>`<div class="cx-row t4"><div><b>${x.role==='buyer'?TE("Bought {units} {ticker}", {units: x.units, ticker: x.ticker}):TE("Sold {units} {ticker}", {units: x.units, ticker: x.ticker})}</b><span class="sub">${esc(stage(x.stage))}${x.stage.startsWith('failed')?': '+esc(TR(x.stage.slice(8))):''}</span></div><div class="r">${esc(x.gnr)}<span class="sub">GNR</span></div><div class="r sub">${x.txid?esc(x.txid.slice(0,10))+'…':''}</div><div></div></div>`).join(''):'<p class="muted">'+TE("No orders or swaps yet.")+'</p>';
   cxTotal();
 }
 document.querySelectorAll('#cxSide button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#cxSide button').forEach(x=>x.classList.toggle('on',x===b)); cxSideV=b.dataset.s; cxTotal(); });
@@ -2513,7 +2760,7 @@ async function cwDeploy(){
 function renderCxIssued(){
   const m=CN.mine||[];
   $('cxIssuer').textContent=T("Your issuer key: {key} It comes from this wallet's 24 words.", {key: String(CN.issuer||'').slice(0,16)+'…'});
-  $('cxMineIssued').innerHTML=m.length?m.map(c=>`<div class="cx-row t4"><div><b>${esc(c.ticker)}</b><span class="sub">${TE("issued {issued} · burned {burned}", {issued: c.issued, burned: c.burned})}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">${TE("in circulation")}</span></div><div class="r">${c.supply==='mintable'||(c.supply==='fixed'&&c.issued==='0')?`<button class="btn btn-primary" onclick="cnIssue('${esc(c.id)}')">${TE("Issue")}</button>`:''}</div><div class="r">${c.pause?`<button class="btn" onclick="cnPause('${esc(c.id)}',${c.paused===true?'false':'true'})">${c.paused===true?TE("Resume"):TE("Pause")}</button>`:''}</div></div>`).join(''):'<p class="muted">'+TE("You have not issued a coin from this wallet.")+'</p>';
+  $('cxMineIssued').innerHTML=m.length?m.map(c=>`<div class="cx-row t4"><div><b>${esc(c.ticker)}</b><span class="sub">${TE("issued {issued} · burned {burned}", {issued: c.issued, burned: c.burned})}</span></div><div class="r">${esc(c.outstanding)}<span class="sub">${TE("in circulation")}</span></div><div class="r">${c.supply==='mintable'||(c.supply==='fixed'&&c.issued==='0')?`<button class="btn btn-primary" onclick="cnIssue(${jsq(c.id)})">${TE("Issue")}</button>`:''}</div><div class="r">${c.pause?`<button class="btn" onclick="cnPause(${jsq(c.id)},${c.paused===true?'false':'true'})">${c.paused===true?TE("Resume"):TE("Pause")}</button>`:''}</div></div>`).join(''):'<p class="muted">'+TE("You have not issued a coin from this wallet.")+'</p>';
 }
 async function cnIssuerAct(id, action, amount, to){
   const pw=takePass(); window.fxBusy=true;
@@ -2539,8 +2786,7 @@ let netDash=null;
 function initNetDash(){ if(netDash||!window.GKCharts) { if(netDash) netDash.reload(); return; }
   netDash = GKCharts.dashboard($('netDash'), r=>api('/api/stats?range='+r), (s)=>{
     $('kRate').textContent=rate(s.hashrate); $('cRate2').textContent=rate(s.hashrate);
-    $('kMiners').textContent=s.estimated_miners??'-'; $('cMiners2').textContent=s.estimated_miners??'-';
-    const eq=Number(s.gpu_equivalents||0); $('kGpus').textContent='≈ '+(n=>eq>=1.05||eq<0.95?T("{n} GPUs", {n}):T("{n} GPU", {n}))(eq<10?eq.toFixed(1):Math.round(eq));
+    $('kReward').textContent=S.tip&&S.tip.next_subsidy!=null?gnrShort(S.tip.next_subsidy)+' GNR':'5 GNR';
     $('kIssued').textContent=gnr(s.issued).replace(/\.\d+$/,''); $('kLeft').textContent=gnr(s.remaining).replace(/\.\d+$/,'');
     GKCharts.disc($('wDisc'), Number(s.issued||0), Number(s.max_supply||21e14));
   });
@@ -2575,7 +2821,10 @@ async function loadConsole(){
     try{ CON.cmds=(await api('/api/console/commands')).commands||[]; }catch(e){ CON.ready=false; conPrint('err', e.message); return; }
     const groups=[...new Set(CON.cmds.map(c=>c.group))];
     $('conHelp').innerHTML=groups.map(g=>`<div><h3>${esc(g)}</h3>${CON.cmds.filter(c=>c.group===g).map(c=>`<button type="button" title="${esc(c.about)}" data-c="${esc(c.name)}" onclick="conPut(this.dataset.c)">${esc(c.name)} <i>${esc(c.args)}</i></button>`).join('')}</div>`).join('');
+    const fav=['getblockchaininfo','getbalance','getmininginfo','getnetworkinfo','getpeerinfo','getswapinfo','help'].filter(n=>n==='help'||CON.cmds.some(c=>c.name===n));
+    $('conChips').innerHTML=fav.map(n=>`<button type="button" data-c="${esc(n)}" onclick="$('conIn').value=this.dataset.c;conRun()">${esc(n)}</button>`).join('');
     conPrint('info',T("Genoryn Krypton console. Type help for the commands, or help and a command for what it does.")); }
+  const st=S.settings||{}; $('conNode').textContent=st.mode==='full'?T("your own node"):((st.nodes||[])[0]||'').replace(/^https?:\/\//,'');
   setTimeout(()=>$('conIn').focus(), 60);
 }
 function conPrint(kind, text){ const o=$('conOut'), d=document.createElement('div'); d.className='con-l '+kind; text=String(text); d.textContent=text.length>200000?text.slice(0,200000)+'\n'+T("… (cut: too long to show)"):text; o.appendChild(d); while(o.childElementCount>400) o.removeChild(o.firstChild); o.scrollTop=o.scrollHeight; }
@@ -2619,17 +2868,28 @@ $('conIn').addEventListener('keydown', ev=>{ const i=ev.target, m=conMatches(), 
   if(ev.key==='Enter'){ ev.preventDefault(); if(open&&CON.sel>=0){ conPut(m[CON.sel].name); return; } conRun(); } });
 function rate(r){ return r>=1e9?(r/1e9).toFixed(2)+' GH/s':r>=1e6?(r/1e6).toFixed(2)+' MH/s':r>=1e3?(r/1e3).toFixed(1)+' kH/s':(r||0).toFixed(0)+' H/s'; }
 let settingsLoaded=false, lockGrace=0;
+/* The opening animation: shown from the first paint, gone once the wallet has answered
+   (at least about a second, so it does not flicker). */
+const SPLASH_T0=Date.now();
+function splashDone(){ const sp=$('splash'); if(!sp||sp.dataset.done) return; sp.dataset.done='1';
+  setTimeout(()=>{ sp.classList.add('out'); setTimeout(()=>sp.remove(), 700); }, Math.max(0, 1100-(Date.now()-SPLASH_T0))); }
+/* The lock in the middle of the screen: its shackle opens on unlock and closes on lock. */
+function lockFx(kind){ const el=$('lockFx'); if(!el) return Promise.resolve();
+  el.classList.remove('open','close','on'); void el.getBoundingClientRect(); el.classList.add('on', kind);
+  return new Promise(res=>setTimeout(()=>{ el.classList.remove('on'); setTimeout(()=>{ el.classList.remove(kind); res(); }, 260); }, kind==='open'?900:760)); }
+async function lockNow(){ if(!await stakeLockOk(S.active&&S.active.held)) return; await lockFx('close'); try{ await api('/api/lock',{}); }catch(e){ toast(e.message,true) } refresh(); }
 async function refresh(){
-  try{ S = await api('/api/state'); }catch(e){ $('sync').textContent=T("offline"); return; }
+  try{ S = await api('/api/state'); }catch(e){ $('sync').textContent=T("offline"); splashDone(); return; }
+  splashDone();
   $('net').textContent = S.network;
-  const st=S.tip&&S.tip.stats; if(st){ const nm=st.estimated_miners??0; $('netBadgeText').textContent=Tn(nm, "{n} miner", "{n} miners", {n: nm})+' · '+rate(st.hashrate||S.tip.hashrate);
-    $('netBadge').title=(v=>st.miners_24h?T("{n} payout addresses mined in the last 6 hours ({day} in 24 hours). One address may be many computers, so the number of machines is higher. Network hashrate, measured from shares: {rate}.", v):T("{n} payout addresses mined in the last 6 hours. One address may be many computers, so the number of machines is higher. Network hashrate, measured from shares: {rate}.", v))({n: nm, day: st.miners_24h, rate: rate(st.hashrate||S.tip.hashrate)}); show('netBadge'); }
+  if(S.tip&&(S.tip.hashrate||(S.tip.stats||{}).hashrate)){ const hr=rate((S.tip.stats||{}).hashrate||S.tip.hashrate), df=Number(S.tip.difficulty||0);
+    $('netBadgeText').textContent=hr+(df&&window.GKCharts?' · '+T("difficulty {d}", {d: GKCharts.fmtNum(df)}):''); show('netBadge'); }
   if(S.update){ $('updTitle').textContent=T("Genoryn Krypton {version} is available", {version: S.update.version}); $('updText').textContent=TR(S.update_status)||(S.update.can_install?T("Checked against the project's post-quantum release signature before it installs. A running miner resumes automatically."):T("Open the release page to download it.")); $('updBtn').textContent=S.update.can_install?T("Install update"):T("Download"); show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
   $('sendBusyT').textContent=TR(S.busy)||''; $('sendBusy').classList.toggle('hidden', !S.busy);
   if(S.working){ $('busy').textContent = TR(S.busy) || T("working…"); return; }
   const act=S.active||{}; const nw=S.wallet_count||0;
-  if(S.exists && !adding){ $('wChipName').textContent=act.name||T("Wallet"); $('wChipCount').textContent=nw>1?'· '+nw:''; $('wChip').title=(S.unlocked&&act.locks_in!=null?T("Unlocked · locks itself in {time}", {time: dur(act.locks_in)}):T("Locked"))+' · '+T("click to manage your wallets"); show('wChip'); } else hide('wChip');
+  if(S.exists && !adding){ $('wChipName').textContent=act.name||T("Wallet"); $('wChipCount').textContent=nw>1?'· '+nw:''; $('wChip').title=(S.unlocked&&act.held?T("Unlocked · stays open until its swap is done"):S.unlocked&&act.locks_in!=null?T("Unlocked · locks itself in {time}", {time: dur(act.locks_in)}):T("Locked"))+' · '+T("click to manage your wallets"); show('wChip'); } else hide('wChip');
   // A wallet that is unlocked but was syncing when it was picked comes back within moments:
   // wait for it instead of flashing the password form.
   if(S.exists && !S.unlocked && !adding){ const me=(S.wallet_names||[]).find(w=>w.id===act.id); if(me&&me.unlocked&&lockGrace<8){ lockGrace++; setTimeout(refresh,350); return; } } else lockGrace=0;
@@ -2650,8 +2910,8 @@ async function refresh(){
   $('bRes').textContent=gnr(S.reserved); $('bResRow').classList.toggle('hidden', !Number(S.reserved));
   const cool=S.cooling||[]; $('bCoolRow').classList.toggle('hidden', !cool.length);
   if(cool.length) $('bCool').textContent=gnr(cool.reduce((a,c)=>a+Number(c.value||0),0))+' · '+T("free {time}", {time: fmtTime(cool[0].until)});
-  $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open);
-  $('busy').textContent = TR(S.busy) || TR(S.error) || ''; $('short').textContent=S.short; $('full').textContent=S.address; $('mat').textContent=S.maturity;
+  $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open); renderTradeBars();
+  $('busy').textContent = TR(S.busy) || TR(S.error) || ''; $('short').textContent=S.short; recvQr(S.short); $('full').textContent=S.address; $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;
   if(tip){ const ok = v!=null && v>=tip.height-1; $('sync').innerHTML = ok ? `<span class="dot"></span> ${TE("verified · block {height}", {height: v})}` : `<span class="dot live"></span> ${TE("syncing {done}/{total}", {done: v??0, total: tip.height})}`; $('sync').className='badge '+(ok?'ok':'warn');
     $('cH').textContent=tip.height; $('cP').textContent=tip.peers; $('cR').textContent=rate(tip.hashrate); $('cS').textContent=gnr(tip.supply)+' GNR'; } else { $('sync').textContent=T("no node reachable"); $('sync').className='badge warn'; }
@@ -2694,7 +2954,7 @@ async function refresh(){
     // First start: the system's language, once; the choice in Settings always wins.
     if(S.settings.language==null){ const l=firstLanguage(); if(l!=='en') setLanguage(l); else api('/api/language',{language:'en'}).catch(()=>{}); } }
 }
-refresh(); setInterval(refresh, 4000);
+refresh(); setInterval(refresh, 4000); setTimeout(splashDone, 6000);
 </script>
 </body>
 </html>

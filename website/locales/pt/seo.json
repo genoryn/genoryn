@@ -26,6 +26,7 @@
  "6377a06e81": "Sim, exatamente como o GNR: o token, o valor, o remetente e o destinatário serão ocultados por uma prova de conhecimento zero. Somente a criação e a destruição de tokens serão públicas.",
  "377ed0c796": "Não. Nenhum emissor poderá tomar tokens, ver saldos ou congelar um único detentor; tudo o que um emissor puder fazer será declarado antes de o token existir.",
  "c914a0c430": "Não. Mantenha sua carteira atualizada; a aba Tokens dela se liga sozinha quando os tokens forem ativados.",
+ "84457cacbc": "Genoryn Krypton 1.0.52: uma auditoria de segurança completa, e negociar direto do seu saldo de bitcoin",
  "b3483934d1": "Genoryn Krypton 1.0.51: Troca e Mercado, cada um com sua própria aba e sua própria página",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Trocas encerradas em outro lugar se fecham, e cada carteira mostra seu próprio saldo de Bitcoin e seu minerador",
  "910087c4ff": "Genoryn Krypton 1.0.49: As tabelas de venda e compra do quadro de ofertas não se sobrepõem mais",
@@ -43,6 +44,5 @@
  "feeb690ede": "Genoryn Krypton 1.0.37: as moedas quânticas passam para uma versão futura",
  "1c40d47eef": "Genoryn Krypton 1.0.36: uma aba Moedas reconstruída e um design mais limpo",
  "db188fe582": "Genoryn Krypton 1.0.35: moedas quânticas anunciadas",
- "31b6065dc3": "Genoryn Krypton 1.0.34: ofertas por uma semana, um mês ou um ano; uma nova página de mercado; documentação completa",
- "35179132ee": "Genoryn Krypton 1.0.33: correções de segurança, um preço de mercado justo, preços de oferta livres"
+ "31b6065dc3": "Genoryn Krypton 1.0.34: ofertas por uma semana, um mês ou um ano; uma nova página de mercado; documentação completa"
 }

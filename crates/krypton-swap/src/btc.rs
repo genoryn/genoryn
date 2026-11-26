@@ -28,6 +28,12 @@ pub trait BtcChain {
     fn broadcast(&self, tx: &Transaction) -> Result<Txid>;
     /// A fee rate that confirms within about half an hour.
     fn fee_rate(&self) -> Result<FeeRate>;
+    /// Transaction `txid`, checked against its id, when the server gives it; `None` when it
+    /// cannot. A signature commits to the amount of the output it spends only, so the amounts
+    /// a wallet signs for are read from the transactions themselves where possible.
+    fn tx(&self, _txid: &Txid) -> Result<Option<Transaction>> {
+        Ok(None)
+    }
     /// The outputs paying `address` that nothing has spent, confirmed or not.
     fn unspent(&self, address: &Address) -> Result<Vec<Utxo>> {
         unspent_of(self, address)
@@ -92,6 +98,48 @@ fn http() -> Result<reqwest::blocking::Client> {
         .build()?)
 }
 
+/// The highest fee rate (sat/vB) taken from a Bitcoin server: above any rate the network has
+/// needed to confirm within hours, so a broken or hostile server cannot make a payment burn its
+/// value in fees.
+pub const MAX_FEE_RATE: f64 = 500.0;
+
+/// Whether `url` is plain http to this computer: the host is exactly a loopback name or
+/// address, with no user name in front of it (so `http://127.0.0.1.example.com` or
+/// `http://127.0.0.1:1@example.com` is not).
+pub fn is_local_http(url: &str) -> bool {
+    reqwest::Url::parse(url.trim()).is_ok_and(|u| {
+        u.scheme() == "http" && u.username().is_empty() && u.password().is_none() && loopback(&u)
+    })
+}
+
+/// Whether `url` is a Bitcoin Core RPC address on this computer: plain http to a loopback
+/// host, with the RPC user name and password in front of it allowed.
+pub fn is_local_rpc(url: &str) -> bool {
+    reqwest::Url::parse(url.trim()).is_ok_and(|u| u.scheme() == "http" && loopback(&u))
+}
+
+/// Whether `url` is https to a named host, with no user name in front of it.
+pub fn is_remote_https(url: &str) -> bool {
+    reqwest::Url::parse(url.trim()).is_ok_and(|u| {
+        u.scheme() == "https"
+            && u.username().is_empty()
+            && u.password().is_none()
+            && u.host_str().is_some_and(|h| !h.is_empty())
+    })
+}
+
+fn loopback(u: &reqwest::Url) -> bool {
+    u.host_str().is_some_and(|h| {
+        h.eq_ignore_ascii_case("localhost")
+            || h.parse::<std::net::Ipv4Addr>()
+                .is_ok_and(|a| a.is_loopback())
+            || h.trim_start_matches('[')
+                .trim_end_matches(']')
+                .parse::<std::net::Ipv6Addr>()
+                .is_ok_and(|a| a.is_loopback())
+    })
+}
+
 /// Default public Esplora API for a network.
 pub fn default_esplora(n: Network) -> &'static str {
     match n {
@@ -124,9 +172,7 @@ impl Esplora {
     pub fn new(base: &str) -> Result<Self> {
         let base = base.trim().trim_end_matches('/').to_string();
         anyhow::ensure!(
-            base.starts_with("https://")
-                || base.starts_with("http://127.0.0.1")
-                || base.starts_with("http://localhost"),
+            is_remote_https(&base) || is_local_http(&base),
             "the Bitcoin API must use https (or run on this computer)"
         );
         Ok(Self {
@@ -237,7 +283,16 @@ impl BtcChain for Esplora {
     fn fee_rate(&self) -> Result<FeeRate> {
         let v: Value = serde_json::from_str(&self.get("/fee-estimates")?)?;
         let r = v["3"].as_f64().or_else(|| v["6"].as_f64()).unwrap_or(2.0);
-        FeeRate::from_sat_per_vb(r.ceil().clamp(1.0, 2_000.0) as u64).context("fee rate")
+        FeeRate::from_sat_per_vb(r.ceil().clamp(1.0, MAX_FEE_RATE) as u64).context("fee rate")
+    }
+    fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
+        let raw = self.get(&format!("/tx/{txid}/hex"))?;
+        let tx: Transaction = bitcoin::consensus::encode::deserialize_hex(raw.trim())?;
+        anyhow::ensure!(
+            tx.compute_txid() == *txid,
+            "the Bitcoin API returned another transaction"
+        );
+        Ok(Some(tx))
     }
 }
 
@@ -252,6 +307,11 @@ pub struct CoreRpc {
 impl CoreRpc {
     pub fn new(url: &str) -> Result<Self> {
         let mut u = reqwest::Url::parse(url.trim())?;
+        // The RPC password goes with every call: in the clear only to this computer.
+        anyhow::ensure!(
+            u.scheme() == "https" || (u.scheme() == "http" && loopback(&u)),
+            "a Bitcoin Core node on this computer (http://user:pass@127.0.0.1:8332) or over https"
+        );
         let user = u.username().to_string();
         let pass = u.password().unwrap_or("").to_string();
         u.set_username("").map_err(|_| anyhow!("bad RPC URL"))?;
@@ -350,7 +410,57 @@ impl BtcChain for CoreRpc {
     fn fee_rate(&self) -> Result<FeeRate> {
         let r = self.call("estimatesmartfee", json!([3])).ok();
         let btc_per_kvb = r.and_then(|v| v["feerate"].as_f64()).unwrap_or(0.00002);
-        let sat_vb = (btc_per_kvb * 1e8 / 1000.0).ceil().clamp(1.0, 2_000.0) as u64;
+        let sat_vb = (btc_per_kvb * 1e8 / 1000.0).ceil().clamp(1.0, MAX_FEE_RATE) as u64;
         FeeRate::from_sat_per_vb(sat_vb).context("fee rate")
+    }
+    fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
+        // Without -txindex Bitcoin Core finds only mempool and wallet transactions.
+        let Ok(raw) = self.call("getrawtransaction", json!([txid.to_string()])) else {
+            return Ok(None);
+        };
+        let tx: Transaction =
+            bitcoin::consensus::encode::deserialize_hex(raw.as_str().context("raw tx")?)?;
+        anyhow::ensure!(
+            tx.compute_txid() == *txid,
+            "bitcoind returned another transaction"
+        );
+        Ok(Some(tx))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_this_computer_counts_as_local() {
+        for u in [
+            "http://127.0.0.1:3002",
+            "http://localhost:3002/api",
+            "http://[::1]:3002",
+            "http://127.0.0.2:8080",
+        ] {
+            assert!(is_local_http(u), "{u}");
+        }
+        for u in [
+            "http://127.0.0.1.example.com/api",
+            "http://127.0.0.1:1@example.com/",
+            "http://localhost.example.com",
+            "http://user@127.0.0.1:3002",
+            "https://127.0.0.1:3002",
+            "http://10.0.0.1:3002",
+            "ftp://127.0.0.1",
+        ] {
+            assert!(!is_local_http(u), "{u}");
+        }
+        assert!(is_local_rpc("http://user:pass@127.0.0.1:8332"));
+        assert!(!is_local_rpc("http://user:pass@127.0.0.1.example.com:8332"));
+        assert!(!is_local_rpc("http://127.0.0.1:1@example.com:8332"));
+        assert!(is_remote_https("https://mempool.space/api"));
+        assert!(!is_remote_https("https://user@mempool.space/api"));
+        assert!(!is_remote_https("http://mempool.space/api"));
+        assert!(Esplora::new("http://127.0.0.1.example.com/api").is_err());
+        assert!(CoreRpc::new("http://u:p@example.com:8332").is_err());
+        assert!(CoreRpc::new("http://u:p@127.0.0.1:8332").is_ok());
     }
 }

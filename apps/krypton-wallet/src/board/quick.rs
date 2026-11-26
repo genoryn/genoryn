@@ -235,7 +235,7 @@ pub(super) fn balance(e: &Engine<'_, Multi>, st: &State) -> Result<Balance> {
 
 /// What a Quick Swap part will cost in network fees, roughly: the payment into the
 /// contract (buying) or the claim of the bitcoin (selling), at today's rate.
-fn btc_fee(e: &Engine<'_, Multi>) -> u64 {
+pub(super) fn btc_fee(e: &Engine<'_, Multi>) -> u64 {
     e.btc
         .fee_rate()
         .ok()

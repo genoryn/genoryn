@@ -3,7 +3,6 @@
  "e8e07263b9": "vor {n} s",
  "2879d031fa": "vor {n} min",
  "a25f26fdd6": "vor {n} h",
- "8827e75c7e": "{n} in 24 h",
  "7fa43eaab4": "noch keine Swaps",
  "b1044df319": "noch kein Swap",
  "e902d132ca": "{done} abgeschlossen · {running} laufend",
@@ -18,19 +17,27 @@
  "a84215984a": "{usd} pro Tag zum Marktpreis",
  "f3602026dd": "noch kein Marktpreis",
  "621886ba0d": "Preis pro GNR jedes abgeschlossenen Swaps",
+ "068deca46a": "{n} h",
+ "913185ba21": "{n} min",
+ "c27e9e6bd4": "vor {t}",
+ "a634606cba": "Swaps, 24 h",
+ "4ac68a1958": "Block #{h}",
+ "34540bb7b0": "Gemeldet",
+ "7bb6a93903": "Noch keine abgeschlossenen Swaps.",
  "cc74741300": "Netzwerk-Hashrate, letzte 24 Stunden",
+ "25a85aeb27": "Ø {n}",
  "cf6430e429": "Ø {n} s",
  "682d8d958d": "{n} Tx",
  "c002fa6699": "Mainnet ist live · Block {h}",
  "bb71a4a58c": "Testnet ist live · Block {h}",
  "f1d87efb64": "Netzwerkstatus nicht verfügbar",
- "84c00b7a41": {
-  "one": "{n} GPU",
-  "other": "{n} GPUs"
- },
  "b0cffb0ac1": {
   "one": "Durchschnitt aus {n} abgeschlossenen Swap",
   "other": "Durchschnitt aus {n} abgeschlossenen Swaps"
+ },
+ "18c80a2d0a": {
+  "one": "{n} Tag",
+  "other": "{n} Tage"
  },
  "773c4486c9": {
   "one": "{n} Share",
@@ -56,7 +63,6 @@
  "211d0bb8cf": "Block",
  "49e96d7cdf": "Betrag",
  "8e8252533c": "Verfügbar",
- "25a85aeb27": "Ø {n}",
  "4630a703a9": "Neueste Blöcke",
  "b2b7a8c7a3": "Txs",
  "271732c929": "Belohnung GNR",
@@ -155,8 +161,6 @@
   "one": "{gnr} GNR in {n} Auszahlung",
   "other": "{gnr} GNR in {n} Auszahlungen"
  },
- "068deca46a": "{n} h",
- "913185ba21": "{n} min",
  "91647badc3": "1 Jahr",
  "d4056c9c4e": "Mehr als 25 % vom Marktpreis entfernt: Quick Swap nimmt es nie, und es zählt nicht als sofort tauschbar",
  "b0c6a6075a": "weit vom Markt",
@@ -179,9 +183,7 @@
  "4a3b16f102": "{n} bezahlt und laufend",
  "29a63619c6": "gerade keiner bezahlt",
  "6e346bf5ac": "{n} angenommen, noch nicht bezahlt",
- "c27e9e6bd4": "vor {t}",
  "c0e0bd11fe": "Gerade läuft kein Swap.",
- "7bb6a93903": "Noch keine abgeschlossenen Swaps.",
  "7927ddb37c": "pro Bitcoin",
  "e6b8dc8457": "der Preis konnte nicht gelesen werden",
  "e6ef42054e": "keine Verkaufsangebote",
@@ -196,7 +198,6 @@
  "2c2f9661c8": "{what} kopieren",
  "e21f935f11": "Kopieren",
  "22a970d2e5": "Abgeschlossen",
- "34540bb7b0": "Gemeldet",
  "8e95a420fa": "GNR gesperrt",
  "ae2fd2dbb0": "nur für den Käufer",
  "721c6e4e22": "Bitcoin bezahlt",
@@ -207,7 +208,6 @@
  "fa25b844fa": "Block #{h}",
  "80cfa3e7f2": "wartet",
  "b991e31dd2": "GNR-Einlösung {tx}",
- "4ac68a1958": "Block #{h}",
  "2c66b37ba5": "Was die Blockchain beweist",
  "d40d5e7861": "Hash-Lock (SHA-256)",
  "7b9af1e1b1": "Der Hash des Geheimnisses entspricht dem Lock, und dasselbe Geheimnis hat die Bitcoin-Seite entsperrt. Die GNR hätten dem Verkäufer erst ab Block #{h} zurückerstattet werden können; sie wurden vorher eingelöst.",
@@ -238,10 +238,6 @@
  "a17cce4a43": "Zuzüglich der Gebühr des Bitcoin-Netzwerks.",
  "a50bbae6e1": "Kein Teil liegt mehr als {pct} % vom Marktpreis entfernt.",
  "8d525e5f15": "Kopiert",
- "18c80a2d0a": {
-  "one": "{n} Tag",
-  "other": "{n} Tage"
- },
  "e04a07d1e8": {
   "one": "{n} Monat",
   "other": "{n} Monate"
@@ -312,10 +308,10 @@
  "6497e4b3d7": "nie",
  "fcae70b5e3": "Jetzt ({year})",
  "f5987e237b": "Aktueller Block",
- "f7f0ea803e": "Aktuell minende Computer",
- "6f235cc876": "geschätzt aus den Shares",
- "180ce7c33f": "Jeder schürft jetzt",
- "b40a636331": "Ein Computer braucht für 1 GNR",
+ "32ee566e15": "Netzwerk-Hashrate",
+ "363da69f90": "gemessen aus den Shares jedes Blocks",
+ "99539c53cb": "Eine {gpu} schürft jetzt",
+ "61052389d9": "1 GNR braucht eine {gpu}",
  "4b9c2c876f": "im Schnitt, aktuell",
  "6f62218ebf": "Jetzt mitmachen: was deine Computer minen würden",
  "e6e0b3b0d3": "Deine GPUs (je wie eine {gpu}, {rate} MH/s)",
@@ -336,11 +332,12 @@
  "9ec3900dac": "Die Zukunft: nach Jahr und Anzahl der Computer",
  "cf9c7aa24a": "Wann",
  "9815673530": "Minende Computer",
- "66bd37a4fd": "So viele wie jetzt",
+ "89249d3e54": "So viel Hashrate wie jetzt",
  "90cbad3d23": "Anzahl der Computer",
  "8d23fdedeb": "Jeder pro Tag",
  "0a772ab2a2": "pro Monat",
  "54526b8b3d": "pro Jahr",
+ "b40a636331": "Ein Computer braucht für 1 GNR",
  "9c63af3d34": "Jeder Block zahlt seine Belohnung an alle Miner gemeinsam, aufgeteilt nach der Arbeit, die jeder leistet; hier ist jeder Computer gleich schnell. Ein Block pro Minute; die Belohnung beginnt bei 5 GNR und halbiert sich alle 2,100,000 Blöcke (etwa alle 4 Jahre); es wird höchstens 21,000,000 GNR geben. Strom und Hardware sind nicht eingerechnet.",
  "6bcd4199b6": "Knappheit: wie selten GNR wird",
  "594b8a0c22": "Stock-to-Flow: die existierenden GNR geteilt durch die neuen GNR, die im nächsten Jahr gemined werden, also wie viele Jahre Mining bereits gespeichert sind. Je höher der Wert, desto seltener die Coin. Gold liegt bei etwa {gold}. Jedes Halving verdoppelt ihn, und es wird nie mehr als 21,000,000 GNR geben.",
@@ -408,12 +405,13 @@
  "aa7d1daa7b": "{have} GNR existieren · {fresh} neu pro Jahr",
  "bda204a8b0": "{year}: {have} GNR · {fresh} neu pro Jahr",
  "ed5eb9a37e": "jetzt",
- "b09d0c12a8": "Heute schürft ein Computer von {now} **{day} GNR pro Tag**, im Wert von {worth} bei {price} pro GNR",
+ "9412397162": "Heute schürft eine {gpu} **{day} GNR am Tag**, im Wert von {worth} bei {price} pro GNR",
  "92dba9a0a5": "(noch kein Marktpreis: {usd} angenommen)",
  "3eddb9de4a": "**{year}** schürft er mit **{n}** Computern {day} GNR pro Tag, also kostet ein GNR **{x}× so viel Arbeit**. Damit dieser Tag Mining gleich viel wert ist, wäre ein GNR **{one}** wert und 1,000 GNR {thousand}.",
  "9c8d2c0579": "Bitcoin ist heute etwa {cap} wert ({price} × {supply} BTC). Wären alle GNR zusammen einen Teil davon wert, wäre ein GNR dieser Teil geteilt durch die dann existierenden GNR.",
  "6d535b4015": "Warte auf den Bitcoin-Preis…",
  "30b82259db": "**{year}**: Bei **{pct} %** des Werts von Bitcoin ({cap}) und {coins} GNR wäre ein GNR **{price}**{vs} wert, und jeder von {n} Computern würde {day} pro Tag verdienen.",
+ "9cb5fb7b05": "Live aus der Blockchain: Das Netzwerk rechnet mit {rate} und verteilt {day} GNR am Tag. Füge deine eigenen GPUs hinzu und sieh deinen Anteil.",
  "d10cbf9193": "Warte auf die Netzwerk-Hashrate…",
  "546266ebfe": "{usd} pro Monat",
  "8040898a2d": "bei {price} pro GNR",
@@ -439,22 +437,16 @@
   "one": "{year} (in {n} Jahr)",
   "other": "{year} (in {n} Jahren)"
  },
- "209cdda75d": {
-  "one": "Live aus der Blockchain: Das Netzwerk hasht mit {rate}, etwa {gpus} GPUs der {gpu}-Klasse auf {n} Computer, und verteilt {day} GNR pro Tag. Füge deine eigenen GPUs hinzu und sieh deinen Anteil.",
-  "other": "Live aus der Blockchain: Das Netzwerk hasht mit {rate}, etwa {gpus} GPUs der {gpu}-Klasse auf {n} Computern, und verteilt {day} GNR pro Tag. Füge deine eigenen GPUs hinzu und sieh deinen Anteil."
- },
- "bb99c15802": {
-  "one": "{n} GPU zusätzlich zu den {all}, die jetzt minen",
-  "other": "{n} GPUs zusätzlich zu den {all}, die jetzt minen"
+ "4a582ace7a": {
+  "one": "{n} GPU zu den heutigen {rate} hinzugefügt",
+  "other": "{n} GPUs zu den heutigen {rate} hinzugefügt"
  },
  "ce42f17b6d": "Noch keine Daten in diesem Zeitraum",
  "c91a3cc769": "ausgegeben",
- "32ee566e15": "Netzwerk-Hashrate",
  "0464470978": "Ziel 60 s",
  "f2528d9689": "Blockzeit",
  "e45099e4ae": "erwartet 32",
  "965d440b64": "Shares pro Block",
- "92a1ee9f5c": "Aktive Miner",
  "de4faf647b": "Transaktionen pro Block",
  "5e9e11f65d": "Ausgegebene GNR"
 }

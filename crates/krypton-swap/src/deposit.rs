@@ -104,13 +104,36 @@ pub fn spend_many(
         pay.iter().all(|(s, a)| *a >= s.minimal_non_dust()),
         "a payment that small cannot be sent"
     );
-    let total = coins
-        .iter()
-        .try_fold(Amount::ZERO, |a, c| a.checked_add(c.value))
-        .context("amount overflow")?;
     let paid = pay
         .iter()
         .try_fold(Amount::ZERO, |a, p| a.checked_add(p.1))
+        .context("amount overflow")?;
+    // A payment spends the largest coins that cover it and its fee, not every coin: the fee
+    // then follows what is paid, and the other coins stay as they are.
+    let mut sorted = coins.to_vec();
+    sorted.sort_by_key(|c| std::cmp::Reverse(c.value));
+    let coins: &[Utxo] = if pay.is_empty() {
+        coins
+    } else {
+        let mut k = sorted.len();
+        let mut sum = Amount::ZERO;
+        for (i, c) in sorted.iter().enumerate() {
+            sum = sum.checked_add(c.value).context("amount overflow")?;
+            if sum <= paid {
+                continue;
+            }
+            let draft = signed(&sorted[..=i], key, pay, rest, Amount::ZERO)?;
+            let vsize = draft.vsize() as u64 + 1 + (i as u64 + 1) / 4;
+            if sum >= paid + rate.fee_vb(vsize).context("fee overflow")? {
+                k = i + 1;
+                break;
+            }
+        }
+        &sorted[..k]
+    };
+    let total = coins
+        .iter()
+        .try_fold(Amount::ZERO, |a, c| a.checked_add(c.value))
         .context("amount overflow")?;
     ensure!(
         total > paid,
@@ -119,7 +142,10 @@ pub fn spend_many(
     // Sign once to learn the size, then again with the fee for that size.
     let draft = signed(coins, key, pay, rest, Amount::ZERO)?;
     let vsize = draft.vsize() as u64 + 1 + coins.len() as u64 / 4;
-    let ceiling = Amount::from_sat((total.to_sat() / 10).max(FEE_CEILING_SAT));
+    // The fee is at most a tenth of what moves: the payment, or everything when it all goes
+    // back (whatever fee rate a server reports).
+    let moved = if pay.is_empty() { total } else { paid };
+    let ceiling = Amount::from_sat((moved.to_sat() / 10).max(FEE_CEILING_SAT));
     let want = rate.fee_vb(vsize).context("fee overflow")?.min(ceiling);
     let floor = Amount::from_sat(MIN_RELAY_SAT_VB * vsize);
     let left = total - paid;
@@ -360,7 +386,8 @@ mod tests {
         let tx = spend(&coins, &k, None, &back, rate(2_000)).unwrap();
         assert!(valid(&tx, &coins, 2));
         assert_eq!(tx.output[0].value, Amount::from_sat(180_000));
-        // A payment: the same ceiling, and exactly the agreed amount.
+        // A payment: exactly the agreed amount, and a fee of at most a tenth of the payment
+        // (not of the coins it spends).
         let coins = [coin(1, 1_000_000)];
         let tx = spend(
             &coins,
@@ -371,7 +398,20 @@ mod tests {
         )
         .unwrap();
         assert_eq!(tx.output[0].value, Amount::from_sat(100_000));
-        assert_eq!(tx.output[1].value, Amount::from_sat(800_000));
+        assert_eq!(tx.output[1].value, Amount::from_sat(890_000));
+        // Only the coins that cover it: the largest first.
+        let coins = [coin(1, 30_000), coin(2, 500_000), coin(3, 40_000)];
+        let tx = spend(
+            &coins,
+            &k,
+            Some((&dest(9), Amount::from_sat(100_000))),
+            &back,
+            rate(5),
+        )
+        .unwrap();
+        assert_eq!(tx.input.len(), 1);
+        assert_eq!(tx.input[0].previous_output, coins[1].outpoint);
+        assert!(valid(&tx, &coins[1..2], 2));
         // Small deposits: at most 3,000 sat.
         let coins = [coin(1, 20_000)];
         let tx = spend(&coins, &k, None, &back, rate(2_000)).unwrap();

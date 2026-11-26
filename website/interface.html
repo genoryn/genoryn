@@ -44,18 +44,19 @@
   </section>
 
   <section class="pg-sec" id="console">
-    <span class="eyebrow">New in 1.0.44</span>
+    <span class="eyebrow">Redesigned in 1.0.52</span>
     <h2>The console</h2>
     <p>The wallet has a console, as Bitcoin's has: a line to type commands on, with their answers above it. Start typing and it offers the commands that match; <b>Tab</b> completes one, the arrow keys bring back earlier lines, and <code>help</code> lists them all.</p>
+    <p>Since 1.0.52 it looks and feels like a terminal: its top bar names the node it asks and says that it only reads, the commands people use most are one click away above the prompt, and every command and answer is set apart so a long session stays easy to read.</p>
     <div class="pg-term" role="img" aria-label="An example session in the wallet's console">
-      <div class="pg-term-bar"><i></i><i></i><i></i><span>Genoryn Krypton · Console</span></div>
-<pre><b>&gt; getblockcount</b>
+      <div class="pg-term-bar"><i></i><i></i><i></i><span>Genoryn console · read only · genoryn.io</span></div>
+<pre><b>gnr ❯ getblockcount</b>
 21763
 
-<b>&gt; getblockhash 21000</b>
+<b>gnr ❯ getblockhash 21000</b>
 "7989d2cf54aadd42b81bfd7d01f89d9bf5633d536fd12be9e28224cca2122902"
 
-<b>&gt; getsupply</b>
+<b>gnr ❯ getsupply</b>
 {
   "halving_interval": 2100000,
   "height": 21763,
@@ -65,7 +66,7 @@
   "subsidy": 500000000
 }
 
-<b>&gt; validateaddress gnrs1…</b>
+<b>gnr ❯ validateaddress gnrs1…</b>
 { "valid": true, "network": "mainnet", "form": "short" }</pre>
     </div>
     <div class="pg-grid four">

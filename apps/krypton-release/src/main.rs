@@ -19,6 +19,7 @@ use krypton_crypto::sign::{HybridKey, hybrid_verify};
 use rand_core::RngCore;
 use sha2::{Digest, Sha256};
 use std::path::Path;
+use zeroize::Zeroizing;
 
 const CTX: &[u8] = b"genoryn-krypton/release/v1";
 const COINS_CTX: &[u8] = b"genoryn-krypton/verified-coins/v1";
@@ -42,10 +43,20 @@ fn main() -> Result<()> {
             if Path::new(&a[1]).exists() {
                 bail!("{} exists; refusing to overwrite a signing key", a[1]);
             }
-            let mut seed = [0u8; 128];
-            rand_core::OsRng.fill_bytes(&mut seed);
+            let mut seed = Zeroizing::new([0u8; 128]);
+            rand_core::OsRng.fill_bytes(&mut *seed);
             let k = HybridKey::from_seed(&seed);
-            std::fs::write(&a[1], hex::encode(seed))?;
+            // Created here and now (never over a file that appeared meanwhile), readable by
+            // its owner only.
+            let mut o = std::fs::OpenOptions::new();
+            o.write(true).create_new(true);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+            let mut f = o
+                .open(&a[1])
+                .with_context(|| format!("{}: refusing to overwrite a signing key", a[1]))?;
+            std::io::Write::write_all(&mut f, Zeroizing::new(hex::encode(*seed)).as_bytes())?;
+            f.sync_all()?;
             std::fs::write(&a[2], hex::encode(k.public_bytes()) + "\n")?;
             println!(
                 "public key fingerprint {}",
@@ -71,9 +82,12 @@ fn main() -> Result<()> {
         }
         Some(cmd @ ("sign" | "sign-coins")) if a.len() == 3 => {
             let ctx = if cmd == "sign" { CTX } else { COINS_CTX };
-            let seed: [u8; 128] = read_hex(&a[1])?
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("bad seed"))?;
+            let raw = Zeroizing::new(read_hex(&a[1])?);
+            let seed: Zeroizing<[u8; 128]> = Zeroizing::new(
+                raw.as_slice()
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("bad seed"))?,
+            );
             let k = HybridKey::from_seed(&seed);
             let msg = std::fs::read(&a[2])?;
             if cmd == "sign-coins" {

@@ -17,6 +17,21 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.52", "date": "2026-11-26", "title": "A full security audit, and trading straight from your Bitcoin balance",
+     "tags": ["Security", "Swap", "Wallet", "Site"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Security", "A full audit of the whole system: the wallet, the swaps with bitcoin, Bitcoin keys and signing, the node and updates, consensus, the website and the forum. Every finding it lists is fixed in this release; what was checked and what was fixed is at genoryn.io/audits."),
+         ("Security", "Swaps with bitcoin are safer at the step where a wallet decides that a Bitcoin transaction has done its job: a refund or a claim counts only once it is in a block, a dropped one is sent again, and a refund overtaken by the other side's claim still gets you your GNR."),
+         ("Security", "Changing the nodes or the Bitcoin connection needs the wallet's password, and the 24-hour lock waits while your coins are in a swap."),
+         ("Added", "Trade from your Bitcoin balance: take an offer and pay from the balance at once, publish a buy offer paid from it, and have what you sell paid into it. No address to type, no transfer each time."),
+         ("Added", "Swap, Market, Publish an offer and Your swaps are one Trade group, with your GNR and Bitcoin balances at the top of each page. Publishing an offer has a page of its own."),
+         ("Added", "Delete a wallet from this computer: with its password, never while a swap or an offer of it is open; keep an encrypted copy or erase it for good."),
+         ("Changed", "A new Wallet page with the Bitcoin balance beside your GNR, a QR code to receive and a clearer send form; a console that looks like a terminal; a bigger About page with Genoryn Talks and the security audits; a start animation and a lock animation."),
+         ("Changed", "The number of miners is no longer shown anywhere: it cannot be measured honestly. The hashrate and the difficulty are."),
+         ("Fixed", "The totals on the History page no longer run into each other with long numbers."),
+         ("Added", "genoryn.io: a Trade menu, the latest completed swaps on the home page, the security audits page, and a SHA-256 under every download button."),
+     ]},
     {"v": "1.0.51", "date": "2026-11-23", "title": "Swap and Market, each on a tab and a page of its own",
      "tags": ["Swap", "Wallet", "Site"],
      "items": [

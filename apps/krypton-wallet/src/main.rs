@@ -552,6 +552,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
                 "id": reg.active,
                 "name": reg.get(&reg.active).map(|e| e.name.clone()),
                 "locks_in": a.vault.locks_in(&reg.active),
+                "held": a.vault.held(&reg.active),
             },
             "wallet_count": reg.wallets.len(),
             "wallet_names": reg.wallets.iter().map(|e| json!({"id": e.id, "name": e.name, "unlocked": a.vault.locks_in(&e.id).is_some()})).collect::<Vec<_>>(),
@@ -688,7 +689,7 @@ async fn unlock(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
     }
     let a = app.clone();
     match blocking(move || {
-        let w = Wallet::open(&a.wallet_path(), &r.password)?;
+        let w = password_check(|| Wallet::open(&a.wallet_path(), &r.password))?;
         let weak = !krypton_wallet_core::password::strength(&r.password).ok;
         let id = a.vault.active_id();
         vault::remember_fp(&a, &id, &w);
@@ -710,9 +711,11 @@ async fn reveal(State(app): S, h: HeaderMap, Json(r): Json<PassReq>) -> Response
     }
     let a = app.clone();
     match blocking(move || {
-        Ok(Wallet::open(&a.wallet_path(), &r.password)?
-            .mnemonic()
-            .to_string())
+        Ok(
+            password_check(|| Wallet::open(&a.wallet_path(), &r.password))?
+                .mnemonic()
+                .to_string(),
+        )
     })
     .await
     {
@@ -752,16 +755,6 @@ struct SendReq {
 /// token alone (readable by programs of this user) cannot spend. After 5 wrong passwords
 /// it refuses for 5 minutes.
 pub(crate) fn confirm_password(app: &App, password: &str) -> Result<()> {
-    static FAILS: Mutex<(u32, Option<std::time::Instant>)> = Mutex::new((0, None));
-    {
-        let f = FAILS.lock();
-        if f.0 >= 5
-            && f.1
-                .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(300))
-        {
-            anyhow::bail!("too many wrong passwords; try again in a few minutes");
-        }
-    }
     anyhow::ensure!(!password.is_empty(), "confirm with this wallet's password");
     let path = app
         .wallet
@@ -770,25 +763,80 @@ pub(crate) fn confirm_password(app: &App, password: &str) -> Result<()> {
         .context("wallet locked")?
         .path()
         .to_path_buf();
-    match krypton_wallet_core::file::FileKey::open(&path, password) {
-        Ok(_) => {
-            *FAILS.lock() = (0, None);
-            Ok(())
-        }
-        Err(_) => {
-            let mut f = FAILS.lock();
-            f.0 = if f
-                .1
-                .is_some_and(|t| t.elapsed() > std::time::Duration::from_secs(300))
-            {
-                1
+    password_check(|| krypton_wallet_core::file::FileKey::open(&path, password).map(|_| ()))
+        .map_err(|e| {
+            if wrong_password(&e) {
+                anyhow!("wrong password")
             } else {
-                f.0 + 1
-            };
-            f.1 = Some(std::time::Instant::now());
-            anyhow::bail!("wrong password")
+                e
+            }
+        })
+}
+
+fn wrong_password(e: &anyhow::Error) -> bool {
+    format!("{e:#}").contains("wrong password")
+}
+
+/// Every check of a wallet password runs through here (unlocking, showing the recovery
+/// phrase, changing the password, deleting, confirming a payment): after 5 wrong
+/// passwords, for any wallet, it refuses for 5 minutes. One check runs at a time, as each
+/// takes 256 MiB for its key derivation.
+pub(crate) fn password_check<T>(open: impl FnOnce() -> Result<T>) -> Result<T> {
+    use std::time::{Duration, Instant};
+    static FAILS: Mutex<(u32, Option<Instant>)> = Mutex::new((0, None));
+    static ONE: Mutex<()> = Mutex::new(());
+    let barred = || {
+        let f = FAILS.lock();
+        f.0 >= 5 && f.1.is_some_and(|t| t.elapsed() < Duration::from_secs(300))
+    };
+    anyhow::ensure!(
+        !barred(),
+        "too many wrong passwords; try again in a few minutes"
+    );
+    let _one = ONE.lock();
+    anyhow::ensure!(
+        !barred(),
+        "too many wrong passwords; try again in a few minutes"
+    );
+    match open() {
+        Ok(v) => {
+            *FAILS.lock() = (0, None);
+            Ok(v)
+        }
+        Err(e) => {
+            if wrong_password(&e) {
+                let mut f = FAILS.lock();
+                f.0 = if f.1.is_some_and(|t| t.elapsed() > Duration::from_secs(300)) {
+                    1
+                } else {
+                    f.0 + 1
+                };
+                f.1 = Some(Instant::now());
+            }
+            Err(e)
         }
     }
+}
+
+/// Where the wallet reads the chains from (GNR nodes, the Bitcoin connection) decides
+/// what it believes was paid: once a wallet exists, changing it takes the open wallet's
+/// password. Before the first wallet there is nothing to protect.
+pub(crate) fn confirm_source_change(app: &App, password: &str) -> Result<()> {
+    if app.vault.reg.lock().wallets.is_empty() {
+        return Ok(());
+    }
+    anyhow::ensure!(
+        app.wallet.lock().is_some(),
+        "unlock the wallet to change where it reads the network from"
+    );
+    confirm_password(app, password)
+}
+
+/// A node the wallet may read from: https to a named host, or plain http to this computer.
+fn node_url_ok(u: &str) -> bool {
+    u.len() <= 200
+        && !u.chars().any(|c| c.is_whitespace() || c.is_control())
+        && (krypton_swap::btc::is_remote_https(u) || krypton_swap::btc::is_local_http(u))
 }
 
 /// The full address behind a short one: this app's own wallets first (they need no
@@ -1381,10 +1429,27 @@ async fn language_catalog(
     }
 }
 
-async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> Response {
+#[derive(Deserialize)]
+struct SaveSettingsReq {
+    #[serde(flatten)]
+    settings: Settings,
+    /// Needed when the node list changes (see [`confirm_source_change`]).
+    #[serde(default)]
+    password: String,
+}
+
+impl Drop for SaveSettingsReq {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+    }
+}
+
+async fn save_settings(State(app): S, h: HeaderMap, Json(r): Json<SaveSettingsReq>) -> Response {
     if let Err(x) = check(&app, &h) {
         return x;
     }
+    let s = r.settings.clone();
     if s.mode != "light" && s.mode != "full" {
         return err("mode must be light or full");
     }
@@ -1393,15 +1458,13 @@ async fn save_settings(State(app): S, h: HeaderMap, Json(s): Json<Settings>) -> 
     if s.nodes.is_empty() || s.nodes.len() > 8 {
         return err("configure between 1 and 8 nodes");
     }
-    for u in &s.nodes {
-        let ok = u.len() <= 200
-            && !u.chars().any(|c| c.is_whitespace() || c.is_control())
-            && (u.starts_with("https://")
-                || u.starts_with("http://127.0.0.1:")
-                || u.starts_with("http://localhost:")
-                || u.starts_with("http://[::1]:"));
-        if !ok {
-            return err(format!("use https:// for remote nodes: {u}"));
+    if let Some(u) = s.nodes.iter().find(|u| !node_url_ok(u)) {
+        return err(format!("use https:// for remote nodes: {u}"));
+    }
+    if app.settings.lock().nodes != s.nodes {
+        let (a, password) = (app.clone(), zeroize::Zeroizing::new(r.password.clone()));
+        if let Err(e) = blocking(move || confirm_source_change(&a, &password)).await {
+            return err(e);
         }
     }
     let mut s = s;
@@ -1901,6 +1964,8 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
         "help" => "https://genoryn.io/help",
         "bugs" => "https://genoryn.io/bug-reports",
         "news" => "https://genoryn.io/updates",
+        "talks" => "https://genoryn.io/talks",
+        "audits" => "https://genoryn.io/audits",
         "source" => "https://github.com/genoryn/genoryn",
         "releases" => "https://github.com/genoryn/genoryn/releases",
         _ => {
@@ -1936,6 +2001,10 @@ fn running_instance(dir: &std::path::Path, patient: bool) -> Option<String> {
         .next()?
         .to_string();
     let addr: std::net::SocketAddr = host.parse().ok()?;
+    // The file is only a hint: the window opens nothing but a wallet on this computer.
+    if !addr.ip().is_loopback() {
+        return None;
+    }
     let mut s =
         std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(connect))
             .ok()?;
@@ -2132,7 +2201,7 @@ async fn serve(
                     let fp = vault::fingerprint(w);
                     if let Some(e) = reg.wallets.iter().find(|e| e.fp == fp) {
                         a.vault.note(&e.id, w);
-                        a.vault.set_hold(&e.id, swaps::busy(w));
+                        a.vault.note_work(&e.id, w);
                     }
                     let owner = krypton_crypto::field::digest_to_bytes(&w.address().owner);
                     let encoded = w.address().encode();

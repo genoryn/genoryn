@@ -25,7 +25,7 @@
       document.getElementById("sSupply").textContent = gk.gnr(i.supply, 0);
       document.getElementById("sRate").textContent = gk.rate(i.hashrate);
       document.getElementById("sPool").textContent = i.mempool;
-      gk.miners(i.stats);
+      gk.difficulty(i);
     }).catch(function () {});
   }
 
@@ -39,7 +39,6 @@
       kpi("difficulty", GKCharts.fmtNum(last.difficulty || 0));
       kpi("block_time", T("{n} s avg", { n: avg("block_time").toFixed(0) }));
       kpi("shares", T("{n} avg", { n: GKI18N.num(avg("shares"), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }));
-      kpi("miners", String(s.estimated_miners || 0));
       kpi("issued", gk.gnr(s.issued, 0) + " GNR");
       kpi("issued2", gk.gnr(s.issued, 0) + " GNR");
       kpi("remaining", gk.gnr(s.remaining, 0) + " GNR");

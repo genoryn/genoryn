@@ -225,15 +225,15 @@ in its own window. Keys, scanning and proving never leave your computer.
 
 | Tab | What it does |
 |---|---|
-| **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value), **Receive** (full address, short form, QR, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
+| **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it, **Receive** (QR code, short form, full address, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, a **Proof** button for every send, and **View ↗** / **Block ↗** to open a payment's transaction or block on the genoryn.io explorer |
-| **Swap** | The GNR price, the offer board (sell, buy, in progress, yours), publishing an offer (1 hour to 1 year), taking offers, your swaps with their progress, and a payment window with amount, address and QR code when it is time to pay |
+| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: sell, buy, in progress, yours), **Publish an offer** (1 hour to 1 year) and **Your swaps** with their progress. Offers can be paid from and paid into the wallet's own Bitcoin balance, so buying and selling needs no transfer each time |
 | **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
-| **Network** | Charts of hashrate, supply, miners, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
-| **Console** | Commands and their answers, as in Bitcoin's wallet, with completion as you type: the chain (`getblockchaininfo`, `getblock`, `gettransaction`, `getpeerinfo`, `validateaddress`, ...) and the open wallet (`getbalance`, `getaddress`, `listtransactions`). It only reads: no command can send, reveal a phrase or key, or change a setting |
-| **Security** | Change a wallet's password, lock wallets |
-| **About** | Version, update check, automatic updates |
+| **Network** | Charts of hashrate, supply, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
+| **Console** | A terminal for the chain and the wallet, as in Bitcoin's wallet: completion as you type, the most used commands one click away, and the node it asks named at the top. The chain (`getblockchaininfo`, `getblock`, `gettransaction`, `getpeerinfo`, `validateaddress`, ...) and the open wallet (`getbalance`, `getaddress`, `listtransactions`). It only reads: no command can send, reveal a phrase or key, or change a setting |
+| **Security** | Change a wallet's password, lock wallets, and **delete a wallet** from this computer (with its password; refused while a swap or an offer of it is open; keep a copy or erase it for good) |
+| **About** | Version, update check, automatic updates, what the wallet does, Genoryn Talks (the forum and live chat), and the security audits |
 
 **Connection mode** (Network tab):
 
@@ -854,6 +854,13 @@ withdrawal is disputed. Guides: [docs/integration](docs/integration).
 
 ## Security and audits
 
+* **26 November 2026, full audit** ([full report](docs/audit/2026-11-26-full-audit.md),
+  [summary on genoryn.io](https://genoryn.io/audits)): six reviewers covered the desktop wallet,
+  the atomic swaps and the offer board, Bitcoin keys and signing, the node, updater and
+  installers, consensus and cryptography, and the website and forum. No way was found to mint
+  coins beyond the schedule, spend someone else's GNR, break transfer privacy or forge a block.
+  30 findings, most of them in the swaps with bitcoin, are fixed in 1.0.52, which changes no
+  consensus rule.
 * **November 2026, private report:** an independent researcher reported issues through GitHub
   security advisories (light-client chain selection, swap board authorization, and smaller
   hardening items). All were confirmed and fixed in **1.0.33**, together with a swap-secret reuse
