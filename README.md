@@ -68,7 +68,17 @@
     <td align="center"><sub>Proportional GPU / CPU mining</sub></td>
     <td align="center"><sub>Market: the price and the order book</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><a href="https://genoryn.io"><img src="docs/images/site.webp" alt="genoryn.io: the home page, with the network live and the wallet below"></a></td>
+    <td width="50%"><a href="https://genoryn.io/talks"><img src="docs/images/talks.webp" alt="Genoryn Talks, the live chat: rooms, messages with the members' pictures, an answer from the author set apart (test accounts)"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><a href="https://genoryn.io">genoryn.io</a>: the network, live</sub></td>
+    <td align="center"><sub><a href="https://genoryn.io/talks">Genoryn Talks</a>: the forum and live chat</sub></td>
+  </tr>
 </table>
+
+<p align="center"><sub>The wallet, the website and Genoryn Talks share one design: black, white and grey, solid surfaces divided by hairlines. The screenshots are from a wallet made for them (empty, never mining) and from test accounts.</sub></p>
 
 ## Start mining in three steps
 
@@ -227,13 +237,17 @@ in its own window. Keys, scanning and proving never leave your computer.
 |---|---|
 | **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it, **Receive** (QR code, short form, full address, *Publish short form*), **Send privately** (full or short address, amount, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, a **Proof** button for every send, and **View ↗** / **Block ↗** to open a payment's transaction or block on the genoryn.io explorer |
-| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: sell, buy, in progress, yours), **Publish an offer** (1 hour to 1 year) and **Your swaps** with their progress. Offers can be paid from and paid into the wallet's own Bitcoin balance, so buying and selling needs no transfer each time |
+| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: sell, buy, in progress, yours), **Publish an offer** (1 hour to 1 year), **Your swaps** with their progress, and **Trade history** (every completed swap, in figures and charts: verified swaps first, the ones whose bitcoin the board found on the Bitcoin chain, with every other report one switch away). Offers can be paid from and paid into the wallet's own Bitcoin balance, so buying and selling needs no transfer each time |
 | **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
 | **Console** | A terminal for the chain and the wallet, as in Bitcoin's wallet: completion as you type, the most used commands one click away, and the node it asks named at the top. The chain (`getblockchaininfo`, `getblock`, `gettransaction`, `getpeerinfo`, `validateaddress`, ...) and the open wallet (`getbalance`, `getaddress`, `listtransactions`). It only reads: no command can send, reveal a phrase or key, or change a setting |
 | **Security** | Change a wallet's password, lock wallets, and **delete a wallet** from this computer (with its password; refused while a swap or an offer of it is open; keep a copy or erase it for good) |
 | **About** | Version, update check, automatic updates, what the wallet does, Genoryn Talks (the forum and live chat), and the security audits |
+
+**Search (Ctrl+K)** opens a panel that goes to any tab by a few letters of its name, and locks the
+wallet, switches the theme or opens the explorer. It only moves around: it never sends, swaps or
+signs, and it stays shut while the wallet is locked.
 
 **Connection mode** (Settings tab):
 
@@ -1024,8 +1038,15 @@ genoryn.io itself:
 
 - **Boards** for development, mining, wallets and nodes, atomic swaps and the market, quantum
   security and cryptography, ideas, and boards by language, with announcements from Zarazi Sokani.
-- **Live chat** with rooms by theme (General, Mining, Swaps & Market, Development, ქართული) and
-  replies to any message.
+- **Live chat** like a messenger: rooms by theme (General, Mining, Swaps & Market, Development)
+  with what is new in each, messages with their authors' pictures, answers shown with what they
+  answer, members named with `@`, and who is in the room right now.
+- **A picture for every member**, drawn by the server from the account (monochrome, one of eight
+  to pick). Nothing is uploaded.
+- **Notifications**: a bell tells you when someone answers you, names you, or posts in a topic
+  you started.
+- **The author's channel**: everything Zarazi Sokani writes, in every room and in the forum, in
+  one place at the top of the rooms; his messages carry a *Creator* badge wherever they appear.
 - **Ranks and merit** as on the oldest Bitcoin forum: good posts earn merit, and merit and
   activity raise a member from Newbie to Legendary.
 - **No advertising**: links to other sites, contact details, promotions and referral codes are
@@ -1037,8 +1058,18 @@ vulnerabilities go [privately](SECURITY.md).
 
 ## Author and governance
 
-Genoryn Krypton was created by the pseudonymous author **Zarazi Sokani**, whose identity is
-unknown and will never be revealed.
+<table>
+  <tr>
+    <td width="250" valign="top"><img src="website/assets/author/zarazi-480.webp" width="230" alt="An illustration of Zarazi Sokani: a figure in a black hood, the face lost in shadow, only a beard showing"></td>
+    <td valign="top">
+      <h3>Zarazi Sokani</h3>
+      <p>Genoryn Krypton was created by the pseudonymous author <b>Zarazi Sokani</b>, whose identity is unknown and will never be revealed.</p>
+      <p>He does not grow Genoryn through social networks. His direction is the system itself: that it works, and that it works in a way of its own. A protocol earns its place by what it does, not by who talks about it.</p>
+      <p>He is found where the work is: in <a href="https://github.com/genoryn/genoryn/commits/main">this repository</a>, and on <a href="https://genoryn.io/talks">Genoryn Talks</a>, where he answers in the open.</p>
+      <p><sub>The picture is an illustration, not a photograph: it shows no real person.</sub></p>
+    </td>
+  </tr>
+</table>
 
 Members of the community are free to develop the project in any direction they choose,
 including marketing and other initiatives, following their own strategies. The protocol itself
