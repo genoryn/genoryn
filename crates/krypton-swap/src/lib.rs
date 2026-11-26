@@ -442,16 +442,19 @@ impl Timing {
     /// The GNR seller's check before locking GNR: the BTC seller still has time to claim
     /// after the confirmations, and once the GNR lock expires there is still at least
     /// [`Timing::min_window_secs`] left on the bitcoin lock.
+    /// The heights come from the other side: the arithmetic saturates, so no value can
+    /// wrap around into one that passes.
     pub fn check(&self, t: &Timelocks, btc_tip: u32, gnr_tip: u64) -> Result<()> {
-        if t.gnr_refund_height <= gnr_tip + self.gnr_confirmations + self.claim_margin {
+        if t.gnr_refund_height <= gnr_tip.saturating_add(self.gnr_confirmations + self.claim_margin)
+        {
             return Err(SwapError::Timelocks("the GNR lock expires too soon"));
         }
         if t.btc_refund_height <= btc_tip {
             return Err(SwapError::Timelocks("the bitcoin lock has already expired"));
         }
         let btc = u64::from(t.btc_refund_height - btc_tip) * self.btc_fast_secs;
-        let gnr = (t.gnr_refund_height - gnr_tip) * self.gnr_slow_secs;
-        if btc < gnr + self.min_window_secs {
+        let gnr = (t.gnr_refund_height - gnr_tip).saturating_mul(self.gnr_slow_secs);
+        if btc < gnr.saturating_add(self.min_window_secs) {
             return Err(SwapError::Timelocks(
                 "the bitcoin lock must outlast the GNR lock by a safe margin",
             ));
@@ -494,20 +497,23 @@ impl Timing {
     /// for the payment window, the whole bitcoin lock and the claim window after it, and
     /// nothing lasts longer than a week.
     pub fn check_pay(&self, t: &Timelocks, btc_tip: u32, gnr_tip: u64) -> Result<()> {
-        if t.btc_refund_height <= btc_tip + self.btc_confirmations + self.btc_claim_margin {
+        if t.btc_refund_height
+            <= btc_tip.saturating_add(self.btc_confirmations + self.btc_claim_margin)
+        {
             return Err(SwapError::Timelocks("the bitcoin lock is too short"));
         }
-        if t.gnr_refund_height <= gnr_tip + self.claim_margin {
+        if t.gnr_refund_height <= gnr_tip.saturating_add(self.claim_margin) {
             return Err(SwapError::Timelocks("the GNR lock expires too soon"));
         }
-        let gnr = (t.gnr_refund_height - gnr_tip - self.claim_margin) * self.gnr_fast_secs;
+        let gnr =
+            (t.gnr_refund_height - gnr_tip - self.claim_margin).saturating_mul(self.gnr_fast_secs);
         let btc = u64::from(t.btc_refund_height - btc_tip) * self.btc_slow_secs;
         if gnr < btc + self.pay_window_secs + self.min_window2_secs {
             return Err(SwapError::Timelocks(
                 "the GNR lock must outlast the bitcoin lock by a safe margin",
             ));
         }
-        if (t.gnr_refund_height - gnr_tip) * 60 > MAX_SWAP_SECS
+        if (t.gnr_refund_height - gnr_tip).saturating_mul(60) > MAX_SWAP_SECS
             || u64::from(t.btc_refund_height - btc_tip) * 600 > MAX_SWAP_SECS
         {
             return Err(SwapError::Timelocks(
@@ -520,12 +526,12 @@ impl Timing {
     /// GNR-first flow: whether the seller may still take the bitcoin (reveal the secret)
     /// at `btc_tip`, early enough that the buyer cannot refund it first.
     pub fn may_claim_btc(&self, t: &Timelocks, btc_tip: u32) -> bool {
-        btc_tip + self.btc_claim_margin < t.btc_refund_height
+        btc_tip.saturating_add(self.btc_claim_margin) < t.btc_refund_height
     }
 
     /// Whether the BTC seller may still claim the GNR (reveal the secret) at `gnr_tip`.
     pub fn may_claim_gnr(&self, t: &Timelocks, gnr_tip: u64) -> bool {
-        gnr_tip + self.claim_margin < t.gnr_refund_height
+        gnr_tip.saturating_add(self.claim_margin) < t.gnr_refund_height
     }
 }
 

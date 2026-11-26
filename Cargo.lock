@@ -2656,6 +2656,7 @@ dependencies = [
  "krypton-pow",
  "krypton-store",
  "krypton-wallet-core",
+ "proptest",
  "rand 0.8.8",
  "rand_core 0.6.4",
  "reqwest",

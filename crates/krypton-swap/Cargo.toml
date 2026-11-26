@@ -29,3 +29,4 @@ krypton-store.workspace = true
 krypton-light = { workspace = true, features = ["client"] }
 krypton-pow.workspace = true
 tempfile.workspace = true
+proptest.workspace = true

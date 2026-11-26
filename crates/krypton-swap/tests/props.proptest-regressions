@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 9927a6fe60cec974b03be726ac13b1bb2976235cdb32b3b1ebf496573b8e406f # shrinks to m = Timing { btc_lock_blocks: 288, gnr_lock_blocks: 720, btc_fast_secs: 480, gnr_slow_secs: 90, min_window_secs: 43200, claim_margin: 120, btc_confirmations: 2, gnr_confirmations: 30, gnr_lock2_blocks: 1900, gnr_lock2_fast_blocks: 1260, btc_lock2_blocks: 18, btc_slow_secs: 1200, gnr_fast_secs: 45, min_window2_secs: 14400, btc_claim_margin: 6, pay_window_secs: 7200 }, br = 0, gr = 120, bt = 0, gt = 18446744073709551615

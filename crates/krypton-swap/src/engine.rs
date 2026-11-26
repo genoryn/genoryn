@@ -946,7 +946,7 @@ impl<G: ChainSource> Engine<'_, G> {
                     "the GNR lock in the accept code expires too soon"
                 );
                 ensure!(
-                    (gnr_refund_height - gnr_tip) * 60 <= MAX_SWAP_SECS,
+                    (gnr_refund_height - gnr_tip).saturating_mul(60) <= MAX_SWAP_SECS,
                     "the GNR lock in the accept code lasts longer than a week"
                 );
                 ensure!(
@@ -1597,7 +1597,7 @@ impl<G: ChainSource> Engine<'_, G> {
             .filter(|l| {
                 l.position.is_some()
                     && l.pending_spend.is_none()
-                    && tip + 1 >= l.terms.refund_height + ELSEWHERE_REFUND_DELAY
+                    && tip + 1 >= l.terms.refund_height.saturating_add(ELSEWHERE_REFUND_DELAY)
             })
             .map(|l| l.cm)
             .collect();

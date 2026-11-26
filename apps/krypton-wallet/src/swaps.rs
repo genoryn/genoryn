@@ -173,7 +173,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "height": l.height,
                 "refund_height": l.refund_height,
                 "blocks_left": l.refund_height.saturating_sub(tip + 1),
-                "backstop_height": l.refund_height + engine::ELSEWHERE_REFUND_DELAY,
+                "backstop_height": l.refund_height.saturating_add(engine::ELSEWHERE_REFUND_DELAY),
                 "refunding": l.refunding,
             })
         })
