@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 
 mod quick;
 use quick::{advance_quick, end_promises, list_rests, part_answers};
-pub use quick::{btc_info, btc_send, quote as quick_quote, start as quick_start};
+pub use quick::{btc_info, btc_send, btc_speedup, quote as quick_quote, start as quick_start};
 
 const STORE_KEY: &str = "board";
 

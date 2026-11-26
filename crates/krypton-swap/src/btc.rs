@@ -17,6 +17,27 @@ pub struct Utxo {
     pub height: Option<u32>,
 }
 
+/// What a transaction that is not in a block yet pays, as its server tells it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Unconfirmed {
+    pub fee: u64,
+    pub vsize: u64,
+    /// Everything it spends is in a block, so miners judge it by its own fee alone.
+    pub parents_confirmed: bool,
+    /// When the server first saw it (Unix time), where the server tells.
+    pub seen: Option<u64>,
+}
+
+impl Unconfirmed {
+    /// sat per virtual byte.
+    pub fn rate(&self) -> f64 {
+        self.fee as f64 / self.vsize.max(1) as f64
+    }
+}
+
+/// The most inputs of a waiting transaction that are looked up one by one.
+const MAX_PARENT_LOOKUPS: usize = 8;
+
 pub trait BtcChain {
     fn tip(&self) -> Result<u32>;
     /// Outputs paying `address`: at least every unspent one, confirmed or not.
@@ -38,6 +59,27 @@ pub trait BtcChain {
     fn unspent(&self, address: &Address) -> Result<Vec<Utxo>> {
         unspent_of(self, address)
     }
+    /// What the waiting transaction `txid` pays; `None` when it is in a block already, or
+    /// when the server cannot say. Only read, to tell a person why a deposit waits.
+    fn unconfirmed(&self, _txid: &Txid) -> Result<Option<Unconfirmed>> {
+        Ok(None)
+    }
+    /// Fee rates (sat/vB) that get a transaction into a block within so many blocks, the
+    /// soonest first. Empty when the server gives none.
+    fn fee_estimates(&self) -> Result<Vec<(u32, f64)>> {
+        Ok(vec![])
+    }
+}
+
+/// Estimates as servers give them, made safe to use: finite, above zero, capped, in order.
+fn clean_estimates(mut v: Vec<(u32, f64)>) -> Vec<(u32, f64)> {
+    v.retain(|(n, r)| *n >= 1 && r.is_finite() && *r > 0.0);
+    for (_, r) in v.iter_mut() {
+        *r = r.min(MAX_FEE_RATE);
+    }
+    v.sort_by_key(|(n, _)| *n);
+    v.dedup_by_key(|(n, _)| *n);
+    v
 }
 
 /// How far back a swap's payment is looked for (blocks, four days): reports arrive within
@@ -301,6 +343,61 @@ impl BtcChain for Esplora {
         let r = v["3"].as_f64().or_else(|| v["6"].as_f64()).unwrap_or(2.0);
         FeeRate::from_sat_per_vb(r.ceil().clamp(1.0, MAX_FEE_RATE) as u64).context("fee rate")
     }
+    fn unconfirmed(&self, txid: &Txid) -> Result<Option<Unconfirmed>> {
+        let v: Value = serde_json::from_str(&self.get(&format!("/tx/{txid}"))?)?;
+        if v["status"]["confirmed"].as_bool() != Some(false) {
+            return Ok(None);
+        }
+        let (Some(fee), Some(weight)) = (v["fee"].as_u64(), v["weight"].as_u64()) else {
+            return Ok(None);
+        };
+        if weight == 0 {
+            return Ok(None);
+        }
+        // Its own parents, one look each: a transaction that spends waiting ones is not
+        // judged by its own fee alone.
+        let parents: Vec<&str> = v["vin"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|i| i["txid"].as_str())
+            .collect();
+        let mut parents_confirmed = !parents.is_empty() && parents.len() <= MAX_PARENT_LOOKUPS;
+        if parents_confirmed {
+            let mut seen = std::collections::HashSet::new();
+            for p in parents.into_iter().filter(|p| seen.insert(*p)) {
+                let id = Txid::from_str(p)?;
+                let st: Value = serde_json::from_str(&self.get(&format!("/tx/{id}/status"))?)?;
+                if st["confirmed"].as_bool() != Some(true) {
+                    parents_confirmed = false;
+                    break;
+                }
+            }
+        }
+        // mempool.space tells when it first saw a transaction; other servers do not.
+        let seen = self
+            .get(&format!("/v1/transaction-times?txId[]={txid}"))
+            .ok()
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+            .and_then(|v| v[0].as_u64())
+            .filter(|t| *t > 0);
+        Ok(Some(Unconfirmed {
+            fee,
+            vsize: weight.div_ceil(4),
+            parents_confirmed,
+            seen,
+        }))
+    }
+    fn fee_estimates(&self) -> Result<Vec<(u32, f64)>> {
+        let v: Value = serde_json::from_str(&self.get("/fee-estimates")?)?;
+        Ok(clean_estimates(
+            v.as_object()
+                .into_iter()
+                .flatten()
+                .filter_map(|(k, r)| Some((k.parse::<u32>().ok()?, r.as_f64()?)))
+                .collect(),
+        ))
+    }
     fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
         let raw = self.get(&format!("/tx/{txid}/hex"))?;
         let tx: Transaction = bitcoin::consensus::encode::deserialize_hex(raw.trim())?;
@@ -429,6 +526,35 @@ impl BtcChain for CoreRpc {
         let sat_vb = (btc_per_kvb * 1e8 / 1000.0).ceil().clamp(1.0, MAX_FEE_RATE) as u64;
         FeeRate::from_sat_per_vb(sat_vb).context("fee rate")
     }
+    fn unconfirmed(&self, txid: &Txid) -> Result<Option<Unconfirmed>> {
+        // Not in the mempool: in a block, or unknown to this node.
+        let Ok(v) = self.call("getmempoolentry", json!([txid.to_string()])) else {
+            return Ok(None);
+        };
+        let (Some(fee), Some(vsize)) = (v["fees"]["base"].as_f64(), v["vsize"].as_u64()) else {
+            return Ok(None);
+        };
+        if vsize == 0 || !fee.is_finite() || !(0.0..21e6).contains(&fee) {
+            return Ok(None);
+        }
+        Ok(Some(Unconfirmed {
+            fee: (fee * 1e8).round() as u64,
+            vsize,
+            parents_confirmed: v["ancestorcount"].as_u64() == Some(1),
+            seen: v["time"].as_u64().filter(|t| *t > 0),
+        }))
+    }
+    fn fee_estimates(&self) -> Result<Vec<(u32, f64)>> {
+        let mut out = Vec::new();
+        for n in [1u32, 2, 3, 6, 12, 24, 144] {
+            if let Ok(v) = self.call("estimatesmartfee", json!([n]))
+                && let Some(btc_per_kvb) = v["feerate"].as_f64()
+            {
+                out.push((n, btc_per_kvb * 1e8 / 1000.0));
+            }
+        }
+        Ok(clean_estimates(out))
+    }
     fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
         // Without -txindex Bitcoin Core finds only mempool and wallet transactions.
         let Ok(raw) = self.call("getrawtransaction", json!([txid.to_string()])) else {
@@ -478,5 +604,27 @@ mod tests {
         assert!(Esplora::new("http://127.0.0.1.example.com/api").is_err());
         assert!(CoreRpc::new("http://u:p@example.com:8332").is_err());
         assert!(CoreRpc::new("http://u:p@127.0.0.1:8332").is_ok());
+    }
+
+    #[test]
+    fn fee_estimates_from_a_server_are_made_safe() {
+        let v = clean_estimates(vec![
+            (6, 1.3),
+            (1, 2.5),
+            (0, 9.0),
+            (3, f64::NAN),
+            (2, -1.0),
+            (144, 0.2),
+            (4, 1e9),
+            (1, 7.0),
+        ]);
+        assert_eq!(v, vec![(1, 2.5), (4, MAX_FEE_RATE), (6, 1.3), (144, 0.2)]);
+        let u = Unconfirmed {
+            fee: 282,
+            vsize: 141,
+            parents_confirmed: true,
+            seen: None,
+        };
+        assert_eq!(u.rate(), 2.0);
     }
 }

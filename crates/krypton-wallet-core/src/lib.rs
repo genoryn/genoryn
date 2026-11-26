@@ -1654,6 +1654,7 @@ impl Wallet {
 
     /// Sends, first merging notes in parallel rounds when the payment needs more than
     /// two notes. Waits for each round to confirm (one block per round).
+    /// [`Self::max_send`] says how much such a payment can carry.
     pub fn send_auto(
         &mut self,
         src: &impl ChainSource,
@@ -1663,12 +1664,12 @@ impl Wallet {
         memo: &str,
         mut status: impl FnMut(&str),
     ) -> Result<Hash32> {
-        for round in 1..=16 {
+        for round in 1..=MERGE_ROUNDS {
             self.sync(src, |_, _| {})?;
             if !self.needs_consolidation(amount, fee) {
                 return self.send(src, to, amount, fee, memo);
             }
-            let ids = self.consolidate(src, fee, 64)?;
+            let ids = self.consolidate(src, fee, MERGE_TXS)?;
             status(&format!(
                 "Preparing the payment, step {round}: the coins are in many small notes, so they are merged first ({} transactions), then the next block is awaited. The payment follows by itself; keep the wallet open.",
                 ids.len()
@@ -1686,6 +1687,50 @@ impl Wallet {
             }
         }
         bail!("too many consolidation rounds")
+    }
+
+    /// The most GNR that [`Self::send_auto`] can send in one payment at `fee` a
+    /// transaction. A transfer spends two notes, so many notes are first merged, two at a
+    /// time, and every merge pays the fee: this follows the rounds `send_auto` makes (the
+    /// largest notes first, [`MERGE_TXS`] merges a round) and returns what the two largest
+    /// notes hold when it would stop, less the fee of the payment itself. Notes not worth
+    /// a fee are left where they are, as [`Self::consolidate`] leaves them; notes set
+    /// aside or already being spent do not count. 0 when nothing can be sent.
+    pub fn max_send(&self, fee: u64) -> u64 {
+        let now = krypton_core::now();
+        let mut v: Vec<u64> = self
+            .state
+            .notes
+            .iter()
+            .filter(|n| {
+                n.position.is_some()
+                    && n.spent_height.is_none()
+                    && n.pending_spend.is_none()
+                    && n.value > fee
+                    && n.coin.is_none()
+                    && !self.held_at(&n.cm, now)
+            })
+            .map(|n| n.value)
+            .collect();
+        v.sort_unstable_by(|a, b| b.cmp(a));
+        // The payment is tried at the start of each round, so the last round merges nothing.
+        for _ in 1..MERGE_ROUNDS {
+            if v.len() <= 2 {
+                break;
+            }
+            let pairs = (v.len() / 2).min(MERGE_TXS);
+            let mut next: Vec<u64> = v[..2 * pairs]
+                .chunks(2)
+                .map(|p| p[0].saturating_add(p[1]).saturating_sub(fee))
+                .collect();
+            next.extend_from_slice(&v[2 * pairs..]);
+            next.sort_unstable_by(|a, b| b.cmp(a));
+            v = next;
+        }
+        v.iter()
+            .take(2)
+            .fold(0u64, |a, x| a.saturating_add(*x))
+            .saturating_sub(fee)
     }
 
     /// Whether a payment of `amount + fee` needs consolidation first.
@@ -1738,6 +1783,11 @@ pub const DEFAULT_FEE: u64 = 2 * MIN_FEE;
 
 /// A fee above this (0.1 GNR) is refused as a likely typo.
 pub const MAX_FEE: u64 = 10_000_000;
+
+/// Merges one round of [`Wallet::send_auto`] makes at most (each its own transaction).
+const MERGE_TXS: usize = 64;
+/// Rounds [`Wallet::send_auto`] goes through before it gives up.
+const MERGE_ROUNDS: usize = 16;
 
 #[cfg(test)]
 mod tests;

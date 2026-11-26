@@ -4,6 +4,26 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.56](https://github.com/genoryn/genoryn/releases/tag/v1.0.56) · 2026-11-26: A wallet that fits every window, Max when sending, and a bitcoin deposit you can watch arrive
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- A bitcoin deposit on its way has a bar under the Bitcoin balance until its first block. The bar fills with the time waited, against the ten minutes a Bitcoin block takes on average. It is an estimate: nobody knows when the next block comes, so it is full only once the block is there.
+- Send: a Max button fills in the most one payment can send. Coins that sit in many small notes are merged first, and each merge pays the fee; the amount allows for that.
+
+### Changed
+
+- Market: buy offers come first and sell offers second, in the wallet and on genoryn.io.
+- Addresses are shown by their two ends, as in gnrs1k7q2m9x4…y0u1i2, in the list of wallets, the wallet switcher and the history.
+
+### Fixed
+
+- The wallet fits every window width. In a window narrower than a wide monitor the History table squeezed the recipient into a column one letter wide, and the total of all wallets was cut to three dots. The history now turns into a list when seven columns have no room, and bars, tables and figures give way before they are squeezed.
+- The top bar measures itself: when it does not fit it drops the words on its buttons, then the hashrate, then the total of all wallets, instead of pushing the page sideways. This showed with two or more wallets on a 1366-pixel screen.
+- The menu of a wallet in the list of wallets (Rename, Copy short address, Delete) opens above the list instead of being cut off by it.
+
 ## [1.0.55](https://github.com/genoryn/genoryn/releases/tag/v1.0.55) · 2026-11-26: A new design, a trade history that shows verified swaps first, and a new Genoryn Talks
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

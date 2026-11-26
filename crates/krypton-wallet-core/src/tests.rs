@@ -787,6 +787,82 @@ fn expired_sends_release_their_notes() {
     assert_eq!(a.balance().pending, 0);
 }
 
+/// "Max" in the wallet: `max_send` names what `send_auto` can deliver. Merging the notes
+/// and paying takes exactly that much and leaves nothing behind, and one krypton more is
+/// not there to send.
+#[test]
+fn max_send_is_what_one_payment_can_carry() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let mut a = new_wallet(dir.path(), "a.wallet", &keys::new_mnemonic());
+    let mut b = new_wallet(dir.path(), "b.wallet", &keys::new_mnemonic());
+    let miner = new_wallet(dir.path(), "m.wallet", &keys::new_mnemonic()).address();
+    let (from, to) = (a.address(), b.address());
+    assert_eq!(
+        a.max_send(DEFAULT_FEE),
+        0,
+        "an empty wallet has nothing to send"
+    );
+    // Devnet pays out every 4 blocks: several payouts, each a note of its own.
+    for _ in 0..20 {
+        mine(&src, &from);
+    }
+    for _ in 0..12 {
+        mine(&src, &miner);
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    let before = a.balance();
+    let paid = paid_to(&chain, &from, chain.tip().height());
+    assert!(
+        before.spendable == paid && before.total == paid && paid > 0,
+        "{before:?}"
+    );
+    let notes = a
+        .state
+        .notes
+        .iter()
+        .filter(|n| n.spent_height.is_none())
+        .count();
+    assert!(notes >= 4, "the payouts are {notes} notes");
+    let fee = DEFAULT_FEE;
+    let max = a.max_send(fee);
+    // All but two notes are merged away, a fee each, and the payment pays one more.
+    assert_eq!(max, before.spendable - (notes as u64 - 1) * fee);
+    assert!(a.needs_consolidation(max, fee));
+    // What send_auto does, without its waiting: merge, a block, look again.
+    let mut merges = 0;
+    while a.needs_consolidation(max, fee) {
+        merges += a.consolidate(&src, fee, MERGE_TXS).unwrap().len();
+        assert!(merges < MERGE_TXS, "the merging ends");
+        mine(&src, &miner);
+        a.sync(&src, |_, _| {}).unwrap();
+    }
+    assert_eq!(merges, notes - 2);
+    let err = a.send(&src, &to, max + 1, fee, "").unwrap_err().to_string();
+    assert!(err.contains("insufficient"), "{err}");
+    a.send(&src, &to, max, fee, "everything").unwrap();
+    mine(&src, &miner);
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(
+        paid_to(&chain, &from, chain.tip().height()),
+        paid,
+        "no payout arrived meanwhile"
+    );
+    let after = a.balance();
+    assert_eq!(
+        (after.total, after.spendable, after.pending),
+        (0, 0, 0),
+        "{after:?}"
+    );
+    assert_eq!(b.balance().total, max);
+    assert_eq!(a.max_send(fee), 0);
+}
+
 /// GNR set aside for a sell offer stays where it is: sends and merges never pick it, a
 /// released note goes straight into a new offer, and holds survive a restart.
 #[test]

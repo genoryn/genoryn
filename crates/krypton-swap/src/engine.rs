@@ -522,6 +522,51 @@ fn note_spent(w: &mut Wallet, tx: &bitcoin::Transaction) {
     }
 }
 
+/// Why bitcoin at a deposit address is not in a block yet ([`Engine::waiting`]).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Waiting {
+    /// The coins not in a block, and what they hold (sat).
+    pub coins: usize,
+    pub sats: u64,
+    /// What the slowest of their payments pays (sat/vB). `None`: the Bitcoin server does
+    /// not say, or it cannot be told from one look.
+    pub rate: Option<f64>,
+    /// `rate` counts a payment together with the waiting payment it spends.
+    pub together: bool,
+    /// What the next block takes at the moment (sat/vB).
+    pub next: Option<f64>,
+    /// Within how many blocks `rate` is enough, by the server's estimates. `None`: it is
+    /// below all of them, or not known.
+    pub blocks: Option<u32>,
+    /// When the Bitcoin server first saw the oldest of them (Unix time), where it tells.
+    pub since: Option<u64>,
+}
+
+/// A way to speed up waiting bitcoin ([`Engine::bump_plan`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bump {
+    /// The waiting coins it sends on, and what they hold (sat).
+    pub coins: Vec<Utxo>,
+    pub value: u64,
+    /// What the new payment pays (sat/vB) and costs (sat).
+    pub rate: u64,
+    pub fee: u64,
+    /// What it and the payments it spends pay together (sat/vB): what a miner looks at.
+    pub together: u64,
+}
+
+/// Why speeding up is not offered.
+pub const BUMP_NONE: &str = "Nothing that came from outside is waiting for a block.";
+pub const BUMP_ENOUGH: &str = "It already pays enough for the next blocks.";
+pub const BUMP_UNKNOWN: &str = "The Bitcoin server does not say what this payment pays.";
+pub const BUMP_PARENTS: &str =
+    "The payment it spends is not in a block either, so a higher fee here would not be enough.";
+pub const BUMP_COSTLY: &str = "It would cost more than a twentieth of the deposit.";
+/// Speeding up never costs more than this share of what it moves (a twentieth).
+pub const BUMP_FEE_SHARE: u64 = 20;
+/// The most waiting payments looked up for one address.
+const MAX_BUMP_PARENTS: usize = 4;
+
 /// A lock this wallet funded that none of its swap records knows: unspent, and no swap
 /// with its number.
 fn orphan(l: &LockRecord, swaps: &[Swap]) -> bool {
@@ -1613,6 +1658,222 @@ impl<G: ChainSource> Engine<'_, G> {
         let key = crate::deposit::key(self.wallet.swap_seed(), n);
         let tx = crate::deposit::spend(&coins, &key, None, &dest, self.btc.fee_rate()?)?;
         Ok(Some(self.broadcast_spend(&tx)?))
+    }
+
+    /// Why the bitcoin at deposit address `n` is not in a block yet: what the slowest of
+    /// its payments pays, what blocks take at the moment, and within how many blocks its
+    /// fee is enough. `None` when nothing waits there. Only read.
+    pub fn waiting(&self, n: u32) -> Result<Option<Waiting>> {
+        let coins: Vec<Utxo> = self
+            .deposit_coins(n)?
+            .into_iter()
+            .filter(|c| c.height.is_none())
+            .collect();
+        if coins.is_empty() {
+            return Ok(None);
+        }
+        let t = now();
+        let mut seen = std::collections::HashSet::new();
+        let (mut rate, mut known, mut together) = (None::<f64>, true, false);
+        let mut since = None::<u64>;
+        for c in &coins {
+            if !seen.insert(c.outpoint.txid) {
+                continue;
+            }
+            let u = match (seen.len() <= MAX_BUMP_PARENTS)
+                .then(|| self.btc.unconfirmed(&c.outpoint.txid))
+            {
+                Some(Ok(Some(u))) => u,
+                _ => {
+                    known = false;
+                    continue;
+                }
+            };
+            // A server's clock is only believed within reason.
+            if let Some(s) = u
+                .seen
+                .filter(|s| *s <= t + 600 && s.saturating_add(30 * 86_400) > t)
+            {
+                since = Some(since.map_or(s, |o| o.min(s)));
+            }
+            // A payment that spends waiting ones is judged together with them.
+            let r = if u.parents_confirmed {
+                Some(u.rate())
+            } else {
+                together = true;
+                self.package_rate(&c.outpoint.txid, &u)
+            };
+            match r {
+                Some(r) => rate = Some(rate.map_or(r, |x| x.min(r))),
+                None => known = false,
+            }
+        }
+        let est = self.btc.fee_estimates().unwrap_or_default();
+        let rate = rate.filter(|r| known && r.is_finite());
+        Ok(Some(Waiting {
+            coins: coins.len(),
+            sats: coins
+                .iter()
+                .fold(0u64, |a, c| a.saturating_add(c.value.to_sat())),
+            rate,
+            together: together && rate.is_some(),
+            next: est.first().map(|e| e.1),
+            blocks: rate.and_then(|r| est.iter().find(|(_, need)| r >= *need).map(|(b, _)| *b)),
+            since,
+        }))
+    }
+
+    /// What the waiting payment `txid` and the waiting payments it spends pay together
+    /// (sat/vB), as a miner counts it: never more than it pays alone. `None` when that
+    /// cannot be told (a longer chain of waiting payments, or a server that does not say).
+    fn package_rate(&self, txid: &Txid, u: &crate::btc::Unconfirmed) -> Option<f64> {
+        let tx = self.btc.tx(txid).ok()??;
+        let mut parents = std::collections::HashSet::new();
+        let (mut fee, mut vsize) = (u.fee, u.vsize);
+        for i in &tx.input {
+            let p = i.previous_output.txid;
+            if !parents.insert(p) {
+                continue;
+            }
+            if parents.len() > MAX_BUMP_PARENTS {
+                return None;
+            }
+            match self.btc.unconfirmed(&p).ok()? {
+                None => {}
+                Some(x) if x.parents_confirmed => {
+                    fee = fee.saturating_add(x.fee);
+                    vsize = vsize.saturating_add(x.vsize);
+                }
+                Some(_) => return None,
+            }
+        }
+        Some(u.rate().min(fee as f64 / vsize.max(1) as f64))
+    }
+
+    /// What speeding up the waiting bitcoin at deposit address `n` would take, or why it
+    /// is not offered ([`BUMP_NONE`] and the reasons after it).
+    ///
+    /// The wallet cannot change a payment someone else made, but it owns what that payment
+    /// pays: it can send that on to its own address at a fee high enough that a miner who
+    /// wants this fee must take the waiting payment with it (child pays for parent). The
+    /// plan covers every waiting coin that came from outside; change of the wallet's own
+    /// payments is those payments' business.
+    pub fn bump_plan(&self, n: u32) -> Result<std::result::Result<Bump, &'static str>> {
+        let own = spent_coins(self.wallet);
+        let mut coins = Vec::new();
+        let (mut fees, mut vsizes, mut slowest) = (0u64, 0u64, f64::MAX);
+        let mut seen = std::collections::HashSet::new();
+        for c in self.checked_coins(n)? {
+            if c.height.is_some() {
+                continue;
+            }
+            if let Some(tx) = self.btc.tx(&c.outpoint.txid)?
+                && tx
+                    .input
+                    .iter()
+                    .any(|i| own.contains(&i.previous_output.to_string()))
+            {
+                continue;
+            }
+            if seen.insert(c.outpoint.txid) {
+                if seen.len() > MAX_BUMP_PARENTS {
+                    return Ok(Err(BUMP_UNKNOWN));
+                }
+                let Some(u) = self.btc.unconfirmed(&c.outpoint.txid)? else {
+                    return Ok(Err(BUMP_UNKNOWN));
+                };
+                if !u.parents_confirmed {
+                    return Ok(Err(BUMP_PARENTS));
+                }
+                // No payment a node relays is larger than this; a server that says so
+                // is not believed.
+                if u.vsize == 0 || u.vsize > 100_000 {
+                    return Ok(Err(BUMP_UNKNOWN));
+                }
+                fees = fees.saturating_add(u.fee);
+                vsizes = vsizes.saturating_add(u.vsize);
+                slowest = slowest.min(u.rate());
+            }
+            coins.push(c);
+        }
+        if coins.is_empty() {
+            return Ok(Err(BUMP_NONE));
+        }
+        let next = match self.btc.fee_estimates()?.first() {
+            Some(e) => e.1,
+            None => self.btc.fee_rate()?.to_sat_per_vb_ceil() as f64,
+        };
+        if slowest >= next {
+            return Ok(Err(BUMP_ENOUGH));
+        }
+        // A fifth above what the next block takes, and at least 1 sat/vB more than now.
+        let together = (next * 1.2)
+            .max(slowest + 1.0)
+            .ceil()
+            .clamp(2.0, crate::btc::MAX_FEE_RATE) as u64;
+        let key = crate::deposit::key(self.wallet.swap_seed(), n);
+        let own_script = self.deposit_address(n).script_pubkey();
+        let at = |r: u64| -> Result<bitcoin::Transaction> {
+            let rate = bitcoin::FeeRate::from_sat_per_vb(r).context("fee rate")?;
+            crate::deposit::spend(&coins, &key, None, &own_script, rate)
+        };
+        let value = coins
+            .iter()
+            .fold(0u64, |a, c| a.saturating_add(c.value.to_sat()));
+        let paid = |tx: &bitcoin::Transaction| -> u64 {
+            value.saturating_sub(tx.output.iter().map(|o| o.value.to_sat()).sum::<u64>())
+        };
+        // Signed once at the lowest rate to learn its size as `deposit::spend` counts it.
+        let Ok(draft) = at(1) else {
+            return Ok(Err(BUMP_COSTLY));
+        };
+        let vsize = paid(&draft).max(1);
+        let need = together
+            .saturating_mul(vsizes.saturating_add(vsize))
+            .saturating_sub(fees);
+        let rate = need
+            .div_ceil(vsize)
+            .max(together)
+            .min(crate::btc::MAX_FEE_RATE as u64);
+        let Ok(tx) = at(rate) else {
+            return Ok(Err(BUMP_COSTLY));
+        };
+        let fee = paid(&tx);
+        // `deposit::spend` never pays more than a tenth of what moves; this asks for less
+        // still, and for a fee that does its job.
+        if fee < need || fee > value / BUMP_FEE_SHARE {
+            return Ok(Err(BUMP_COSTLY));
+        }
+        Ok(Ok(Bump {
+            coins,
+            value,
+            rate,
+            fee,
+            together,
+        }))
+    }
+
+    /// Carries out `plan` (from [`Self::bump_plan`], moments ago): sends the waiting coins
+    /// of deposit address `n` to that same address at the plan's fee. Nothing leaves the
+    /// wallet but the fee.
+    pub fn bump_deposit(&mut self, n: u32, plan: &Bump) -> Result<Txid> {
+        ensure!(
+            !plan.coins.is_empty() && plan.coins.iter().all(|c| c.height.is_none()),
+            "only bitcoin that is not in a block yet is sped up"
+        );
+        let key = crate::deposit::key(self.wallet.swap_seed(), n);
+        let own = self.deposit_address(n).script_pubkey();
+        let rate = bitcoin::FeeRate::from_sat_per_vb(plan.rate).context("fee rate")?;
+        let tx = crate::deposit::spend(&plan.coins, &key, None, &own, rate)?;
+        ensure!(
+            tx.output.len() == 1
+                && tx.output[0].script_pubkey == own
+                && tx.input.len() == plan.coins.len()
+                && plan.value.checked_sub(tx.output[0].value.to_sat()) == Some(plan.fee)
+                && plan.fee <= plan.value / BUMP_FEE_SHARE,
+            "the payment would not match"
+        );
+        self.broadcast_spend(&tx)
     }
 
     /// Pays `to` (address, sat) from deposit address `n`; what is left goes to deposit

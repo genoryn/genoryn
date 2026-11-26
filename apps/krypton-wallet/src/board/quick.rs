@@ -201,6 +201,35 @@ pub(super) struct Balance {
     pub confirmed: u64,
     pub total: u64,
     pub committed: u64,
+    /// Coins still in the Bitcoin mempool, and when this program first saw the oldest.
+    pub pending_coins: usize,
+    pub pending_since: Option<u64>,
+    pub pending_ids: Vec<krypton_swap::bitcoin::OutPoint>,
+}
+
+/// When this program first saw each coin that is not in a block yet (Unix time). Only the
+/// page reads it, to show how long a deposit has waited for its first block; it is not
+/// kept when the program ends.
+static FIRST_SEEN: std::sync::Mutex<Vec<(krypton_swap::bitcoin::OutPoint, u64)>> =
+    std::sync::Mutex::new(Vec::new());
+
+fn pending_since(coins: &[krypton_swap::btc::Utxo]) -> Option<u64> {
+    let now = krypton_core::now();
+    let mut seen = FIRST_SEEN.lock().unwrap_or_else(|e| e.into_inner());
+    // Other wallets of this program have coins of their own in the list: drop by age only.
+    seen.retain(|(_, t)| now.saturating_sub(*t) < 14 * 86_400);
+    let mut oldest = None;
+    for c in coins.iter().filter(|c| c.height.is_none()) {
+        let t = match seen.iter().find(|(op, _)| *op == c.outpoint) {
+            Some((_, t)) => *t,
+            None => {
+                seen.push((c.outpoint, now));
+                now
+            }
+        };
+        oldest = Some(oldest.map_or(t, |o: u64| o.min(t)));
+    }
+    oldest
 }
 
 fn committed(w: &Wallet, st: &State) -> u64 {
@@ -230,7 +259,85 @@ pub(super) fn balance(e: &Engine<'_, Multi>, st: &State) -> Result<Balance> {
             .sum(),
         total: coins.iter().map(|c| c.value.to_sat()).sum(),
         committed: committed(e.wallet, st),
+        pending_coins: coins.iter().filter(|c| c.height.is_none()).count(),
+        pending_since: pending_since(&coins),
+        pending_ids: {
+            let mut v: Vec<_> = coins
+                .iter()
+                .filter(|c| c.height.is_none())
+                .map(|c| c.outpoint)
+                .collect();
+            v.sort();
+            v
+        },
     })
+}
+
+/// How long an answer about waiting bitcoin is kept: the page asks every few seconds, the
+/// Bitcoin server is asked once in this time.
+const WAIT_NOTE_SECS: u64 = 60;
+
+type WaitNote = (u64, Vec<krypton_swap::bitcoin::OutPoint>, Value);
+static WAIT_NOTE: std::sync::Mutex<Option<WaitNote>> = std::sync::Mutex::new(None);
+
+/// Why speeding up is not offered, as a word the page has a sentence for.
+fn bump_code(why: &str) -> &'static str {
+    match why {
+        engine::BUMP_NONE => "none",
+        engine::BUMP_ENOUGH => "enough",
+        engine::BUMP_PARENTS => "parents",
+        engine::BUMP_COSTLY => "costly",
+        _ => "unknown",
+    }
+}
+
+/// The plan to speed up the waiting bitcoin of the balance, with the one check the engine
+/// cannot make: what running Quick Swaps still pay must stay whole after the fee.
+fn bump_for(
+    e: &Engine<'_, Multi>,
+    b: &Balance,
+) -> Result<std::result::Result<engine::Bump, &'static str>> {
+    Ok(match e.bump_plan(deposit::BALANCE)? {
+        Ok(p) if b.total.saturating_sub(p.fee) < b.committed => Err("committed"),
+        Ok(p) => Ok(p),
+        Err(why) => Err(bump_code(why)),
+    })
+}
+
+/// Why the bitcoin that is not in a block yet waits, for the page: what it pays, what
+/// blocks take now, within how many blocks that is enough, and what speeding it up costs.
+/// `null` when nothing waits.
+fn waiting_note(e: &Engine<'_, Multi>, b: &Balance) -> Value {
+    if b.pending_ids.is_empty() {
+        return Value::Null;
+    }
+    let t = krypton_core::now();
+    if let Some((at, ids, v)) = &*WAIT_NOTE.lock().unwrap_or_else(|e| e.into_inner())
+        && *ids == b.pending_ids
+        && t.saturating_sub(*at) < WAIT_NOTE_SECS
+    {
+        return v.clone();
+    }
+    let w = e.waiting(deposit::BALANCE).ok().flatten();
+    let speedup = match bump_for(e, b) {
+        Ok(Ok(p)) => json!({
+            "ok": true, "fee": p.fee, "fee_text": btc_text(p.fee),
+            "rate": p.rate, "together": p.together,
+        }),
+        Ok(Err(code)) => json!({"ok": false, "code": code}),
+        Err(_) => json!({"ok": false, "code": "server"}),
+    };
+    let v = json!({
+        "rate": w.as_ref().and_then(|w| w.rate),
+        "together": w.as_ref().is_some_and(|w| w.together),
+        "next": w.as_ref().and_then(|w| w.next),
+        "blocks": w.as_ref().and_then(|w| w.blocks),
+        "since": w.as_ref().and_then(|w| w.since),
+        "speedup": speedup,
+    });
+    *WAIT_NOTE.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some((t, b.pending_ids.clone(), v.clone()));
+    v
 }
 
 /// What a Quick Swap part will cost in network fees, roughly: the payment into the
@@ -1115,10 +1222,16 @@ pub async fn btc_info(axum::extract::State(app): S, h: HeaderMap) -> Response {
             let st = load(e.wallet);
             let b = balance(e, &st)?;
             let address = e.deposit_address(deposit::BALANCE).to_string();
+            let waiting = waiting_note(e, &b);
+            // The Bitcoin server's first sight of it where it tells, else this program's.
+            let since = waiting["since"].as_u64().or(b.pending_since);
             Ok(json!({
                 "address": address,
                 "confirmed": b.confirmed, "total": b.total, "committed": b.committed,
                 "pending": b.total.saturating_sub(b.confirmed),
+                "pending_coins": b.pending_coins, "pending_since": since,
+                "waiting": waiting,
+                "now": krypton_core::now(),
                 "free": b.total.saturating_sub(b.committed),
                 "confirmed_text": btc_text(b.confirmed), "total_text": btc_text(b.total),
                 "pending_text": btc_text(b.total.saturating_sub(b.confirmed)),
@@ -1127,6 +1240,78 @@ pub async fn btc_info(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "btc_usd": cached_market()["btc_usd"],
                 "network": e.btc_network.to_core_arg(),
             }))
+        })
+    })
+    .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct SpeedReq {
+    #[serde(default)]
+    password: String,
+    /// Only say what it would cost (nothing is sent).
+    #[serde(default)]
+    preview: bool,
+    /// The fee the person was shown (sat): never more than this is paid.
+    #[serde(default)]
+    fee: u64,
+}
+
+/// Speeds up bitcoin that waits in the balance for its first block: the wallet sends it
+/// on to the balance's own address with a fee that pays for the waiting payment too. The
+/// bitcoin stays in the balance; only the fee leaves, and never more than was shown.
+pub async fn btc_speedup(
+    axum::extract::State(app): S,
+    h: HeaderMap,
+    Json(r): Json<SpeedReq>,
+) -> Response {
+    if let Err(x) = check_open(&app, &h) {
+        return x;
+    }
+    let a = app.clone();
+    match blocking(move || {
+        if !r.preview {
+            crate::confirm_password(&a, &r.password)?;
+        }
+        with_engine(&a, false, |e, _| {
+            let st = load(e.wallet);
+            let b = balance(e, &st)?;
+            let plan = match bump_for(e, &b)? {
+                Ok(p) => p,
+                Err("none") => bail!("nothing in the balance is waiting for a block"),
+                Err("enough") => bail!("it already pays enough for the next blocks"),
+                Err("parents") => {
+                    bail!("the payment before it is not in a block either; a higher fee here would not be enough")
+                }
+                Err("costly") => bail!("it would cost more than a twentieth of the deposit"),
+                Err("committed") => bail!("running Quick Swaps still pay from this bitcoin"),
+                Err(_) => bail!("the Bitcoin server does not say what this payment pays"),
+            };
+            let out = json!({
+                "fee": plan.fee, "fee_text": btc_text(plan.fee),
+                "rate": plan.rate, "together": plan.together,
+                "value": plan.value, "value_text": btc_text(plan.value),
+                "left": plan.value - plan.fee, "left_text": btc_text(plan.value - plan.fee),
+                "address": e.deposit_address(deposit::BALANCE).to_string(),
+                "network": e.btc_network.to_core_arg(),
+            });
+            if r.preview {
+                return Ok(out);
+            }
+            ensure!(
+                plan.fee <= r.fee,
+                "the fee changed to {} BTC; look at it again",
+                btc_text(plan.fee)
+            );
+            let id = e.bump_deposit(deposit::BALANCE, &plan)?;
+            *WAIT_NOTE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            let mut out = out;
+            out["txid"] = json!(id.to_string());
+            Ok(out)
         })
     })
     .await

@@ -17,6 +17,18 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.56", "date": "2026-11-26", "title": "A wallet that fits every window, Max when sending, and a bitcoin deposit you can watch arrive",
+     "tags": ["Wallet", "Swap", "Site"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Fixed", "The wallet fits every window width. In a window narrower than a wide monitor the History table squeezed the recipient into a column one letter wide, and the total of all wallets was cut to three dots. The history now turns into a list when seven columns have no room, and bars, tables and figures give way before they are squeezed."),
+         ("Fixed", "The top bar measures itself: when it does not fit it drops the words on its buttons, then the hashrate, then the total of all wallets, instead of pushing the page sideways. This showed with two or more wallets on a 1366-pixel screen."),
+         ("Changed", "Market: buy offers come first and sell offers second, in the wallet and on genoryn.io."),
+         ("Added", "A bitcoin deposit on its way has a bar under the Bitcoin balance until its first block. The bar fills with the time waited, against the ten minutes a Bitcoin block takes on average. It is an estimate: nobody knows when the next block comes, so it is full only once the block is there."),
+         ("Added", "Send: a Max button fills in the most one payment can send. Coins that sit in many small notes are merged first, and each merge pays the fee; the amount allows for that."),
+         ("Fixed", "The menu of a wallet in the list of wallets (Rename, Copy short address, Delete) opens above the list instead of being cut off by it."),
+         ("Changed", "Addresses are shown by their two ends, as in gnrs1k7q2m9x4…y0u1i2, in the list of wallets, the wallet switcher and the history."),
+     ]},
     {"v": "1.0.55", "date": "2026-11-26", "title": "A new design, a trade history that shows verified swaps first, and a new Genoryn Talks",
      "tags": ["Wallet", "Site", "Swap"],
      "items": [

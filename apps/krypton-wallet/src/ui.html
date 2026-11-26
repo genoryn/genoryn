@@ -777,11 +777,115 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 .term{border-radius:var(--radius-lg)}
 .cx-soon{border-radius:var(--radius-xl)}
 /* A long table keeps its header in view under the top bar. */
-.htable thead th,.btable thead th{position:sticky;top:56px;z-index:2;background:var(--bg-card);box-shadow:inset 0 -1px 0 var(--line)}
+.htable thead th,.btable thead th{position:sticky;top:var(--head-h,56px);z-index:2;background:var(--bg-card);box-shadow:inset 0 -1px 0 var(--line)}
 @media (max-width:640px){
   header{height:auto;min-height:52px;padding:8px 12px}
   .big{font-size:36px}
   .card{padding:16px}
+}
+/* ---- Every width (1.0.56): the left rail takes 232px, so between a small laptop and a wide
+   monitor the page itself is narrow. What needs room gives way before it is squeezed. ---- */
+/* The bar of wallets: the active wallet, the total of all, the two buttons. */
+.wbar{display:grid;grid-template-columns:minmax(240px,380px) minmax(0,1fr) auto;gap:12px 18px;align-items:center}
+.wbar .wsel{width:100%;flex:none}
+.wbar-total{min-width:0}.wbar-total span{overflow-wrap:anywhere}
+.wbar-acts{flex-wrap:nowrap}.wbar-acts .btn{white-space:nowrap}
+@media (max-width:1400px){.wbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.wbar-acts{grid-column:1/-1;width:auto}.wbar-acts .btn{flex:1;justify-content:center}}
+@media (max-width:700px){.wbar{grid-template-columns:minmax(0,1fr)}.wbar-total b{white-space:normal;overflow-wrap:anywhere}}
+@media (max-width:420px){.wbar-acts{flex-wrap:wrap}.wbar-acts .btn{flex:1 1 100%}}
+/* History: a table while seven columns have room, below that a list (what it was for, the
+   amount; under them the block, the time, the recipient and the buttons). */
+.htable td.amt,.htable td.h-to,.htable td.h-act,.htable .hx .btn{white-space:nowrap}
+.htable td.h-memo{overflow-wrap:anywhere}
+.htable .h-addr{cursor:default}
+@media (max-width:1400px){
+  .htable,.htable tbody{display:block;width:100%}
+  .htable thead{display:none}
+  .htable tr{display:grid;grid-template-columns:minmax(128px,auto) auto auto minmax(0,1fr) auto;grid-template-areas:"ty memo memo memo amt" "ty blk time to act";align-items:start;gap:5px 12px;width:auto;margin:0;padding:13px 4px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
+  .htable tr:last-child{border-bottom:0}
+  .htable td{display:block;width:auto;min-width:0;padding:0;border:0;font-size:13.5px}
+  .htable td::before{content:none}
+  .htable tbody tr:hover>td{background:none}
+  .htable td:empty{display:none}
+  .htable td.h-ty{grid-area:ty}
+  .htable td.h-memo{grid-area:memo;color:var(--text-primary);font-weight:500;line-height:1.4}
+  .htable td.amt{grid-area:amt;justify-self:end;text-align:right}
+  .htable td.h-blk{grid-area:blk}.htable td.t{grid-area:time}.htable td.h-to{grid-area:to}
+  .htable td.h-blk,.htable td.t,.htable td.h-to{font-size:12.5px;color:var(--text-tertiary);line-height:1.5;align-self:center}
+  .htable td.h-blk::before{content:attr(data-label)" ";color:var(--text-tertiary)}
+  .htable td.h-blk.pend::before{content:none}
+  .htable td.t::before{content:"· "}
+  .htable td.h-to::before{content:"· " attr(data-label) " ";font-family:var(--font-sans)}
+  .htable td.h-to{overflow:hidden;text-overflow:ellipsis}
+  .htable td.h-act{grid-area:act;justify-self:end;align-self:center}
+  .htable td.h-none{grid-column:1/-1;padding:8px 0}
+  .htable .hx .btn{min-height:30px;padding:4px 11px;font-size:12.5px}
+}
+@media (max-width:760px){
+  .htable tr{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"ty ty amt" "memo memo memo" "blk time time" "to to to" "act act act";gap:6px 8px}
+  .htable td.h-to::before{content:attr(data-label) " "}
+  .htable td.h-act{justify-self:start;margin-top:2px}
+}
+/* All wallets: the five totals never cut a figure, and a wallet's row gives its balance the
+   room it needs (the status moves under the name). */
+.allw-sum{grid-template-columns:minmax(0,1.7fr) repeat(4,minmax(0,1fr))}
+.allw-sum b{white-space:normal;overflow-wrap:anywhere}.allw-sum>div:first-child b{font-size:clamp(18px,1.5vw,22px)}
+.wrow{grid-template-columns:22px minmax(0,1.5fr) minmax(150px,auto) minmax(0,1.1fr) auto}
+@media (max-width:1400px){.allw-sum{grid-template-columns:repeat(4,minmax(0,1fr))}.allw-sum>div:first-child{grid-column:1/-1}}
+@media (max-width:900px){.allw-sum{grid-template-columns:1fr 1fr}}
+.wb{min-width:0}
+@media (min-width:901px) and (max-width:1400px){
+  .wrow{grid-template-columns:22px minmax(0,1fr) auto auto;grid-template-areas:"i n b a" "i s s a";row-gap:6px}
+  .wrow>.ic{grid-area:i;align-self:start;margin-top:3px}.wn{grid-area:n}.wb{grid-area:b}.ws{grid-area:s}.wa{grid-area:a;align-self:start}
+}
+@media (max-width:900px){.wrow{grid-template-areas:"i n n" "i b b" "s s s" "a a a"}.wb{text-align:left}.wa{flex-wrap:wrap}}
+/* A menu that floats above everything: a list that scrolls would cut it off. */
+.pop-menu{position:fixed;z-index:35;display:flex;flex-direction:column;min-width:176px;max-width:calc(100vw - 16px);padding:6px;border-radius:var(--radius);background:var(--bg-pop);border:1px solid var(--line-strong);box-shadow:var(--shadow-pop);animation:fxPop .14s var(--ease,ease)}
+.pop-menu button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:var(--radius-sm);color:var(--text-primary);font:500 13.5px var(--font-sans);cursor:pointer}
+.pop-menu button:hover,.pop-menu button:focus-visible{background:var(--bg-hover);outline:none}
+/* Send: the amount with its Max button. */
+.amt-in{display:flex;gap:8px;align-items:stretch;margin:6px 0 10px}.amt-in input{flex:1;min-width:0;margin:0}.amt-in .btn{flex:none;min-height:0;padding:0 14px;font-size:13px}
+/* A bitcoin deposit on its way to its first block. */
+.btcp{margin:0 0 12px}
+.btcp-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary)}
+.btcp-top span{display:inline-flex;align-items:center;min-width:0}.btcp-top em{font-style:normal;font-size:12px;color:var(--text-tertiary);white-space:nowrap}
+.btcp-bar{display:block;position:relative;height:6px;margin:8px 0;border-radius:99px;background:var(--bg-raised);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.btcp-bar i{display:block;position:relative;height:100%;width:4%;border-radius:99px;background:var(--text-primary);transition:width 1.1s linear;overflow:hidden}
+.btcp-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bg-solid) 60%,transparent),transparent);transform:translateX(-100%);animation:btcpSheen 1.9s ease-in-out infinite}
+@keyframes btcpSheen{to{transform:translateX(100%)}}
+.btcp.done .btcp-bar i{background:var(--status-success);transition:width .5s var(--ease,ease)}.btcp.done .btcp-bar i::after{display:none}
+.btcp p{margin:0;font-size:12px;line-height:1.5;color:var(--text-tertiary)}
+.btcp-s{margin:7px 0 0}.btcp-s .btcp-bar{height:3px;margin:0}
+/* No estimate: nothing fills, a light runs along the whole track. */
+.btcp.wait .btcp-bar i{background:transparent}
+.btcp.wait .btcp-bar i::after{background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text-primary) 55%,transparent),transparent);animation-duration:2.6s}
+.btcp-act{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:10px 0 0;font-size:12.5px;color:var(--text-secondary);line-height:1.45}
+.btcp-act .btn{flex:none;min-height:34px;padding:6px 14px;font-size:13px}.btcp-act span{min-width:0}
+.mnote{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--text-tertiary)}
+@media (prefers-reduced-motion:reduce){.btcp-bar i{transition:none}.btcp-bar i::after{display:none}}
+[data-fx="low"] .btcp-bar i::after{display:none}
+@media (prefers-reduced-motion:reduce){.btcp.wait .btcp-bar i{background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px)}}
+[data-fx="low"] .btcp.wait .btcp-bar i{background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px)}
+/* The top bar gives way when it does not fit, a step at a time (the page measures it):
+   the buttons' words, the hashrate, the total of all wallets; at last it takes a second row. */
+header.fit1 .btn .lbl,header.fit1 .nav-search>span{display:none}header.fit1 .btn .ic{margin-right:0}header.fit1 .nav-search{width:32px;padding:0;justify-content:center}
+header.fit2 #netBadge{display:none!important}
+header.fit3 #totBadge{display:none!important}
+header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-bottom:8px;row-gap:8px}
+@media (min-width:1080px){#app>nav.tabs{top:var(--head-h,56px);height:calc(100vh - var(--head-h,56px))}}
+/* Security: a wallet's row never grows wider than its card. */
+.sec-wl{grid-template-columns:minmax(0,1fr)}.sec-w{min-width:0}.sec-w .btn{flex:none}.sec-wn em{overflow-wrap:anywhere}
+/* Grids that counted on the whole window: with the rail, fewer columns sooner. */
+@media (max-width:1400px){.ov-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.th-kpis .swt b,.th-kp b{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}}
+@media (max-width:640px){.ov-kpis{grid-template-columns:1fr 1fr}}
+/* A narrow window (under 400px): one figure a row, buttons that keep their words whole. */
+@media (max-width:400px){
+  .hsums,.mn-kpis,.sw-totals,.mk-hero,.th-kp,.ov-kpis,.kpis,.kpis-8,.allw-sum{grid-template-columns:minmax(0,1fr)}
+  .allw-sum>div:first-child,.mk-price{grid-column:auto}
+  .mk-hero>.mk-stat,.mk-hero>.mk-stat:nth-child(odd){border-left:0}
+  .tb-acts{flex-direction:column}.tb-acts .btn{white-space:nowrap}
+  .tb-c b{font-size:19px;white-space:normal;overflow-wrap:anywhere}
+  .cx-head,.cx-tools{flex-wrap:wrap}.cx-tools input{width:auto;flex:1;min-width:0}
 }
 </style>
 </head>
@@ -952,6 +1056,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       <div class="glass card wl-btc">
         <h2><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin balance</h2>
         <b class="wl-btc-n" data-tb="btc">-</b><em class="wl-btc-u" data-tb="btcu">&nbsp;</em>
+        <div class="btcp hidden" data-btcp="full" role="status"></div>
         <p class="muted">For Swap and Market: buy GNR in one click, and receive the bitcoin of what you sell. An address of this wallet's own, from your 24 words.</p>
         <div class="row-flex"><button class="btn btn-primary" type="button" onclick="btcAdd()">Add bitcoin</button><button class="btn" type="button" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Trade</button></div>
       </div>
@@ -973,7 +1078,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       <div class="glass card wl-send">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send privately</h2>
         <label for="to">To (address or short address)</label><textarea id="to" style="min-height:64px"></textarea>
-        <label for="amount">Amount (GNR)</label><input id="amount" placeholder="0.0" inputmode="decimal">
+        <label for="amount">Amount (GNR)</label><div class="amt-in"><input id="amount" placeholder="0.0" inputmode="decimal"><button type="button" class="btn" id="amtMax" onclick="sendMax()" title="Everything this wallet can send in one payment, less the network fees">Max</button></div>
         <label for="memo">Private memo (only the recipient can read it)</label><input id="memo" maxlength="120">
         <label>Network fee</label>
         <div class="seg fee-seg" id="feeSeg" role="group" aria-label="Network fee"><button type="button" data-s="economy">Economy <em id="feE"></em></button><button type="button" data-s="normal" class="on">Normal <em id="feN"></em></button><button type="button" data-s="fast">Fast <em id="feF"></em></button><button type="button" data-s="custom">Custom</button></div>
@@ -1045,7 +1150,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
     </div>
     <div id="tab-swap" class="hidden">
       <div class="glass card swap-off hidden" id="swOff"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><div><b>Atomic swaps are coming</b><p class="muted" id="swOffWhy"></p></div></div>
-      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em><div class="btcp btcp-s hidden" data-btcp="bar" aria-hidden="true"></div></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
       <div class="qs-wrap">
         <section class="glass card qs" id="qsCard" aria-label="Quick Swap">
           <div class="qs-head">
@@ -1129,7 +1234,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       </details>
     </div>
     <div id="tab-market" class="hidden">
-      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em><div class="btcp btcp-s hidden" data-btcp="bar" aria-hidden="true"></div></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
       <div class="mk-run hidden" id="mkRun"><span class="bd-live"></span><span id="mkRunT"></span><button type="button" class="btn" onclick="goTab('swaps')">Follow them</button></div>
       <section class="glass card mk-hero">
         <div class="mk-price">
@@ -1139,15 +1244,15 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
           <div class="mk-conf" id="bdConfBox" title="How far the market price can be trusted: the bitcoin, the number of swaps and their agreement behind it, and how fresh they are (0 to 100)."><span>Price confidence <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
           <button type="button" class="btn mk-go" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap in one click</button>
         </div>
-        <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
         <div class="mk-stat"><span>Best buy offer <em id="bdBidN"></em></span><b id="bdBid">-</b></div>
+        <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
         <div class="mk-stat"><span>Spread</span><b id="bdSpread">-</b></div>
         <div class="mk-stat"><span>Swaps, 24 h</span><b id="bdVol">-</b></div>
       </section>
       <section class="glass card sw-totals" aria-label="The bitcoin price and the totals on the board">
         <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="swtBtc">-</b><em id="swtBtcN">per bitcoin</em></div>
-        <div class="swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="swtSell">-</b><em id="swtSellN">sell offers</em></div>
         <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="swtBuy">-</b><em id="swtBuyN">buy offers</em></div>
+        <div class="swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="swtSell">-</b><em id="swtSellN">sell offers</em></div>
         <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>In progress</span><b id="swtProg">-</b><em id="swtProgN">swaps running</em></div>
         <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
         <p class="swt-depth" id="swtDepth"></p>
@@ -1169,11 +1274,11 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
             </div>
           </div>
           <div class="bd-two" id="bdTwo">
-            <div class="bd-col"><div class="bd-colh"><b>Sell offers <em id="bdTabS">0</em></b><span>buy GNR from these</span></div>
-              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdAskRows"></tbody></table></div>
-            <div class="bd-mid hidden" id="bdMid"></div>
             <div class="bd-col"><div class="bd-colh"><b>Buy offers <em id="bdTabB">0</em></b><span>sell GNR to these</span></div>
               <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdBidRows"></tbody></table></div>
+            <div class="bd-mid hidden" id="bdMid"></div>
+            <div class="bd-col"><div class="bd-colh"><b>Sell offers <em id="bdTabS">0</em></b><span>buy GNR from these</span></div>
+              <table class="bd-table bd-half"><thead><tr><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th><th></th></tr></thead><tbody id="bdAskRows"></tbody></table></div>
           </div>
           <div class="bd-tablewrap hidden" id="bdOne">
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
@@ -1191,7 +1296,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       </div>
     </div>
     <div id="tab-publish" class="hidden">
-      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em><div class="btcp btcp-s hidden" data-btcp="bar" aria-hidden="true"></div></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
       <div class="pub-layout">
         <div class="pub-side">
           <section class="glass card bd-trade">
@@ -1234,7 +1339,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       </div>
     </div>
     <div id="tab-swaps" class="hidden">
-      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
+      <section class="glass tbar coin-free" aria-label="Your balances for trading"><div class="tb-c tb-gnr"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><div><span>GNR to trade</span><b data-tb="gnr">-</b><em data-tb="gnru">&nbsp;</em></div></div><div class="tb-c tb-btc"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg><div><span>Bitcoin balance</span><b data-tb="btc">-</b><em data-tb="btcu">&nbsp;</em><div class="btcp btcp-s hidden" data-btcp="bar" aria-hidden="true"></div></div></div><div class="tb-acts"><button class="btn btn-primary" type="button" onclick="btcAdd()"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div></section>
       <section class="glass card sw-mine">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Your swaps</h2><span class="muted" id="swCount"></span></div>
         <div class="sw-keep"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Keep this wallet open (running and unlocked) until your swaps are done.</b> Only your wallet holds the keys that lock, take and refund your coins, so only it can do these steps; genoryn.io never has your keys, which is also why nobody can take your coins. You do not need to watch: closing the window keeps the wallet working in the background. If the wallet locks itself (after 24 hours), unlock it again: the swap waits, and the timelocks give hours of room.</div></div>
@@ -1755,6 +1860,15 @@ function fitBig(el){ if(!el) return; const box=el.parentElement; el.style.fontSi
   const rest=[...box.children].filter(c=>c!==el).reduce((a,c)=>a+c.getBoundingClientRect().width+6,0);
   const avail=box.clientWidth-rest, w=el.scrollWidth; if(avail>0 && w>avail){ const fs=parseFloat(getComputedStyle(el).fontSize); el.style.fontSize=Math.max(18, Math.floor(fs*avail/w))+'px'; } }
 window.addEventListener('resize', ()=>{ fitBig($('bal')); fitBig($('rUnpaid')); });
+/* The top bar gives way when it does not fit, a step at a time: the buttons' words, the
+   hashrate, the total of all wallets, and at last a second row. Measured, not guessed from
+   the window's width: a long wallet name, a large total or a longer language all count. */
+function fitHeader(){ const h=document.querySelector('header'); if(!h||!h.clientWidth) return;
+  const set=n=>{ for(let i=1;i<=4;i++) h.classList.toggle('fit'+i, i<=n); };
+  let n=0; set(0); while(n<4&&h.scrollWidth>h.clientWidth+1) set(++n);
+  document.documentElement.style.setProperty('--head-h', h.offsetHeight+'px'); }
+if(window.ResizeObserver){ const ro=new ResizeObserver(fitHeader), h=document.querySelector('header'); ro.observe(h); [...h.children].forEach(c=>ro.observe(c)); }
+addEventListener('resize', fitHeader); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fitHeader);
 /* The card can appear (or fonts arrive) after the number was set: refit then, so it never wraps. */
 if(window.ResizeObserver) new ResizeObserver(()=>fitBig($('bal'))).observe($('bal').parentElement);
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>fitBig($('bal')));
@@ -1820,18 +1934,34 @@ function renderWallets(){
     const status = w.unlocked ? (w.held ? TE("Unlocked · stays open until its swap is done") : TE("Unlocked · locks in {time}", {time: dur(w.locks_in)})) : (b ? TE("Locked · last known balance") : TE("Locked"));
     return `<div class="wrow${w.active?' active':''}${w.unlocked?' open':''}" role="listitem">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
-      <div class="wn"><b>${esc(w.name)}${w.active?' <span class="pill">'+TE("active")+'</span>':''}</b><span>${w.short?esc(w.short.slice(0,30))+'…':TE("address appears after the first unlock")}</span></div>
+      <div class="wn"><b>${esc(w.name)}${w.active?' <span class="pill">'+TE("active")+'</span>':''}</b><span title="${esc(w.short||'')}">${w.short?esc(midAddr(w.short,14,8)):TE("address appears after the first unlock")}</span></div>
       <div class="wb">${b?gnr(b.total)+' <small>GNR'+(Number(b.pending)||Number(b.immature)?' · '+TE("{amount} spendable", {amount: gnr(b.spendable)}):'')+(Number(w.incoming)?' · '+TE("+{amount} incoming", {amount: gnr(w.incoming)}):'')+'</small>':'<small>'+TE("hidden while locked")+'</small>'}</div>
       <div class="ws">${unl?`<span class="wunl"><input type="password" id="wpw" placeholder="${TE("Password of “{name}”", {name: w.name})}" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlockOne('${id}');if(event.key==='Escape'){WV.unlocking=null;renderWallets()}"><button class="btn btn-primary" onclick="unlockOne('${id}')">${TE("Unlock")}</button></span>`:status}</div>
       <div class="wa">
         ${w.unlocked?`<button class="btn" onclick="lockOne('${id}')">${TE("Lock")}</button>`:(unl?'':`<button class="btn btn-primary" onclick="WV.unlocking='${id}';renderWallets();setTimeout(()=>$('wpw')&&$('wpw').focus(),0)">${TE("Unlock")}</button>`)}
         ${w.active?'':`<button class="btn" onclick="useWallet('${id}')">${TE("Use")}</button>`}
-        <span class="wmenu"><button class="btn" aria-label="${TE("More actions")}" onclick="event.stopPropagation();WV.menu=WV.menu==='${id}'?null:'${id}';renderWallets()">⋯</button>${WV.menu===w.id?`<span class="menu glass float"><button onclick="renameW('${id}')">${TE("Rename")}</button>${w.short?`<button onclick="copyText(${jsq(w.short)})">${TE("Copy short address")}</button>`:''}<button class="danger" onclick="removeW('${id}')">${TE("Delete wallet…")}</button></span>`:''}</span>
+        <button class="btn" data-pop="w-${id}" aria-haspopup="menu" aria-label="${TE("More actions")}" onclick="wMenu(this,'${id}')">⋯</button>
       </div></div>`; }).join('') : `<div class="wempty">${all.length?TE("No wallet matches this search."):TE("No wallets yet.")}</div>`;
   if($('wpw')){ $('wpw').value=keep; if(hadFocus) $('wpw').focus(); }
   pager($('wPager'), WV.page, pages, list.length, WV.per, p=>{ WV.page=p; renderWallets(); }, T("wallets"));
 }
-const WV={q:'', f:'all', sort:'added', page:0, per:Infinity, unlocking:null, menu:null, sq:''};
+const WV={q:'', f:'all', sort:'added', page:0, per:Infinity, unlocking:null, sq:''};
+/* A small menu above everything, next to the button that opened it (below it, or above when
+   there is no room). The list of wallets scrolls, and a menu inside it was cut off. */
+let popMenu=null;
+function closePop(){ if(popMenu){ popMenu.remove(); popMenu=null; } }
+function openPop(anchor, items){ const key=anchor.dataset.pop, was=popMenu&&popMenu.dataset.for===key; closePop(); if(was) return;
+  const m=document.createElement('div'); m.className='pop-menu'; m.setAttribute('role','menu'); m.dataset.for=key;
+  items.forEach(it=>{ const b=document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem'); b.textContent=it.label; b.onclick=()=>{ closePop(); it.run(); }; m.appendChild(b); });
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect(), w=m.offsetWidth, h=m.offsetHeight, below=r.bottom+6+h<=innerHeight-8;
+  m.style.top=(below?r.bottom+6:Math.max(8, r.top-6-h))+'px'; m.style.left=Math.max(8, Math.min(r.right-w, innerWidth-w-8))+'px';
+  popMenu=m; m.firstChild&&m.firstChild.focus({preventScroll:true}); }
+function wMenu(btn, id){ const w=((W&&W.wallets)||[]).find(x=>x.id===id); if(!w) return;
+  openPop(btn, [{label:T("Rename"), run:()=>renameW(id)}].concat(w.short?[{label:T("Copy short address"), run:()=>copyText(w.short)}]:[], [{label:T("Delete wallet…"), run:()=>removeW(id)}])); }
+document.addEventListener('mousedown', e=>{ if(popMenu&&!popMenu.contains(e.target)&&!e.target.closest('[data-pop]')) closePop(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePop(); });
+addEventListener('resize', closePop); document.addEventListener('scroll', closePop, {passive:true, capture:true});
 function renderBar(){
   if(!W) return; const t=W.total||{}, n=W.wallets.length, open=W.wallets.filter(w=>w.unlocked).length;
   $('wbTotal').textContent=gnr(t.total)+' GNR'; $('wbCount').textContent=Tn(n, "{n} wallet", "{n} wallets", {n})+' · '+T("{n} unlocked", {n: open})+(W.unknown?' · '+T("{n} not counted yet", {n: W.unknown}):'');
@@ -1859,7 +1989,7 @@ function renderSwitcher(){
   const list=ws.filter(w=>!q||w.name.toLowerCase().includes(q)||(w.short||'').toLowerCase().includes(q));
   $('swList').innerHTML=list.map(w=>`<button type="button" class="sw-it${w.active?' on':''}" role="option" aria-selected="${!!w.active}" onclick="pickWallet(${jsq(w.id)})">
       <svg class="ic" aria-hidden="true"><use href="#i-${w.unlocked?'unlock':'lock'}"/></svg>
-      <span class="swn"><b>${esc(w.name)}</b><small>${w.short?esc(w.short.slice(0,26))+'…':TE("address after first unlock")}</small></span>
+      <span class="swn"><b>${esc(w.name)}</b><small>${w.short?esc(midAddr(w.short,12,8)):TE("address after first unlock")}</small></span>
       <i>${w.balance?gnr(w.balance.total):'—'}<small>${Number(w.incoming)?TE("+{amount} incoming", {amount: gnr(w.incoming)}):(w.active?TE("active"):(w.unlocked?TE("unlocked"):TE("locked")))}</small></i></button>`).join('')||'<div class="wempty">'+TE("No wallet matches.")+'</div>';
 }
 async function pickWallet(id){ closeSwitcher(); if(S.active&&S.active.id===id) return; await useWallet(id); }
@@ -1870,7 +2000,6 @@ document.addEventListener('mousedown', e=>{ const s=$('switcher'); if(!s.classLi
 addEventListener('resize', ()=>closeSwitcher());
 addEventListener('scroll', ()=>{ if(swAnchor&&Date.now()-swOpened>600) closeSwitcher(); }, {passive:true});
 try{ if(localStorage.getItem('gk-allw')==='1') setTimeout(()=>toggleAll(true),0); }catch(e){}
-document.addEventListener('click', e=>{ if(WV.menu&&!e.target.closest('.wmenu')){ WV.menu=null; renderWallets(); } });
 function toggleAdd(on){ const p=$('addPanel'); const show_=on===undefined?p.classList.contains('hidden'):on; p.classList.toggle('hidden',!show_); if(show_) $('addName').focus(); }
 /* Shared pager: « ‹ 1 … 4 5 6 … 12 › » plus "21–40 of 230". */
 function pager(el, page, pages, total, per, go, noun){
@@ -1910,11 +2039,11 @@ function mnWho(m){ const box=$('mnWho'); if(!box) return; const act=(S.active||{
   if(!m.running){ box.innerHTML=`<span class="mn-dot"></span><span>${act?TE("Not mining. Starting the miner pays the wallet shown now: “{name}”.", {name: act}):TE("Not mining.")}</span>`; return; }
   const to=m.wallet||act, other=!!(m.wallet&&act&&m.wallet!==act), id=other&&((S.wallet_names||[]).find(w=>w.name===m.wallet)||{}).id;
   box.innerHTML=`<span class="mn-dot on"></span><span><b>${TE("Mining pays “{name}”", {name: to})}</b>${other?' · '+TE("You are looking at “{name}”: the payouts and amounts below are this wallet's.", {name: act}):''}</span>${id?`<button class="btn" onclick="pickWallet(${jsq(id)})">${TE("Show “{name}”", {name: m.wallet})}</button>`:''}`; }
-async function renameW(id){ WV.menu=null; renderWallets(); const n=await ask({title:T("Rename wallet"), icon:'wallet', ok:T("Save"), input:{value:wname(id), max:40, placeholder:T("Wallet name")}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
+async function renameW(id){ renderWallets(); const n=await ask({title:T("Rename wallet"), icon:'wallet', ok:T("Save"), input:{value:wname(id), max:40, placeholder:T("Wallet name")}}); if(n==null||!String(n).trim()) return; try{ await api('/api/wallets/rename',{id, name:n.trim()}); }catch(e){ toast(e.message,true) } await loadWallets(); refresh(); }
 /* Deleting a wallet from this computer: its password, its 24 words written down, and a
    choice between keeping an encrypted copy (the default) and destroying the file. */
 async function removeW(id){
-  WV.menu=null; if(W) renderWallets(); const n=wname(id), w=(W&&W.wallets.find(x=>x.id===id))||{}, paysMiner=S.miner&&S.miner.running&&S.miner.wallet===n;
+  if(W) renderWallets(); const n=wname(id), w=(W&&W.wallets.find(x=>x.id===id))||{}, paysMiner=S.miner&&S.miner.running&&S.miner.wallet===n;
   const bal=w.balance?Number(w.balance.total||0):null; window.rmPerm=false; window.rmWords=false;
   if(!await ask({title:T("Delete “{name}” from this computer?", {name: n}), icon:'lock', ok:T("Delete wallet"), danger:true, pass:true,
     body:`<div class="rm-sum coin-free">${coin('gnr','rm-coin')}<div><b>${bal==null?TE("Balance not known yet"):gnr(bal)+' GNR'}</b><span>${bal==null?TE("Unlock it once to see its balance."):w.balance_is_last_known?TE("last known balance"):TE("balance now")}</span></div></div>
@@ -1945,7 +2074,19 @@ async function loadFees(){ FEE.t=Date.now(); try{ FEE.opts=await api('/api/fees'
   const o=FEE.opts; $('feE').textContent=gnrShort(o.economy); $('feN').textContent=gnrShort(o.normal); $('feF').textContent=gnrShort(o.fast); feeNote(); }
 function feeNote(){ const o=FEE.opts; if(!o) return; const v=FEE.speed==='custom'?null:o[FEE.speed];
   $('feeNote').textContent=(v!=null?T("Fee {amount} GNR", {amount: gnrShort(v)})+' · ':'')+(o.live?T("estimated from the network backlog; when blocks have room the lowest fee confirms just as fast.")+' ':'')+T("Fees go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof."); }
-document.querySelectorAll('#feeSeg button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#feeSeg button').forEach(x=>x.classList.toggle('on',x===b)); FEE.speed=b.dataset.s; $('feeCustom').classList.toggle('hidden',FEE.speed!=='custom'); if(FEE.speed==='custom') $('feeCustom').focus(); feeNote(); });
+document.querySelectorAll('#feeSeg button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#feeSeg button').forEach(x=>x.classList.toggle('on',x===b)); FEE.speed=b.dataset.s; $('feeCustom').classList.toggle('hidden',FEE.speed!=='custom'); if(FEE.speed==='custom') $('feeCustom').focus(); feeNote(); if(SEND_MAX&&feeNow()!=null) sendMax(); });
+/* Max: the most one payment can send. The wallet works it out from its notes: a transfer
+   spends two, so many small notes are merged first, and each merge pays the fee. While Max
+   is on, the amount follows the fee you choose. */
+let SEND_MAX=false, maxT=null;
+function feeNow(){ if(FEE.speed==='custom'){ const f=Math.round(Number(String($('feeCustom').value).trim().replace(',','.'))*1e8); return f>0?f:null; } return FEE.opts&&FEE.opts[FEE.speed]>0?FEE.opts[FEE.speed]:null; }
+async function sendMax(){ const fee=feeNow(); if(fee==null) return toast(FEE.speed==='custom'?T("Enter the fee in GNR"):T("The network fee is not known yet; try again in a moment"), true);
+  let r; try{ r=await api('/api/send-plan?max=1&fee='+fee); }catch(e){ return toast(e.message,true); }
+  if(!(Number(r.max)>0)){ SEND_MAX=false; return toast(T("Nothing to send: what is spendable does not cover the network fee"), true); }
+  const first=!SEND_MAX; $('amount').value=String(r.max_text).replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,''); SEND_MAX=true;
+  if(r.merge&&first) toast(T("Your coins are in many notes, and a transfer spends two: the wallet merges them first, and each merge pays the fee. The amount already allows for that.")); }
+$('amount').addEventListener('input', ()=>{ SEND_MAX=false; });
+$('feeCustom').addEventListener('input', ()=>{ if(!SEND_MAX) return; clearTimeout(maxT); maxT=setTimeout(()=>{ if(SEND_MAX&&feeNow()!=null) sendMax(); }, 500); });
 setInterval(()=>{ if(!document.hidden && !$('app').classList.contains('hidden') && Date.now()-FEE.t>60000) loadFees(); }, 10000);
 let GNR_SENDING=false;
 async function send(){ if(GNR_SENDING) return; GNR_SENDING=true; try{ await sendOnce(); } finally { GNR_SENDING=false; } }
@@ -1961,7 +2102,7 @@ async function sendOnce(){
   const speed={economy:TE("Economy"),normal:TE("Normal"),fast:TE("Fast"),custom:TE("Custom")}[FEE.speed];
   let plan={}; try{ plan=await api('/api/send-plan?amount='+encodeURIComponent(String(amt))+'&fee='+(feeG||0)); }catch(e){}
   const ok=await ask({title:T("Confirm payment"), icon:'wallet', ok:T("Send now"),
-    body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(Math.round(amt*1e8)))} GNR</b><span>${who.own?TE("to your wallet “{name}”", {name: who.own}):TE("to {address}").replace('{address}', ()=>'<span class="mono">'+esc(who.short.slice(0,28))+'…</span>')}</span></div>
+    body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(Math.round(amt*1e8)))} GNR</b><span>${who.own?TE("to your wallet “{name}”", {name: who.own}):TE("to {address}").replace('{address}', ()=>'<span class="mono">'+esc(midAddr(who.short,16,8))+'</span>')}</span></div>
       <div class="row">${TE("Network fee")}<b>${esc(gnrShort(feeG))} GNR · ${speed}</b></div>
       <div class="row tot">${TE("Total")}<b>${esc(gnrShort(Math.round(amt*1e8)+feeG))} GNR</b></div>
       ${S.balance&&S.balance.spendable!=null?`<div class="row">${TE("Spendable after this")}<b>${esc(gnrShort(Math.max(0,Number(S.balance.spendable)-Math.round(amt*1e8)-feeG)))} GNR</b></div>`:''}
@@ -1971,7 +2112,7 @@ async function sendOnce(){
   body.password=takePass();
   if(!ok) return;
   const b=$('sendBtn'); b.disabled=true; window.fxBusy=true;
-  try{ const r = await api('/api/send',body); toast(T("Sent: {txid}", {txid: r.txid.slice(0,16)+'…'})); $('amount').value=''; $('memo').value=''; }catch(e){ toast(e.message,true) }
+  try{ const r = await api('/api/send',body); toast(T("Sent: {txid}", {txid: r.txid.slice(0,16)+'…'})); $('amount').value=''; $('memo').value=''; SEND_MAX=false; }catch(e){ toast(e.message,true) }
   window.fxBusy=false; b.disabled=false; refresh(); }
 let pubFor=null;
 function renderPub(nodes){
@@ -2059,6 +2200,8 @@ function fitAll(root){ (root||document).querySelectorAll('.fit').forEach(e=>fitT
 window.addEventListener('resize', ()=>fitAll($('hSums')));
 /* ---- History: paged, filtered, searched on the wallet side ---- */
 const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
+/* An address by its two ends: gnrs1k7q2m9x4…y0u1i2 (the middle says nothing to the eye). */
+const midAddr=(a,head=13,tail=6)=>{ a=String(a||''); return a.length>head+tail+1?a.slice(0,head)+'…'+a.slice(-tail):a; };
 const fmtTime=t=>t?new Date(t*1000).toLocaleString(GKI18N.lang, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
 const KIND={in:TE("Received"), out:TE("Sent"), mining:TE("Mining reward"), merge:TE("Notes merged")};
 /* A payment's place on the explorer: its transaction when the wallet knows the id (what it
@@ -2076,8 +2219,8 @@ async function loadHistory(){
   const s=r.sums||{};
   $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
   $('hsFees').textContent=Number(s.fees)?T("fees {amount}", {amount: gnr(s.fees)}):''; $('hsCount').textContent=fmtN(r.all); fitAll($('hSums'));
-  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:'<span class=warn>'+TE("pending")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}"><span class="ty ${h.kind}">${h.incoming?TE("Incoming · pending"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}">${esc(h.memo)}</td><td data-label="${TE("To")}" class="mono">${esc((h.to||'').slice(0,18))}</td><td data-label="${TE("Proof")}"><span class="hx">${h.provable?`<button class="btn" onclick="makeProof(${jsq(h.txid)})" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${histLink(h)}</span></td></tr>`).join('')
-    || `<tr><td colspan=7 class=muted>${r.all?TE("Nothing matches this filter."):TE("No transactions yet")}</td></tr>`;
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}" class="h-blk${h.height!=null?'':' pend'}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:'<span class=warn>'+TE("pending")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}" class="h-ty"><span class="ty ${h.kind}">${h.incoming?TE("Incoming · pending"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}" class="h-memo">${esc(h.memo)}</td><td data-label="${TE("To")}" class="h-to mono">${h.to?`<span class="h-addr" title="${esc(h.to)}">${esc(midAddr(h.to))}</span>`:''}</td><td data-label="${TE("Proof")}" class="h-act"><span class="hx">${h.provable?`<button class="btn" onclick="makeProof(${jsq(h.txid)})" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${histLink(h)}</span></td></tr>`).join('')
+    || `<tr><td colspan=7 class="muted h-none">${r.all?TE("Nothing matches this filter."):TE("No transactions yet")}</td></tr>`;
   pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, Tn(r.total, "entry", "entries"));
 }
 document.querySelectorAll('#hKind button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#hKind button').forEach(x=>x.classList.toggle('on',x===b)); H.kind=b.dataset.k; H.page=0; loadHistory(); });
@@ -2979,13 +3122,67 @@ async function btcLoad(force){ if(!force&&Date.now()-QS.balAt<15000) return; QS.
   $('btcNet').textContent=b.network==='main'?'Bitcoin':b.network;
   $('btcBal').textContent=btcFmt(b.total/1e8)+' BTC';
   $('btcBalSub').textContent=(u?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)})+' · ':'')+(b.committed?T("{amount} BTC promised to running Quick Swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy"):T("add bitcoin to buy in one click"));
-  if(QS.q) qsShow(); renderTradeBars(); if(tabOn('publish')) bdBalSet(); }
+  if(QS.q) qsShow(); renderTradeBars(); btcProgress(); if(tabOn('publish')) bdBalSet(); }
 /* The balances at the top of every Trade page and on the Wallet tab: GNR that can be traded
    (spendable) and the Bitcoin balance, each with its coin and its dollar value. */
 function renderTradeBars(){ const u=btcUsd(), b=QS.bal, sp=Number((S.balance||{}).spendable||0), set=(k,v)=>document.querySelectorAll('[data-tb="'+k+'"]').forEach(e=>{ if(e.textContent!==v) e.textContent=v; });
   set('gnr', S.balance?gnr(sp)+' GNR':'-'); const mv=valueOf(sp); set('gnru', mv!=null&&sp?'≈ '+GKValue.usd(mv):(S.balance?T("spendable now"):' '));
   set('btc', b?btcFmt(b.total/1e8)+' BTC':'-');
   set('btcu', b?((u&&b.total?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)}):b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy in one click"):T("add bitcoin to buy in one click"))):' '); }
+/* A deposit on its way. Bitcoin counts it after its first block. What the page says about
+   the wait is what the Bitcoin server tells: the fee the payment pays, the fee blocks take
+   now, and within how many blocks that is enough. The bar is the time waited against the
+   time such a fee usually takes; it is full only once the block is there. A payment whose
+   fee is below everything blocks take has no estimate, and the bar says so by not filling. */
+const BTCP={was:false, done:0};
+const BUMP_WHY={parents:TE("It cannot be sped up from here: the payment it spends is not in a block either."), unknown:TE("It cannot be sped up from here: the Bitcoin server does not say what this payment pays."), server:TE("The Bitcoin server did not answer about speeding it up; the wallet asks again."), costly:TE("Speeding it up would cost more than a twentieth of the deposit, so the wallet does not offer it."), committed:TE("It cannot be sped up while running Quick Swaps count on this bitcoin.")};
+const satvb=r=>{ r=Number(r); return (r>=10?r.toFixed(0):r.toFixed(r>=1?1:2)).replace(/\.0+$/,''); };
+function btcProgress(){ const boxes=document.querySelectorAll('[data-btcp]'), b=QS.bal; if(!boxes.length) return;
+  const pend=!!b&&Number(b.pending)>0, t=Date.now();
+  if(BTCP.was&&!pend&&b) BTCP.done=t; BTCP.was=pend;
+  const done=!pend&&BTCP.done&&t-BTCP.done<9000, on=pend||done;
+  // The wallet's own clock at the answer, and the time since: the page's clock is not asked.
+  const at=Number(b&&b.now)||QS.balAt/1000, waited=pend?Math.max(0, at-(Number(b.pending_since)||at)+(t-QS.balAt)/1000):0;
+  const w=(pend&&b.waiting)||{}, rate=w.rate!=null?Number(w.rate):null, next=w.next!=null?Number(w.next):null, blocks=w.blocks!=null?Number(w.blocks):null;
+  const expect=blocks?blocks*600:0, stuck=pend&&!expect;
+  const pct=done?100:expect?Math.min(95, Math.max(3, waited/expect*100)):100;
+  const note=done?T("You can use it now."):
+    rate==null?T("A Bitcoin block takes about 10 minutes on average, sometimes longer. You can use the bitcoin after that."):
+    (w.together?T("It was sped up: together with the payment it spends, it now pays {rate} sat/vB.", {rate: satvb(rate)}):T("Its sender paid a fee of {rate} sat/vB.", {rate: satvb(rate)}))+' '+
+    (blocks==null?(next!=null?T("Blocks now take {now} sat/vB or more, so it waits until fees fall that far. That can take hours, sometimes days. The bitcoin is not lost: it is on its way to this wallet's address.", {now: satvb(next)}):T("That is below what blocks take now, so it waits until fees fall. The bitcoin is not lost: it is on its way to this wallet's address.")):
+     blocks<=1?T("That is enough for the next block at today's fees. A block comes about every 10 minutes, sometimes much later."):
+     T("At today's fees that gets it into a block within about {n} blocks, roughly {time}.", {n: blocks, time: dur(expect)}));
+  const sp=w.speedup||null, u=btcUsd();
+  const act=!pend||!sp?'':sp.ok?`<button class="btn btn-primary" type="button" onclick="btcSpeedUp()">${TE("Speed up")}</button><span>${TE("for a fee of {fee} BTC", {fee: btcFmt(sp.fee/1e8)})}${u?' <span class="muted">≈ '+esc(GKValue.usd(sp.fee/1e8*u))+'</span>':''}</span>`:(BUMP_WHY[sp.code]&&(blocks==null||blocks>1)?`<span>${BUMP_WHY[sp.code]}</span>`:'');
+  boxes.forEach(x=>{ x.classList.toggle('hidden', !on); if(!on) return; x.classList.toggle('done', !!done); x.classList.toggle('wait', !!stuck); const full=x.dataset.btcp==='full';
+    if(!x.firstChild) x.innerHTML=(full?'<div class="btcp-top"><span><span class="mk-dot"></span><span data-p="a"></span></span><em data-p="w"></em></div>':'')+'<span class="btcp-bar"><i></i></span>'+(full?'<p data-p="n"></p><div class="btcp-act" data-p="s"></div>':'');
+    x.querySelector('.btcp-bar i').style.width=pct.toFixed(1)+'%';
+    const put=(k,v)=>{ const e=x.querySelector('[data-p="'+k+'"]'); if(e&&e.textContent!==v) e.textContent=v; };
+    x.querySelector('.btcp-bar').title=done?'':expect?T("The bar is the time waited against the time a payment with this fee usually takes today ({time}). It is an estimate: nobody knows when the next block comes.", {time: dur(expect)}):T("There is no estimate for this payment, so the bar does not fill. It ends when the payment is in a block.");
+    put('a', done?T("Confirmed: your bitcoin is in a block"):T("Not in a Bitcoin block yet"));
+    put('w', done?'':T("first seen {time} ago", {time: dur(waited)}));
+    put('n', note);
+    const s=x.querySelector('[data-p="s"]'); if(s&&s.dataset.was!==act){ s.dataset.was=act; s.innerHTML=act; s.classList.toggle('hidden', !act); } }); }
+setInterval(()=>{ if(!document.hidden&&(BTCP.was||BTCP.done)) btcProgress(); }, 1000);
+/* Speeds up a deposit that waits: the wallet sends the waiting bitcoin on to the balance's
+   own address with a fee that pays for both payments. Shown first, then confirmed with the
+   password; never more than the fee shown is paid. */
+let BTC_BUMPING=false;
+async function btcSpeedUp(){ if(BTC_BUMPING) return;
+  let pv; try{ pv=await api('/api/btc/speedup',{preview:true}); }catch(e){ QS.balAt=0; btcLoad(true); return toast(e.message,true); }
+  const u=btcUsd(), usd=s=>u?' <span class="muted">≈ '+esc(GKValue.usd(s/1e8*u))+'</span>':'';
+  const ok=await ask({pass:true, title:T("Speed up the waiting bitcoin"), icon:'swap', ok:T("Pay the fee and speed up"),
+    body:`<p class="mtext">${TH("The payment that brought this bitcoin pays too little for today's blocks, and only its sender could change it. This wallet can add to it instead: it sends the waiting bitcoin on to **this balance's own address** with a fee high enough that miners take both payments together.")}</p>
+      <div class="sum"><div class="row">${TE("Waiting bitcoin")}<b>${esc(btcFmt(pv.value/1e8))} BTC</b></div>
+      <div class="row">${TE("Fee for speeding up")}<b>${esc(btcFmt(pv.fee/1e8))} BTC${usd(pv.fee)}</b></div>
+      <div class="row">${TE("Both payments together pay")}<b>${esc(String(pv.together))} sat/vB</b></div>
+      <div class="row tot">${TE("Stays in your balance")}<b>${esc(btcFmt(pv.left/1e8))} BTC</b></div></div>
+      <p class="mnote">${TE("The bitcoin does not leave this wallet; only the fee is spent, and a fee cannot be taken back. Nobody can promise a block: this makes the payment worth taking at today's fees.")}</p>`});
+  const pass=takePass(); if(!ok) return;
+  BTC_BUMPING=true;
+  try{ await api('/api/btc/speedup',{password:pass, fee:pv.fee}); toast(T("Sped up. It should be in one of the next blocks.")); }
+  catch(e){ toast(e.message,true); }
+  finally{ BTC_BUMPING=false; QS.balAt=0; btcLoad(true); } }
 async function btcAdd(){ let b=QS.bal; if(!b){ await btcLoad(true); b=QS.bal; } if(!b) return toast(T("The Bitcoin server did not answer; try again in a moment"),true);
   const uri='bitcoin:'+b.address;
   ask({title:T("Add bitcoin to your Quick Swap balance"), icon:'swap', ok:T("Done"), hideCancel:true, body:`
@@ -3015,7 +3212,7 @@ async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There
   try{ const r=await api('/api/btc/send',{address:pv.address, amount:pv.max?'max':(pv.amount/1e8).toFixed(8), password:pw}); toast(T("Sent: {txid}", {txid: r.txid})); btcLoad(true); }catch(e){ toast(e.message,true) }
   BTC_SENDING=false; }
 qsLabels();
-setInterval(()=>{ if(!document.hidden && TRADE.some(tabOn)){ loadSwaps(); btcLoad(); } if(!document.hidden && tabOn('wallet') && S.unlocked && Date.now()-QS.balAt>60000) btcLoad(true); }, 8000);
+setInterval(()=>{ if(!document.hidden && TRADE.some(tabOn)){ loadSwaps(); btcLoad(); } if(!document.hidden && tabOn('wallet') && S.unlocked && Date.now()-QS.balAt>(QS.bal&&Number(QS.bal.pending)>0?20000:60000)) btcLoad(true); }, 8000);
 
 /* Krypton coins: an overview of your coins, private sends, the coin market and issuing. */
 let CN={holdings:[],all:[],mine:[],history:[]}, CM={offers:[],markets:{},deals:[]}, cxView='home', cxCoin=null, cxMk=null, cxSideV='sell_gnr', cxFeeV='normal', cxAllF='all', cwStep=1, cwOk=false;
@@ -3295,7 +3492,7 @@ async function refresh(){
     if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' ('+TE("unlocked")+')':''}</option>`).join(''); show('uPick'); } else hide('uPick');
     show('unlockBox'); return; }
   show('app'); loadWallets();
-  $('wSelName').textContent=act.name||T("Wallet"); $('cpName').textContent=act.name||T("this wallet"); $('wSelAddr').textContent=S.short?S.short.slice(0,30)+'…':'';
+  $('wSelName').textContent=act.name||T("Wallet"); $('cpName').textContent=act.name||T("this wallet"); $('wSelAddr').textContent=S.short?midAddr(S.short,14,8):''; $('wSelAddr').title=S.short||'';
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }

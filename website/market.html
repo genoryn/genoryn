@@ -24,8 +24,8 @@
     <b data-mk-usd>—</b>
     <span class="hp-sub"><span data-mk-sat>—</span><span class="hp-sep">·</span><span id="mkPriceL">after the first completed swap</span></span>
     <span class="hp-break mk-break">
-      <span><em>Best sell offer <i id="mkAskN"></i></em><b id="mkAsk">—</b><small id="mkAskU"></small></span>
       <span><em>Best buy offer <i id="mkBidN"></i></em><b id="mkBid">—</b><small id="mkBidU"></small></span>
+      <span><em>Best sell offer <i id="mkAskN"></i></em><b id="mkAsk">—</b><small id="mkAskU"></small></span>
       <span><em>Last 24 hours</em><b id="mkVol">—</b><small id="mkVolU"></small></span>
       <span><em>Price confidence</em><b data-ix-conf>—</b></span>
     </span>
@@ -34,8 +34,8 @@
 
   <section class="glass mk-totals" aria-label="The bitcoin price and the totals on the board">
     <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin price</span><b id="mktBtc">—</b><em id="mktBtcN">per bitcoin</em></div>
-    <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="mktSell">—</b><em id="mktSellN">sell offers</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Wanted</span><b id="mktBuy">—</b><em id="mktBuyN">buy offers</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>For sale</span><b id="mktSell">—</b><em id="mktSellN">sell offers</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
     <p class="mk-depth" id="mktDepth"></p>
@@ -59,15 +59,15 @@
 
   <div class="mk-sec"><span class="eyebrow">Order book</span><h2 class="h3">Open offers</h2><p class="muted">Anyone may offer any price, for an hour up to a year. A green dot means the maker's wallet is online: taking the offer starts the swap within seconds.</p></div>
   <section class="mk-book">
-    <div class="glass card mk-side mk-sell">
-      <div class="mk-head"><h3>Sell offers <small>people selling GNR</small></h3><span class="mk-tot" id="mkSellN"></span></div>
-      <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Expires</th></tr></thead><tbody id="mkSell"></tbody></table></div>
-      <div class="mk-pager" id="mkSellP"></div>
-    </div>
     <div class="glass card mk-side mk-buy">
       <div class="mk-head"><h3>Buy offers <small>people buying GNR</small></h3><span class="mk-tot" id="mkBuyN"></span></div>
       <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Expires</th></tr></thead><tbody id="mkBuy"></tbody></table></div>
       <div class="mk-pager" id="mkBuyP"></div>
+    </div>
+    <div class="glass card mk-side mk-sell">
+      <div class="mk-head"><h3>Sell offers <small>people selling GNR</small></h3><span class="mk-tot" id="mkSellN"></span></div>
+      <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Price per GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th"><use href="#c-btc"/></svg>Total</th><th class="num">Expires</th></tr></thead><tbody id="mkSell"></tbody></table></div>
+      <div class="mk-pager" id="mkSellP"></div>
     </div>
   </section>
 
@@ -83,19 +83,19 @@
 
   <div class="mk-sec" id="rules"><span class="eyebrow">Rules</span><h2 class="h3">What an offer commits you to</h2><p class="muted">The same for everyone. The wallet shows them before you publish.</p></div>
   <section class="mk-rules">
-    <div class="glass card"><h3>Selling GNR</h3><ol>
-      <li><b>You can only offer GNR you have.</b> Publishing sets the GNR aside in a note of its own, and the board lists the offer only after it has checked a zero-knowledge proof that it is there.</li>
-      <li><b>It stays set aside while the offer is open.</b> If it moves, the board takes the offer down at once, and the same GNR cannot back two offers.</li>
-      <li><b>Publishing commits the GNR for 7 days.</b> Within that time it can be sold, or put into another sell offer, but not sent. If you cancel, or the offer runs its time unsold, the wallet lets it be sent again 7 days after the day you published. Offer only what you mean to sell.</li>
-      <li><b>You choose who can take it.</b> By default only a buyer whose bitcoin is already deposited: your wallet sees the bitcoin on the Bitcoin chain before it locks anything, and the buyer's wallet pays by itself. Or any buyer, paying by hand; then your wallet locks for at most two unpaid buyers at a time.</li>
-      <li><b>When a buyer takes the offer,</b> the wallet locks exactly that GNR for them on chain. If they never pay, it returns to you when the lock ends, about 21 hours later.</li>
-    </ol></div>
     <div class="glass card"><h3>Buying GNR</h3><ol>
       <li><b>A buy offer is paid in advance, to yourself.</b> Publishing shows an address of your own wallet. Once your bitcoin is there and confirmed, the board checks it on the Bitcoin chain and lists the offer with a ✓.</li>
       <li><b>When a seller takes it, you do nothing.</b> Their GNR is locked for you on chain; once that lock has confirmed, your wallet pays the swap contract from your deposit and then claims the GNR.</li>
       <li><b>Your bitcoin goes into a contract,</b> never to a person, and only after the GNR is locked for you: the seller can take it only by revealing the secret that releases the GNR to you. If the seller never takes it, it comes back when the contract's time lock ends.</li>
       <li><b>If you cancel, or nobody sells,</b> the wallet sends the bitcoin back to your address. It cannot wait in the swap contract itself, because that contract names the seller's key and there is no seller yet.</li>
       <li><b>Taking a sell offer</b> works the same way: you pay once, to an address of your wallet, and the swap starts and completes by itself; if the offer is gone meanwhile, the bitcoin comes back. Or pay by hand: the wallet shows where to pay after the seller's GNR is locked for you, and you have two hours.</li>
+    </ol></div>
+    <div class="glass card"><h3>Selling GNR</h3><ol>
+      <li><b>You can only offer GNR you have.</b> Publishing sets the GNR aside in a note of its own, and the board lists the offer only after it has checked a zero-knowledge proof that it is there.</li>
+      <li><b>It stays set aside while the offer is open.</b> If it moves, the board takes the offer down at once, and the same GNR cannot back two offers.</li>
+      <li><b>Publishing commits the GNR for 7 days.</b> Within that time it can be sold, or put into another sell offer, but not sent. If you cancel, or the offer runs its time unsold, the wallet lets it be sent again 7 days after the day you published. Offer only what you mean to sell.</li>
+      <li><b>You choose who can take it.</b> By default only a buyer whose bitcoin is already deposited: your wallet sees the bitcoin on the Bitcoin chain before it locks anything, and the buyer's wallet pays by itself. Or any buyer, paying by hand; then your wallet locks for at most two unpaid buyers at a time.</li>
+      <li><b>When a buyer takes the offer,</b> the wallet locks exactly that GNR for them on chain. If they never pay, it returns to you when the lock ends, about 21 hours later.</li>
     </ol></div>
   </section>
 

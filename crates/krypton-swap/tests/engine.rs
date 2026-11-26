@@ -12,8 +12,8 @@ use krypton_core::{Hash32, Network};
 use krypton_crypto::field::{Digest, digest_to_bytes};
 use krypton_light::CompactBlock;
 use krypton_store::Chain;
-use krypton_swap::btc::{BtcChain, Utxo};
-use krypton_swap::engine::{Engine, Role, Stage, Swap, load};
+use krypton_swap::btc::{BtcChain, Unconfirmed, Utxo};
+use krypton_swap::engine::{self, Engine, Role, Stage, Swap, load};
 use krypton_swap::{Timing, derive_key, derive_secret, public_key};
 use krypton_wallet_core::{ChainSource, Wallet, keys};
 use std::cell::RefCell;
@@ -104,6 +104,9 @@ struct BtcState {
     mempool: Vec<Transaction>,
     /// A busy network: blocks leave the mempool's transactions unconfirmed.
     stalled: bool,
+    /// What payments from outside pay while they wait, and the fee estimates of the day.
+    waiting: HashMap<Txid, Unconfirmed>,
+    estimates: Vec<(u32, f64)>,
 }
 
 impl BtcState {
@@ -147,6 +150,31 @@ impl MockBtc {
             ),
         );
         op
+    }
+    /// Someone pays `sats` to `addr` with a fee of `fee` sat for `vsize` vB; `parents`:
+    /// what that payment spends is in a block.
+    fn pay_waiting(
+        &self,
+        addr: &Address,
+        sats: u64,
+        fee: u64,
+        vsize: u64,
+        parents: bool,
+    ) -> OutPoint {
+        let op = self.pay(addr, sats);
+        self.inner.lock().unwrap().waiting.insert(
+            op.txid,
+            Unconfirmed {
+                fee,
+                vsize,
+                parents_confirmed: parents,
+                seen: None,
+            },
+        );
+        op
+    }
+    fn estimates(&self, v: &[(u32, f64)]) {
+        self.inner.lock().unwrap().estimates = v.to_vec();
     }
     fn mine(&self) {
         let mut s = self.inner.lock().unwrap();
@@ -277,6 +305,38 @@ impl BtcChain for MockBtc {
     }
     fn fee_rate(&self) -> Result<bitcoin::FeeRate> {
         Ok(bitcoin::FeeRate::from_sat_per_vb(3).unwrap())
+    }
+    fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
+        Ok(self.inner.lock().unwrap().txs.get(txid).cloned())
+    }
+    fn unconfirmed(&self, txid: &Txid) -> Result<Option<Unconfirmed>> {
+        let s = self.inner.lock().unwrap();
+        let in_block = |id: &Txid| {
+            s.utxos
+                .iter()
+                .any(|(op, (_, h))| op.txid == *id && h.is_some())
+        };
+        if in_block(txid) {
+            return Ok(None);
+        }
+        if let Some(u) = s.waiting.get(txid) {
+            return Ok(Some(*u));
+        }
+        // A payment this chain saw itself: its fee, its size, and whether what it spends
+        // is in a block.
+        Ok(s.txs.get(txid).map(|tx| Unconfirmed {
+            fee: s.fee(tx),
+            vsize: tx.vsize() as u64,
+            seen: None,
+            parents_confirmed: tx.input.iter().all(|i| {
+                s.utxos
+                    .get(&i.previous_output)
+                    .is_some_and(|u| u.1.is_some())
+            }),
+        }))
+    }
+    fn fee_estimates(&self) -> Result<Vec<(u32, f64)>> {
+        Ok(self.inner.lock().unwrap().estimates.clone())
     }
 }
 
@@ -1693,4 +1753,154 @@ fn extra_bitcoin_left_in_the_contract_comes_back() {
     assert_eq!(b.swap().stage, Stage::Done, "the swap stays done");
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert!(b.swap().extras_done, "nothing left to look for");
+}
+
+/// A deposit whose sender paid too little waits in the mempool. The wallet says why, and
+/// can pay the difference itself: it sends the waiting coin on to its own address at a fee
+/// that makes the two payments worth a miner's while together. Nothing but the fee leaves
+/// the wallet, the fee has a ceiling, and a server cannot talk it into more.
+#[test]
+fn a_waiting_deposit_is_explained_and_can_be_sped_up() {
+    use krypton_swap::deposit::BALANCE;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let (_, mut buyer) = setup(dir.path(), &chain, &src);
+    let btc = MockBtc::default();
+    btc.mine();
+    let mut e = buyer.engine(&src, &btc, &chain);
+    let addr = e.deposit_address(BALANCE);
+    // Nothing there: nothing waits, nothing to speed up.
+    assert_eq!(e.waiting(BALANCE).unwrap(), None);
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_NONE));
+
+    // 0.005 BTC arrives at 2 sat/vB while blocks take 3.
+    btc.estimates(&[(1, 3.0), (3, 2.4), (6, 2.0), (144, 0.5)]);
+    let op = btc.pay_waiting(&addr, 500_000, 282, 141, true);
+    let w = e.waiting(BALANCE).unwrap().expect("it waits");
+    assert_eq!((w.coins, w.sats), (1, 500_000));
+    assert_eq!(w.rate, Some(2.0));
+    assert_eq!(w.next, Some(3.0));
+    assert_eq!(w.blocks, Some(6), "its fee is enough within six blocks");
+
+    let plan = e.bump_plan(BALANCE).unwrap().expect("a plan");
+    assert_eq!(plan.coins.len(), 1);
+    assert_eq!(plan.coins[0].outpoint, op);
+    assert_eq!(plan.value, 500_000);
+    assert_eq!(plan.together, 4, "a fifth above the next block, rounded up");
+    assert!(plan.fee <= plan.value / engine::BUMP_FEE_SHARE);
+    let id = e.bump_deposit(BALANCE, &plan).unwrap();
+    {
+        let s = btc.inner.lock().unwrap();
+        let tx = &s.txs[&id];
+        assert_eq!(tx.input.len(), 1);
+        assert_eq!(tx.input[0].previous_output, op);
+        assert_eq!(tx.output.len(), 1, "everything goes to one place");
+        assert_eq!(
+            tx.output[0].script_pubkey,
+            addr.script_pubkey(),
+            "this wallet's own address"
+        );
+        assert_eq!(tx.output[0].value.to_sat(), 500_000 - plan.fee);
+        // Together the two pay what was planned, by their real sizes.
+        let together = (282 + plan.fee) as f64 / (141 + tx.vsize() as u64) as f64;
+        assert!(together >= 4.0, "{together}");
+        assert!(together < 4.5, "and not much more: {together}");
+    }
+    // What waits now is the wallet's own payment, counted together with the one it spends.
+    let w = e.waiting(BALANCE).unwrap().expect("still waiting");
+    assert!(w.together);
+    assert!(
+        w.rate.is_some_and(|r| (4.0..4.5).contains(&r)),
+        "{:?}",
+        w.rate
+    );
+    assert_eq!(w.blocks, Some(1), "enough for the next block");
+    // The balance is the new coin now, still waiting; the wallet's own payment is not sped
+    // up a second time.
+    let coins = e.deposit_coins(BALANCE).unwrap();
+    assert_eq!(coins.len(), 1);
+    assert_eq!(coins[0].outpoint.txid, id);
+    assert!(coins[0].height.is_none());
+    assert_eq!(coins[0].value.to_sat(), 500_000 - plan.fee);
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_NONE));
+    assert!(
+        e.bump_deposit(BALANCE, &plan).is_err(),
+        "the old coin is spent"
+    );
+    btc.mine();
+    assert_eq!(e.waiting(BALANCE).unwrap(), None);
+    assert!(e.deposit_coins(BALANCE).unwrap()[0].height.is_some());
+
+    // When it is not offered, and why.
+    let op2 = btc.pay_waiting(&addr, 300_000, 705, 141, true);
+    assert_eq!(
+        e.bump_plan(BALANCE).unwrap(),
+        Err(engine::BUMP_ENOUGH),
+        "5 sat/vB is enough"
+    );
+    btc.inner
+        .lock()
+        .unwrap()
+        .waiting
+        .get_mut(&op2.txid)
+        .unwrap()
+        .fee = 141;
+    btc.inner
+        .lock()
+        .unwrap()
+        .waiting
+        .get_mut(&op2.txid)
+        .unwrap()
+        .parents_confirmed = false;
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_PARENTS));
+    let w = e.waiting(BALANCE).unwrap().unwrap();
+    assert_eq!(
+        (w.sats, w.rate, w.blocks),
+        (300_000, None, None),
+        "its own fee does not say when"
+    );
+    btc.inner.lock().unwrap().waiting.remove(&op2.txid);
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_UNKNOWN));
+    // A server that reports absurd fees cannot make the wallet burn the deposit: the plan
+    // is refused, and a plan made by hand is refused too.
+    btc.inner.lock().unwrap().waiting.insert(
+        op2.txid,
+        Unconfirmed {
+            fee: 141,
+            vsize: 141,
+            parents_confirmed: true,
+            seen: None,
+        },
+    );
+    btc.estimates(&[(1, 480.0)]);
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_COSTLY));
+    btc.estimates(&[(1, 3.0)]);
+    let mut plan = e
+        .bump_plan(BALANCE)
+        .unwrap()
+        .expect("a plan at ordinary fees");
+    let before = btc.broadcasts();
+    plan.rate = 400;
+    plan.fee = 40_000;
+    assert!(e.bump_deposit(BALANCE, &plan).is_err());
+    let mut confirmed = e.bump_plan(BALANCE).unwrap().unwrap();
+    confirmed.coins = e
+        .deposit_coins(BALANCE)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.height.is_some())
+        .collect();
+    assert!(
+        e.bump_deposit(BALANCE, &confirmed).is_err(),
+        "bitcoin in a block is left alone"
+    );
+    assert_eq!(btc.broadcasts(), before, "nothing was sent");
+    // A deposit too small to carry the fee is left to wait.
+    btc.mine();
+    let _ = btc.pay_waiting(&addr, 9_000, 141, 141, true);
+    assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_COSTLY));
 }

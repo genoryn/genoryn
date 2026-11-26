@@ -1038,12 +1038,16 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
 
 #[derive(Deserialize)]
 struct PlanQ {
+    #[serde(default)]
     amount: String,
     fee: Option<u64>,
+    /// Asks for the most that can be sent at this fee, instead of naming an amount.
+    max: Option<String>,
 }
 
 /// Whether a payment of this amount must first merge notes (a transfer spends two notes;
-/// mining rewards arrive as many).
+/// mining rewards arrive as many). With `max`: the most one payment can send at this fee
+/// (`max`, in krypton, and `max_text`), and whether sending it merges notes first.
 async fn send_plan(
     State(app): S,
     h: HeaderMap,
@@ -1052,17 +1056,34 @@ async fn send_plan(
     if let Err(x) = check_open(&app, &h) {
         return x;
     }
+    let fee = q.fee.unwrap_or(krypton_wallet_core::DEFAULT_FEE);
+    if q.max.is_some() {
+        if !(krypton_wallet_core::MIN_FEE..=krypton_wallet_core::MAX_FEE).contains(&fee) {
+            return err(anyhow::anyhow!("choose a network fee first"));
+        }
+        let Some(g) = app.wallet.try_lock_for(std::time::Duration::from_secs(5)) else {
+            return err(anyhow::anyhow!(
+                "the wallet is busy syncing; try again in a few seconds"
+            ));
+        };
+        let Some(w) = g.as_ref() else {
+            return err(anyhow::anyhow!("unlock the wallet first"));
+        };
+        let max = w.max_send(fee);
+        return Json(json!({
+            "max": max,
+            "max_text": krypton_core::emission::format_amount(max),
+            "merge": max > 0 && w.needs_consolidation(max, fee),
+        }))
+        .into_response();
+    }
     let Some(amount) = parse_amount(&q.amount) else {
         return Json(json!({"merge": false})).into_response();
     };
     let merge = app
         .wallet
         .try_lock_for(std::time::Duration::from_secs(2))
-        .and_then(|g| {
-            g.as_ref().map(|w| {
-                w.needs_consolidation(amount, q.fee.unwrap_or(krypton_wallet_core::DEFAULT_FEE))
-            })
-        })
+        .and_then(|g| g.as_ref().map(|w| w.needs_consolidation(amount, fee)))
         .unwrap_or(false);
     Json(json!({"merge": merge})).into_response()
 }
@@ -2338,6 +2359,7 @@ async fn serve(
         .route("/api/quick/start", post(board::quick_start))
         .route("/api/btc", get(board::btc_info))
         .route("/api/btc/send", post(board::btc_send))
+        .route("/api/btc/speedup", post(board::btc_speedup))
         .route("/api/swap/adopt", post(board::adopt))
         .route("/api/console", post(console::run))
         .route("/api/console/commands", get(console::commands))
