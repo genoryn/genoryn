@@ -168,6 +168,22 @@ pub struct Esplora {
     http: reqwest::blocking::Client,
 }
 
+/// The most a Bitcoin server's answer is read (a transaction list, or a 4 MB transaction in
+/// hex): a hostile server cannot make the wallet or node hold more.
+const MAX_REPLY_BYTES: u64 = 16 * 1024 * 1024;
+
+/// The body of a reply, at most [`MAX_REPLY_BYTES`].
+fn body(r: reqwest::blocking::Response) -> Result<String> {
+    use std::io::Read;
+    let mut s = String::new();
+    r.take(MAX_REPLY_BYTES + 1).read_to_string(&mut s)?;
+    anyhow::ensure!(
+        s.len() as u64 <= MAX_REPLY_BYTES,
+        "the Bitcoin server's answer is too large"
+    );
+    Ok(s)
+}
+
 impl Esplora {
     pub fn new(base: &str) -> Result<Self> {
         let base = base.trim().trim_end_matches('/').to_string();
@@ -183,7 +199,7 @@ impl Esplora {
     fn get(&self, path: &str) -> Result<String> {
         let r = self.http.get(format!("{}{path}", self.base)).send()?;
         let status = r.status();
-        let body = r.text()?;
+        let body = body(r)?;
         if !status.is_success() {
             bail!(
                 "Bitcoin API {path}: {status} {}",
@@ -266,7 +282,7 @@ impl BtcChain for Esplora {
             .body(serialize_hex(tx))
             .send()?;
         let status = r.status();
-        let body = r.text()?;
+        let body = body(r)?;
         if !status.is_success() {
             bail!(
                 "Bitcoin broadcast refused: {}",
@@ -324,13 +340,13 @@ impl CoreRpc {
         })
     }
     fn call(&self, method: &str, params: Value) -> Result<Value> {
-        let r: Value = self
-            .http
-            .post(self.url.clone())
-            .basic_auth(&self.user, Some(&self.pass))
-            .json(&json!({"jsonrpc": "1.0", "id": "gk", "method": method, "params": params}))
-            .send()?
-            .json()?;
+        let r: Value = serde_json::from_str(&body(
+            self.http
+                .post(self.url.clone())
+                .basic_auth(&self.user, Some(&self.pass))
+                .json(&json!({"jsonrpc": "1.0", "id": "gk", "method": method, "params": params}))
+                .send()?,
+        )?)?;
         if !r["error"].is_null() {
             bail!(
                 "bitcoind {method}: {}",

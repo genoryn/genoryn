@@ -51,6 +51,11 @@ main() {
       if [ -x "/usr/bin/$f" ]; then install -m 755 "/usr/bin/$f" /opt/krypton/bin/; fi
     done
   fi
+  # Env files of installs before 1.0.53 were readable by every user (they may hold
+  # Bitcoin Core RPC credentials).
+  for f in /etc/krypton/kryptond.env /etc/krypton/miner.env; do
+    if [ -f "$f" ]; then chgrp krypton "$f" 2>/dev/null || true; chmod 640 "$f"; fi
+  done
   if [ "$was_active" = yes ]; then
     systemctl restart kryptond
     sleep 3

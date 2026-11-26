@@ -45,6 +45,10 @@ struct Args {
     max_outbound: usize,
     #[arg(long, default_value_t = 64)]
     max_inbound: usize,
+    /// Host names the API also answers to when a reverse proxy on this computer passes no
+    /// X-Real-IP (better: let the proxy set X-Real-IP to the client's address)
+    #[arg(long = "api-host", env = "KRYPTON_API_HOSTS", value_delimiter = ',')]
+    api_hosts: Vec<String>,
 }
 
 pub fn default_data_dir(network: Network) -> PathBuf {
@@ -116,6 +120,13 @@ async fn main() -> Result<()> {
     });
     let last = node.clone();
 
+    let _ = rpc::API_HOSTS.set(
+        a.api_hosts
+            .iter()
+            .map(|h| h.trim().to_ascii_lowercase())
+            .filter(|h| !h.is_empty())
+            .collect(),
+    );
     let rpc_addr = a
         .rpc
         .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], p.rpc_port)));

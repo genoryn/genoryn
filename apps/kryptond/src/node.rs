@@ -202,6 +202,8 @@ pub struct Node {
     pub mempool: Mutex<Mempool>,
     pub shares: Mutex<SharePool>,
     pub hashrate_cache: Mutex<Option<(Hash32, f64)>>,
+    /// Held while the hashrate is computed (once per block).
+    pub hashrate_calc: Mutex<()>,
     pub stats: Arc<Mutex<crate::stats::Stats>>,
     /// Latest `Stats::summary`, readable without waiting for a refresh.
     pub stats_summary: Arc<Mutex<serde_json::Value>>,
@@ -259,6 +261,7 @@ impl Node {
             mempool: Mutex::new(Mempool::default()),
             shares: Mutex::new(SharePool::default()),
             hashrate_cache: Mutex::new(None),
+            hashrate_calc: Mutex::new(()),
             stats: Arc::new(Mutex::new(crate::stats::Stats::default())),
             stats_summary: Arc::new(Mutex::new(serde_json::Value::Null)),
             recent_shares: Mutex::new(None),

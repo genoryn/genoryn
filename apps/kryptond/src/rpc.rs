@@ -35,8 +35,14 @@ fn bad(m: impl ToString) -> ApiError {
 fn nf(m: impl ToString) -> ApiError {
     ApiError(StatusCode::NOT_FOUND, m.to_string())
 }
+/// An internal failure: the details go to the node's log, never to the client (they can
+/// name files, servers or storage state).
 fn ise(e: impl std::fmt::Display) -> ApiError {
-    ApiError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    tracing::warn!("internal error: {e}");
+    ApiError(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "internal error; try again later".into(),
+    )
 }
 type R<T> = std::result::Result<T, ApiError>;
 
@@ -60,6 +66,61 @@ async fn same_site_posts(req: axum::extract::Request, next: axum::middleware::Ne
         .into_response();
     }
     next.run(req).await
+}
+
+/// A request that reaches the API directly on this computer (not through the site's proxy,
+/// which names the client in `X-Real-IP`) comes from this computer's own software. Pages of
+/// other websites in this computer's browser may not read it (the mempool, the event
+/// stream), and a name that only points here (DNS rebinding) does not count as this
+/// computer: such requests carry a foreign `Origin` or `Host` and are refused.
+async fn local_only_for_local(
+    axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let direct = peer.ip().to_canonical().is_loopback() && !req.headers().contains_key("x-real-ip");
+    if direct {
+        let host_ok = req
+            .headers()
+            .get(header::HOST)
+            .and_then(|h| h.to_str().ok())
+            .is_none_or(loopback_host);
+        let origin_ok = req
+            .headers()
+            .get(header::ORIGIN)
+            .is_none_or(|o| loopback_origin(o.as_bytes()));
+        if !host_ok || !origin_ok {
+            return ApiError(
+                StatusCode::FORBIDDEN,
+                "this node answers only programs and pages of this computer".into(),
+            )
+            .into_response();
+        }
+    }
+    next.run(req).await
+}
+
+/// Host names given with `--api-host`.
+pub static API_HOSTS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+
+/// `127.0.0.1`, `localhost`, `[::1]` or a name given with `--api-host`, with or without a
+/// port.
+fn loopback_host(h: &str) -> bool {
+    let host = match h.rsplit_once(':') {
+        Some((x, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => x,
+        _ => h,
+    };
+    matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+        || API_HOSTS
+            .get()
+            .is_some_and(|l| l.iter().any(|x| x.eq_ignore_ascii_case(host)))
+}
+
+fn loopback_origin(o: &[u8]) -> bool {
+    std::str::from_utf8(o)
+        .ok()
+        .and_then(|o| o.strip_prefix("http://"))
+        .is_some_and(loopback_host)
 }
 
 fn origin_ok(o: &[u8]) -> bool {
@@ -154,9 +215,7 @@ pub fn router(node: Arc<Node>) -> Router {
         )
         .route("/rpc", post(json_rpc))
         .with_state(node.clone())
-        .layer(tower_http::limit::RequestBodyLimitLayer::new(
-            8 * 1024 * 1024,
-        ))
+        .layer(tower_http::limit::RequestBodyLimitLayer::new(1024 * 1024))
         .layer(tower_http::timeout::TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             Duration::from_secs(30),
@@ -166,6 +225,7 @@ pub fn router(node: Arc<Node>) -> Router {
             crate::guard::limit,
         ))
         .layer(axum::middleware::from_fn(same_site_posts))
+        .layer(axum::middleware::from_fn(local_only_for_local))
         // Other sites may read public data, but never drive writes from a visitor's browser.
         .layer(
             tower_http::cors::CorsLayer::new()
@@ -183,7 +243,15 @@ fn hashrate(node: &Node) -> f64 {
     {
         return v;
     }
-    let v = estimate_hashrate(node, tip.height());
+    // One computation per block: concurrent requests wait for it instead of each reading
+    // 60 blocks, and the reading happens off the async runtime.
+    let _one = node.hashrate_calc.lock();
+    if let Some((h, v)) = *node.hashrate_cache.lock()
+        && h == tip.hash
+    {
+        return v;
+    }
+    let v = tokio::task::block_in_place(|| estimate_hashrate(node, tip.height()));
     *node.hashrate_cache.lock() = Some((tip.hash, v));
     v
 }
@@ -437,7 +505,7 @@ async fn blocks_list(State(n): S, Query(q): Query<Range>) -> R<Json<Value>> {
         let mut v = Vec::new();
         let mut h = from.min(tip) as i64;
         while h >= 0 && (v.len() as u64) < count {
-            if let Some(b) = chain.block_at(h as u64)? {
+            if let Some((b, size)) = chain.block_and_size_at(h as u64)? {
                 v.push(json!({
                     "height": b.header.height,
                     "hash": hex::encode(b.hash()),
@@ -445,7 +513,7 @@ async fn blocks_list(State(n): S, Query(q): Query<Range>) -> R<Json<Value>> {
                     "difficulty": b.header.difficulty.to_string(),
                     "txs": b.txs.len(),
                     "shares": b.shares.len(),
-                    "size": b.to_bytes().len(),
+                    "size": size,
                     "subsidy": subsidy(b.header.height),
                     "fees": fees(&b),
                     "miner": hex::encode(b.header.miner),
@@ -697,12 +765,12 @@ async fn fee_estimate(State(n): S) -> Json<Value> {
 
 async fn mempool(State(n): S) -> Json<Value> {
     let mp = n.mempool.lock();
-    let mut txs: Vec<Value> = mp
+    let txs: Vec<Value> = mp
         .txs
         .iter()
+        .take(500)
         .map(|(id, e)| json!({"txid": hex::encode(id), "fee": e.tx.total_fee(), "size": e.size, "added": e.added}))
         .collect();
-    txs.truncate(500);
     Json(json!({"count": mp.txs.len(), "bytes": mp.bytes(), "txs": txs}))
 }
 
@@ -1180,6 +1248,9 @@ impl krypton_wallet_core::proof::ProofSource for ChainProof {
     fn pending_tx(&self, txid: &Hash32) -> anyhow::Result<Option<Transaction>> {
         Ok(self.1.clone().filter(|t| t.txid() == *txid))
     }
+    fn nullifier_spent(&self, nf: &Hash32) -> anyhow::Result<Option<u64>> {
+        self.0.nullifier_height(nf)
+    }
     fn resolve_recipient(&self, short: &str) -> anyhow::Result<Option<String>> {
         let (_, id) = Address::parse_short(short)?;
         Ok(self
@@ -1442,7 +1513,27 @@ async fn json_rpc(
 
 #[cfg(test)]
 mod tests {
-    use super::origin_ok;
+    use super::{loopback_host, loopback_origin, origin_ok};
+
+    #[test]
+    fn the_local_node_knows_this_computer_by_name() {
+        for ok in ["127.0.0.1:30334", "localhost", "[::1]:30334", "127.0.0.1"] {
+            assert!(loopback_host(ok), "{ok}");
+        }
+        for no in [
+            "evil.example",
+            "127.0.0.1.evil.example",
+            "localhost.evil.example:80",
+            "genoryn.io",
+            "",
+        ] {
+            assert!(!loopback_host(no), "{no}");
+        }
+        assert!(loopback_origin(b"http://127.0.0.1:47951"));
+        assert!(
+            !loopback_origin(b"https://genoryn.io") && !loopback_origin(b"http://evil.example")
+        );
+    }
 
     #[test]
     fn only_genoryn_and_this_computer_may_post_from_a_browser() {

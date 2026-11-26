@@ -1569,8 +1569,11 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                             .into(),
                     );
                 }
-                let sats = paid_on_chain(&api, &t, p, &secret)
-                    .map_err(|e| format!("the bitcoin of this swap could not be looked up: {e}"))?;
+                // What went wrong stays in the node's log: it can name the Bitcoin server.
+                let sats = paid_on_chain(&api, &t, p, &secret).map_err(|e| {
+                    tracing::warn!("looking up the bitcoin of swap {}: {e}", t.hash);
+                    "the bitcoin of this swap could not be looked up right now; the report is sent again by itself".to_string()
+                })?;
                 // The payout is the payment less its fee: at least half of what is reported.
                 if sats == 0 || sats.saturating_mul(2) < t.sats {
                     return Err(

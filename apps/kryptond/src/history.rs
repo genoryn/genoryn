@@ -302,13 +302,13 @@ impl History {
         let first = since - since % DAY;
         let mut n = 0u64;
         let days = r.open_table(DAYS)?;
-        let start = if since % DAY == 0 { first } else { first + DAY };
+        let start = if since.is_multiple_of(DAY) { first } else { first + DAY };
         for e in days.range(start..)? {
             let (_, v) = e?;
             let f: DayFig = serde_json::from_slice(v.value()).unwrap_or_default();
             n += if verified { f.verified } else { f.all };
         }
-        if since % DAY != 0 {
+        if !since.is_multiple_of(DAY) {
             let trades = r.open_table(TRADES)?;
             let lo = since.to_be_bytes();
             let hi = start.to_be_bytes();

@@ -24,6 +24,8 @@ for f in kryptond krypton-miner krypton-wallet-cli; do
   if [[ -x "$BIN/$f" ]]; then install -m 755 "$BIN/$f" /opt/krypton/bin/; fi
 done
 
+# The env file may hold Bitcoin Core RPC credentials: readable by the service only.
+install -m 640 -g krypton /dev/null /etc/krypton/kryptond.env
 printf 'KRYPTON_NETWORK=%s\nKRYPTON_RPC_PORT=%s\n' "$NET" "$RPC" > /etc/krypton/kryptond.env
 install -m 644 "$HERE/systemd/kryptond.service" /etc/systemd/system/kryptond.service
 
@@ -32,6 +34,7 @@ if [[ -n "$MINER_ADDR" ]]; then
   THREADS=$(( CORES / 2 > 0 ? CORES / 2 : 1 ))
   QUOTA=$(( CORES * 50 ))%
   install -m 640 -g krypton "$MINER_ADDR" /etc/krypton/miner-address.txt
+  install -m 640 -g krypton /dev/null /etc/krypton/miner.env
   printf 'KRYPTON_RPC_PORT=%s\nKRYPTON_MINER_THREADS=%s\n' "$RPC" "$THREADS" > /etc/krypton/miner.env
   sed "s/__CPU_QUOTA__/$QUOTA/" "$HERE/systemd/krypton-miner.service" > /etc/systemd/system/krypton-miner.service
 fi

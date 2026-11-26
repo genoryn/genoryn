@@ -118,6 +118,46 @@ impl proof::ProofSource for Local<'_> {
     fn tip_height(&self) -> Result<u64> {
         Ok(self.chain.tip().height())
     }
+    fn pending_tx(&self, txid: &Hash32) -> Result<Option<Transaction>> {
+        Ok(self
+            .pool
+            .borrow()
+            .iter()
+            .find(|t| t.txid() == *txid)
+            .cloned())
+    }
+    fn nullifier_spent(&self, nf: &Hash32) -> Result<Option<u64>> {
+        self.chain.nullifier_height(nf)
+    }
+}
+
+/// A node that still shows a mined transaction as waiting in its mempool (its inputs are
+/// spent: it can never be mined again).
+struct StalePool<'a>(&'a Local<'a>, Transaction);
+impl proof::ProofSource for StalePool<'_> {
+    fn tx_height(&self, _: &Hash32) -> Result<Option<u64>> {
+        Ok(None)
+    }
+    fn raw_block(&self, h: u64) -> Result<Block> {
+        proof::ProofSource::raw_block(self.0, h)
+    }
+    fn proven_header(
+        &self,
+        h: u64,
+        p: &krypton_core::ChainParams,
+        v: &krypton_pow::Verifier,
+    ) -> Result<BlockHeader> {
+        proof::ProofSource::proven_header(self.0, h, p, v)
+    }
+    fn tip_height(&self) -> Result<u64> {
+        proof::ProofSource::tip_height(self.0)
+    }
+    fn pending_tx(&self, txid: &Hash32) -> Result<Option<Transaction>> {
+        Ok(Some(self.1.clone()).filter(|t| t.txid() == *txid))
+    }
+    fn nullifier_spent(&self, nf: &Hash32) -> Result<Option<u64>> {
+        proof::ProofSource::nullifier_spent(self.0, nf)
+    }
 }
 
 fn mine(src: &Local, to: &Address) -> u64 {
@@ -348,6 +388,11 @@ fn mine_sync_send_receive() {
         .unwrap();
     assert_ne!(txid, [0; 32]);
     assert!(a.balance().pending > 0);
+    // While it waits in the mempool its proof shows a pending payment, checked first as a
+    // node checks a transaction (1.0.53 review, F-4).
+    let pending_proof = a.payment_proof(&hex::encode(txid)).unwrap();
+    let rep = b.verify_payment(&src, &pending_proof).unwrap();
+    assert!(rep.pending && rep.value == amount, "{rep:?}");
     // Replaying the same spend is rejected by the mempool check after it is mined.
     let replay = src.pool.borrow()[0].clone();
     mine(&src, &addr_b);
@@ -355,6 +400,12 @@ fn mine_sync_send_receive() {
         chain.check_mempool_tx(&replay).is_err(),
         "double spend must be rejected"
     );
+    // A node still showing it as pending once its inputs are spent is not believed.
+    let err = b
+        .verify_payment(&StalePool(&src, replay.clone()), &pending_proof)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("spent already"), "{err}");
 
     a.sync(&src, |_, _| {}).unwrap();
     b.sync(&src, |_, _| {}).unwrap();

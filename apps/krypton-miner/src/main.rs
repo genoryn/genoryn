@@ -159,6 +159,14 @@ fn verify_work(v: &Value, address: &str) -> Result<Work> {
     if header.height == 0 || header.nonce != 0 {
         bail!("the node sent a malformed header");
     }
+    // A height the network cannot have reached (blocks every 60 s on average; twice as fast
+    // is already implausible): its epoch would make this miner build a huge dataset for
+    // nothing.
+    let elapsed = krypton_core::now().saturating_sub(chain.genesis_time);
+    let plausible = elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
+    if header.height > plausible {
+        bail!("the node's work is for a height the network cannot have reached yet");
+    }
     if let Some(n) = v["network"].as_str()
         && n != addr.network.as_str()
     {
@@ -194,7 +202,7 @@ impl Client {
         let status = r.status();
         let v: Value = r.json()?;
         if !status.is_success() {
-            bail!("node: {}", v["error"].as_str().unwrap_or("error"));
+            bail!("node: {}", clean(v["error"].as_str().unwrap_or("error")));
         }
         verify_work(&v, &self.address)
     }
@@ -556,7 +564,7 @@ fn main() -> Result<()> {
         let work = match client.template() {
             Ok(w) => w,
             Err(e) => {
-                eprintln!("waiting for node: {e}");
+                eprintln!("waiting for node: {}", clean(&e.to_string()));
                 std::thread::sleep(Duration::from_secs(5));
                 continue;
             }
@@ -626,7 +634,7 @@ fn main() -> Result<()> {
                         eprintln!(
                             "BLOCK FOUND at height {} ({})",
                             v["height"],
-                            v["hash"].as_str().unwrap_or("")
+                            clean(v["hash"].as_str().unwrap_or(""))
                         );
                     }
                 }
@@ -634,10 +642,20 @@ fn main() -> Result<()> {
                     shared.rejected.fetch_add(1, Ordering::Relaxed);
                     eprintln!("solution not accepted: {v}");
                 }
-                Err(e) => eprintln!("submit failed: {e}"),
+                Err(e) => eprintln!("submit failed: {}", clean(&e.to_string())),
             }
         }
     }
+}
+
+/// Text from the node as this miner prints it: control characters replaced and the length
+/// bounded, so a node cannot write lines of its own into the log (Hive OS reads the log for
+/// the dashboard's figures).
+fn clean(s: &str) -> String {
+    s.chars()
+        .take(300)
+        .map(|c| if c.is_control() { '?' } else { c })
+        .collect()
 }
 
 fn fmt_gnr(krypton: u64) -> String {
@@ -795,6 +813,16 @@ mod tests {
     /// A node's template is accepted only if its header pays this miner, and everything
     /// mined is derived from that header, not from what the node says next to it.
     #[test]
+    fn node_text_cannot_write_log_lines() {
+        let s = clean("bad\n{\"event\":\"status\"}\r\u{1b}[2J");
+        assert!(
+            !s.contains('\n') && !s.contains('\r') && !s.contains('\u{1b}'),
+            "{s}"
+        );
+        assert_eq!(clean(&"x".repeat(1000)).len(), 300);
+    }
+
+    #[test]
     fn work_must_pay_the_miner() {
         let me = address(1);
         let thief = address(2);
@@ -833,6 +861,10 @@ mod tests {
         let mut other = job(&h);
         other["network"] = json!("mainnet");
         assert!(verify_work(&other, &me.encode()).is_err());
+        // A height the network cannot have reached is refused (its epoch would be huge).
+        let mut far = h.clone();
+        far.height = 1_000_000_000;
+        assert!(verify_work(&job(&far), &me.encode()).is_err());
     }
 
     /// A short address is resolved by a node, but only the full address it is the hash of

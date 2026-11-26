@@ -106,6 +106,10 @@ pub trait ProofSource {
     fn pending_tx(&self, _txid: &Hash32) -> Result<Option<Transaction>> {
         Ok(None)
     }
+    /// The height at which a nullifier was spent; `None` unspent (or unknown to the source).
+    fn nullifier_spent(&self, _nf: &Hash32) -> Result<Option<u64>> {
+        Ok(None)
+    }
     /// The full address published for a short address, if the source keeps a directory.
     /// The caller checks that it hashes to the short address.
     fn resolve_recipient(&self, _short: &str) -> Result<Option<String>> {
@@ -131,8 +135,9 @@ pub struct PaymentReport {
     /// The short address is chosen by the prover, so it means nothing when false.
     pub recipient_verified: bool,
     pub time: u64,
-    /// Seen in the mempool but not in a block yet: the payment is real but not final
-    /// (it may still be dropped or expire). `height` and `confirmations` are 0.
+    /// Seen in the mempool but not in a block yet: its proof checks out and its inputs are
+    /// unspent so far, but it is not final (it may still be dropped, expire, or lose to a
+    /// conflicting transaction). `height` and `confirmations` are 0.
     pub pending: bool,
 }
 
@@ -153,6 +158,18 @@ pub fn verify(
             tx.txid() == proof.txid,
             "the node returned another transaction"
         );
+        // A transaction from the mempool is only the node's word: check it as a node would
+        // before saying anything about it (structure, the zk-STARK proof, unspent inputs).
+        let st = krypton_core::consensus::check_tx_structure(&tx)
+            .map_err(|e| anyhow::anyhow!("this pending payment is not a valid transaction: {e}"))?;
+        krypton_core::consensus::verify_proof(&tx, &st)
+            .map_err(|e| anyhow::anyhow!("this pending payment's proof does not verify: {e}"))?;
+        for nf in &tx.nullifiers {
+            ensure!(
+                src.nullifier_spent(&nf.0)?.is_none(),
+                "this pending payment spends coins that are spent already: it can never be mined"
+            );
+        }
         return report(proof, &tx, src, recipient, 0, 0, 0, true);
     };
     let block = src.raw_block(height)?;
@@ -276,5 +293,8 @@ impl ProofSource for krypton_light::client::NodeClient {
     }
     fn pending_tx(&self, txid: &Hash32) -> Result<Option<Transaction>> {
         self.pending_tx(txid)
+    }
+    fn nullifier_spent(&self, nf: &Hash32) -> Result<Option<u64>> {
+        krypton_light::client::NodeClient::nullifier_spent(self, nf)
     }
 }

@@ -613,6 +613,19 @@ impl Chain {
         }
     }
 
+    /// A main-chain block and its encoded size, read once.
+    pub fn block_and_size_at(&self, height: u64) -> Result<Option<(Block, usize)>> {
+        let Some(h) = self.main_hash(height)? else {
+            return Ok(None);
+        };
+        let r = self.db.begin_read()?;
+        let t = r.open_table(BLOCKS)?;
+        Ok(match t.get(h.as_slice())? {
+            Some(v) => Some((Block::from_bytes(v.value())?, v.value().len())),
+            None => None,
+        })
+    }
+
     pub fn block_at(&self, height: u64) -> Result<Option<Block>> {
         match self.main_hash(height)? {
             Some(h) => self.block(&h),
