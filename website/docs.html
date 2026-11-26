@@ -684,7 +684,7 @@ sudo bash deploy/setup-server.sh mainnet --miner address.txt   # Linux server: s
             <tr><td data-label="Method">POST</td><td data-label="Path"><code>/v1/swap/trade</code></td><td data-label="Description">Report a completed swap (accepted once its claim is on chain)</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/market</code></td><td data-label="Description">Market price and completed swaps with their on-chain claims</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/history?offset=&amp;limit=&amp;since=&amp;verified=</code></td><td data-label="Description">Every completed swap, newest first, in pages of up to 200 (<code>total</code>, <code>more</code>); <code>since</code> a Unix time, <code>verified=true</code> only swaps whose bitcoin was found</td></tr>
-            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/history/summary</code></td><td data-label="Description">Totals and the median of all completed swaps, and figures per day</td></tr>
+            <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/swap/history/summary</code></td><td data-label="Description">Totals and the median of all completed swaps, and figures per day. From 1.0.55 each set of figures also has <code>verified_figures</code>: the same over the swaps whose bitcoin was found on the Bitcoin chain</td></tr>
             <tr><td data-label="Method">GET</td><td data-label="Path"><code>/v1/btc-price</code></td><td data-label="Description">BTC price in USD, EUR and more (genoryn.io only, from mempool.space)</td></tr>
           </tbody>
         </table></div>

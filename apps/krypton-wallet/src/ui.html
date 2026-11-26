@@ -540,7 +540,12 @@ header{padding:14px 30px}
 .th-kp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.th-kp>div{display:flex;flex-direction:column;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);min-width:0}
 .th-kp span{font-size:12px;color:var(--text-tertiary)}.th-kp b{font:600 16px var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.th-kp em{font-style:normal;font-size:12px;color:var(--text-secondary)}.th-kp>p{grid-column:1/-1;margin:0}
 #thChMine{margin-bottom:12px}.th-side{font-size:12px;padding:2px 9px;border:1px solid var(--line-strong);border-radius:99px;white-space:nowrap}
-.th-ok{margin-left:8px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap}.th-ver{margin:0;align-self:center;font-size:13px}
+.th-ok{margin-left:8px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
+.th-bar{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin-bottom:12px}.th-modenote{flex:1;min-width:240px;margin:0;font-size:12.5px;line-height:1.5;color:var(--text-tertiary)}
+.th-unv{font-size:12px!important;color:var(--text-tertiary)!important}.th-unv:empty{display:none}
+.th-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 2px 0;font-size:12px;color:var(--text-tertiary)}.th-legend:empty{display:none}
+.th-legend span{display:inline-flex;align-items:center;gap:7px}.th-legend i{width:9px;height:9px;border-radius:50%;flex:none;border:1.75px solid var(--text-primary);background:var(--bg-solid)}
+.th-legend i.soft{border:1.25px solid var(--text-tertiary)}.th-legend i.far{border:1.5px dashed var(--text-secondary)}
 @media (max-width:900px){.th-grid{grid-template-columns:1fr}.th-kp{grid-template-columns:1fr 1fr}}
 @media (max-width:760px){.th-kpis .swt b,.th-kp b{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}}
 .sw-totals .swt{padding:16px 20px;border-radius:0}
@@ -1234,8 +1239,12 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       </section>
     </div>
     <div id="tab-trades" class="hidden">
+      <div class="th-bar">
+        <div class="seg" id="thMode" role="group" aria-label="Which swaps the figures and charts show"><button type="button" data-m="verified" class="on" aria-pressed="true">Verified</button><button type="button" data-m="all" aria-pressed="false">All reported</button></div>
+        <p class="th-modenote" id="thModeNote"></p>
+      </div>
       <section class="glass card sw-totals th-kpis" aria-label="The whole trade history in figures">
-        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Completed swaps</span><b id="thN">-</b><em id="thNN">&nbsp;</em></div>
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Completed swaps</span><b id="thN">-</b><em id="thNN">&nbsp;</em><em id="thNU" class="th-unv"></em></div>
         <div class="swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>GNR traded</span><b id="thG">-</b><em id="thGN">&nbsp;</em></div>
         <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin traded</span><b id="thB">-</b><em id="thBN">&nbsp;</em></div>
         <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Average price</span><b id="thAvg">-</b><em id="thAvgN">&nbsp;</em></div>
@@ -1244,7 +1253,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       <section class="glass card th-charts">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Trade history</h2><div class="seg" id="thRng" role="group" aria-label="Period"><button type="button" data-r="7">7 days</button><button type="button" data-r="30" class="on">30 days</button><button type="button" data-r="90">90 days</button><button type="button" data-r="0">All</button></div></div>
         <div class="th-grid">
-          <div class="th-c th-wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">-</b></div><div id="thChPrice"></div></div>
+          <div class="th-c th-wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">-</b></div><div id="thChPrice"></div><div class="th-legend" id="thLegend"></div></div>
           <div class="th-c"><div class="gk-card-head"><h3 id="thMedH">Median price per day</h3><b id="thMedR">-</b></div><div id="thChMed"></div></div>
           <div class="th-c"><div class="gk-card-head"><h3 id="thVolH">GNR traded per day</h3><b id="thVolR">-</b></div><div id="thChVol"></div></div>
           <div class="th-c th-wide"><div class="gk-card-head"><h3 id="thCntH">Swaps per day</h3><b id="thCntR">-</b></div><div id="thChCnt"></div></div>
@@ -1260,10 +1269,10 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
       </section>
       <section class="glass card th-all">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>All swaps <em class="muted" id="thAllN"></em></h2>
-          <div class="bd-filters"><label class="mcheck th-ver"><input type="checkbox" id="thVer" onchange="tradesPage(0)"> Only swaps whose bitcoin was found on the Bitcoin chain</label><select id="thPer" aria-label="Swaps per page" onchange="tradesPage(0)"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div></div>
+          <div class="bd-filters"><select id="thPer" aria-label="Swaps per page" onchange="tradesPage(0)"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div></div>
         <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>When</th><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">Proof</th></tr></thead><tbody id="thRows"></tbody></table></div>
         <div class="pager" id="thPager"></div>
-        <details class="mk-how"><summary>Where these figures come from</summary><p class="hero-note">Every completed swap the board has recorded, newest first. A swap counts once its GNR claim is on the GNR chain; the amounts are private on chain, so the ones shown were reported by the two wallets of the swap. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain. The average price weighs each swap by the bitcoin it moved; the median is the price half of the swaps were below. Swaps whose two wallets disagree are left out of the figures. The proof link opens the GNR claim in the explorer.</p></details>
+        <details class="mk-how"><summary>Where these figures come from</summary><p class="hero-note">Every completed swap the board has recorded, newest first. A swap counts once its GNR claim is on the GNR chain; the amounts are private on chain, so the ones shown were reported by the two wallets of the swap. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain: such a swap is verified. The figures and charts show verified swaps first, because anyone can report a swap at any price, but nobody can make up a payment on the Bitcoin chain. The average price weighs each swap by the bitcoin it moved; the median is the price half of the swaps were below. Swaps whose two wallets disagree are left out of the figures. The proof link opens the GNR claim in the explorer.</p></details>
       </section>
     </div>
     <div id="tab-coins" class="hidden">
@@ -2361,7 +2370,7 @@ async function swapCode(){
 /* Trade history (1.0.53): every completed swap the board has recorded, its figures, and this
    wallet's own trades. A board before 1.0.53 shows only its last 50 swaps; the figures are
    then worked out here from those. */
-const TRD={range:30, page:0, sum:null, swaps:[], fallback:false, ch:{}, seq:0, mine:[], mineN:50};
+const TRD={range:30, page:0, sum:null, swaps:[], fallback:false, ch:{}, seq:0, mine:[], mineN:50, mode:null};
 /* The wallet never loads the whole history (it may hold millions of swaps): the table comes a
    page at a time, the per-swap chart shows the newest 200 swaps of the period, and every other
    figure comes from the board's day-by-day summary. */
@@ -2377,21 +2386,32 @@ const thSatAxis=(v,axis)=>axis?GKCharts.fmtNum(v)+' sat':fmtPx(v)+satUsd(v);
 const thG=v=>GKI18N.num(Number(v||0)/1e8,{maximumFractionDigits:Number(v)>=1e10?0:2});
 const thB=v=>GKI18N.num(Number(v||0)/1e8,{maximumFractionDigits:Number(v)>=1e8?2:Number(v)>=1e6?4:6});
 const thMain=p=>p==null||!isFinite(p)?'-':btcUsd()>0?thUsd(p):thPx(p);
-function thFig(l){ const ps=l.map(x=>Number(x.price)).filter(isFinite).sort((a,b)=>a-b), n=ps.length;
+function thCore(l){ const ps=l.map(x=>Number(x.price)).filter(isFinite).sort((a,b)=>a-b), n=ps.length;
   const g=l.reduce((a,x)=>a+Number(x.gnr||0),0), s=l.reduce((a,x)=>a+Number(x.sats||0),0);
-  return {swaps:l.length, verified:l.filter(x=>x.verified).length, gnr:g, sats:s, low:n?ps[0]:null, high:n?ps[n-1]:null,
-    median:n?(n%2?ps[(n-1)/2]:(ps[n/2-1]+ps[n/2])/2):null, vwap:g>0?s/(g/1e8):null}; }
+  return {gnr:g, sats:s, low:n?ps[0]:null, high:n?ps[n-1]:null, median:n?(n%2?ps[(n-1)/2]:(ps[n/2-1]+ps[n/2])/2):null, vwap:g>0?s/(g/1e8):null}; }
+function thFig(l){ const v=l.filter(x=>x.verified); return Object.assign(thCore(l), {swaps:l.length, verified:v.length, verified_figures:thCore(v)}); }
 function thLocal(l){ const by={}, now=Date.now()/1000;
   l.forEach(x=>{ const d=x.at-x.at%86400; (by[d]=by[d]||[]).push(x); });
   const all=thFig(l); all.first=l.length?Math.min(...l.map(x=>x.at)):null; all.last=l.length?Math.max(...l.map(x=>x.at)):null;
   return {all, day:thFig(l.filter(x=>x.at>now-86400)), days:Object.keys(by).map(Number).sort((a,b)=>a-b).map(d=>Object.assign(thFig(by[d]),{day:d}))}; }
+/* Which swaps the figures and charts show (1.0.55). "verified": the swaps whose bitcoin the
+   board found on the Bitcoin chain, which nobody can make up; "all": every swap two wallets
+   reported. Verified comes first whenever there is one; a board before 1.0.55 does not tell
+   them apart in its figures, and then every reported swap is shown. */
+const thHasV=s=>!!(s&&s.all&&s.all.verified_figures);
+const thMode=()=>{ const s=TRD.sum; if(!thHasV(s)) return 'all'; return TRD.mode||(Number(s.all.verified)>0?'verified':'all'); };
+const thPick=(f,m)=>{ if(!f) return {}; const v=f.verified_figures; if(m!=='verified'||!v) return f;
+  return {swaps:Number(f.verified)||0, verified:Number(f.verified)||0, gnr:v.gnr, sats:v.sats, low:v.low, high:v.high, median:v.median, vwap:v.vwap, day:f.day, first:f.first, last:f.last}; };
 async function loadTrades(){
   const seq=++TRD.seq, now=Math.floor(Date.now()/1000), since=TRD.range?now-TRD.range*86400:0;
   // The bitcoin price (for the dollar values) comes with the board's market.
   const board=BD.market?null:loadBoard();
   let sum=null; try{ sum=await api('/api/trades/summary'); }catch(e){}
+  if(seq!==TRD.seq) return;
+  if(sum&&!sum.fallback) TRD.sum=sum;
   let list=[], fb=false;
-  try{ const r=await api('/api/trades?limit='+TH_CHART_SWAPS+(since?'&since='+since:'')); fb=!!r.fallback; list=r.swaps||[]; TRD.ptotal=Number(r.total)||list.length; }catch(e){}
+  const ver=sum&&!sum.fallback&&thMode()==='verified';
+  try{ const r=await api('/api/trades?limit='+TH_CHART_SWAPS+(since?'&since='+since:'')+(ver?'&verified=true':'')); fb=!!r.fallback; list=r.swaps||[]; TRD.ptotal=Number(r.total)||list.length; }catch(e){}
   // A board before 1.0.53 has no summary: the figures come from the swaps it shows (its last 50).
   if(!sum||sum.fallback){ let all=list; if(since){ try{ all=(await api('/api/trades?limit=200')).swaps||[]; }catch(e){} } sum=thLocal(all); fb=true; }
   if(board) await board;
@@ -2400,30 +2420,62 @@ async function loadTrades(){
   thRender(); tradesPage(TRD.page); loadMyTrades();
 }
 function thRender(){
-  const s=TRD.sum||{}, a=s.all||{}, d=s.day||{}, u=btcUsd(), nb='\u00a0';
+  const s=TRD.sum||{}, m=thMode(), hasV=thHasV(s), raw=s.all||{}, a=thPick(s.all,m), d=thPick(s.day,m), u=btcUsd(), nb='\u00a0';
+  const D=86400, now=Math.floor(Date.now()/1000), today=now-now%D, since=TRD.range?now-TRD.range*D:0;
+  document.querySelectorAll('#thMode button').forEach(b=>{ const on=b.dataset.m===m; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); b.disabled=!hasV; });
+  $('thModeNote').textContent=!hasV?T("This board does not tell verified swaps apart in its figures yet: every reported swap is shown.")
+    :m==='verified'?T("Swaps whose bitcoin the board found on the Bitcoin chain. Nobody can make up such a payment, so a false report cannot move these figures.")
+    :T("Every swap two wallets reported. Those whose bitcoin was not found are drawn in grey and do not set the scale of the charts.");
+  const unv=Math.max(0,(Number(raw.swaps)||0)-(Number(raw.verified)||0));
   $('thN').textContent=GKI18N.num(a.swaps||0);
-  $('thNN').textContent=a.swaps?T("{n} in the last 24 hours", {n: GKI18N.num(d.swaps||0)})+(a.first?' · '+T("since {date}", {date: new Date(a.first*1000).toLocaleDateString(GKI18N.lang)}):''):T("no swaps yet");
+  $('thNN').textContent=a.swaps?T("{n} in the last 24 hours", {n: GKI18N.num(d.swaps||0)})+(a.first?' · '+T("since {date}", {date: new Date(a.first*1000).toLocaleDateString(GKI18N.lang)}):''):raw.swaps?T("none verified yet"):T("no swaps yet");
+  $('thNU').textContent=!hasV||!raw.swaps?'':m==='verified'?(unv?Tn(unv, "and {n} more reported, its bitcoin not found", "and {n} more reported, their bitcoin not found", {n: GKI18N.num(unv)}):T("every reported swap is verified"))
+    :T("{n} of them verified", {n: GKI18N.num(Number(raw.verified)||0)});
   $('thG').textContent=a.swaps?thG(a.gnr)+' GNR':'-'; $('thGN').textContent=a.swaps?T("{amount} GNR in the last 24 hours", {amount: thG(d.gnr||0)}):nb;
   $('thB').textContent=a.swaps?thB(a.sats)+' BTC':'-'; $('thBN').textContent=a.swaps&&u?'≈ '+thSatsUsd(a.sats):nb;
   $('thAvg').textContent=thMain(a.vwap); $('thAvgN').textContent=(a.vwap!=null&&u?thPx(a.vwap)+' · ':'')+T("weighed by the bitcoin moved");
   $('thMed').textContent=thMain(a.median); $('thRange').textContent=a.low!=null?T("low {low} · high {high}", {low: thMain(a.low), high: thMain(a.high)}):nb;
-  const now=Date.now()/1000, since=TRD.range?now-TRD.range*86400:0;
-  const daily=(s.days||[]).filter(x=>x.day+86400>since), at=x=>(x.claim&&x.claim.time)||x.at;
+  // Every day of the period has its place, with or without a swap: the days come from the
+  // board's figures, the empty ones are filled in here.
+  const figs=new Map((s.days||[]).map(x=>[Number(x.day), thPick(x,m)]));
+  const first=TRD.range?today-(TRD.range-1)*D:Math.min(today, ...[...figs.keys()]);
+  let daily=[]; for(let t=first; t<=today; t+=D){ const f=figs.get(t); daily.push(f&&f.swaps?f:{day:t, swaps:0, gnr:0, sats:0, median:null}); }
   // Many days (the whole history) are shown week by week.
-  const weekly=daily.length>180, days=weekly?thWeeks(daily):daily;
+  const weekly=daily.length>180, days=weekly?thWeeks(daily):daily, step=weekly?7*D:D, mid=step/2;
   $('thMedH').textContent=weekly?T("Median price per week"):T("Median price per day");
   $('thVolH').textContent=weekly?T("GNR traded per week"):T("GNR traded per day");
   $('thCntH').textContent=weekly?T("Swaps per week"):T("Swaps per day");
-  const sw=TRD.swaps.slice().sort((x,y)=>at(x)-at(y));
-  thChart('price', $('thChPrice'), sw.map(x=>({t:at(x), v:Number(x.price), h:x.claim?x.claim.height:null})), {kind:'area', straight:true, points:sw.length<=200, zero:false, fmt:thSatAxis, label:T("Price per GNR of every completed swap"), height:230});
-  const mid=weekly?3.5*86400:43200;
-  thChart('med', $('thChMed'), days.filter(x=>x.median!=null).map(x=>({t:x.day+mid, v:x.median})), {kind:'line', straight:true, points:days.length<=120, zero:false, fmt:thSatAxis, label:$('thMedH').textContent, height:190});
-  thChart('vol', $('thChVol'), days.map(x=>({t:x.day+mid, v:x.gnr/1e8})), {kind:'bars', fmt:(v,axis)=>axis?GKCharts.fmtNum(v):gnrShort(v*1e8)+' GNR', label:$('thVolH').textContent, height:190});
-  thChart('cnt', $('thChCnt'), days.map(x=>({t:x.day+mid, v:x.swaps})), {kind:'bars', integer:true, fmt:(v,axis)=>axis?String(Math.round(v)):Tn(Math.round(v), "{n} swap", "{n} swaps", {n: Math.round(v)}), label:$('thCntH').textContent, height:170});
-  const r=thFig(sw), last=sw[sw.length-1], dsum=(k)=>daily.reduce((x,o)=>x+Number(o[k]||0),0);
+  const dayLabel=x=>{ const t=new Date((x.t-mid)*1000).toLocaleDateString(GKI18N.lang,{day:'numeric',month:'short',year:'numeric'}); return weekly?T("week of {date}", {date: t}):t; };
+  const span=[days.length?days[0].day:first, (days.length?days[days.length-1].day:today)+step];
+  const none=T("no swaps");
+  // One point per swap. The scale comes from the verified swaps; a reported swap whose
+  // bitcoin was not found is a small grey point, and one far off the scale sits at the edge
+  // with its real price in the tip.
+  const at=x=>(x.claim&&x.claim.time)||x.at;
+  const sw=TRD.swaps.filter(x=>m!=='verified'||x.verified||!hasV).sort((x,y)=>at(x)-at(y));
+  // Each swap says whether it is verified, also on a board whose figures do not.
+  const told=hasV||sw.some(x=>x.verified);
+  const solid=sw.filter(x=>x.verified||!told), soft=sw.length-solid.length;
+  const ps=solid.map(x=>Number(x.price)).filter(isFinite);
+  let range; if(ps.length&&soft){ const lo=Math.min(...ps), hi=Math.max(...ps), pad=Math.max((hi-lo)*0.18, hi*0.04); range=[Math.max(0,lo-pad), hi+pad]; }
+  const far=range?sw.filter(x=>!x.verified&&(Number(x.price)<range[0]||Number(x.price)>range[1])).length:0;
+  const pts=sw.map(x=>({t:at(x), v:Number(x.price), h:x.claim?x.claim.height:null, soft:told&&!x.verified, note:told&&!x.verified?T("reported; its bitcoin was not found"):undefined}));
+  const t0=since||(sw.length?at(sw[0]):now-D), pspan=[t0-(now-t0)*0.03, now+(now-t0)*0.03];
+  // A few swaps are set out one after another (they often come hours apart, then days of
+  // nothing); many are set out by their time.
+  thChart('price', $('thChPrice'), pts, {kind:'area', straight:true, points:sw.length<=200, zero:false, range, ordinal:sw.length<=40, span:sw.length<=40?undefined:pspan, fmt:thSatAxis, label:T("Price per GNR of every completed swap"), height:230,
+    empty:raw.swaps&&m==='verified'?T("No verified swap in this period"):undefined});
+  $('thLegend').innerHTML=soft?`<span><i></i>${TE("verified")}</span><span><i class="soft"></i>${TE("reported, bitcoin not found")}</span>`+(far?`<span><i class="far"></i>${TE("off the scale: its price is in the tip")}</span>`:''):'';
+  // The medians of the days keep the scale of the verified ones too.
+  const vm=m==='all'&&hasV?(s.days||[]).map(x=>x.verified_figures&&x.verified_figures.median).filter(x=>x!=null&&isFinite(x)):[];
+  let mrange; if(vm.length){ const lo=Math.min(...vm), hi=Math.max(...vm), pad=Math.max((hi-lo)*0.18, hi*0.04); mrange=[Math.max(0,lo-pad), hi+pad]; }
+  thChart('med', $('thChMed'), days.filter(x=>x.median!=null).map(x=>({t:x.day+mid, v:Number(x.median)})), {kind:'line', straight:true, points:true, zero:false, range:mrange, span, tipTime:dayLabel, fmt:thSatAxis, label:$('thMedH').textContent, height:190});
+  thChart('vol', $('thChVol'), days.map(x=>({t:x.day+mid, v:x.swaps?x.gnr/1e8:null, none:!x.swaps, note:x.swaps?undefined:none})), {kind:'bars', span, days:!weekly, tipTime:dayLabel, fmt:(v,axis)=>axis?GKCharts.fmtNum(v):gnrShort(v*1e8)+' GNR', label:$('thVolH').textContent, height:190});
+  thChart('cnt', $('thChCnt'), days.map(x=>({t:x.day+mid, v:x.swaps||null, none:!x.swaps, note:x.swaps?undefined:none})), {kind:'bars', integer:true, span, days:!weekly, tipTime:dayLabel, fmt:(v,axis)=>axis?String(Math.round(v)):Tn(Math.round(v), "{n} swap", "{n} swaps", {n: Math.round(v)}), label:$('thCntH').textContent, height:170});
+  const r=thCore(solid), last=solid[solid.length-1]||sw[sw.length-1], dsum=(k)=>daily.reduce((x,o)=>x+Number(o[k]||0),0);
   $('thLast').textContent=last?(TRD.ptotal>sw.length?T("newest {n} of {m}", {n: GKI18N.num(sw.length), m: GKI18N.num(TRD.ptotal)})+' · ':'')+T("last {price}", {price: thPx(last.price)}):'-';
-  $('thMedR').textContent=thPx(r.median); $('thVolR').textContent=daily.length?thG(dsum('gnr'))+' GNR':'-';
-  $('thCntR').textContent=daily.length?Tn(dsum('swaps'), "{n} swap", "{n} swaps", {n: GKI18N.num(dsum('swaps'))}):'-';
+  $('thMedR').textContent=thPx(r.median); $('thVolR').textContent=dsum('swaps')?thG(dsum('gnr'))+' GNR':'-';
+  $('thCntR').textContent=dsum('swaps')?Tn(dsum('swaps'), "{n} swap", "{n} swaps", {n: GKI18N.num(dsum('swaps'))}):'-';
   $('thNote').textContent=TRD.fallback?T("This board shows only its last 50 swaps; the whole history appears once it runs version 1.0.53 or newer."):T("Every point is one completed swap, at the price its two wallets agreed on. Move over a chart to read a swap or a day.");
   document.querySelectorAll('#thRng button').forEach(b=>b.classList.toggle('on', Number(b.dataset.r)===TRD.range));
 }
@@ -2437,7 +2489,7 @@ function thWeeks(days){ const by=new Map();
 function thRow(x){ const c=x.claim, t=(c&&c.time)||x.at;
   return `<tr><td>${esc(thWhen(t))}</td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td><td class="r">${c?`<button type="button" class="linkbtn" onclick="openLink('tx',${jsq(c.txid)})">${TE("Block #{h}", {h: GKI18N.num(Number(c.height))})} ↗</button>`:''}${x.verified?`<span class="th-ok" title="${TE("The board found this swap's bitcoin on the Bitcoin chain")}">BTC ✓</span>`:''}</td></tr>`; }
 async function tradesPage(p){
-  const per=Number($('thPer').value)||50, ver=$('thVer').checked;
+  const per=Number($('thPer').value)||50, ver=thMode()==='verified';
   let r; try{ r=await api('/api/trades?offset='+(p*per)+'&limit='+per+(ver?'&verified=true':'')); }catch(e){ $('thRows').innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`; return; }
   const total=Number(r.total)||0, pages=Math.max(1,Math.ceil(total/per));
   if(p>0&&p>=pages) return tradesPage(pages-1);
@@ -2465,6 +2517,7 @@ function thMineRows(){ const l=TRD.mine||[];
 }
 async function tradesCsv(){ try{ const r=await api('/api/trades/export',{}); toast(T("Saved to {path}", {path: r.path})); }catch(e){ toast(e.message,true); } }
 document.querySelectorAll('#thRng button').forEach(b=>b.addEventListener('click',()=>{ TRD.range=Number(b.dataset.r)||0; loadTrades(); }));
+document.querySelectorAll('#thMode button').forEach(b=>b.addEventListener('click',()=>{ if(b.disabled) return; TRD.mode=b.dataset.m; TRD.page=0; loadTrades(); }));
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
 const BDV={tab:'book', sort:'price', min:'', max:'', per:10, page:0};

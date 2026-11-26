@@ -300,7 +300,9 @@ pub struct Board {
     summary_snap: Mutex<Option<Snap>>,
     history: std::sync::OnceLock<crate::history::History>,
     /// The all-time median price (it reads the whole history): (swaps then, when, median).
-    median_all: Mutex<Option<(u64, Instant, Option<f64>)>>,
+    /// The all-time medians (every swap, verified ones) and what they were read at: the
+    /// number of swaps, how many of them were verified, and when.
+    median_all: Mutex<Option<MedianAll>>,
 }
 
 /// A large answer as it was served, with the board's generation then.
@@ -1959,8 +1961,9 @@ fn rec_json(r: &crate::history::Rec, tip: u64) -> Value {
     })
 }
 
-/// The summary from the history on disk: totals from the days' figures (the all-time
-/// median read again at most every ten minutes, or when swaps were added).
+/// The summary from the history on disk: totals from the days' figures. The all-time
+/// medians read the whole history, so they are kept: for a minute while swaps arrive, and
+/// for ten while nothing changes.
 fn store_summary(
     node: &Arc<Node>,
     h: &crate::history::History,
@@ -1969,46 +1972,72 @@ fn store_summary(
 ) -> anyhow::Result<Value> {
     let days = h.days()?;
     let count = h.count()?;
-    let median = {
+    let sum =
+        |f: fn(&crate::history::DayFig) -> u64| days.iter().map(f).fold(0u64, u64::saturating_add);
+    let verified = sum(|d| d.verified);
+    let (median, v_median) = {
         let mut m = node.board.median_all.lock();
         match *m {
-            Some((n, at, v)) if n == count || at.elapsed() < Duration::from_secs(600) => v,
+            Some((n, nv, at, a, v))
+                if at.elapsed() < Duration::from_secs(60)
+                    || ((n, nv) == (count, verified)
+                        && at.elapsed() < Duration::from_secs(600)) =>
+            {
+                (a, v)
+            }
             _ => {
-                let v = h.median_all()?;
-                *m = Some((count, Instant::now(), v));
-                v
+                let (a, v) = h.median_all()?;
+                *m = Some((count, verified, Instant::now(), a, v));
+                (a, v)
             }
         }
     };
-    let sum =
-        |f: fn(&crate::history::DayFig) -> u64| days.iter().map(f).fold(0u64, u64::saturating_add);
     let (gnr, sats) = (sum(|d| d.gnr), sum(|d| d.sats));
-    let low = days
-        .iter()
-        .filter_map(|d| d.low)
-        .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.min(x))));
-    let high = days
-        .iter()
-        .filter_map(|d| d.high)
-        .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.max(x))));
+    let (v_gnr, v_sats) = (sum(|d| d.v_gnr), sum(|d| d.v_sats));
+    let least = |f: fn(&crate::history::DayFig) -> Option<f64>| {
+        days.iter()
+            .filter_map(f)
+            .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.min(x))))
+    };
+    let most = |f: fn(&crate::history::DayFig) -> Option<f64>| {
+        days.iter()
+            .filter_map(f)
+            .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.max(x))))
+    };
+    let vwap = |gnr: u64, sats: u64| (gnr > 0).then(|| sats as f64 / (gnr as f64 / 1e8));
     let span = h.span()?;
     let all = json!({
         "swaps": sum(|d| d.swaps),
-        "verified": sum(|d| d.verified),
+        "verified": verified,
         "gnr": gnr,
         "sats": sats,
-        "low": low,
-        "high": high,
+        "low": least(|d| d.low),
+        "high": most(|d| d.high),
         "median": median,
-        "vwap": if gnr > 0 { Some(sats as f64 / (gnr as f64 / 1e8)) } else { None },
+        "vwap": vwap(gnr, sats),
         "first": span.map(|s| s.0),
         "last": span.map(|s| s.1),
+        // The same over the verified swaps alone (1.0.55): what the charts and totals of the
+        // trade history show first, since a made-up report cannot move them.
+        "verified_figures": {
+            "gnr": v_gnr, "sats": v_sats, "low": least(|d| d.v_low), "high": most(|d| d.v_high),
+            "median": v_median, "vwap": vwap(v_gnr, v_sats),
+        },
     });
     let day = history_figures(last24, t)["all"].clone();
     let days: Vec<Value> = days
         .iter()
         .filter(|d| d.swaps > 0)
-        .map(|d| json!({"day": d.day, "swaps": d.swaps, "verified": d.verified, "gnr": d.gnr, "sats": d.sats, "low": d.low, "high": d.high, "median": d.median, "vwap": d.vwap}))
+        .map(|d| {
+            json!({
+                "day": d.day, "swaps": d.swaps, "verified": d.verified, "gnr": d.gnr, "sats": d.sats,
+                "low": d.low, "high": d.high, "median": d.median, "vwap": d.vwap,
+                "verified_figures": {
+                    "gnr": d.v_gnr, "sats": d.v_sats, "low": d.v_low, "high": d.v_high,
+                    "median": d.v_median, "vwap": d.v_vwap,
+                },
+            })
+        })
         .collect();
     Ok(json!({"all": all, "day": day, "days": days, "now": t}))
 }
@@ -2016,29 +2045,37 @@ fn store_summary(
 /// A completed swap for the figures: (time, price, GNR, sat, verified).
 type Done = (u64, f64, u64, u64, bool);
 
+/// The all-time medians as they were last read: (swaps, verified swaps, when, the median of
+/// every swap, the median of the verified ones).
+type MedianAll = (u64, u64, Instant, Option<f64>, Option<f64>);
+
 /// Totals and per-day figures of completed swaps.
 fn history_figures(list: &[Done], t: u64) -> Value {
-    fn figures(v: &[Done]) -> Value {
+    /// GNR, bitcoin, low, high, median and the average weighed by the bitcoin moved.
+    fn core(v: &[&Done]) -> Value {
         let mut prices: Vec<f64> = v.iter().map(|x| x.1).collect();
         prices.sort_by(f64::total_cmp);
         let gnr: u64 = v.iter().map(|x| x.2).fold(0, u64::saturating_add);
         let sats: u64 = v.iter().map(|x| x.3).fold(0, u64::saturating_add);
-        let median = match prices.len() {
-            0 => None,
-            n if n % 2 == 1 => Some(prices[n / 2]),
-            n => Some((prices[n / 2 - 1] + prices[n / 2]) / 2.0),
-        };
         json!({
-            "swaps": v.len(),
-            "verified": v.iter().filter(|x| x.4).count(),
             "gnr": gnr,
             "sats": sats,
             "low": prices.first(),
             "high": prices.last(),
-            "median": median,
+            "median": crate::history::median(&prices),
             // What a GNR cost on average, weighed by the bitcoin moved.
             "vwap": if gnr > 0 { Some(sats as f64 / (gnr as f64 / 1e8)) } else { None },
         })
+    }
+    fn figures(v: &[Done]) -> Value {
+        let all: Vec<&Done> = v.iter().collect();
+        let verified: Vec<&Done> = v.iter().filter(|x| x.4).collect();
+        let mut f = core(&all);
+        f["swaps"] = json!(v.len());
+        f["verified"] = json!(verified.len());
+        // The same over the verified swaps alone (1.0.55).
+        f["verified_figures"] = core(&verified);
+        f
     }
     let mut days: std::collections::BTreeMap<u64, Vec<Done>> = Default::default();
     for x in list {

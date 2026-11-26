@@ -47,7 +47,10 @@
   /* data: [{t, v, h, soft, none, note}], opts: {fmt, kind: "area"|"line"|"bars", target, targetLabel,
      height, zero, integer, straight (no smoothing: each point is a real event), points (a dot on
      every point), range: [lo, hi] (the scale; a value outside it is drawn at the edge, hollow and
-     dashed, and the tip still shows its real figure), tipTime(d)}.
+     dashed, and the tip still shows its real figure), span: [t0, t1] (the time the x axis
+     covers, when it is wider than the data: a period with empty days in it), ordinal (the
+     points are spaced evenly, one after another, instead of by their time: a few events that
+     happened close together stay readable), tipTime(d)}.
      A point with v == null is a gap: the line stops there and starts again after it. A soft point
      (soft: true) is drawn small and grey and the line passes it by. A bar with none: true is an
      empty slot (a day with nothing in it), drawn as a faint tick so the days stay in their places. */
@@ -73,7 +76,8 @@
         return;
       }
       var padL = 54, padR = 10, padT = 14, padB = 26, iw = W - padL - padR, ih = H - padT - padB;
-      var t0 = data[0].t, t1 = data[data.length - 1].t, span = Math.max(1, t1 - t0);
+      var t0 = o.span ? Number(o.span[0]) : data[0].t, t1 = o.span ? Number(o.span[1]) : data[data.length - 1].t, span = Math.max(1, t1 - t0);
+      var one = data.length === 1 && !o.span;
       // The scale comes from the range the caller trusts (if given), else from every value.
       var vs = o.range ? [Number(o.range[0]), Number(o.range[1])] : real.filter(function (d) { return !d.soft || bars; }).map(function (d) { return d.v; });
       if (!vs.length) vs = real.map(function (d) { return d.v; });
@@ -90,8 +94,12 @@
       vmin = ticks[0]; vmax = ticks[ticks.length - 1];
       var bw = bars ? Math.max(1.5, Math.min(o.barMax || 14, (iw / data.length) * 0.66)) : 0;
       // A few points sit away from the edges, so one or five swaps read as a chart, not a corner.
-      var inset = bars ? bw / 2 + 1 : (data.length > 1 && data.length <= 6 ? iw * 0.07 : 0);
-      function X(t) { return padL + inset + (data.length === 1 ? (iw - 2 * inset) / 2 : ((t - t0) / span) * (iw - 2 * inset)); }
+      var inset = bars ? bw / 2 + 1 : (!one && data.length <= 6 ? iw * 0.07 : 0);
+      function X(t) { return padL + inset + (one ? (iw - 2 * inset) / 2 : ((t - t0) / span) * (iw - 2 * inset)); }
+      // Where datum k sits: by its place in the row when ordinal, else by its time.
+      var ord = !!o.ordinal && !bars;
+      if (ord) inset = iw * (data.length <= 6 ? 0.1 : 0.03);
+      function XK(k) { return ord ? padL + inset + (data.length === 1 ? (iw - 2 * inset) / 2 : (k / (data.length - 1)) * (iw - 2 * inset)) : X(data[k].t); }
       function Y(v) { return padT + ih - ((v - vmin) / (vmax - vmin)) * ih; }
       var gid = "gkg" + (++uid);
       var defs = el("defs", {}, svg);
@@ -102,10 +110,22 @@
         el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "gk-grid" }, svg);
         el("text", { x: padL - 8, y: Y(v) + 4, "text-anchor": "end", class: "gk-axis" }, svg).textContent = (o.fmt || String)(v, true);
       });
-      var nx = data.length === 1 ? 0 : W < 420 ? 2 : 4;
-      for (var i = 0; i <= nx; i++) {
-        var tt = t0 + (span * i) / nx || t0;
-        el("text", { x: X(tt), y: H - 7, "text-anchor": nx === 0 ? "middle" : i === 0 ? "start" : i === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(tt, o.days ? 3 * 86400 : span);
+      var nx = one ? 0 : W < 420 ? 2 : 4;
+      if (ord) {
+        // A label under a few of the points, each with that point's own time.
+        var real0 = data[0].t, real1 = data[data.length - 1].t, shown = {};
+        nx = Math.min(nx, data.length - 1);
+        for (var j = 0; j <= nx; j++) {
+          var k = nx === 0 ? 0 : Math.round(((data.length - 1) * j) / nx);
+          if (shown[k]) continue;
+          shown[k] = 1;
+          el("text", { x: XK(k), y: H - 7, "text-anchor": data.length === 1 ? "middle" : j === 0 ? "start" : j === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(data[k].t, Math.max(3 * 86400, real1 - real0));
+        }
+      } else {
+        for (var i = 0; i <= nx; i++) {
+          var tt = t0 + (span * i) / nx || t0;
+          el("text", { x: X(tt), y: H - 7, "text-anchor": nx === 0 ? "middle" : i === 0 ? "start" : i === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(tt, o.days ? 3 * 86400 : span);
+        }
       }
       if (o.target != null) {
         el("line", { x1: padL, x2: W - padR, y1: Y(o.target), y2: Y(o.target), class: "gk-target" }, svg);
@@ -113,16 +133,16 @@
       }
       // Where each point is drawn. far: 1 above the scale, -1 below it.
       var hov = [];
-      var pts = data.map(function (d) {
-        if (!isNum(d)) { if (d.note || d.none) hov.push({ x: X(d.t), y: Y(vmin), d: d, gap: true }); return null; }
+      var pts = data.map(function (d, k) {
+        if (!isNum(d)) { if (d.note || d.none) hov.push({ x: XK(k), y: Y(vmin), d: d, gap: true }); return null; }
         var far = bars ? 0 : d.v > vmax ? 1 : d.v < vmin ? -1 : 0;
-        var p = { x: X(d.t), y: far > 0 ? padT + 5 : far < 0 ? padT + ih - 5 : Y(d.v), far: far, d: d };
+        var p = { x: XK(k), y: far > 0 ? padT + 5 : far < 0 ? padT + ih - 5 : Y(d.v), far: far, d: d };
         hov.push(p);
         return p;
       });
       if (bars) {
         pts.forEach(function (p, k) {
-          var d = data[k], x = X(d.t);
+          var d = data[k], x = XK(k);
           if (!p || d.none) { el("rect", { x: x - bw / 2, y: Y(vmin) - 1.5, width: bw, height: 1.5, class: "gk-bar none" }, svg); return; }
           var y = Math.max(padT, p.y);
           el("rect", { x: x - bw / 2, y: y, width: bw, height: Math.max(1.5, Y(vmin) - y), rx: Math.min(3, bw / 3), class: "gk-bar" }, svg);

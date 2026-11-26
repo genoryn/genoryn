@@ -18,8 +18,12 @@
   <div class="page-head"><span class="eyebrow">Market · history</span><h1 class="h2 glow">Trade history</h1>
     <p class="lead">Every completed GNR swap with bitcoin, newest first: the price its two wallets agreed on, the GNR and bitcoin that changed hands, and the proof on the GNR chain. Nothing is estimated: while swaps are few, so are the points.</p></div>
 
+  <div class="th-bar">
+    <div class="seg" id="thMode" role="group" aria-label="Which swaps the figures and charts show"><button type="button" data-m="verified" class="on" aria-pressed="true">Verified</button><button type="button" data-m="all" aria-pressed="false">All reported</button></div>
+    <p class="th-modenote" id="thModeNote"></p>
+  </div>
   <section class="glass mk-totals th-totals" aria-label="The whole trade history in figures">
-    <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-history"/></svg>Completed swaps</span><b id="thN">—</b><em id="thNN">&nbsp;</em></div>
+    <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-history"/></svg>Completed swaps</span><b id="thN">—</b><em id="thNN">&nbsp;</em><em id="thNU" class="th-unv"></em></div>
     <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-gnr"/></svg>GNR traded</span><b id="thG">—</b><em id="thGN">&nbsp;</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="coin" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin traded</span><b id="thB">—</b><em id="thBN">&nbsp;</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>Average price</span><b id="thAvg">—</b><em id="thAvgN">&nbsp;</em></div>
@@ -30,18 +34,18 @@
     <div class="dash-head"><h2 id="th-ch-h" class="dash-title">Charts</h2>
       <div class="gk-range" role="group" aria-label="Period" id="thRng"><button type="button" data-r="7">7D</button><button type="button" data-r="30">30D</button><button type="button" data-r="90">90D</button><button type="button" data-r="0">ALL</button></div></div>
     <div class="dash-grid">
-      <div class="glass card chart-card wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">—</b></div><div id="thChPrice"></div></div>
+      <div class="glass card chart-card wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">—</b></div><div id="thChPrice"></div><div class="th-legend" id="thLegend"></div></div>
       <div class="glass card chart-card"><div class="gk-card-head"><h3 id="thMedH">Median price per day</h3><b id="thMedR">—</b></div><div id="thChMed"></div></div>
       <div class="glass card chart-card"><div class="gk-card-head"><h3 id="thVolH">GNR traded per day</h3><b id="thVolR">—</b></div><div id="thChVol"></div></div>
       <div class="glass card chart-card"><div class="gk-card-head"><h3 id="thBtcH">Bitcoin traded per day</h3><b id="thBtcR">—</b></div><div id="thChBtc"></div></div>
-      <div class="glass card chart-card wide"><div class="gk-card-head"><h3 id="thCntH">Swaps per day</h3><b id="thCntR">—</b></div><div id="thChCnt"></div></div>
+      <div class="glass card chart-card"><div class="gk-card-head"><h3 id="thCntH">Swaps per day</h3><b id="thCntR">—</b></div><div id="thChCnt"></div></div>
     </div>
     <p class="muted mk-fine" id="thNote"></p>
   </section>
 
   <section class="glass card th-all" aria-labelledby="th-all-h">
     <div class="mk-head"><h3 id="th-all-h">All swaps <small id="thAllN"></small></h3>
-      <div class="th-tools"><label class="th-ver"><input type="checkbox" id="thVer"> Only swaps whose bitcoin was found on the Bitcoin chain</label>
+      <div class="th-tools">
         <select id="thPer" aria-label="Swaps per page"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option></select></div></div>
     <div class="mk-tablewrap"><table class="mk-table th-table"><thead><tr><th>When</th><th>Price per GNR</th><th class="num"><svg class="coin coin-th" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="num"><svg class="coin coin-th" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="num">Proof on chain</th></tr></thead><tbody id="thRows"></tbody></table></div>
     <div class="mk-pager" id="thPager"></div>
@@ -51,7 +55,8 @@
     <div class="glass card"><h3 id="th-how-h">Where these figures come from</h3>
       <ul class="mk-steps">
         <li><b>Every swap the offer board has recorded</b>, once its GNR claim is on the GNR chain. A swap is an atomic swap between two wallets: no exchange took part, and nobody held anyone's coins.</li>
-        <li><b>Amounts are private on chain.</b> The GNR and bitcoin shown were reported by the swap's own wallets. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain, paid into the swap's contract and taken out with its secret.</li>
+        <li><b>Amounts are private on chain.</b> The GNR and bitcoin shown were reported by the swap's own wallets. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain, paid into the swap's contract and taken out with its secret: such a swap is <b>verified</b>.</li>
+        <li><b>Verified swaps come first.</b> Anyone can report a swap at any price, but nobody can make up a payment on the Bitcoin chain. So the figures and charts show the verified swaps; <b>All reported</b> adds the rest, drawn in grey, and they never set the scale of a chart.</li>
         <li><b>The average price</b> weighs each swap by the bitcoin it moved; <b>the median</b> is the price half of the swaps were below. Swaps whose two wallets reported different amounts are listed but left out of every figure.</li>
         <li><b>The proof</b> opens the GNR claim in the explorer: its block, and the secret that unlocked both sides of the swap.</li>
         <li><b>The market price</b> is computed separately, from the recent verified swaps: <a href="/market#price">how the market price is computed</a>.</li>

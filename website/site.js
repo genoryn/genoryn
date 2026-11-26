@@ -272,16 +272,25 @@
       put("[data-gpu-value]", usd != null ? T("{usd} a day at the market price", { usd: GKValue.usd(g * usd) }) : T("no market price yet"));
     }
   };
-  // Home: the price of every completed swap, oldest first (one point per swap).
+  // Home: the price of every completed swap, oldest first (one point per swap). The scale comes
+  // from the verified swaps (their bitcoin was found on the Bitcoin chain); a reported swap whose
+  // bitcoin was not found is a small grey point, and one far off the scale sits at the edge.
   var homePriceChart = null;
   gk.priceChart = function () {
     var host = document.getElementById("homePrice");
     if (!host || !window.GKCharts || !window.GKValue) return;
     var at = function (x) { return (x.claim && x.claim.time) || x.at; };
     var btc = Number(gk.btcUsd) || 0;
-    var series = (gk.mkRecent || []).slice().sort(function (a, b) { return at(a) - at(b); })
-      .map(function (x) { return { t: at(x), v: Number(x.price) || 0, h: x.claim ? x.claim.height : null }; });
-    var opts = { kind: "area", straight: true, points: true, height: 190, label: T("Price per GNR of every completed swap"),
+    var all = (gk.mkRecent || []).slice().sort(function (a, b) { return at(a) - at(b); });
+    var ok = all.filter(function (x) { return x.verified; }).map(function (x) { return Number(x.price) || 0; });
+    var range;
+    if (ok.length && ok.length < all.length) {
+      var lo = Math.min.apply(null, ok), hi = Math.max.apply(null, ok), pad = Math.max((hi - lo) * 0.18, hi * 0.04);
+      range = [Math.max(0, lo - pad), hi + pad];
+    }
+    var note = T("reported; its bitcoin was not found");
+    var series = all.map(function (x) { var grey = ok.length > 0 && !x.verified; return { t: at(x), v: Number(x.price) || 0, h: x.claim ? x.claim.height : null, soft: grey, note: grey ? note : undefined }; });
+    var opts = { kind: "area", straight: true, points: true, zero: false, range: range, ordinal: series.length <= 40, height: 190, label: T("Price per GNR of every completed swap"),
       fmt: function (v, axis) { var u = GKValue.market(v, btc); return axis ? GKCharts.fmtNum(v) + " sat" : GKValue.btc(v) + (u != null ? " · ≈ " + GKValue.usd(u) : ""); } };
     if (homePriceChart) homePriceChart.update(series, opts); else homePriceChart = GKCharts.chart(host, series, opts);
   };

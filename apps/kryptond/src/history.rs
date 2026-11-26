@@ -14,6 +14,10 @@ const TRADES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("trades");
 const BY_HASH: TableDefinition<&[u8], u64> = TableDefinition::new("by_hash");
 /// Start of a UTC day -> its figures (JSON).
 const DAYS: TableDefinition<u64, &[u8]> = TableDefinition::new("days");
+/// What this file was written with: "figures" -> the version of the days' figures.
+const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
+/// 2 (1.0.55): each day also carries the figures of its verified swaps alone.
+const FIGURES_VERSION: u64 = 2;
 
 const DAY: u64 = 86_400;
 const REC_LEN: usize = 8 + 8 + 1 + 1 + 8 + 8 + 8 + 32 + 32 + 8;
@@ -130,6 +134,20 @@ pub struct DayFig {
     pub high: Option<f64>,
     pub median: Option<f64>,
     pub vwap: Option<f64>,
+    /// The same figures over the day's verified swaps alone (1.0.55): the ones whose bitcoin
+    /// the board found on the Bitcoin chain. `verified` above is how many they are.
+    #[serde(default)]
+    pub v_gnr: u64,
+    #[serde(default)]
+    pub v_sats: u64,
+    #[serde(default)]
+    pub v_low: Option<f64>,
+    #[serde(default)]
+    pub v_high: Option<f64>,
+    #[serde(default)]
+    pub v_median: Option<f64>,
+    #[serde(default)]
+    pub v_vwap: Option<f64>,
 }
 
 /// The median of sorted values.
@@ -141,29 +159,47 @@ pub fn median(sorted: &[f64]) -> Option<f64> {
     }
 }
 
+/// GNR, bitcoin and prices of a set of swaps: (GNR, sat, low, high, median, average weighed
+/// by the bitcoin moved).
+type Sums = (u64, u64, Option<f64>, Option<f64>, Option<f64>, Option<f64>);
+
+fn sums(recs: &[&Rec]) -> Sums {
+    let mut prices: Vec<f64> = recs.iter().map(|r| r.price()).collect();
+    prices.sort_by(f64::total_cmp);
+    let gnr = recs.iter().map(|r| r.gnr).fold(0u64, u64::saturating_add);
+    let sats = recs.iter().map(|r| r.sats).fold(0u64, u64::saturating_add);
+    (
+        gnr,
+        sats,
+        prices.first().copied(),
+        prices.last().copied(),
+        median(&prices),
+        (gnr > 0).then(|| sats as f64 / (gnr as f64 / 1e8)),
+    )
+}
+
 fn figures(day: u64, recs: &[Rec]) -> DayFig {
     let counted: Vec<&Rec> = recs.iter().filter(|r| !r.disputed && r.gnr > 0).collect();
-    let mut prices: Vec<f64> = counted.iter().map(|r| r.price()).collect();
-    prices.sort_by(f64::total_cmp);
-    let gnr = counted
-        .iter()
-        .map(|r| r.gnr)
-        .fold(0u64, u64::saturating_add);
-    let sats = counted
-        .iter()
-        .map(|r| r.sats)
-        .fold(0u64, u64::saturating_add);
+    let verified: Vec<&Rec> = counted.iter().copied().filter(|r| r.verified).collect();
+    let (gnr, sats, low, high, median, vwap) = sums(&counted);
+    let (v_gnr, v_sats, v_low, v_high, v_median, v_vwap) = sums(&verified);
     DayFig {
         day,
         all: recs.len() as u64,
         swaps: counted.len() as u64,
-        verified: counted.iter().filter(|r| r.verified).count() as u64,
+        verified: verified.len() as u64,
         gnr,
         sats,
-        low: prices.first().copied(),
-        high: prices.last().copied(),
-        median: median(&prices),
-        vwap: (gnr > 0).then(|| sats as f64 / (gnr as f64 / 1e8)),
+        low,
+        high,
+        median,
+        vwap,
+        v_gnr,
+        v_sats,
+        v_low,
+        v_high,
+        v_median,
+        v_vwap,
     }
 }
 
@@ -176,9 +212,39 @@ impl History {
         let db = Database::create(path).context("open the trade history")?;
         let w = db.begin_write()?;
         {
-            w.open_table(TRADES)?;
+            let trades = w.open_table(TRADES)?;
             w.open_table(BY_HASH)?;
-            w.open_table(DAYS)?;
+            let mut days = w.open_table(DAYS)?;
+            let mut meta = w.open_table(META)?;
+            // Days written by an older version lack the newer figures: every day is worked
+            // out again from its swaps, once.
+            if meta.get("figures")?.map(|v| v.value()) != Some(FIGURES_VERSION) {
+                let mut day: Option<u64> = None;
+                let mut recs: Vec<Rec> = Vec::new();
+                let mut put = |day: u64, recs: &[Rec]| -> Result<()> {
+                    days.insert(day, serde_json::to_vec(&figures(day, recs))?.as_slice())?;
+                    Ok(())
+                };
+                for e in trades.iter()? {
+                    let (k, v) = e?;
+                    let Some(r) = Rec::decode(k.value(), v.value()) else {
+                        continue;
+                    };
+                    let d = r.at - r.at % DAY;
+                    if day != Some(d) {
+                        if let Some(old) = day {
+                            put(old, &recs)?;
+                        }
+                        day = Some(d);
+                        recs.clear();
+                    }
+                    recs.push(r);
+                }
+                if let Some(old) = day {
+                    put(old, &recs)?;
+                }
+                meta.insert("figures", FIGURES_VERSION)?;
+            }
         }
         w.commit()?;
         Ok(Self { db })
@@ -348,11 +414,13 @@ impl History {
         Ok(out)
     }
 
-    /// The median price of every swap that counts (reads the whole history: called seldom).
-    pub fn median_all(&self) -> Result<Option<f64>> {
+    /// The median price of every swap that counts, and of the verified ones alone (reads
+    /// the whole history: called seldom).
+    pub fn median_all(&self) -> Result<(Option<f64>, Option<f64>)> {
         let r = self.db.begin_read()?;
         let trades = r.open_table(TRADES)?;
         let mut prices = Vec::new();
+        let mut verified = Vec::new();
         for e in trades.iter()? {
             let (k, v) = e?;
             if let Some(rec) = Rec::decode(k.value(), v.value())
@@ -360,10 +428,14 @@ impl History {
                 && rec.gnr > 0
             {
                 prices.push(rec.price());
+                if rec.verified {
+                    verified.push(rec.price());
+                }
             }
         }
         prices.sort_by(f64::total_cmp);
-        Ok(median(&prices))
+        verified.sort_by(f64::total_cmp);
+        Ok((median(&prices), median(&verified)))
     }
 
     /// The first and last recording times.
@@ -477,8 +549,150 @@ mod tests {
         drop(h);
         let h = History::open(&d.path().join("h.redb")).unwrap();
         assert_eq!(h.count().unwrap(), 10);
-        assert_eq!(h.median_all().unwrap(), Some(1050.0));
+        assert_eq!(h.median_all().unwrap(), (Some(1050.0), Some(1020.0)));
         assert_eq!(h.span().unwrap(), Some((t0, t0 + 9 * 3_600 * 6)));
+    }
+
+    /// A history like the early mainnet's: 13 swaps, 7 of them with their bitcoin found, at
+    /// prices close to each other, and 6 reported ones at prices far from those. The figures
+    /// of the verified swaps are not moved by the others.
+    #[test]
+    fn verified_figures_stand_apart_from_odd_reports() {
+        let d = tempfile::tempdir().unwrap();
+        let h = History::open(&d.path().join("h.redb")).unwrap();
+        let t0 = 20_000 * DAY;
+        let g = 1e8 as u64;
+        // (day, GNR, sat per GNR, verified)
+        let swaps: [(u64, u64, u64, bool); 13] = [
+            (0, 10, 1_000, false),
+            (0, 2, 5_000, false),
+            (1, 1, 10_000, false),
+            (3, 50, 20, false),
+            (3, 5, 1_000, false),
+            (4, 3, 167, false),
+            (19, 4_000, 120, true),
+            (21, 100, 120, true),
+            (21, 750, 115, true),
+            (21, 1_100, 218, true),
+            (21, 500, 100, true),
+            (21, 100, 120, true),
+            (22, 250, 130, true),
+        ];
+        let new: Vec<Rec> = swaps
+            .iter()
+            .enumerate()
+            .map(|(k, (day, gnr, px, ok))| Rec {
+                at: t0 + day * DAY + 600 * k as u64,
+                hash: [k as u8 + 1; 32],
+                gnr: gnr * g,
+                sats: gnr * px,
+                verified: *ok,
+                paid: if *ok { gnr * px } else { 0 },
+                disputed: false,
+                claim: None,
+            })
+            .collect();
+        h.write(&new, &[]).unwrap();
+        let days = h.days().unwrap();
+        assert_eq!(days.len(), 7, "seven days saw a swap");
+        assert_eq!(days.iter().map(|d| d.swaps).sum::<u64>(), 13);
+        assert_eq!(days.iter().map(|d| d.verified).sum::<u64>(), 7);
+        // Every reported swap: from 20 to 10,000 sat.
+        let low = days.iter().filter_map(|d| d.low).fold(f64::MAX, f64::min);
+        let high = days.iter().filter_map(|d| d.high).fold(0.0, f64::max);
+        assert_eq!((low, high), (20.0, 10_000.0));
+        // The verified ones alone: from 100 to 218 sat.
+        let v_low = days.iter().filter_map(|d| d.v_low).fold(f64::MAX, f64::min);
+        let v_high = days.iter().filter_map(|d| d.v_high).fold(0.0, f64::max);
+        assert_eq!((v_low, v_high), (100.0, 218.0));
+        let (all, verified) = h.median_all().unwrap();
+        assert_eq!(verified, Some(120.0));
+        assert_eq!(all, Some(130.0));
+        // A day with only unverified swaps has no verified figures at all.
+        let first = &days[0];
+        assert_eq!((first.swaps, first.verified, first.v_gnr), (2, 0, 0));
+        assert_eq!(
+            (first.v_low, first.v_median, first.v_vwap),
+            (None, None, None)
+        );
+        // The busiest day: five verified swaps.
+        let busy = days.iter().find(|d| d.day == t0 + 21 * DAY).unwrap();
+        assert_eq!((busy.swaps, busy.verified), (5, 5));
+        assert_eq!(busy.v_gnr, 2_550 * g);
+        assert_eq!(busy.v_median, Some(120.0));
+        assert_eq!((busy.v_low, busy.v_high), (Some(100.0), Some(218.0)));
+        // A report proven later joins the verified figures of its day.
+        h.write(
+            &[],
+            &[(
+                [6; 32],
+                Status {
+                    verified: true,
+                    paid: 3 * 167,
+                    disputed: false,
+                    claim: None,
+                    amounts: None,
+                },
+            )],
+        )
+        .unwrap();
+        let d4 = h
+            .days()
+            .unwrap()
+            .into_iter()
+            .find(|d| d.day == t0 + 4 * DAY)
+            .unwrap();
+        assert_eq!((d4.verified, d4.v_low, d4.v_gnr), (1, Some(167.0), 3 * g));
+    }
+
+    /// Days written before 1.0.55 have no figures of the verified swaps: opening the history
+    /// works every day out again, once.
+    #[test]
+    fn old_days_are_worked_out_again() {
+        let d = tempfile::tempdir().unwrap();
+        let path = d.path().join("h.redb");
+        let t0 = 300 * DAY;
+        {
+            let h = History::open(&path).unwrap();
+            let mut a = rec(t0 + 10, 1, 1e8 as u64, 120);
+            a.verified = true;
+            let b = rec(t0 + 20, 2, 1e8 as u64, 9_000);
+            let mut c = rec(t0 + DAY + 5, 3, 2e8 as u64, 260);
+            c.verified = true;
+            h.write(&[a, b, c], &[]).unwrap();
+        }
+        // What an older version left behind: days without the newer fields, no version.
+        {
+            let db = Database::create(&path).unwrap();
+            let w = db.begin_write().unwrap();
+            {
+                let mut days = w.open_table(DAYS).unwrap();
+                for day in [t0, t0 + DAY] {
+                    let old = serde_json::json!({"day": day, "all": 9, "swaps": 9, "verified": 9,
+                        "gnr": 1, "sats": 1, "low": 1.0, "high": 1.0, "median": 1.0, "vwap": 1.0});
+                    days.insert(day, serde_json::to_vec(&old).unwrap().as_slice())
+                        .unwrap();
+                }
+                w.open_table(META).unwrap().remove("figures").unwrap();
+            }
+            w.commit().unwrap();
+        }
+        let h = History::open(&path).unwrap();
+        let days = h.days().unwrap();
+        assert_eq!(days.len(), 2);
+        assert_eq!((days[0].swaps, days[0].verified), (2, 1));
+        assert_eq!((days[0].low, days[0].high), (Some(120.0), Some(9_000.0)));
+        assert_eq!(
+            (days[0].v_low, days[0].v_high, days[0].v_median),
+            (Some(120.0), Some(120.0), Some(120.0))
+        );
+        assert_eq!(
+            (days[1].verified, days[1].v_gnr, days[1].v_vwap),
+            (1, 2e8 as u64, Some(130.0))
+        );
+        // Opening again changes nothing.
+        drop(h);
+        assert_eq!(History::open(&path).unwrap().days().unwrap(), days);
     }
 
     /// A million swaps: a page and the figures stay fast (run with --release --ignored).

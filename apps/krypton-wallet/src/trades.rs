@@ -112,21 +112,35 @@ pub async fn page(axum::extract::State(app): S, h: HeaderMap, Query(q): Query<Pa
 }
 
 /// Figures of a set of swaps (all of them, the last 24 hours, or one day), numbers only.
+/// `verified_figures` are the same over the swaps whose bitcoin the board found (a board
+/// from 1.0.55 on sends them; `null` from an older one).
 fn figures(v: &Value) -> Value {
-    let f = |k: &str| v[k].as_f64().filter(|x| x.is_finite() && *x >= 0.0);
-    let n = |k: &str| v[k].as_u64();
+    let f = |v: &Value, k: &str| v[k].as_f64().filter(|x| x.is_finite() && *x >= 0.0);
+    let n = |v: &Value, k: &str| v[k].as_u64();
+    let vf = &v["verified_figures"];
+    let checked = vf.is_object().then(|| {
+        json!({
+            "gnr": n(vf, "gnr").unwrap_or(0),
+            "sats": n(vf, "sats").unwrap_or(0),
+            "low": f(vf, "low"),
+            "high": f(vf, "high"),
+            "median": f(vf, "median"),
+            "vwap": f(vf, "vwap"),
+        })
+    });
     json!({
-        "swaps": n("swaps").unwrap_or(0),
-        "verified": n("verified").unwrap_or(0),
-        "gnr": n("gnr").unwrap_or(0),
-        "sats": n("sats").unwrap_or(0),
-        "low": f("low"),
-        "high": f("high"),
-        "median": f("median"),
-        "vwap": f("vwap"),
-        "day": n("day"),
-        "first": n("first"),
-        "last": n("last"),
+        "swaps": n(v, "swaps").unwrap_or(0),
+        "verified": n(v, "verified").unwrap_or(0),
+        "gnr": n(v, "gnr").unwrap_or(0),
+        "sats": n(v, "sats").unwrap_or(0),
+        "low": f(v, "low"),
+        "high": f(v, "high"),
+        "median": f(v, "median"),
+        "vwap": f(v, "vwap"),
+        "day": n(v, "day"),
+        "first": n(v, "first"),
+        "last": n(v, "last"),
+        "verified_figures": checked,
     })
 }
 
