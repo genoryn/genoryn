@@ -533,6 +533,7 @@ pub mod board;
 pub mod btc;
 pub mod deposit;
 pub mod engine;
+pub mod price;
 
 #[cfg(test)]
 mod tests;

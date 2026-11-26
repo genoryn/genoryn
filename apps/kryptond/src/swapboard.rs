@@ -38,9 +38,10 @@ const MAX_MESSAGE_BYTES_TOTAL: usize = 96 * 1024 * 1024;
 const MESSAGE_SECS: u64 = 24 * 3600;
 /// Completed swaps kept in memory (the price and the market read them). The whole history
 /// is on disk (`crate::history`); with it, memory keeps the swaps of the last
-/// [`MEMORY_TRADE_SECS`] and at least the newest [`MEMORY_TRADES_MIN`].
+/// [`MEMORY_TRADE_SECS`] (the price reads 30 days back from any hour of the last 7) and at
+/// least the newest [`MEMORY_TRADES_MIN`].
 const MAX_TRADES: usize = 200_000;
-const MEMORY_TRADE_SECS: u64 = 30 * 24 * 3600;
+const MEMORY_TRADE_SECS: u64 = 40 * 24 * 3600;
 const MEMORY_TRADES_MIN: usize = 1_000;
 /// What one client (an address, IPv6 by /48) may put on the board: open offers, and
 /// sealed messages in a day, in all and into one inbox.
@@ -928,6 +929,7 @@ fn hist_rec(i: &Inner, x: &Trade, at: u64) -> Option<crate::history::Rec> {
         gnr: x.gnr,
         sats: x.sats,
         verified: st.verified,
+        paid: st.paid,
         disputed: st.disputed,
         claim: st.claim,
     })
@@ -942,6 +944,7 @@ fn hist_status(i: &Inner, hash: &str) -> crate::history::Status {
             .find(|(x, _)| x.hash == hash)
             .map(|(x, _)| (x.gnr, x.sats)),
         verified: i.paid.contains_key(hash),
+        paid: i.paid.get(hash).map_or(0, |p| p.0),
         disputed: i.disputed.contains(hash),
         claim: i.claims.get(hash).and_then(|c| {
             Some(crate::history::ClaimRec {
@@ -1639,6 +1642,31 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
     }
 }
 
+/// The price assessment, computed again at most once a minute or when the swaps or their
+/// verification change (it rebuilds a week of prices hour by hour).
+struct PriceCache(parking_lot::Mutex<Option<(usize, usize, u64, krypton_swap::price::Assessment)>>);
+static PRICE_CACHE: PriceCache = PriceCache(parking_lot::Mutex::new(None));
+
+impl PriceCache {
+    fn with_cache(
+        &self,
+        i: &Inner,
+        verified: &HashMap<String, u64>,
+        t: u64,
+    ) -> krypton_swap::price::Assessment {
+        let key = (i.trades.len(), verified.len(), t / 60);
+        let mut c = self.0.lock();
+        if let Some((n, v, m, a)) = c.as_ref()
+            && (*n, *v, *m) == key
+        {
+            return a.clone();
+        }
+        let a = krypton_swap::price::assess(&board::price_swaps(&i.trades, verified), t);
+        *c = Some((key.0, key.1, key.2, a.clone()));
+        a
+    }
+}
+
 /// The market now. Only offers that can be taken count: their maker was online lately.
 fn current_market(i: &Inner, t: u64) -> board::Market {
     let offers: Vec<Offer> = i
@@ -1662,7 +1690,9 @@ fn current_market(i: &Inner, t: u64) -> board::Market {
             (o, *at)
         })
         .collect();
-    board::market(&i.trades, &i.verified(), &offers, &pending, t)
+    let verified = i.verified();
+    let a = PRICE_CACHE.with_cache(i, &verified, t);
+    board::market_with(&i.trades, &verified, &offers, &pending, t, &a)
 }
 
 /// What Quick Swap can do right now: the Quick Swap offers whose makers are online and
@@ -1731,8 +1761,10 @@ fn trade_json(i: &Inner, x: &Trade, at: u64, tip: u64) -> Value {
     let c = i.claims.get(&x.hash);
     json!({
         "at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price(), "hash": x.hash,
-        // Its bitcoin was found on the Bitcoin chain, paid through the swap's contract.
+        // Its bitcoin was found on the Bitcoin chain, paid through the swap's contract, and
+        // how much of it (what the price weighs the swap by).
         "verified": i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash),
+        "paid_sats": i.paid.get(&x.hash).filter(|_| !i.disputed.contains(&x.hash)).map_or(0, |p| p.0),
         "claim": c,
         "confirmations": c.map(|c| (tip + 1).saturating_sub(c.height)),
     })
@@ -1877,6 +1909,7 @@ fn rec_json(r: &crate::history::Rec, tip: u64) -> Value {
     json!({
         "at": r.at, "gnr": r.gnr, "sats": r.sats, "price": r.price(), "hash": hex::encode(r.hash),
         "verified": r.verified && !r.disputed,
+        "paid_sats": if r.disputed { 0 } else { r.paid },
         "claim": c,
         "confirmations": r.claim.as_ref().map(|c| (tip + 1).saturating_sub(c.height)),
     })

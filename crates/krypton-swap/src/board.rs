@@ -883,6 +883,37 @@ pub struct Market {
     /// The swaps are more than [`VOLATILE_GAP`] away from the price: it is catching up.
     #[serde(default)]
     pub volatile: bool,
+    /// The pricing method (1.0.53: `gnr-price-2`, see [`crate::price`]).
+    #[serde(default)]
+    pub algorithm: String,
+    /// The published price of that method (sat per GNR); `price` falls back to the
+    /// forming estimate while it has none.
+    #[serde(default)]
+    pub reference_price: Option<f64>,
+    /// `reliable`, `moderate`, `low_liquidity`, `low_confidence`, `stale`, `insufficient`
+    /// or `unavailable`.
+    #[serde(default)]
+    pub market_status: String,
+    /// Confidence 0 to 100 (`confidence` is the same divided by 100).
+    #[serde(default)]
+    pub confidence_score: u8,
+    /// Change of the published price over 24 hours, in percent.
+    #[serde(default)]
+    pub change_24h: Option<f64>,
+    /// Seconds since the newest swap the price counts.
+    #[serde(default)]
+    pub freshness_secs: Option<u64>,
+    /// The effective number of swaps behind the price, and the window they are from.
+    #[serde(default)]
+    pub ess: Option<f64>,
+    #[serde(default)]
+    pub window_secs: Option<u64>,
+    /// Bitcoin of the swaps of the last 24 hours found on the Bitcoin chain (sat).
+    #[serde(default)]
+    pub verified_volume_24h: u64,
+    /// The gap between the best ask and the best bid, in percent of the bid.
+    #[serde(default)]
+    pub spread: Option<f64>,
 }
 
 /// Volume-weighted median of (price, weight): robust against a few odd entries. With
@@ -1200,6 +1231,36 @@ pub fn market(
     pending: &[(Offer, u64)],
     now: u64,
 ) -> Market {
+    let a = crate::price::assess(&price_swaps(trades, verified), now);
+    market_with(trades, verified, offers, pending, now, &a)
+}
+
+/// The swaps as the pricing method reads them: each with the bitcoin found for it.
+pub fn price_swaps(
+    trades: &[(Trade, u64)],
+    verified: &std::collections::HashMap<String, u64>,
+) -> Vec<crate::price::Swap> {
+    trades
+        .iter()
+        .map(|(t, at)| crate::price::Swap {
+            at: *at,
+            gnr: t.gnr,
+            sats: t.sats,
+            paid: verified.get(&t.hash).copied().unwrap_or(0),
+        })
+        .collect()
+}
+
+/// [`market`] with the price already assessed (a board computes that at most once a
+/// minute, or when swaps change).
+pub fn market_with(
+    trades: &[(Trade, u64)],
+    verified: &std::collections::HashMap<String, u64>,
+    offers: &[Offer],
+    pending: &[(Offer, u64)],
+    now: u64,
+    a: &crate::price::Assessment,
+) -> Market {
     let day: Vec<&Trade> = trades
         .iter()
         .filter(|(_, at)| *at + PRICE_WINDOW_SECS > now)
@@ -1220,9 +1281,10 @@ pub fn market(
         .map(Offer::price)
         .max_by(f64::total_cmp);
     let (swaps, by_volume) = priced_swaps(trades, verified, now);
-    let published = reference(trades, verified, now);
-    let price = if let Some(r) = &published {
-        Some(r.price)
+    let published = a.price.map(crate::price::to_f64);
+    let target = a.target.as_ref().map(|t| crate::price::to_f64(t.price));
+    let price = if let Some(p) = published {
+        Some(p)
     } else if swaps.is_empty() {
         None
     } else if by_volume {
@@ -1230,11 +1292,13 @@ pub fn market(
     } else {
         Some(swaps.iter().map(|(t, _)| t.price()).sum::<f64>() / swaps.len() as f64)
     };
-    let w: f64 = match &published {
-        Some(r) => r.gnr,
-        None => swaps.iter().map(|(t, _)| t.gnr as f64 / 1e8).sum(),
+    // The confidence of the published price (0 while there is none: a forming estimate
+    // rests on too few verified swaps to be trusted).
+    let confidence = if published.is_some() {
+        f64::from(a.confidence) / 100.0
+    } else {
+        0.0
     };
-    let confidence = if w > 0.0 { w / (w + DEPTH_GNR) } else { 0.0 };
     let proven: Vec<u64> = window(trades, now)
         .iter()
         .filter_map(|t| verified.get(&t.hash).map(|s| (*s).min(t.sats)))
@@ -1255,11 +1319,10 @@ pub fn market(
             "forming"
         }
         .into(),
-        target: published.as_ref().and_then(|r| r.target),
-        volatile: published.as_ref().is_some_and(|r| {
-            r.target
-                .is_some_and(|t| (t / r.price - 1.0).abs() > VOLATILE_GAP)
-        }),
+        target,
+        volatile: published
+            .zip(target)
+            .is_some_and(|(p, t)| (t / p - 1.0).abs() > VOLATILE_GAP),
         confidence: (confidence * 1000.0).round() / 1000.0,
         depth: if confidence >= 0.8 {
             "deep"
@@ -1277,15 +1340,32 @@ pub fn market(
         pending: pending.len(),
         pending_gnr: pending.iter().map(|(o, _)| o.gnr).sum(),
         last_price: last,
-        priced: published
+        priced: a
+            .target
             .as_ref()
-            .filter(|r| r.priced > 0)
-            .map_or(swaps.len(), |r| r.priced),
+            .filter(|_| published.is_some())
+            .map_or(swaps.len(), |t| t.swaps),
         verified: proven.len(),
         verified_sats: proven.iter().sum(),
         best_ask: ask,
         best_bid: bid,
         offers: offers.len(),
+        algorithm: crate::price::ALGORITHM.into(),
+        reference_price: published,
+        market_status: a.status.as_str().into(),
+        confidence_score: if published.is_some() { a.confidence } else { 0 },
+        change_24h: published
+            .zip(a.price_24h_ago.map(crate::price::to_f64))
+            .filter(|(_, b)| *b > 0.0)
+            .map(|(p, b)| ((p / b - 1.0) * 10_000.0).round() / 100.0),
+        freshness_secs: a.freshness_secs,
+        ess: a.target.as_ref().map(|t| t.ess_x100 as f64 / 100.0),
+        window_secs: a.target.as_ref().map(|t| t.window_secs),
+        verified_volume_24h: a.verified_sats_24h,
+        spread: ask
+            .zip(bid)
+            .filter(|(_, b)| *b > 0.0)
+            .map(|(a, b)| ((a / b - 1.0) * 10_000.0).round() / 100.0),
     }
 }
 
@@ -1772,22 +1852,29 @@ mod tests {
         let m = market(&t, &s, &[], &[], now);
         assert_eq!(m.status, "verified");
         assert!(close(m.price, 5_000.0) && !m.volatile, "{m:?}");
-        // Half an hour ago a burst of large swaps at twice the price, outweighing the rest:
-        // the price is one hour's step above where it was an hour ago, no more.
+        // Half an hour ago a burst of large swaps at twice the price, more bitcoin than
+        // all the rest: one six-hour block weighs at most a quarter of the window
+        // (pricing v2, 1.0.53), so the burst does not move the price at all.
         all.extend(run(100, 30, 10_000, 1_000_000, now - 1_800, 30));
         let (t, s) = split(&all);
         let m = market(&t, &s, &[], &[], now);
-        assert!(close(m.price, 5_500.0), "{m:?}");
-        assert!(m.volatile && m.target.unwrap() > 9_000.0, "{m:?}");
-        // If those swaps are real and stay, the price follows, 10 % an hour.
-        let later = market(&t, &s, &[], &[], now + 4 * 3600).price.unwrap();
         assert!(
-            (5_000.0 * 1.1f64.powi(5) - 0.01..=5_000.0 * 1.1f64.powi(5) + 0.01).contains(&later),
-            "{later}"
+            close(m.price, 5_000.0) && m.target.unwrap() < 5_500.0,
+            "{m:?}"
         );
-        let caught = market(&t, &s, &[], &[], now + 10 * 3600);
+        // If the new price lasts (swaps at it every hour from then on), the price follows,
+        // never more than 10 % an hour, and reaches it within a day.
+        all.extend(run(200, 30, 10_000, 1_000_000, now + 30 * 3600, 3_600));
+        let (t, s) = split(&all);
+        let mut prev = market(&t, &s, &[], &[], now).price.unwrap();
+        for h in 1..=30u64 {
+            let p = market(&t, &s, &[], &[], now + h * 3600).price.unwrap();
+            assert!(p <= prev * 1.1 + 0.01, "hour {h}: {prev} -> {p}");
+            prev = p;
+        }
+        let caught = market(&t, &s, &[], &[], now + 30 * 3600);
         assert!(
-            close(caught.price, caught.target.unwrap()) && !caught.volatile,
+            close(caught.price, 10_000.0) && !caught.volatile,
             "{caught:?}"
         );
     }
@@ -1911,10 +1998,11 @@ mod tests {
         assert_eq!(m.trades, 4);
         assert!(close(m.price, 5_100.0), "{m:?}");
         assert_eq!(m.source.as_deref(), Some("swaps"));
-        assert!(
-            (m.confidence - 12.0 / 37.0).abs() < 0.001,
-            "{}",
-            m.confidence
+        // Not one swap's bitcoin was found: an estimate, not a price anyone may lean on.
+        assert_eq!((m.confidence, m.confidence_score), (0.0, 0));
+        assert_eq!(
+            (m.status.as_str(), m.market_status.as_str()),
+            ("forming", "unavailable")
         );
         // Two swaps: their plain average (no outlier test below three).
         let two = vec![
@@ -1980,9 +2068,9 @@ mod tests {
             (trade(500_000, 100 * 100_000_000), now - 60),
             (trade(500_000, 100 * 100_000_000), now - 30),
         ];
+        // Much GNR in swaps nobody could verify is still no depth (1.0.53).
         let m = market(&deep, &none(), &[], &[], now);
-        assert_eq!(m.depth, "deep");
-        assert!(m.confidence > 0.85);
+        assert_eq!((m.depth.as_str(), m.confidence), ("thin", 0.0));
     }
 
     #[test]

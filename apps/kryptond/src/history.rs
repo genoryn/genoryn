@@ -16,7 +16,7 @@ const BY_HASH: TableDefinition<&[u8], u64> = TableDefinition::new("by_hash");
 const DAYS: TableDefinition<u64, &[u8]> = TableDefinition::new("days");
 
 const DAY: u64 = 86_400;
-const REC_LEN: usize = 8 + 8 + 1 + 1 + 8 + 8 + 8 + 32 + 32;
+const REC_LEN: usize = 8 + 8 + 1 + 1 + 8 + 8 + 8 + 32 + 32 + 8;
 
 /// What the GNR chain shows of a swap's claim.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,8 +36,9 @@ pub struct Rec {
     pub hash: [u8; 32],
     pub gnr: u64,
     pub sats: u64,
-    /// Its bitcoin was found on the Bitcoin chain.
+    /// Its bitcoin was found on the Bitcoin chain, and how much (sat).
     pub verified: bool,
+    pub paid: u64,
     /// Its two wallets reported different amounts: shown, never counted.
     pub disputed: bool,
     pub claim: Option<ClaimRec>,
@@ -74,6 +75,7 @@ impl Rec {
         v.extend_from_slice(&c.refund_height.to_le_bytes());
         v.extend_from_slice(&c.txid);
         v.extend_from_slice(&c.secret);
+        v.extend_from_slice(&self.paid.to_le_bytes());
         v
     }
 
@@ -96,6 +98,7 @@ impl Rec {
             gnr: u(&v[0..8]),
             sats: u(&v[8..16]),
             verified: flags & 1 == 1,
+            paid: u(&v[106..114]),
             disputed: flags & 2 == 2,
             claim,
         })
@@ -106,6 +109,7 @@ impl Rec {
 #[derive(Clone, Debug)]
 pub struct Status {
     pub verified: bool,
+    pub paid: u64,
     pub disputed: bool,
     pub claim: Option<ClaimRec>,
     /// New amounts (GNR, sat): a proven report stands in for an unproven one.
@@ -226,6 +230,7 @@ impl History {
                 let claim = st.claim.clone().or(r.claim.clone());
                 let (gnr, sats) = st.amounts.unwrap_or((r.gnr, r.sats));
                 if r.verified == st.verified
+                    && r.paid == st.paid
                     && r.disputed == st.disputed
                     && r.claim == claim
                     && (r.gnr, r.sats) == (gnr, sats)
@@ -233,6 +238,7 @@ impl History {
                     continue;
                 }
                 r.verified = st.verified;
+                r.paid = st.paid;
                 r.disputed = st.disputed;
                 r.claim = claim;
                 r.gnr = gnr;
@@ -302,7 +308,11 @@ impl History {
         let first = since - since % DAY;
         let mut n = 0u64;
         let days = r.open_table(DAYS)?;
-        let start = if since.is_multiple_of(DAY) { first } else { first + DAY };
+        let start = if since.is_multiple_of(DAY) {
+            first
+        } else {
+            first + DAY
+        };
         for e in days.range(start..)? {
             let (_, v) = e?;
             let f: DayFig = serde_json::from_slice(v.value()).unwrap_or_default();
@@ -378,6 +388,7 @@ mod tests {
             gnr,
             sats,
             verified: false,
+            paid: 0,
             disputed: false,
             claim: None,
         }
@@ -433,6 +444,7 @@ mod tests {
                     [2; 32],
                     Status {
                         verified: true,
+                        paid: 1_020,
                         disputed: false,
                         claim: Some(claim.clone()),
                         amounts: None,
@@ -442,6 +454,7 @@ mod tests {
                     [1; 32],
                     Status {
                         verified: false,
+                        paid: 0,
                         disputed: true,
                         claim: None,
                         amounts: Some((2e8 as u64, 5)),
@@ -452,7 +465,7 @@ mod tests {
         .unwrap();
         let (p, total) = h.page(0, 10, 0, true).unwrap();
         assert_eq!((p.len(), total), (1, 1));
-        assert_eq!(p[0].claim, Some(claim));
+        assert_eq!((p[0].claim.clone(), p[0].paid), (Some(claim), 1_020));
         let days = h.days().unwrap();
         assert_eq!(
             days.iter().map(|d| d.swaps).sum::<u64>(),
@@ -488,6 +501,7 @@ mod tests {
                         gnr: 1e8 as u64 + n % 977,
                         sats: 1_000 + n % 313,
                         verified: n % 3 == 0,
+                        paid: 0,
                         disputed: false,
                         claim: None,
                     }

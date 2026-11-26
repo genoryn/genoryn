@@ -189,6 +189,12 @@ pub const COMMANDS: &[Cmd] = &[
         "The market price and the offer board in numbers.",
     ),
     cmd(
+        "verifymarketprice",
+        "",
+        "Market",
+        "Computes the market price again from the board's history of completed swaps and compares it with the board's.",
+    ),
+    cmd(
         "getwalletinfo",
         "",
         "Wallet",
@@ -344,6 +350,66 @@ fn wallet(a: &Arc<App>) -> Result<Value> {
         "unlock the wallet first"
     );
     active_view(a).context("the wallet is still opening; try again in a moment")
+}
+
+/// The market price computed again from the board's history (the method is public and
+/// deterministic: the same swaps give the same price), next to the board's own.
+fn verify_market(a: &Arc<App>) -> Result<(Value, Option<String>)> {
+    use krypton_swap::price;
+    let base = crate::board::board_url(a);
+    let m = crate::board::get_json(&base, "/v1/swap/market")?;
+    let now = m["now"].as_u64().context("the board gives no time")?;
+    // The price reads 30 days back from any hour of the last 7.
+    let since = now.saturating_sub((30 + 7) * 86_400);
+    let mut swaps = Vec::new();
+    let mut offset = 0usize;
+    for _ in 0..100 {
+        let v = crate::board::get_json(
+            &base,
+            &format!("/v1/swap/history?limit=200&offset={offset}&since={since}"),
+        )
+        .context("the board has no trade history (it runs a version before 1.0.53)")?;
+        let list = v["swaps"].as_array().cloned().unwrap_or_default();
+        for x in &list {
+            let (Some(at), Some(gnr), Some(sats)) =
+                (x["at"].as_u64(), x["gnr"].as_u64(), x["sats"].as_u64())
+            else {
+                continue;
+            };
+            swaps.push(price::Swap {
+                at,
+                gnr,
+                sats,
+                paid: x["paid_sats"].as_u64().unwrap_or(0),
+            });
+        }
+        offset += list.len();
+        if list.is_empty() || !v["more"].as_bool().unwrap_or(false) {
+            break;
+        }
+    }
+    let mine = price::assess(&swaps, now);
+    let board = m["market"]["reference_price"].as_f64();
+    let ours = mine.price.map(price::to_f64);
+    let same = match (board, ours) {
+        (Some(b), Some(o)) => (b - o).abs() <= b.abs() * 1e-9 + 1e-6,
+        (None, None) => true,
+        _ => false,
+    };
+    Ok((
+        json!({
+            "algorithm": price::ALGORITHM,
+            "board_algorithm": m["market"]["algorithm"],
+            "board_price": board,
+            "recomputed_price": ours,
+            "the_same": same,
+            "status": mine.status.as_str(),
+            "confidence": mine.confidence,
+            "swaps_read": swaps.len(),
+            "at": now,
+        }),
+        Some(base),
+    ))
 }
 
 fn exec(a: &Arc<App>, line: &str) -> Result<Value> {
@@ -524,6 +590,7 @@ fn exec(a: &Arc<App>, line: &str) -> Result<Value> {
             let (v, n) = ask("/v1/swap/market".into())?;
             (v["market"].clone(), n)
         }
+        "verifymarketprice" => verify_market(a)?,
         "getwalletinfo" => {
             let v = wallet(a)?;
             let reg = a.vault.reg.lock().clone();
