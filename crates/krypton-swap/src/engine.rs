@@ -338,7 +338,15 @@ pub struct Swap {
     /// keeps the rest of its bitcoin there, for the rest of the offer).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change_to: Option<u32>,
+    /// GNR-first buyer: bitcoin paid into the contract besides the swap's own payment (a
+    /// second payment, or one short of the amount) has been looked for and taken back.
+    #[serde(default)]
+    pub extras_done: bool,
 }
+
+/// How long after the bitcoin lock ends a buyer's wallet still looks for bitcoin left in
+/// the contract (blocks, about two weeks).
+const EXTRAS_LOOK_BLOCKS: u32 = 2_016;
 
 /// GNR this wallet locked in a swap that this copy of the wallet has no record of: the
 /// swap was started by the same wallet on another computer (or its record was lost).
@@ -773,6 +781,7 @@ impl<G: ChainSource> Engine<'_, G> {
             lock_blocks: None,
             prepaid: fund.is_some(),
             change_to,
+            extras_done: false,
         };
         s.say("Send the request code to the GNR seller and paste their answer here. You pay nothing until their GNR is locked for you.");
         swaps.push(s.clone());
@@ -937,6 +946,7 @@ impl<G: ChainSource> Engine<'_, G> {
             lock_blocks: Some(lock_blocks),
             prepaid,
             change_to: None,
+            extras_done: false,
         };
         s.say("Locking the GNR for the buyer. Send them the accept code; they pay once the lock has confirmed.");
         swaps.push(s.clone());
@@ -1154,10 +1164,9 @@ impl<G: ChainSource> Engine<'_, G> {
     pub fn step(&mut self, mempool: &[Transaction]) -> Result<Vec<Swap>> {
         self.wallet.learn_secrets(mempool);
         let mut swaps = load(self.wallet);
-        if swaps
-            .iter()
-            .all(|s| s.stage.finished() && !s.watching() && !self.lock_left(s))
-        {
+        if swaps.iter().all(|s| {
+            s.stage.finished() && !s.watching() && !self.lock_left(s) && !Self::extras_open(s)
+        }) {
             return Ok(swaps);
         }
         // The chains may be out of reach (a Bitcoin server that does not answer, a wallet
@@ -1236,6 +1245,17 @@ impl<G: ChainSource> Engine<'_, G> {
                 ));
             }
             if s.stage.finished() && !self.lock_left(s) {
+                if Self::extras_open(s)
+                    && let Ok((btc_tip, _)) = tips
+                    && btc_tip >= s.btc_refund_height.unwrap_or(u32::MAX)
+                {
+                    let ended = before.0;
+                    if let Err(e) = self.refund_extras(s, btc_tip) {
+                        s.say(format!("Bitcoin left in the contract: {e}"));
+                    }
+                    s.stage = ended;
+                    changed = true;
+                }
                 changed |= before != (s.stage, s.status.clone());
                 continue;
             }
@@ -1383,7 +1403,6 @@ impl<G: ChainSource> Engine<'_, G> {
     }
 
     fn btc_refund(&mut self, s: &mut Swap) -> Result<()> {
-        let htlc = s.htlc()?;
         let f = s.funding()?;
         if self.btc.is_spent(&f.outpoint)? {
             // Spent by a refund (ours, or another copy's) or by the seller's claim: what it
@@ -1392,13 +1411,67 @@ impl<G: ChainSource> Engine<'_, G> {
             s.say("The bitcoin in the contract is spent already; looking at which way.");
             return Ok(());
         }
-        let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
-        let key = derive_key(self.wallet.swap_seed(), s.index);
-        let tx = htlc.refund(f, &dest, self.btc.fee_rate()?, &key)?;
-        let id = self.btc.broadcast(&tx)?;
+        let rate = self.btc.fee_rate()?;
+        let id = self.btc_refund_at(s, rate)?;
         s.btc_spend = Some(id.to_string());
         s.stage = Stage::Refunding;
         s.say(format!("Bitcoin refund sent ({id})."));
+        Ok(())
+    }
+
+    fn btc_refund_at(&mut self, s: &Swap, rate: bitcoin::FeeRate) -> Result<Txid> {
+        let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
+        let key = derive_key(self.wallet.swap_seed(), s.index);
+        let tx = s.htlc()?.refund(s.funding()?, &dest, rate, &key)?;
+        self.btc.broadcast(&tx)
+    }
+
+    /// A buyer swap that ended and may still have bitcoin of its own in the contract.
+    fn extras_open(s: &Swap) -> bool {
+        s.role == Role::BtcSeller
+            && s.gnr_first()
+            && matches!(s.stage, Stage::Done | Stage::Refunded)
+            && !s.extras_done
+            && s.deposit.is_some()
+    }
+
+    /// Takes back, once the bitcoin lock has ended, every confirmed output still in the
+    /// contract: a second payment, or one short of the agreed amount, that the swap did not
+    /// use. Marked done once nothing is left (or the look-back has passed).
+    fn refund_extras(&mut self, s: &mut Swap, btc_tip: u32) -> Result<()> {
+        let r = s.btc_refund_height.context("no bitcoin refund height")?;
+        if btc_tip > r.saturating_add(EXTRAS_LOOK_BLOCKS) {
+            s.extras_done = true;
+            return Ok(());
+        }
+        let htlc = s.htlc()?;
+        let left = self.btc.unspent(&s.htlc_address()?)?;
+        if left.is_empty() {
+            s.extras_done = true;
+            return Ok(());
+        }
+        let dest = btc_address(&s.btc_address, self.btc_network)?.script_pubkey();
+        let key = derive_key(self.wallet.swap_seed(), s.index);
+        let rate = self.btc.fee_rate()?;
+        for u in left.into_iter().filter(|u| u.height.is_some()) {
+            let f = crate::Funding {
+                outpoint: u.outpoint,
+                value: u.value,
+            };
+            match htlc.refund(f, &dest, rate, &key) {
+                Ok(tx) => match self.btc.broadcast(&tx) {
+                    Ok(id) => s.say(format!(
+                        "{} BTC more was in the contract; sent back ({id}).",
+                        u.value.to_btc()
+                    )),
+                    // Sent already and waiting for a block.
+                    Err(_) => {}
+                },
+                // Too little to pay its own fee: it stays, and is not looked at again.
+                Err(crate::SwapError::Dust(_)) => s.extras_done = true,
+                Err(e) => return Err(e.into()),
+            }
+        }
         Ok(())
     }
 
@@ -1445,6 +1518,27 @@ impl<G: ChainSource> Engine<'_, G> {
             s.say(format!(
                 "Bitcoin refund sent ({id}); waiting for its confirmation."
             ));
+            // More fee the longer it waits: until it is in a block, the seller could still
+            // claim the bitcoin, and much later take the GNR back too.
+            let waited = btc_tip.saturating_sub(tl.btc_refund_height);
+            let times = match waited {
+                0..=2 => 1,
+                3..=6 => 2,
+                7..=12 => 3,
+                _ => 4,
+            };
+            if times > 1 {
+                let r = self.btc.fee_rate()?.to_sat_per_vb_ceil();
+                let rate = bitcoin::FeeRate::from_sat_per_vb(
+                    (r * times).min(crate::btc::MAX_FEE_RATE as u64),
+                )
+                .context("fee rate")?;
+                // A replacement at a fee no higher than the waiting one is refused: that
+                // one stands.
+                if let Ok(new) = self.btc_refund_at(s, rate) {
+                    s.btc_spend = Some(new.to_string());
+                }
+            }
         }
         Ok(())
     }

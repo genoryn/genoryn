@@ -18,6 +18,7 @@ use krypton_swap::{Timing, derive_key, derive_secret, public_key};
 use krypton_wallet_core::{ChainSource, Wallet, keys};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Mutex;
 
 struct Local<'a> {
@@ -101,6 +102,32 @@ struct BtcState {
     spent: HashMap<OutPoint, Txid>,
     txs: HashMap<Txid, Transaction>,
     mempool: Vec<Transaction>,
+    /// A busy network: blocks leave the mempool's transactions unconfirmed.
+    stalled: bool,
+}
+
+impl BtcState {
+    fn evict(&mut self, id: Txid) {
+        let Some(tx) = self.txs.remove(&id) else {
+            return;
+        };
+        for i in &tx.input {
+            self.spent.remove(&i.previous_output);
+        }
+        for n in 0..tx.output.len() {
+            self.utxos.remove(&OutPoint::new(id, n as u32));
+        }
+        self.mempool.retain(|t| t.compute_txid() != id);
+    }
+    fn fee(&self, tx: &Transaction) -> u64 {
+        let inputs: u64 = tx
+            .input
+            .iter()
+            .filter_map(|i| self.utxos.get(&i.previous_output))
+            .map(|(o, _)| o.value.to_sat())
+            .sum();
+        inputs - tx.output.iter().map(|o| o.value.to_sat()).sum::<u64>()
+    }
 }
 
 impl MockBtc {
@@ -125,10 +152,33 @@ impl MockBtc {
         let mut s = self.inner.lock().unwrap();
         s.height += 1;
         let h = s.height;
-        for u in s.utxos.values_mut() {
-            u.1.get_or_insert(h);
+        let waiting: std::collections::HashSet<Txid> = if s.stalled {
+            s.mempool.iter().map(|t| t.compute_txid()).collect()
+        } else {
+            Default::default()
+        };
+        for (op, u) in s.utxos.iter_mut() {
+            if !waiting.contains(&op.txid) {
+                u.1.get_or_insert(h);
+            }
         }
-        s.mempool.clear();
+        if !s.stalled {
+            s.mempool.clear();
+        }
+    }
+    fn stall(&self, on: bool) {
+        self.inner.lock().unwrap().stalled = on;
+    }
+    /// The fee of a transaction the chain knows.
+    fn fee_of(&self, id: &str) -> u64 {
+        let s = self.inner.lock().unwrap();
+        let tx = s.txs[&Txid::from_str(id).unwrap()].clone();
+        let inputs: u64 = tx
+            .input
+            .iter()
+            .map(|i| s.utxos[&i.previous_output].0.value.to_sat())
+            .sum();
+        inputs - tx.output.iter().map(|o| o.value.to_sat()).sum::<u64>()
     }
     fn received(&self, addr: &Address) -> u64 {
         let s = self.inner.lock().unwrap();
@@ -145,15 +195,7 @@ impl MockBtc {
     }
     /// Takes an unconfirmed transaction out of the mempool (dropped, or replaced).
     fn evict(&self, id: Txid) {
-        let mut s = self.inner.lock().unwrap();
-        let Some(tx) = s.txs.remove(&id) else { return };
-        for i in &tx.input {
-            s.spent.remove(&i.previous_output);
-        }
-        for n in 0..tx.output.len() {
-            s.utxos.remove(&OutPoint::new(id, n as u32));
-        }
-        s.mempool.retain(|t| t.compute_txid() != id);
+        self.inner.lock().unwrap().evict(id);
     }
     /// A conflicting transaction with a higher fee takes the place of the one in the mempool.
     fn replace(&self, tx: &Transaction) -> Result<Txid> {
@@ -196,10 +238,22 @@ impl BtcChain for MockBtc {
     }
     fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
         let mut s = self.inner.lock().unwrap();
+        // A spend still in the mempool may be replaced by one paying more fee (RBF).
+        let mut replaced = Vec::new();
         for i in &tx.input {
-            if s.spent.contains_key(&i.previous_output) {
-                bail!("bad-txns-inputs-missingorspent");
+            if let Some(old) = s.spent.get(&i.previous_output).copied() {
+                if !s.mempool.iter().any(|t| t.compute_txid() == old) {
+                    bail!("bad-txns-inputs-missingorspent");
+                }
+                replaced.push(old);
             }
+        }
+        for old in replaced {
+            let old_tx = s.txs[&old].clone();
+            if s.fee(tx) <= s.fee(&old_tx) {
+                bail!("insufficient fee");
+            }
+            s.evict(old);
         }
         // Final for the next block only if nLockTime is below its height.
         let lt = tx.lock_time.to_consensus_u32();
@@ -1558,4 +1612,85 @@ fn unreadable_swap_records_are_kept() {
     let after = b.wallet.app_data("swaps").cloned().unwrap();
     assert_eq!(after.as_array().unwrap().len(), 2);
     assert!(after.as_array().unwrap().contains(&future));
+}
+
+/// The buyer's bitcoin refund waits in a busy mempool: it is signed again with more fee
+/// as the blocks go by, and the buyer gets its bitcoin back.
+#[test]
+fn a_refund_waiting_in_a_busy_mempool_gets_more_fee() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    paid(&mut a, &mut b, &src, &btc, &chain);
+    btc.mine();
+    let refund_btc = b.swap().btc_refund_height.unwrap();
+    while btc.tip().unwrap() < refund_btc {
+        btc.mine();
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunding, "{}", b.swap().status);
+    let first = b.swap().btc_spend.unwrap();
+    let first_fee = btc.fee_of(&first);
+    btc.stall(true);
+    for _ in 0..4 {
+        btc.mine();
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    let second = b.swap().btc_spend.unwrap();
+    assert_ne!(second, first, "signed again: {}", b.swap().status);
+    assert!(btc.fee_of(&second) > first_fee, "with more fee");
+    btc.stall(false);
+    btc.mine();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Refunded, "{}", b.swap().status);
+    assert!(btc.received(&btc_addr(2)) > SATS - 3_000);
+}
+
+/// Bitcoin paid into the contract a second time (and not used by the swap) comes back to
+/// the buyer once the bitcoin lock has ended, after the swap itself completed.
+#[test]
+fn extra_bitcoin_left_in_the_contract_comes_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    let htlc = paid(&mut a, &mut b, &src, &btc, &chain);
+    btc.pay(&htlc, 30_000);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(a.swap().stage, Stage::Claiming, "{}", a.swap().status);
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    mine_both(&src, &miner, &mut a, &mut b);
+    btc.mine();
+    a.engine(&src, &btc, &chain).step(&[]).unwrap();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(b.swap().stage, Stage::Done, "{}", b.swap().status);
+    let before = btc.received(&btc_addr(2));
+    // Before the lock ends the extra bitcoin stays where it is.
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(btc.received(&btc_addr(2)), before);
+    let refund_btc = b.swap().btc_refund_height.unwrap();
+    while btc.tip().unwrap() < refund_btc {
+        btc.mine();
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    btc.mine();
+    assert!(
+        btc.received(&btc_addr(2)) > before + 30_000 - 2_000,
+        "{}",
+        b.swap().status
+    );
+    assert_eq!(b.swap().stage, Stage::Done, "the swap stays done");
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert!(b.swap().extras_done, "nothing left to look for");
 }
