@@ -94,6 +94,51 @@
     if (e.target.getAttribute("data-act") === "search" && window.exSearch) window.exSearch(e);
   });
 
+  // Search (Ctrl+K): every page by a few letters of its name, and the chain by a block height,
+  // a hash or an address. What is typed stays in the page until a result is opened.
+  if (window.GKCmd) {
+    document.querySelectorAll("[data-cmdk-key]").forEach(function (k) { k.textContent = GKCmd.key; });
+    var cmdPages = null;
+    var cmdList = function () {
+      if (cmdPages) return cmdPages;
+      var hints = {}, seen = {};
+      document.querySelectorAll(".nav-menu a[href]").forEach(function (a) {
+        var em = a.querySelector("em");
+        if (em && !hints[a.getAttribute("href")]) hints[a.getAttribute("href")] = em.textContent.trim();
+      });
+      cmdPages = [];
+      document.querySelectorAll("#drawer > a[href]").forEach(function (a) {
+        var href = a.getAttribute("href"), use = a.querySelector("use"), b = a.querySelector("b"), em = a.querySelector("em");
+        if (seen[href]) return;
+        seen[href] = 1;
+        var label = b ? b.textContent : a.textContent;
+        cmdPages.push({ label: label.replace(/\s+/g, " ").trim(), hint: em ? em.textContent.trim() : hints[href] || "", href: href, icon: use ? use.getAttribute("href") : "", words: href });
+      });
+      return cmdPages;
+    };
+    GKCmd.setup({
+      slash: true,
+      text: { title: T("Search"), placeholder: T("Search pages, blocks, transactions, addresses"), empty: T("Nothing found"), move: T("to move"), open: T("to open"), close: T("to close") },
+      groups: function () {
+        var themeBtn = document.querySelector(".nav-theme");
+        return [
+          { title: T("Pages"), items: cmdList() },
+          { title: T("Actions"), items: [{ label: themeBtn ? themeBtn.getAttribute("aria-label") : "Theme", icon: "#n-theme", run: function () { window.fxToggleTheme(); } }] }
+        ];
+      },
+      query: function (q) {
+        q = q.replace(/\s+/g, "");
+        if (q.length < 1 || q.length > 4000) return [];
+        var hex = /^[0-9a-fA-F]{64}$/.test(q), num = /^\d{1,10}$/.test(q), addr = /^[a-z]*gnrs?1[a-z2-7]+$/.test(q.toLowerCase());
+        if (!hex && !num && !addr && q.length < 24) return [];
+        var short = q.length > 26 ? q.slice(0, 12) + "…" + q.slice(-10) : q;
+        return [{ group: T("On the chain"), label: num ? T("Block #{h}", { h: GKI18N.num(Number(q)) }) : T("Search the chain for {q}", { q: short }),
+          hint: addr ? T("Address") : hex ? T("Block, transaction or nullifier hash") : "", icon: "#n-explorer",
+          href: GKI18N.path("/explorer") + "?q=" + encodeURIComponent(q) }];
+      }
+    });
+  }
+
   // Docs: table of contents drawer (phones) and scrollspy.
   var toc = document.getElementById("toc");
   if (toc) {

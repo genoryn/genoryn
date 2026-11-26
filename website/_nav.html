@@ -28,10 +28,14 @@
   <symbol id="n-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
   <symbol id="n-audit" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><circle cx="11.5" cy="11.5" r="2.8"/><path d="m13.6 13.6 2.4 2.4"/></symbol>
   <symbol id="n-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="n-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+  <symbol id="n-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="n-menu" viewBox="0 0 24 24"><path d="M4 7.5h16M4 12h16M4 16.5h16"/></symbol>
+  <symbol id="n-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
 </svg>
 <header class="nav float" id="nav">
   <div class="wrap">
-    <a class="logo" href="/"><img src="/assets/genoryn-mark-dark.svg" width="32" height="32" alt=""><span>Genoryn<span class="logo-k"> Krypton</span></span></a>
+    <a class="logo" href="/"><img src="/assets/genoryn-mark-dark.svg" width="26" height="26" alt=""><span>Genoryn<span class="logo-k"> Krypton</span></span></a>
     <nav class="nav-links" aria-label="Main">
       <div class="nav-dd" data-pages="features validation privacy quantum requirements interface network">
         <button type="button" class="nav-dd-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menu-features"><svg class="ni" aria-hidden="true"><use href="#n-star"/></svg>Features<svg class="caret" aria-hidden="true"><use href="#n-caret"/></svg></button>
@@ -81,17 +85,19 @@
       <a href="/updates" data-page="updates"><svg class="ni" aria-hidden="true"><use href="#n-news"/></svg>News</a>
     </nav>
     <div class="nav-cta">
+      <button class="nav-search" type="button" data-cmdk-open aria-label="Search" aria-keyshortcuts="Control+K"><svg class="ni" aria-hidden="true"><use href="#n-search"/></svg><span>Search</span><span class="kbd" data-cmdk-key aria-hidden="true"></span></button>
       <!--LANG-->
-      <button class="btn icon-btn nav-theme" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button>
+      <button class="btn btn-ghost icon-btn nav-theme" type="button" data-act="theme" aria-label="Toggle light or dark theme"><svg class="ni" aria-hidden="true"><use href="#n-theme"/></svg></button>
       <a class="btn nav-talks-sm" href="/talks" title="Genoryn Talks: the forum and live chat"><span class="dot live" aria-hidden="true"></span>Talks</a>
       <a class="btn btn-primary hide-sm" href="/get"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Get GNR</a>
-      <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" data-act="drawer-open">☰</button>
+      <button class="btn icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer" data-act="drawer-open"><svg class="ni" aria-hidden="true"><use href="#n-menu"/></svg></button>
     </div>
   </div>
 </header>
 <div id="drawerBackdrop" class="modal-backdrop hidden" data-act="drawer-close"></div>
 <aside id="drawer" class="drawer float" aria-label="Menu">
-  <div class="drawer-top"><button class="btn icon-btn" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button><button class="btn icon-btn" type="button" aria-label="Close menu" data-act="drawer-close">✕</button></div>
+  <div class="drawer-top"><button class="btn icon-btn" type="button" data-act="theme" aria-label="Toggle light or dark theme"><svg class="ni" aria-hidden="true"><use href="#n-theme"/></svg></button><button class="btn icon-btn" type="button" aria-label="Close menu" data-act="drawer-close"><svg class="ni" aria-hidden="true"><use href="#n-close"/></svg></button></div>
+  <button class="nav-search" type="button" data-cmdk-open data-act="drawer-close"><svg class="ni" aria-hidden="true"><use href="#n-search"/></svg><span>Search</span></button>
   <a class="drawer-talks" href="/talks"><span class="dot live" aria-hidden="true"></span><span><b>Genoryn Talks</b><em>The forum and live chat</em></span></a>
   <a href="/"><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg>Home</a>
   <a href="/explorer"><svg class="ni" aria-hidden="true"><use href="#n-explorer"/></svg>Explorer</a>

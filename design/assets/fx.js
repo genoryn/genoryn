@@ -1,50 +1,27 @@
-/* Ambient background, theme toggle and scroll reveal. ~2 KB, no dependencies.
-   fx-head.html sets data-theme and data-fx before first paint; this file runs after load. */
+/* Page background, theme toggle, scroll reveal and the light that follows the cursor over
+   cards. ~2 KB, no dependencies. fx-head.html sets data-theme and data-fx before first paint;
+   this file runs after load. Nothing is fetched: the background is drawn by fx.css. */
 (function () {
   var root = document.documentElement;
-  var base = (document.currentScript && document.currentScript.getAttribute("data-base")) || "";
-  var ver = (document.currentScript && document.currentScript.getAttribute("data-v")) || "";
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var low = root.getAttribute("data-fx") === "low";
 
-  // ---- Ambient background: two layers, opacity cross-fade, decoded before showing ----
+  // ---- Background layer: the mesh and the grid are CSS, the grain is one small tile ----
   var layer = document.createElement("div");
   layer.className = "fx-bg";
   layer.setAttribute("aria-hidden", "true");
-  var a = new Image(), b = new Image();
-  a.alt = b.alt = "";
-  a.decoding = b.decoding = "async";
   var grain = document.createElement("div");
   grain.className = "grain";
-  layer.appendChild(a); layer.appendChild(b); layer.appendChild(grain);
+  layer.appendChild(grain);
   document.body.prepend(layer);
-  var idx = new Date().getHours() % 4; // a different opening scene each hour
-  var front = a, back = b;
-  function theme() { return root.getAttribute("data-theme") === "light" ? "light" : "dark"; }
-  function src(i) { return base + "bg/" + theme() + "-" + (i % 4 + 1) + ".webp" + (ver ? "?v=" + ver : ""); }
-  function fadeTo(i) {
-    back.src = src(i);
-    var p = back.decode ? back.decode() : Promise.resolve();
-    return p.then(function () {
-      back.classList.add("on");
-      front.classList.remove("on");
-      var t = front; front = back; back = t;
-    }).catch(function () {});
-  }
-  // Fade in after first paint so the background never blocks LCP.
-  window.requestAnimationFrame(function () { setTimeout(function () { fadeTo(idx); }, 120); });
-  setInterval(function () {
-    if (document.hidden || reduce || low || window.fxBusy) return;
-    idx++;
-    fadeTo(idx);
-  }, 45000);
 
-  // ---- Theme toggle: cross-fade to the other theme's image set ----
+  // ---- Theme toggle ----
+  function theme() { return root.getAttribute("data-theme") === "light" ? "light" : "dark"; }
   window.fxToggleTheme = function () {
     var t = theme() === "light" ? "dark" : "light";
     root.setAttribute("data-theme", t);
     try { localStorage.setItem("gk-theme", t); } catch (e) {}
-    fadeTo(idx);
+    try { window.dispatchEvent(new CustomEvent("fx-theme", { detail: t })); } catch (e) {}
   };
 
   // ---- Scroll reveal (once) ----
@@ -55,11 +32,11 @@
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en, k) {
         if (en.isIntersecting) {
-          setTimeout(function () { en.target.classList.add("in"); }, Math.min(k, 6) * 70);
+          setTimeout(function () { en.target.classList.add("in"); }, Math.min(k, 6) * 60);
           io.unobserve(en.target);
         }
       });
-    }, { rootMargin: "0px 0px -8% 0px" });
+    }, { rootMargin: "0px 0px -6% 0px" });
     els.forEach(function (e) { io.observe(e); });
   }
 
@@ -70,5 +47,30 @@
       entries.forEach(function (en) { en.target.style.animationPlayState = en.isIntersecting ? "running" : "paused"; });
     });
     drifters.forEach(function (d) { io2.observe(d); });
+  }
+
+  // ---- A soft light follows the cursor across a card and along its edge ----
+  // One listener for the whole page; only the card under the pointer is touched, once a frame.
+  if (!reduce && !low && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    var lit = null, pending = null, queued = false;
+    var paint = function () {
+      queued = false;
+      var e = pending;
+      if (!e) return;
+      var t = e.target, card = t && t.closest ? t.closest(".glass") : null;
+      if (lit && lit !== card) { lit.style.removeProperty("--mx"); lit.style.removeProperty("--my"); }
+      lit = card;
+      if (!card) return;
+      var r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", (e.clientX - r.left).toFixed(0) + "px");
+      card.style.setProperty("--my", (e.clientY - r.top).toFixed(0) + "px");
+    };
+    document.addEventListener("pointermove", function (e) {
+      pending = e;
+      if (!queued) { queued = true; window.requestAnimationFrame(paint); }
+    }, { passive: true });
+    document.addEventListener("pointerleave", function () {
+      if (lit) { lit.style.removeProperty("--mx"); lit.style.removeProperty("--my"); lit = null; }
+    });
   }
 })();

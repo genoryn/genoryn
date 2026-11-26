@@ -1,5 +1,5 @@
-/* Genoryn Krypton charts: dependency-free SVG line/area/bar charts, a 3D supply disc and
-   3D card tilt. Monochrome, theme-aware (CSS variables), responsive and accessible. */
+/* Genoryn Krypton charts: dependency-free SVG line/area/bar charts and a 3D supply disc.
+   Monochrome, theme-aware (CSS variables), responsive and accessible. */
 (function () {
   var NS = "http://www.w3.org/2000/svg";
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -42,15 +42,22 @@
     return d;
   }
 
-  /* data: [{t, v}], opts: {fmt, kind: "area"|"line"|"bars", target, targetLabel, height, zero,
-     straight (no smoothing: each point is a real event), points (a dot on every point)} */
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+  /* data: [{t, v, h, soft, none, note}], opts: {fmt, kind: "area"|"line"|"bars", target, targetLabel,
+     height, zero, integer, straight (no smoothing: each point is a real event), points (a dot on
+     every point), range: [lo, hi] (the scale; a value outside it is drawn at the edge, hollow and
+     dashed, and the tip still shows its real figure), tipTime(d)}.
+     A point with v == null is a gap: the line stops there and starts again after it. A soft point
+     (soft: true) is drawn small and grey and the line passes it by. A bar with none: true is an
+     empty slot (a day with nothing in it), drawn as a faint tick so the days stay in their places. */
   function chart(host, data, opts) {
     opts = opts || {};
     host.classList.add("gk-chart");
     var state = { data: data || [], opts: opts };
     host._gk = state;
     var tip = document.createElement("div");
-    tip.className = "gk-tip float hidden";
+    tip.className = "gk-tip hidden";
     host.innerHTML = "";
     host.appendChild(tip);
     function draw() {
@@ -58,22 +65,33 @@
       var old = host.querySelector("svg"); if (old) old.remove();
       var svg = el("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": o.label || "chart" });
       host.insertBefore(svg, tip);
-      if (!data.length) {
-        el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "gk-empty" }, svg).textContent = T("No data in this range yet");
+      var isNum = function (d) { return d.v != null && isFinite(d.v); };
+      var bars = o.kind === "bars";
+      var real = data.filter(function (d) { return isNum(d) && !(bars && d.none); });
+      if (!real.length) {
+        el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "gk-empty" }, svg).textContent = o.empty || T("No data in this range yet");
         return;
       }
-      var padL = 54, padR = 10, padT = 12, padB = 26, iw = W - padL - padR, ih = H - padT - padB;
+      var padL = 54, padR = 10, padT = 14, padB = 26, iw = W - padL - padR, ih = H - padT - padB;
       var t0 = data[0].t, t1 = data[data.length - 1].t, span = Math.max(1, t1 - t0);
-      var vs = data.map(function (d) { return d.v; });
+      // The scale comes from the range the caller trusts (if given), else from every value.
+      var vs = o.range ? [Number(o.range[0]), Number(o.range[1])] : real.filter(function (d) { return !d.soft || bars; }).map(function (d) { return d.v; });
+      if (!vs.length) vs = real.map(function (d) { return d.v; });
       if (o.target != null) vs.push(o.target);
       var vmin = o.zero === false ? Math.min.apply(null, vs) : Math.min(0, Math.min.apply(null, vs));
       var vmax = Math.max.apply(null, vs);
-      if (vmax === vmin) vmax = vmin + (vmin === 0 ? 1 : Math.abs(vmin) * 0.1);
+      if (vmax === vmin) {
+        var pad = vmin === 0 ? 1 : Math.abs(vmin) * 0.1;
+        if (o.zero === false) { vmin -= pad; vmax += pad; } else vmax = vmin + pad;
+      }
       if (o.integer) vmax = Math.max(vmax, vmin + 2);
       var ticks = niceTicks(vmin, vmax, 3);
       if (o.integer && ticks.length > 1 && ticks[1] - ticks[0] < 1) ticks = [vmin, Math.ceil((vmin + vmax) / 2), Math.ceil(vmax)];
       vmin = ticks[0]; vmax = ticks[ticks.length - 1];
-      function X(t) { return padL + (data.length === 1 ? iw / 2 : ((t - t0) / span) * iw); }
+      var bw = bars ? Math.max(1.5, Math.min(o.barMax || 14, (iw / data.length) * 0.66)) : 0;
+      // A few points sit away from the edges, so one or five swaps read as a chart, not a corner.
+      var inset = bars ? bw / 2 + 1 : (data.length > 1 && data.length <= 6 ? iw * 0.07 : 0);
+      function X(t) { return padL + inset + (data.length === 1 ? (iw - 2 * inset) / 2 : ((t - t0) / span) * (iw - 2 * inset)); }
       function Y(v) { return padT + ih - ((v - vmin) / (vmax - vmin)) * ih; }
       var gid = "gkg" + (++uid);
       var defs = el("defs", {}, svg);
@@ -84,55 +102,92 @@
         el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "gk-grid" }, svg);
         el("text", { x: padL - 8, y: Y(v) + 4, "text-anchor": "end", class: "gk-axis" }, svg).textContent = (o.fmt || String)(v, true);
       });
-      var nx = W < 420 ? 2 : 4;
+      var nx = data.length === 1 ? 0 : W < 420 ? 2 : 4;
       for (var i = 0; i <= nx; i++) {
-        var tt = t0 + (span * i) / nx;
-        el("text", { x: X(tt), y: H - 7, "text-anchor": i === 0 ? "start" : i === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(tt, span);
+        var tt = t0 + (span * i) / nx || t0;
+        el("text", { x: X(tt), y: H - 7, "text-anchor": nx === 0 ? "middle" : i === 0 ? "start" : i === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(tt, o.days ? 3 * 86400 : span);
       }
       if (o.target != null) {
         el("line", { x1: padL, x2: W - padR, y1: Y(o.target), y2: Y(o.target), class: "gk-target" }, svg);
         if (o.targetLabel) el("text", { x: W - padR - 4, y: Y(o.target) - 6, "text-anchor": "end", class: "gk-axis" }, svg).textContent = o.targetLabel;
       }
-      var pts = data.map(function (d) { return [X(d.t), Y(d.v)]; });
-      if (o.kind === "bars") {
-        var bw = Math.max(1.5, Math.min(14, (iw / data.length) * 0.66));
-        pts.forEach(function (p) {
-          el("rect", { x: p[0] - bw / 2, y: p[1], width: bw, height: Math.max(0.5, Y(vmin) - p[1]), rx: Math.min(3, bw / 3), class: "gk-bar" }, svg);
+      // Where each point is drawn. far: 1 above the scale, -1 below it.
+      var hov = [];
+      var pts = data.map(function (d) {
+        if (!isNum(d)) { if (d.note || d.none) hov.push({ x: X(d.t), y: Y(vmin), d: d, gap: true }); return null; }
+        var far = bars ? 0 : d.v > vmax ? 1 : d.v < vmin ? -1 : 0;
+        var p = { x: X(d.t), y: far > 0 ? padT + 5 : far < 0 ? padT + ih - 5 : Y(d.v), far: far, d: d };
+        hov.push(p);
+        return p;
+      });
+      if (bars) {
+        pts.forEach(function (p, k) {
+          var d = data[k], x = X(d.t);
+          if (!p || d.none) { el("rect", { x: x - bw / 2, y: Y(vmin) - 1.5, width: bw, height: 1.5, class: "gk-bar none" }, svg); return; }
+          var y = Math.max(padT, p.y);
+          el("rect", { x: x - bw / 2, y: y, width: bw, height: Math.max(1.5, Y(vmin) - y), rx: Math.min(3, bw / 3), class: "gk-bar" }, svg);
         });
       } else {
-        var line = o.straight ? "M" + pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join("L") : smooth(pts);
-        if (o.kind !== "line") {
-          el("path", { d: line + "L" + pts[pts.length - 1][0].toFixed(1) + "," + Y(vmin) + "L" + pts[0][0].toFixed(1) + "," + Y(vmin) + "Z", fill: "url(#" + gid + ")", class: "gk-area" }, svg);
-        }
-        var path = el("path", { d: line, class: "gk-line" }, svg);
-        if (!reduce && !low && !host._drawn) {
-          var len = path.getTotalLength ? path.getTotalLength() : 0;
-          if (len) {
-            path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
-            path.getBoundingClientRect();
-            path.style.transition = "stroke-dashoffset 1.1s cubic-bezier(.2,.7,.2,1)";
-            path.style.strokeDashoffset = 0;
+        // The line joins the points it trusts, run by run; a gap ends a run.
+        var runs = [], cur = [];
+        pts.forEach(function (p) {
+          if (!p) { if (cur.length) { runs.push(cur); cur = []; } return; }
+          if (p.far || p.d.soft) return;
+          cur.push([p.x, p.y]);
+        });
+        if (cur.length) runs.push(cur);
+        var first = !reduce && !low && !host._drawn;
+        runs.forEach(function (run) {
+          if (run.length < 2) return;
+          var line = o.straight ? "M" + run.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join("L") : smooth(run);
+          if (o.kind !== "line") {
+            el("path", { d: line + "L" + run[run.length - 1][0].toFixed(1) + "," + Y(vmin) + "L" + run[0][0].toFixed(1) + "," + Y(vmin) + "Z", fill: "url(#" + gid + ")", class: "gk-area" }, svg);
           }
+          var path = el("path", { d: line, class: "gk-line" }, svg);
+          if (first) {
+            var len = path.getTotalLength ? path.getTotalLength() : 0;
+            if (len) {
+              path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
+              path.getBoundingClientRect();
+              path.style.transition = "stroke-dashoffset 1.1s cubic-bezier(.2,.7,.2,1)";
+              path.style.strokeDashoffset = 0;
+            }
+          }
+        });
+        pts.forEach(function (p) {
+          if (!p) return;
+          if (p.far) {
+            el("circle", { cx: p.x, cy: p.y, r: 3.5, class: "gk-far" }, svg);
+            var s = p.far > 0 ? -1 : 1, y0 = p.y + s * 6.5;
+            el("path", { d: "M" + (p.x - 3).toFixed(1) + "," + y0.toFixed(1) + "L" + p.x.toFixed(1) + "," + (y0 + s * 3).toFixed(1) + "L" + (p.x + 3).toFixed(1) + "," + y0.toFixed(1), class: "gk-far-tick" }, svg);
+          } else if (p.d.soft) el("circle", { cx: p.x, cy: p.y, r: 2.5, class: "gk-soft" }, svg);
+        });
+        runs.forEach(function (run) {
+          if (o.points || run.length === 1) run.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 3, class: "gk-pt" }, svg); });
+        });
+        if (runs.length) {
+          var lr = runs[runs.length - 1], last = lr[lr.length - 1];
+          el("circle", { cx: last[0], cy: last[1], r: 3.5, class: "gk-last" }, svg);
         }
-        if (o.points) pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 3, class: "gk-pt" }, svg); });
-        var last = pts[pts.length - 1];
-        el("circle", { cx: last[0], cy: last[1], r: 3.5, class: "gk-last" }, svg);
       }
       host._drawn = true;
       var cross = el("line", { y1: padT, y2: padT + ih, class: "gk-cross", visibility: "hidden" }, svg);
       var dot = el("circle", { r: 4.5, class: "gk-dot", visibility: "hidden" }, svg);
       function move(ev) {
+        if (!hov.length) return;
         var r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * W;
         var best = 0, bd = Infinity;
-        pts.forEach(function (p, k) { var d = Math.abs(p[0] - x); if (d < bd) { bd = d; best = k; } });
-        var p = pts[best], d = data[best];
-        cross.setAttribute("x1", p[0]); cross.setAttribute("x2", p[0]); cross.setAttribute("visibility", "visible");
-        dot.setAttribute("cx", p[0]); dot.setAttribute("cy", p[1]); dot.setAttribute("visibility", "visible");
-        tip.innerHTML = "<b>" + (o.fmt || String)(d.v) + "</b><span>" + new Date(d.t * 1000).toLocaleString(lang(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) + (d.h != null && isFinite(d.h) ? " · " + TE("block {h}", { h: Number(d.h) }) : "") + "</span>";
+        hov.forEach(function (p, k) { var d = Math.abs(p.x - x); if (d < bd) { bd = d; best = k; } });
+        var p = hov[best], d = p.d;
+        cross.setAttribute("x1", p.x); cross.setAttribute("x2", p.x); cross.setAttribute("visibility", "visible");
+        dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y); dot.setAttribute("visibility", p.gap ? "hidden" : "visible");
+        var when = o.tipTime ? o.tipTime(d) : new Date(d.t * 1000).toLocaleString(lang(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        var val = p.gap ? d.note || "—" : (o.fmt || String)(d.v);
+        tip.innerHTML = "<b>" + esc(val) + "</b><span>" + esc(when) + (d.h != null && isFinite(d.h) ? " · " + TE("block {h}", { h: Number(d.h) }) : "") + "</span>" + (d.note && !p.gap ? "<i>" + esc(d.note) + "</i>" : "");
         tip.classList.remove("hidden");
-        var left = (p[0] / W) * r.width;
+        var left = (p.x / W) * r.width;
         tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left - tip.offsetWidth / 2)) + "px";
-        tip.style.top = Math.max(0, (p[1] / H) * r.height - tip.offsetHeight - 14) + "px";
+        tip.style.top = Math.max(0, (p.y / H) * r.height - tip.offsetHeight - 14) + "px";
       }
       function leave() { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.classList.add("hidden"); }
       svg.addEventListener("pointermove", move);
@@ -170,22 +225,9 @@
     host.querySelector(".gk-disc-label span").textContent = T("issued");
   }
 
-  /* Subtle 3D tilt with a moving glare for cards on pointer devices. */
-  function tilt(selector) {
-    if (reduce || low || !(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) return;
-    document.querySelectorAll(selector).forEach(function (c) {
-      if (c._tilt) return;
-      c._tilt = true;
-      c.classList.add("gk-tilt");
-      c.addEventListener("pointermove", function (e) {
-        var r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-        c.style.transform = "perspective(900px) rotateX(" + ((0.5 - y) * 6).toFixed(2) + "deg) rotateY(" + ((x - 0.5) * 7).toFixed(2) + "deg) translateZ(0)";
-        c.style.setProperty("--gx", (x * 100).toFixed(1) + "%");
-        c.style.setProperty("--gy", (y * 100).toFixed(1) + "%");
-      });
-      c.addEventListener("pointerleave", function () { c.style.transform = ""; });
-    });
-  }
+  /* Cards used to tilt under the pointer. They are flat now: the light that follows the cursor
+     (fx.js) does that job. Kept so that callers need no change. */
+  function tilt() {}
 
   function compact(v, unit) {
     var d = v >= 100 ? 0 : v >= 10 ? 1 : 2;

@@ -62,6 +62,7 @@
  "825c325c0e": "<0>Wallets:</0> light wallets verify sampled headers, total work and every block they read; keys never leave the device.",
  "4cb33e319d": "<0>Swaps:</0> GNR and bitcoin are exchanged with hash and time locks; the seller's GNR is locked before the buyer pays.",
  "4c6597b772": "Full details: <0>documentation</0> · <1>specifications</1>.",
+ "b2db2848bf": "He holds no key over the protocol. The genesis block issues nothing, the rules are the same for everyone, and they change only when node operators choose to run new software.",
  "61e8d44ad4": "Get started",
  "c2e2685a28": "<0>Download the wallet</0> for Windows or Linux, create a wallet, and <1>mine</1> on a GPU or CPU, or buy GNR with bitcoin on the <2>offer board</2>. See the live network in the <3>explorer</3>.",
  "357fedbed3": "A quantum-resistant, private-by-default proof-of-work cryptocurrency (ticker GNR) with Bitcoin's monetary design: 21 million coins, halvings, mining and a fair launch with no premine.",

@@ -1,7 +1,7 @@
-/* Genoryn Krypton design tokens: ONE file for the website and the wallet.
-   Surfaces and chrome are true greys (R = G = B) or black/white rgba(). Colours that carry
-   meaning (status) or identity (brand mark) keep their exact original values below.
-   Components use the semantic tokens, never raw colours. */
+/* Genoryn Krypton design tokens ("Obsidian", 1.0.55): ONE file for the website, the wallet
+   and Genoryn Talks. Surfaces are solid layers of true grey (R = G = B) divided by hairlines;
+   nothing is tinted. Colours that carry meaning (status) or identity (brand mark) keep their
+   exact original values below. Components use the semantic tokens, never raw colours. */
 
 /* Each subset declares exactly the characters it has; the extended and Cyrillic files load only
    on pages that use those characters. Chinese, Japanese and Korean use the system's fonts. */
@@ -42,11 +42,19 @@
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, var(--font-cjk), sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 
-  --radius-sm: 12px;
-  --radius: 18px;
-  --radius-lg: 26px;
+  /* Tight corners: 6 for chips and keys, 8 for controls, 12 for cards, 16 for panels. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --ease: cubic-bezier(.16, 1, .3, 1);
-  --blur: 18px;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --blur: 14px;
+  /* One control height for buttons, fields and segmented switches. */
+  --ctl: 40px;
+  --ctl-sm: 32px;
+  --ctl-lg: 48px;
 }
 /* Han characters differ between Chinese, Japanese and Korean: each language's own fonts first. */
 :root:lang(ja) { --font-cjk: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans CJK JP", "PingFang SC", "Microsoft YaHei"; }
@@ -57,75 +65,111 @@
 :root, [data-theme="dark"] {
   color-scheme: dark;
   --bg-app: #000000;
-  --bg-card: rgba(255, 255, 255, .034);
-  --bg-inset: rgba(255, 255, 255, .045);
+  /* Layers, from the page up: card, then what sits inside a card, then what floats. */
+  --bg-card: #0a0a0a;
+  --bg-card-2: #0d0d0d;
+  --bg-inset: rgba(255, 255, 255, .035);
   --bg-raised: rgba(255, 255, 255, .07);
-  --bg-hover: rgba(255, 255, 255, .065);
-  --bg-field: rgba(0, 0, 0, .34);
-  --bg-float: rgba(0, 0, 0, .74);
-  --bg-float-low: rgba(10, 10, 10, .97);
+  --bg-hover: rgba(255, 255, 255, .055);
+  --bg-field: #050505;
+  --bg-float: rgba(8, 8, 8, .78);
+  --bg-float-low: #0b0b0b;
   --bg-solid: #0a0a0a;
-  --line: rgba(255, 255, 255, .085);
-  --line-strong: rgba(255, 255, 255, .17);
+  --bg-pop: #101010;
+  --line: rgba(255, 255, 255, .08);
+  --line-strong: rgba(255, 255, 255, .16);
+  --line-solid: #1a1a1a;
   --text-primary: #ffffff;
   --text-secondary: #a3a3a3;
   --text-tertiary: #7a7a7a;
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .05), transparent 46%);
-  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .09);
-  --shadow-card: 0 28px 56px -30px rgba(0, 0, 0, .9);
+  --surface: linear-gradient(180deg, var(--bg-card-2), var(--bg-card));
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent 42%);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .055);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, .5), 0 22px 44px -30px rgba(0, 0, 0, .9);
+  --shadow-pop: 0 0 0 1px rgba(255, 255, 255, .05), 0 24px 70px -12px rgba(0, 0, 0, .85), 0 8px 24px -8px rgba(0, 0, 0, .7);
   --neon: rgba(255, 255, 255, .6);
-  --neon-soft: rgba(255, 255, 255, .16);
-  --focus-ring: 0 0 0 2px rgba(255, 255, 255, .26), 0 0 16px rgba(255, 255, 255, .14);
-  --text-glow: 0 0 28px rgba(255, 255, 255, .16);
+  --neon-soft: rgba(255, 255, 255, .14);
+  --focus-ring: 0 0 0 1px #000000, 0 0 0 3px rgba(255, 255, 255, .55);
+  --text-glow: none;
   --btn-primary-bg: #ffffff;
   --btn-primary-text: #000000;
+  --btn-primary-fill: linear-gradient(180deg, #ffffff, #d4d4d4);
+  --btn-fill: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .04));
+  --btn-fill-hover: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .07));
   --veil: rgba(0, 0, 0, .3);
   --scroll-thumb: rgba(255, 255, 255, .16);
+  /* The grey mesh behind every page, the grid over it and the light that follows the cursor. */
+  --mesh:
+    radial-gradient(60% 50% at 50% -8%, rgba(255, 255, 255, .13), transparent 70%),
+    radial-gradient(38% 34% at 12% 4%, rgba(255, 255, 255, .06), transparent 72%),
+    radial-gradient(42% 36% at 90% 0%, rgba(255, 255, 255, .07), transparent 72%);
+  --grid-line: rgba(255, 255, 255, .045);
+  --spot: rgba(255, 255, 255, .055);
+  --spot-edge: rgba(255, 255, 255, .38);
+  --ink-gradient: linear-gradient(180deg, #ffffff 30%, #8f8f8f 120%);
+  --edge-gradient: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .04) 55%, rgba(255, 255, 255, .1));
   /* State, expressed with light and shape instead of hue. */
   --state-ok: #ffffff;
   --state-pending: #c9c9c9;
   --state-muted: #7a7a7a;
   --state-alert: #ffffff;
   --state-alert-bg: rgba(255, 255, 255, .1);
-  --pool: rgba(255, 255, 255, .08);
+  --pool: rgba(255, 255, 255, .06);
   --status-backing: transparent;
   --mark-src: url("genoryn-mark-dark.svg");
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg-app: #f5f5f5;
-  --bg-card: rgba(255, 255, 255, .6);
-  --bg-inset: rgba(0, 0, 0, .045);
-  --bg-raised: rgba(255, 255, 255, .85);
-  --bg-hover: rgba(0, 0, 0, .05);
-  --bg-field: rgba(255, 255, 255, .9);
-  --bg-float: rgba(255, 255, 255, .84);
-  --bg-float-low: rgba(255, 255, 255, .98);
-  --bg-solid: #f5f5f5;
-  --line: rgba(0, 0, 0, .1);
-  --line-strong: rgba(0, 0, 0, .2);
+  --bg-app: #fafafa;
+  --bg-card: #ffffff;
+  --bg-card-2: #ffffff;
+  --bg-inset: rgba(0, 0, 0, .03);
+  --bg-raised: rgba(0, 0, 0, .055);
+  --bg-hover: rgba(0, 0, 0, .045);
+  --bg-field: #ffffff;
+  --bg-float: rgba(255, 255, 255, .82);
+  --bg-float-low: #ffffff;
+  --bg-solid: #fafafa;
+  --bg-pop: #ffffff;
+  --line: rgba(0, 0, 0, .09);
+  --line-strong: rgba(0, 0, 0, .18);
+  --line-solid: #e6e6e6;
   --text-primary: #000000;
   --text-secondary: #575757;
   --text-tertiary: #7a7a7a;
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .7), transparent 46%);
+  --surface: linear-gradient(180deg, var(--bg-card-2), var(--bg-card));
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .6), transparent 42%);
   --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .9);
-  --shadow-card: 0 22px 44px -28px rgba(0, 0, 0, .28);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .04), 0 18px 36px -26px rgba(0, 0, 0, .22);
+  --shadow-pop: 0 0 0 1px rgba(0, 0, 0, .06), 0 24px 60px -14px rgba(0, 0, 0, .28), 0 8px 20px -8px rgba(0, 0, 0, .14);
   --neon: rgba(0, 0, 0, .85);
   --neon-soft: rgba(0, 0, 0, .08);
-  --focus-ring: 0 0 0 2px #000000, 0 4px 14px -4px rgba(0, 0, 0, .35);
+  --focus-ring: 0 0 0 1px #ffffff, 0 0 0 3px rgba(0, 0, 0, .7);
   --text-glow: none;
   --btn-primary-bg: #000000;
   --btn-primary-text: #ffffff;
+  --btn-primary-fill: linear-gradient(180deg, #2b2b2b, #000000);
+  --btn-fill: linear-gradient(180deg, #ffffff, #f3f3f3);
+  --btn-fill-hover: linear-gradient(180deg, #ffffff, #e9e9e9);
   --veil: rgba(255, 255, 255, .2);
   --scroll-thumb: rgba(0, 0, 0, .2);
+  --mesh:
+    radial-gradient(60% 50% at 50% -8%, rgba(0, 0, 0, .075), transparent 70%),
+    radial-gradient(38% 34% at 12% 4%, rgba(0, 0, 0, .04), transparent 72%),
+    radial-gradient(42% 36% at 90% 0%, rgba(0, 0, 0, .045), transparent 72%);
+  --grid-line: rgba(0, 0, 0, .045);
+  --spot: rgba(0, 0, 0, .03);
+  --spot-edge: rgba(0, 0, 0, .42);
+  --ink-gradient: linear-gradient(180deg, #000000 30%, #5c5c5c 120%);
+  --edge-gradient: linear-gradient(180deg, rgba(0, 0, 0, .3), rgba(0, 0, 0, .05) 55%, rgba(0, 0, 0, .12));
   --state-ok: #000000;
   --state-pending: #575757;
   --state-muted: #7a7a7a;
   --state-alert: #000000;
   --state-alert-bg: rgba(0, 0, 0, .07);
-  --pool: rgba(0, 0, 0, .05);
-  /* Status colours keep their hue; on light glass they sit on a dark backing for contrast. */
+  --pool: rgba(0, 0, 0, .04);
+  /* Status colours keep their hue; on light surfaces they sit on a dark backing for contrast. */
   --status-backing: #141414;
   --mark-src: url("genoryn-mark-light.svg");
 }
