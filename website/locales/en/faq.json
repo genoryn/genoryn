@@ -47,7 +47,7 @@
  "0e76192eb8": "In the wallet, with bitcoin, through an atomic swap with another person: Quick Swap on the Swap tab buys any amount in one click, or take a sell offer or publish a buy offer on the Market tab. There is no exchange, no account and no custody. <0>How to get GNR</0>.",
  "61eff42612": "Is GNR listed on an exchange?",
  "448724d72b": "No. GNR is earned by mining or exchanged with bitcoin directly between wallets.",
- "ae5e14360e": "Only from completed swaps of the last 72 hours whose bitcoin the board found on the Bitcoin chain: the market price is where half of that bitcoin changed hands below and half above (a volume-weighted median). Offers and swaps in progress never move it. <0>Live market</0>.",
+ "368d421d58": "Only from completed swaps whose bitcoin the board found on the Bitcoin chain (the last 24 hours when the market is busy, otherwise up to 30 days): the market price is where half of that bitcoin changed hands below and half above (a weighted median), with a confidence from 0 to 100. Offers and swaps in progress never move it. <0>Live market</0>.",
  "c77741802f": "Why swap bitcoin for GNR?",
  "30671c246e": "Bitcoin's coins are guarded by elliptic-curve signatures, which a large quantum computer could break. A swap moves value into a system guarded by hash-based proofs, directly from your own wallet.",
  "05e02a177c": "Can someone offer GNR they do not have?",

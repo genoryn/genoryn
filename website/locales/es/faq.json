@@ -48,7 +48,6 @@
  "0e76192eb8": "En la billetera, con bitcoin, mediante un intercambio atómico con otra persona: Quick Swap, en la pestaña Intercambio, compra cualquier cantidad con un clic; o toma una oferta de venta o publica una oferta de compra en la pestaña Mercado. No hay exchange, ni cuenta, ni custodia. <0>Cómo obtener GNR</0>.",
  "61eff42612": "¿GNR cotiza en algún exchange?",
  "448724d72b": "No. GNR se obtiene minando o se intercambia por bitcoin directamente entre billeteras.",
- "ae5e14360e": "Solo a partir de los intercambios completados en las últimas 72 horas cuyo bitcoin el tablón encontró en la cadena de Bitcoin: el precio de mercado es el punto en el que la mitad de ese bitcoin cambió de manos por debajo y la otra mitad por encima (una mediana ponderada por volumen). Las ofertas y los intercambios en curso nunca lo mueven. <0>Mercado en directo</0>.",
  "c77741802f": "¿Por qué intercambiar bitcoin por GNR?",
  "30671c246e": "Las monedas de Bitcoin están protegidas por firmas de curva elíptica, que una computadora cuántica grande podría romper. Un intercambio traslada valor a un sistema protegido por pruebas basadas en hashes, directamente desde tu propia billetera.",
  "05e02a177c": "¿Puede alguien ofrecer GNR que no tiene?",

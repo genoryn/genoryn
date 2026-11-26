@@ -48,7 +48,6 @@
  "0e76192eb8": "Dans le portefeuille, avec des bitcoins, par un échange atomique avec une autre personne : Quick Swap, dans l'onglet Échange, achète n'importe quel montant en un clic, ou bien prenez une offre de vente ou publiez une offre d'achat dans l'onglet Marché. Il n'y a ni plateforme d'échange, ni compte, ni conservation par un tiers. <0>Comment obtenir des GNR</0>.",
  "61eff42612": "Le GNR est-il coté sur une plateforme d'échange ?",
  "448724d72b": "Non. Le GNR s'obtient en minant, ou en l'échangeant contre des bitcoins directement entre portefeuilles.",
- "ae5e14360e": "Uniquement à partir des échanges terminés au cours des 72 dernières heures dont le tableau a trouvé les bitcoins sur la chaîne Bitcoin : le prix du marché est le niveau en dessous duquel la moitié de ces bitcoins a changé de mains, l'autre moitié au-dessus (une médiane pondérée par le volume). Les offres et les échanges en cours ne le font jamais bouger. <0>Marché en direct</0>.",
  "c77741802f": "Pourquoi échanger des bitcoins contre des GNR ?",
  "30671c246e": "Les pièces de Bitcoin sont protégées par des signatures à courbe elliptique, qu'un grand ordinateur quantique pourrait casser. Un échange transfère de la valeur vers un système protégé par des preuves fondées sur le hachage, directement depuis votre propre portefeuille.",
  "05e02a177c": "Quelqu'un peut-il proposer des GNR qu'il ne possède pas ?",

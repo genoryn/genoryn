@@ -1,5 +1,12 @@
 {
 	auto_https disable_redirects
+	# The client's address is taken from CF-Connecting-IP only when the request comes from
+	# Cloudflare (whose ranges these are, as in the firewall); from anywhere else it is the
+	# connection's own address, so a forged header is never believed.
+	servers {
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
 }
 
 (site) {
@@ -36,10 +43,23 @@
 		rewrite * /api/v1/prices
 		reverse_proxy https://mempool.space {
 			header_up Host mempool.space
+			# Nothing about the visitor goes to mempool.space.
 			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Proto
+			header_up -X-Forwarded-Host
 			header_up -X-Real-IP
 			header_up -CF-Connecting-IP
+			header_up -CF-Connecting-IPv6
+			header_up -CF-IPCountry
+			header_up -CF-Ray
+			header_up -CF-Visitor
+			header_up -CDN-Loop
+			header_up -True-Client-IP
 			header_up -Cookie
+			header_up -Referer
+			header_up -Origin
+			header_up -Accept-Language
+			header_up User-Agent genoryn.io
 		}
 	}
 	# Public node API for light wallets, explorers and miners (mainnet; testnet would be 31334).
@@ -48,10 +68,9 @@
 		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 		reverse_proxy 127.0.0.1:30334 {
 			flush_interval -1
-			# The origin accepts web traffic only from Cloudflare (firewall), so the client
-			# address Cloudflare reports is trustworthy; the node budgets requests by it.
-			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			# The client's address (see trusted_proxies above); the node budgets requests by it.
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
 		}
 	}
 	# Genoryn Talks, the community forum and live chat: a service of its own on this
@@ -60,8 +79,8 @@
 	handle @talks {
 		reverse_proxy 127.0.0.1:30400 {
 			flush_interval -1
-			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
 		}
 	}
 	handle {
