@@ -13,7 +13,7 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 - Trade history in the wallet: every completed swap of the board, newest first, with charts, your own trades and a CSV export. It loads in parts, so it stays quick with millions of swaps; genoryn.io/trades shows the whole history.
 - A sturdier market price (method 2): the shortest window with enough verified swaps, swaps far from the rest left out, limits per swap and per six hours, and a confidence from 0 to 100 with a status. The market page shows the depth of the board, and anyone can recompute the price with verifymarketprice in the wallet's console.
 - Confirmations before every payment and swap: a bitcoin payment is checked first and shows the fee, the total and what stays; taking an offer or a Quick Swap shows what goes and what comes, the price against the market, the fees, the confirmations the seller waits for and what happens if the swap does not complete.
-- Connect through Tor: an optional SOCKS5 proxy for all of the wallet's own connections, in Network, Connection mode.
+- Connect through Tor: an optional SOCKS5 proxy for all of the wallet's own connections, in Settings, Connection mode.
 - Research: what a transaction still shows on chain, measured on mainnet, and why Sietch-style dummy outputs are not needed here: every transaction already has two inputs and two outputs.
 
 ### Changed

@@ -235,7 +235,7 @@ in its own window. Keys, scanning and proving never leave your computer.
 | **Security** | Change a wallet's password, lock wallets, and **delete a wallet** from this computer (with its password; refused while a swap or an offer of it is open; keep a copy or erase it for good) |
 | **About** | Version, update check, automatic updates, what the wallet does, Genoryn Talks (the forum and live chat), and the security audits |
 
-**Connection mode** (Network tab):
+**Connection mode** (Settings tab):
 
 * **Light** (recommended): remote nodes provide data; headers, outputs and tree updates are
   verified on your computer. Several nodes can be configured and are cross-checked.
@@ -337,7 +337,7 @@ the board carry one-time keys, never your address, and the board cannot read the
 passes.
 
 **Your IP address** is not on chain, but the servers a light wallet talks to see it. Set a Tor
-proxy in Network → Connection mode to hide it from them. The full node (`kryptond`) has no
+proxy in Settings → Connection mode to hide it from them. The full node (`kryptond`) has no
 proxy setting: its peers see its address. If that matters, use the light wallet over Tor, or
 run the node with `--no-listen` so nothing can connect to it.
 
@@ -936,7 +936,7 @@ reason when the miner stops.
 <details><summary><b>The wallet does not sync, or a node "shows a chain with less proof of work"</b></summary>
 
 A light wallet refuses a node that is behind or shows a lighter chain than one it already
-verified. Wait a few minutes, add another node in Network → Connection mode, or start your own
+verified. Wait a few minutes, add another node in Settings → Connection mode, or start your own
 full node. "The node's chain ends before this release's checkpoint" means the node is far behind
 or on another network.
 </details>
