@@ -57,6 +57,8 @@ const MARKET_TTL: Duration = Duration::from_secs(3);
 const HISTORY_TTL: Duration = Duration::from_secs(10);
 /// The most completed swaps one history page holds.
 const HISTORY_PAGE_MAX: usize = 200;
+/// Pages are found by walking from the newest swap: deeper than this, ask with `since`.
+const HISTORY_OFFSET_MAX: usize = 2_000_000;
 /// A swap in progress is shown at most this long (a GNR-first swap pays within two hours
 /// of its lock and completes within a few more).
 const PENDING_SECS: u64 = 12 * 3600;
@@ -1510,7 +1512,7 @@ fn post_message_now(node: &Arc<Node>, client: Option<IpAddr>, e: Envelope) -> Re
         }
     }
     if i.messages >= MAX_MESSAGES || i.message_bytes + e.data.len() > MAX_MESSAGE_BYTES_TOTAL {
-        return bad("the mailbox service is full; try again later");
+        return bad("the board's message relay is full; try again later");
     }
     // A full inbox lets its oldest message go (its wallet reads it every few seconds, so
     // what it needed is read already): a flood cannot shut a mailbox.
@@ -1846,6 +1848,9 @@ pub struct HistoryQuery {
 
 /// Every completed swap, newest first, a page at a time (1.0.53): the trade history.
 pub async fn history(State(node): S, Query(q): Query<HistoryQuery>) -> Response {
+    if q.offset > HISTORY_OFFSET_MAX {
+        return bad("offset too large: narrow the history with since");
+    }
     off_runtime(|| {
         let limit = q.limit.unwrap_or(50).clamp(1, HISTORY_PAGE_MAX);
         let since = q.since.unwrap_or(0);

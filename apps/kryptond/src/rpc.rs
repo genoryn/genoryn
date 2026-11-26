@@ -805,7 +805,7 @@ async fn publish_address(
         .is_some();
     if !known {
         // Entries are content-addressed and permanent: bound how fast anyone can add them,
-        // each client by the day and everyone together by the minute.
+        // each client by the day, and everyone together by the minute and by the day.
         {
             let now = Instant::now();
             if let Some(c) = client {
@@ -825,11 +825,16 @@ async fn publish_address(
                 v.push(now);
             }
             let mut b = n.address_budget.lock();
-            b.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
-            if b.len() >= 600 {
+            b.retain(|t| now.duration_since(*t) < Duration::from_secs(86_400));
+            let minute = b
+                .iter()
+                .rev()
+                .take_while(|t| now.duration_since(**t) < Duration::from_secs(60))
+                .count();
+            if minute >= 600 || b.len() >= ADDRESSES_A_DAY {
                 return Err(ApiError(
                     StatusCode::TOO_MANY_REQUESTS,
-                    "address directory is busy; try again in a minute".into(),
+                    "address directory is busy; try again later".into(),
                 ));
             }
             b.push(now);
@@ -846,6 +851,8 @@ async fn publish_address(
 
 /// New directory entries one client may add in a day (a wallet publishes one, a rig none).
 const ADDRESSES_A_DAY_EACH: usize = 20;
+/// New directory entries everyone together may add in a day (about 50 MB).
+const ADDRESSES_A_DAY: usize = 20_000;
 /// New templates one client may have built in a minute (a payout address costs about six).
 const TEMPLATES_A_MINUTE_EACH: usize = 60;
 

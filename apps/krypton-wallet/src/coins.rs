@@ -960,7 +960,7 @@ fn round(a: &App, w: &mut Wallet, src: &Multi) -> Result<()> {
         let v = match crate::board::get_json(&base, &format!("/v1/swap/inbox/{inbox}")) {
             Ok(v) => v,
             Err(e) => {
-                event(format!("mailbox {n}: {e}"));
+                event(format!("messages {n}: {e}"));
                 continue;
             }
         };
@@ -977,13 +977,13 @@ fn round(a: &App, w: &mut Wallet, src: &Multi) -> Result<()> {
             }
             book.seen.push(h);
             let Ok((from, body)) = board::open(&k, data) else {
-                event(format!("mailbox {n}: a message not for us"));
+                event(format!("messages {n}: a message not for us"));
                 continue;
             };
             let note = match serde_json::from_slice::<Note>(&body) {
                 Ok(x) => x,
                 Err(e) => {
-                    event(format!("mailbox {n}: unreadable message ({e})"));
+                    event(format!("messages {n}: unreadable message ({e})"));
                     continue;
                 }
             };

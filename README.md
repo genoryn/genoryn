@@ -527,7 +527,8 @@ Both sides lock their coins under the same **hash lock** (SHA-256 of a secret) w
 and if nobody does, both refund. Since 1.0.23 **the GNR is locked first**:
 
 1. **Agree.** A buyer takes a sell offer, or a seller takes a buy offer. The wallets exchange
-   the swap codes through sealed mailboxes on the board, by themselves, within seconds.
+   the swap codes as sealed messages that the board relays from wallet to wallet, by themselves,
+   within seconds. No e-mail is involved: the board is part of every node.
 2. **The seller locks the GNR.** The seller's wallet holds the secret and locks exactly the
    agreed GNR on chain, payable only to the buyer with that secret, or back to the seller after
    the GNR timelock.
@@ -574,14 +575,14 @@ two wallets of a swap; it never sees keys, codes or coins.
 | Proof of funds | A sell offer is listed only after its GNR is set aside in a note of its own and the board has checked a zero-knowledge proof that the seller can spend it. The proof fits that offer only and can never be mined: nothing moves. The board takes the offer down the moment the note is spent, and no note backs two offers, or an offer and a swap in progress |
 | While it is open | The note cannot be sent or put into another offer; a take locks exactly it |
 | Buyers whose bitcoin is ready | A sell offer is by default only for buyers whose bitcoin is already at an address of their own wallet: the seller's wallet checks that on the Bitcoin chain before it locks GNR, and the buyer's wallet pays by itself. For other buyers a wallet holds at most two unpaid locks at a time |
-| One wallet, several computers | Each copy reports its swaps, encrypted, to a mailbox only copies of that wallet can read; another computer shows them and can carry one on if the first is gone |
+| One wallet, several computers | Each copy reports its swaps, encrypted, as sealed messages on the board that only copies of that wallet can read; another computer shows them and can carry one on if the first is gone |
 | A week's commitment | Publishing a sell offer commits its GNR for 7 days: it can be sold or go into another sell offer at once, but not be sent, also after cancelling or after the offer ran its time. A rule of the wallet; the chain cannot tell a real sale from a seller selling to themselves |
 | Buy offers | The bitcoin is paid in advance to an address of the buyer's own wallet (a contract cannot hold it before a seller exists: it names the seller's key and the hash of the seller's secret). The board checks on the Bitcoin chain that it is there and marks the offer. When a seller's GNR is locked and confirmed, the buyer's wallet pays the contract by itself; if nobody sells, it sends the bitcoin back |
 | One wallet, two computers | Offers and swaps live in the wallet that started them. A second copy of the wallet shows the GNR as locked in a swap elsewhere and takes it back 30 blocks after its lock ends if the first copy is gone |
 | Online | The maker's wallet pings every 45 s; seen in the last 2 minutes = green dot, takeable, swap starts within seconds without approval |
 | Offline | Stays listed, greyed out, not takeable; removed after a week offline (the wallet then frees the GNR) |
 | In progress | Only the maker can mark a taken offer "in progress"; it is shown as taken, not paid yet, until the bitcoin is in its contract, and only paid swaps count as running. The maker's wallet confirms every 10 minutes and removes the entry as soon as the swap can no longer complete |
-| Limits | Up to 5,000 offers, mailboxes of 100 messages kept a day, per-client rate limits |
+| Limits | Up to 5,000 offers, up to 100 sealed messages per wallet kept a day, per-client rate limits |
 | Anonymity | Each offer has its own one-time X25519 + ML-KEM-1024 key, never your address |
 
 ### Quick Swap
