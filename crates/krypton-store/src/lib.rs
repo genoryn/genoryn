@@ -22,9 +22,10 @@ use redb::{Database, ReadOnlyTable, ReadableTable, TableDefinition, WriteTransac
 use std::path::Path;
 use std::sync::Arc;
 
-/// Side-branch blocks are stored only while their branch is within this many blocks of
-/// work (at the tip's difficulty) of the main chain: about 16 hours of mining.
-const SIDE_BRANCH_WORK_BLOCKS: u128 = 1000;
+/// A side-branch block is stored when its difficulty is at least this fraction of the
+/// tip's: a branch of real work, however long or far behind, is kept until it wins or
+/// loses, while blocks of a cheap low-difficulty branch are not (they cannot fill the disk).
+const SIDE_BRANCH_MIN_DIFFICULTY_DIVISOR: u128 = 16;
 const HEADERS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("headers");
 const BLOCKS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("blocks");
 const MAIN: TableDefinition<u64, &[u8]> = TableDefinition::new("main");
@@ -410,6 +411,15 @@ impl Chain {
         };
         chain.init()?;
         chain.repair()?;
+        if let Some(cp) = chain.params.checkpoint
+            && chain.tip().height() >= cp.height
+            && !chain.main_has_checkpoint()?
+        {
+            tracing::warn!(
+                "this node's chain does not contain the release checkpoint (block {}); it follows the checkpoint's chain as soon as peers deliver it",
+                cp.height
+            );
+        }
         Ok(chain)
     }
 
@@ -726,6 +736,16 @@ impl Chain {
         if parent.status == STATUS_INVALID {
             return Err(ChainError::Invalid(CoreError::Invalid("parent is invalid")));
         }
+        // The release checkpoint: only chains through it are followed (before any proof of
+        // work is checked, which costs more).
+        if !self.keeps_checkpoint(block.header.height, &hash, &block.header.prev, &parent)? {
+            return Err(ChainError::Invalid(CoreError::Invalid(
+                "block is not on the chain of this release's checkpoint",
+            )));
+        }
+        if self.forks_below_checkpoint(block.header.height)? {
+            return Ok(Outcome::SideChain);
+        }
         // Cheap checks first: header context and proof of work on its own branch.
         let history = self.branch_history(&block.header.prev)?;
         let ctx = ParentContext {
@@ -741,15 +761,18 @@ impl Chain {
         // genuine block is still accepted when it arrives.
         consensus::check_body_commitments(block)?;
         let work = parent.work.saturating_add(block.header.difficulty);
-        // A side branch far behind the main chain cannot win: don't store its bodies.
-        // Otherwise cheap low-difficulty forks from deep history could fill the disk.
+        // A side-branch block of far less difficulty than the tip is not stored: cheap
+        // low-difficulty branches could otherwise fill the disk. Judged by the block's own
+        // work, never by how far behind its branch started, so a real branch (a network
+        // partition, a node offline for days) is kept whatever its length. Nothing is
+        // dropped while this chain carries less than the checkpoint's work: it may be the
+        // cheap one.
         let tip = self.tip();
+        let min_work = self.params.checkpoint.map_or(0, |c| c.work);
         if block.header.prev != tip.hash
-            && work.saturating_add(
-                tip.header
-                    .difficulty
-                    .saturating_mul(SIDE_BRANCH_WORK_BLOCKS),
-            ) < tip.work
+            && tip.work >= min_work
+            && block.header.difficulty
+                < (tip.header.difficulty / SIDE_BRANCH_MIN_DIFFICULTY_DIVISOR).max(1)
         {
             return Ok(Outcome::SideChain);
         }
@@ -785,6 +808,72 @@ impl Chain {
         } else {
             Ok(Outcome::SideChain)
         }
+    }
+
+    /// The release checkpoint as a hash, if this network has one.
+    fn checkpoint(&self) -> Option<(u64, Hash32)> {
+        let c = self.params.checkpoint?;
+        let h: Hash32 = hex::decode(c.hash).ok()?.try_into().ok()?;
+        Some((c.height, h))
+    }
+
+    /// Whether the main chain has the checkpoint's block at its height.
+    pub fn main_has_checkpoint(&self) -> Result<bool> {
+        Ok(match self.checkpoint() {
+            Some((h, x)) => self.main_hash(h)? == Some(x),
+            None => true,
+        })
+    }
+
+    /// Whether a block at `height` (hash `hash`, parent `prev`) is on a chain through the
+    /// checkpoint, or below it: at the checkpoint's height it must be the checkpoint's
+    /// block, above it its branch must pass through that block.
+    fn keeps_checkpoint(
+        &self,
+        height: u64,
+        hash: &Hash32,
+        prev: &Hash32,
+        parent: &HeaderRecord,
+    ) -> Result<bool> {
+        let Some((cp_height, cp)) = self.checkpoint() else {
+            return Ok(true);
+        };
+        if height < cp_height {
+            return Ok(true);
+        }
+        if height == cp_height {
+            return Ok(*hash == cp);
+        }
+        let main_ok = self.main_has_checkpoint()?;
+        // Back along the branch until the checkpoint's height, or a main-chain block above
+        // it when the main chain passes through the checkpoint.
+        let (mut cur, mut rec) = (*prev, parent.clone());
+        loop {
+            if rec.header.height == cp_height {
+                return Ok(cur == cp);
+            }
+            if main_ok && self.main_hash(rec.header.height)? == Some(cur) {
+                return Ok(true);
+            }
+            if rec.header.height < cp_height {
+                return Ok(false);
+            }
+            cur = rec.header.prev;
+            rec = self
+                .header_record(&cur)?
+                .context("missing ancestor header")?;
+        }
+    }
+
+    /// Whether a new block at `height` belongs to a branch that leaves the main chain at
+    /// or below the checkpoint while the main chain passes through it: such a branch can
+    /// never be followed, so it is not stored. (Every main-chain block up to the
+    /// checkpoint is stored already, so a new block there is on another branch.)
+    fn forks_below_checkpoint(&self, height: u64) -> Result<bool> {
+        let Some((cp_height, _)) = self.checkpoint() else {
+            return Ok(false);
+        };
+        Ok(height <= cp_height && self.main_has_checkpoint()?)
     }
 
     fn mark_invalid(&self, hash: &Hash32) -> Result<()> {

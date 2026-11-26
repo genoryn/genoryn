@@ -2630,6 +2630,7 @@ name = "krypton-store"
 version = "1.0.52"
 dependencies = [
  "anyhow",
+ "hex",
  "krypton-core",
  "krypton-crypto",
  "krypton-light",

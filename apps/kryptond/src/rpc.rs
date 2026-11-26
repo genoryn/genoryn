@@ -44,6 +44,41 @@ fn binary(v: Vec<u8>) -> Response {
     ([(header::CONTENT_TYPE, "application/octet-stream")], v).into_response()
 }
 
+/// Browsers send simple POSTs (plain text, forms) to any site without asking it first, and
+/// such a request always carries the sending page's `Origin`. Writes are taken from
+/// programs (which send no `Origin`), from genoryn.io's own pages and from pages served by
+/// this computer; another website cannot make its visitors submit anything here.
+async fn same_site_posts(req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    if req.method() == axum::http::Method::POST
+        && let Some(o) = req.headers().get(header::ORIGIN)
+        && !origin_ok(o.as_bytes())
+    {
+        return ApiError(
+            StatusCode::FORBIDDEN,
+            "requests from other websites are refused".into(),
+        )
+        .into_response();
+    }
+    next.run(req).await
+}
+
+fn origin_ok(o: &[u8]) -> bool {
+    let Ok(o) = std::str::from_utf8(o) else {
+        return false;
+    };
+    if matches!(o, "https://genoryn.io" | "https://www.genoryn.io") {
+        return true;
+    }
+    let Some(rest) = o.strip_prefix("http://") else {
+        return false;
+    };
+    let host = match rest.rsplit_once(':') {
+        Some((h, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => h,
+        _ => rest,
+    };
+    matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+}
+
 fn parse_hash(s: &str) -> R<Hash32> {
     hex::decode(s)
         .ok()
@@ -99,6 +134,11 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/swap/inbox/{id}", get(crate::swapboard::inbox))
         .route("/v1/swap/trade", post(crate::swapboard::post_trade))
         .route("/v1/swap/market", get(crate::swapboard::market))
+        .route("/v1/swap/history", get(crate::swapboard::history))
+        .route(
+            "/v1/swap/history/summary",
+            get(crate::swapboard::history_summary),
+        )
         .route("/v1/swap/promise", post(crate::swapboard::post_promise))
         .route(
             "/v1/swap/promise/release",
@@ -125,6 +165,7 @@ pub fn router(node: Arc<Node>) -> Router {
             node.guard.clone(),
             crate::guard::limit,
         ))
+        .layer(axum::middleware::from_fn(same_site_posts))
         // Other sites may read public data, but never drive writes from a visitor's browser.
         .layer(
             tower_http::cors::CorsLayer::new()
@@ -678,19 +719,46 @@ async fn peers(State(n): S) -> Json<Value> {
     Json(json!(v))
 }
 
-async fn publish_address(State(n): S, body: String) -> R<Json<Value>> {
+async fn publish_address(
+    State(n): S,
+    client: Option<axum::extract::Extension<crate::guard::ClientKey>>,
+    body: String,
+) -> R<Json<Value>> {
     let a = Address::decode(&body).map_err(bad)?;
     if a.network != n.chain.params.network {
         return Err(bad("address is for another network"));
     }
     let id = a.short_id();
-    if n.chain.get_address(&id).map_err(ise)?.is_none() {
-        // Entries are content-addressed and permanent: bound how fast anyone can add them.
+    let chain = n.chain.clone();
+    let known = tokio::task::spawn_blocking(move || chain.get_address(&id))
+        .await
+        .map_err(ise)?
+        .map_err(ise)?
+        .is_some();
+    if !known {
+        // Entries are content-addressed and permanent: bound how fast anyone can add them,
+        // each client by the day and everyone together by the minute.
         {
-            let mut b = n.address_budget.lock();
             let now = Instant::now();
+            if let Some(c) = client {
+                let mut each = n.address_each.lock();
+                let day = Duration::from_secs(86_400);
+                if each.len() >= 100_000 {
+                    each.retain(|_, v| v.last().is_some_and(|t| now.duration_since(*t) < day));
+                }
+                let v = each.entry(c.quota).or_default();
+                v.retain(|t| now.duration_since(*t) < day);
+                if v.len() >= ADDRESSES_A_DAY_EACH {
+                    return Err(ApiError(
+                        StatusCode::TOO_MANY_REQUESTS,
+                        "too many new addresses from your address today; try again tomorrow".into(),
+                    ));
+                }
+                v.push(now);
+            }
+            let mut b = n.address_budget.lock();
             b.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
-            if b.len() >= 120 {
+            if b.len() >= 600 {
                 return Err(ApiError(
                     StatusCode::TOO_MANY_REQUESTS,
                     "address directory is busy; try again in a minute".into(),
@@ -698,12 +766,20 @@ async fn publish_address(State(n): S, body: String) -> R<Json<Value>> {
             }
             b.push(now);
         }
-        n.chain
-            .put_address(&id, a.encode().as_bytes())
+        let chain = n.chain.clone();
+        let enc = a.encode();
+        tokio::task::spawn_blocking(move || chain.put_address(&id, enc.as_bytes()))
+            .await
+            .map_err(ise)?
             .map_err(ise)?;
     }
     Ok(Json(json!({"short": a.short()})))
 }
+
+/// New directory entries one client may add in a day (a wallet publishes one, a rig none).
+const ADDRESSES_A_DAY_EACH: usize = 20;
+/// New templates one client may have built in a minute (a payout address costs about six).
+const TEMPLATES_A_MINUTE_EACH: usize = 60;
 
 async fn resolve_address(State(n): S, Path(short): Path<String>) -> R<Json<Value>> {
     let (_, id) = Address::parse_short(&short).map_err(bad)?;
@@ -735,7 +811,7 @@ struct TemplateReq {
     address: String,
 }
 
-async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
+async fn template_for(n: &Arc<Node>, address: &str, client: Option<std::net::IpAddr>) -> R<Value> {
     let addr = Address::decode(address).map_err(bad)?;
     if addr.network != n.chain.params.network {
         return Err(bad("payout address is for another network"));
@@ -752,14 +828,31 @@ async fn template_for(n: &Arc<Node>, address: &str) -> R<Value> {
         return Ok(v);
     }
     {
-        // Bound template building on public endpoints.
-        let mut b = n.template_budget.lock();
+        // Bound template building on public endpoints: each client's share, and a high
+        // ceiling for everyone together.
         let now = Instant::now();
-        b.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
-        if b.len() >= 600 {
+        let minute = Duration::from_secs(60);
+        if let Some(ip) = client {
+            let mut each = n.template_each.lock();
+            if each.len() >= 100_000 {
+                each.retain(|_, v| v.last().is_some_and(|t| now.duration_since(*t) < minute));
+            }
+            let v = each.entry(ip).or_default();
+            v.retain(|t| now.duration_since(*t) < minute);
+            if v.len() >= TEMPLATES_A_MINUTE_EACH {
+                return Err(ApiError(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "template rate limit; reuse your payout address".into(),
+                ));
+            }
+            v.push(now);
+        }
+        let mut b = n.template_budget.lock();
+        b.retain(|t| now.duration_since(*t) < minute);
+        if b.len() >= 6_000 {
             return Err(ApiError(
                 StatusCode::TOO_MANY_REQUESTS,
-                "template rate limit; reuse your payout address".into(),
+                "the node is building many templates; try again shortly".into(),
             ));
         }
         b.push(now);
@@ -838,8 +931,14 @@ fn job_json(n: &Node, id: u64) -> Option<Value> {
     }))
 }
 
-async fn mining_template(State(n): S, Json(r): Json<TemplateReq>) -> R<Json<Value>> {
-    Ok(Json(template_for(&n, &r.address).await?))
+async fn mining_template(
+    State(n): S,
+    client: Option<axum::extract::Extension<crate::guard::ClientKey>>,
+    Json(r): Json<TemplateReq>,
+) -> R<Json<Value>> {
+    Ok(Json(
+        template_for(&n, &r.address, client.map(|c| c.ip)).await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -860,6 +959,16 @@ async fn mining_submit(State(n): S, Json(r): Json<SubmitReq>) -> R<Json<Value>> 
         .ok_or_else(|| nf("unknown or expired job"))?;
     h.nonce = r.nonce;
     let ph = h.pow_hash();
+    let busy = || {
+        ApiError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "busy checking work; retry in a moment".into(),
+        )
+    };
+    let _checking = tokio::time::timeout(Duration::from_secs(5), n.pow_checks.acquire())
+        .await
+        .map_err(|_| busy())?
+        .map_err(|_| busy())?;
     let (meets_block, meets_share) = {
         let (chain, height, diff, nonce) = (n.chain.clone(), h.height, h.difficulty, r.nonce);
         tokio::task::spawn_blocking(move || {
@@ -872,8 +981,10 @@ async fn mining_submit(State(n): S, Json(r): Json<SubmitReq>) -> R<Json<Value>> 
         .await
         .map_err(ise)?
     };
+    drop(_checking);
+    // Its work was checked just above.
     let as_share = |n: Arc<Node>, h: krypton_core::BlockHeader| async move {
-        match n.accept_share(h.clone(), None).await {
+        match n.accept_share(h.clone(), None, true).await {
             Ok(_) => Ok(Json(json!({
                 "accepted": true, "kind": "share", "height": h.height, "hash": hex::encode(h.hash()),
             }))),
@@ -1159,7 +1270,24 @@ async fn shares_pool(State(n): S) -> Json<Value> {
     }))
 }
 
-async fn ws(State(n): S, up: WebSocketUpgrade) -> Response {
+async fn ws(
+    State(n): S,
+    client: Option<axum::extract::Extension<crate::guard::ClientKey>>,
+    up: WebSocketUpgrade,
+) -> Response {
+    let mine = match client {
+        Some(c) => match n.guard.ws_slot(c.ip) {
+            Some(s) => Some(s),
+            None => {
+                return ApiError(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "too many subscriptions from your address".into(),
+                )
+                .into_response();
+            }
+        },
+        None => None,
+    };
     let Ok(permit) = n.guard.ws.clone().try_acquire_owned() else {
         return ApiError(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -1173,6 +1301,7 @@ async fn ws(State(n): S, up: WebSocketUpgrade) -> Response {
         .on_upgrade(move |s| async move {
             ws_loop(n, s).await;
             drop(permit);
+            drop(mine);
         })
 }
 
@@ -1274,7 +1403,12 @@ async fn json_rpc(
                 .0
             }
             "getblocktemplate" => {
-                template_for(&n, p0.as_str().ok_or_else(|| bad("payout address"))?).await?
+                template_for(
+                    &n,
+                    p0.as_str().ok_or_else(|| bad("payout address"))?,
+                    crate::guard::client(peer, &h),
+                )
+                .await?
             }
             "submitwork" => {
                 let job_id = params
@@ -1304,4 +1438,34 @@ async fn json_rpc(
             json!({"jsonrpc": "2.0", "id": id, "error": {"code": -(c.as_u16() as i64), "message": m}})
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::origin_ok;
+
+    #[test]
+    fn only_genoryn_and_this_computer_may_post_from_a_browser() {
+        for ok in [
+            "https://genoryn.io",
+            "https://www.genoryn.io",
+            "http://127.0.0.1:47951",
+            "http://localhost",
+            "http://[::1]:8765",
+        ] {
+            assert!(origin_ok(ok.as_bytes()), "{ok}");
+        }
+        for no in [
+            "https://evil.example",
+            "http://genoryn.io",
+            "https://genoryn.io.evil.example",
+            "http://127.0.0.1.evil.example",
+            "http://localhost:80@evil.example",
+            "http://localhost.:80",
+            "null",
+            "",
+        ] {
+            assert!(!origin_ok(no.as_bytes()), "{no}");
+        }
+    }
 }

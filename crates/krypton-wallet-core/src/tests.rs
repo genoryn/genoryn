@@ -245,6 +245,7 @@ fn light_client_rejects_forged_data() {
             height: cp_h,
             hash: Box::leak(hash.into_boxed_str()),
             difficulty,
+            work: 0,
         });
         p
     };
@@ -1006,6 +1007,68 @@ fn sync_follows_the_most_work_only() {
     assert_eq!(w.synced_height(), Some(16));
     // And the first chain, now lighter, is refused in turn.
     assert!(w.sync(&src_a, |_, _| {}).is_err());
+}
+
+/// A node can overstate the work its proofs claim (1.0.53 review, F-2). The wallet then
+/// refuses honest nodes only until their chain has grown well past the overstated tip, and
+/// a wallet file from before 1.0.53 forgets the work it remembered.
+#[test]
+fn an_overstated_work_claim_does_not_pin_the_wallet() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let path = dir.path().join("w.wallet");
+    let mut w = Wallet::create(
+        &path,
+        "password-p",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    for _ in 0..4 {
+        mine(&src, &w.address());
+    }
+    w.sync(&src, |_, _| {}).unwrap();
+    let h = w.state.best_height.unwrap();
+    assert_eq!(h, 4);
+    // What an overstating node would have left behind.
+    w.state.best_work = Some((1u128 << 100).to_string());
+    w.state.best_tip = Some(hex::encode([5u8; 32]));
+    mine(&src, &w.address());
+    let err = w.sync(&src, |_, _| {}).unwrap_err().to_string();
+    assert!(err.contains("less proof of work"), "{err}");
+    // Once the honest chain is far above that tip, it is followed again.
+    for _ in 0..2 {
+        mine(&src, &w.address());
+    }
+    assert_eq!(chain.tip().height(), h + BEST_WORK_HORIZON);
+    w.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(w.state.best_height, Some(7));
+    assert!(
+        w.state
+            .best_work
+            .as_deref()
+            .unwrap()
+            .parse::<u128>()
+            .unwrap()
+            < 1u128 << 100
+    );
+    // A file from before 1.0.53 (no best height) forgets its remembered work.
+    w.state.best_work = Some((1u128 << 100).to_string());
+    w.state.best_height = None;
+    w.save().unwrap();
+    drop(w);
+    let mut w = Wallet::open(&path, "password-p").unwrap();
+    assert!(w.state.best_work.is_none());
+    mine(&src, &w.address());
+    w.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(w.state.best_height, Some(8));
 }
 
 /// Krypton coins through the wallet API on a devnet store: deploy, issue, a hidden

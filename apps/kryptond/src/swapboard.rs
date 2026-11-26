@@ -1,12 +1,19 @@
 //! The swap offer board on a node (`/v1/swap/...`): public offers, sealed mailboxes and
 //! the market price from completed swaps (`krypton_swap::board`). Everything lives in
-//! memory with hard caps and expiry, except verified trades, which are kept on disk so
-//! the price survives restarts. The node never sees keys, codes or coins.
+//! memory with hard caps and expiry, except completed swaps, which are kept for good (the
+//! trade history), and the board itself, which is written to disk in the background so
+//! it survives restarts. The node never sees keys, codes or coins.
+//!
+//! The board's lock is never held on the async runtime: handlers work on it inside
+//! `block_in_place`, and the large answers (offers, market, history) are served from a
+//! snapshot rebuilt only when the board changed or the snapshot is a few seconds old.
 
+use crate::guard::ClientKey;
 use crate::node::Node;
 use axum::Json;
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::body::Bytes;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use krypton_core::Hash32;
 use krypton_core::consensus::StateView;
@@ -17,8 +24,11 @@ use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 const MAX_OFFERS: usize = 5_000;
 const MAX_PER_INBOX: usize = 100;
@@ -26,8 +36,19 @@ const MAX_MESSAGES: usize = 5_000;
 /// All stored messages together (coin swaps send ~200 KB ones).
 const MAX_MESSAGE_BYTES_TOTAL: usize = 96 * 1024 * 1024;
 const MESSAGE_SECS: u64 = 24 * 3600;
-const MAX_TRADES: usize = 20_000;
-const TRADE_KEEP_SECS: u64 = 30 * 24 * 3600;
+/// Completed swaps are kept for good (the trade history); past this many the oldest go.
+const MAX_TRADES: usize = 200_000;
+/// What one client (an address, IPv6 by /48) may put on the board: open offers, and
+/// sealed messages in a day, in all and into one inbox.
+const MAX_OFFERS_EACH: usize = 200;
+const MAX_MESSAGES_A_DAY_EACH: u32 = 2_000;
+const MAX_MESSAGES_A_DAY_EACH_INBOX: u32 = 40;
+/// How long the snapshots of the board's large answers may be served unchanged.
+const OFFERS_TTL: Duration = Duration::from_secs(2);
+const MARKET_TTL: Duration = Duration::from_secs(3);
+const HISTORY_TTL: Duration = Duration::from_secs(10);
+/// The most completed swaps one history page holds.
+const HISTORY_PAGE_MAX: usize = 200;
 /// A swap in progress is shown at most this long (a GNR-first swap pays within two hours
 /// of its lock and completes within a few more).
 const PENDING_SECS: u64 = 12 * 3600;
@@ -102,6 +123,11 @@ struct Inner {
     /// What buyers' deposit addresses are promised to (`board::Promise`): by address,
     /// each promise's request id, bitcoin, release hash and when it was made.
     promises: HashMap<String, Vec<Promised>>,
+    /// Who listed each open offer (not kept on disk: after a restart the counts start over).
+    lister: HashMap<String, IpAddr>,
+    /// Sealed messages each client sent in the current day, in all and into each inbox.
+    sent: HashMap<IpAddr, (u64, u32)>,
+    sent_to: HashMap<(IpAddr, String), (u64, u32)>,
 }
 
 /// Kept on disk with the board: a restart must not let one deposit be promised again.
@@ -131,6 +157,9 @@ const LOOKUPS_AN_HOUR_EACH: u32 = 12;
 struct SavedPaid {
     paid: Vec<(String, u64, String)>,
     disputed: Vec<String>,
+    /// The GNR claims of the completed swaps (1.0.53), so their proofs stay in the history.
+    #[serde(default)]
+    claims: Vec<(String, Claim)>,
 }
 
 impl Inner {
@@ -212,6 +241,7 @@ impl Inner {
 
     /// Takes a bitcoin offer, or its swap in progress, off the board and frees its coins.
     fn take_down(&mut self, id: &str) {
+        self.lister.remove(id);
         self.offers.remove(id);
         self.pending.remove(id);
         self.backing.remove(id);
@@ -241,6 +271,48 @@ impl Inner {
 pub struct Board {
     inner: Mutex<Inner>,
     path: Mutex<Option<PathBuf>>,
+    /// The board or the completed swaps changed since they were last written (`flush`).
+    dirty_board: AtomicBool,
+    dirty_trades: AtomicBool,
+    /// One write at a time.
+    flushing: Mutex<()>,
+    /// Bumped by every change the large answers show; their snapshots carry it.
+    generation: AtomicU64,
+    offers_snap: Mutex<Option<Snap>>,
+    market_snap: Mutex<Option<Snap>>,
+    summary_snap: Mutex<Option<Snap>>,
+}
+
+/// A large answer as it was served, with the board's generation then.
+struct Snap {
+    generation: u64,
+    at: Instant,
+    body: Bytes,
+}
+
+/// Board work, off the async runtime: the board's lock may be held for a while (a large
+/// board, a slow disk), and no runtime thread may wait for it.
+fn off_runtime<R>(f: impl FnOnce() -> R) -> R {
+    tokio::task::block_in_place(f)
+}
+
+fn json_bytes(body: Bytes) -> Response {
+    ([(header::CONTENT_TYPE, "application/json")], body).into_response()
+}
+
+/// The client a request came from, as the request guard tells them apart; None for this
+/// machine's own software, which no quota applies to.
+fn client_of(c: Option<Extension<ClientKey>>) -> Option<IpAddr> {
+    c.map(|Extension(k)| k.quota)
+}
+
+/// A day's counter: (start of the day, count), started over each day.
+fn count_today(slot: &mut (u64, u32), t: u64) -> u32 {
+    let day = t - t % 86_400;
+    if slot.0 != day {
+        *slot = (day, 0);
+    }
+    slot.1
 }
 
 fn now() -> u64 {
@@ -308,9 +380,21 @@ impl Board {
         });
         i.messages = n;
         i.message_bytes = bytes;
-        i.trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
-        i.coin_trades.retain(|(_, at)| at + TRADE_KEEP_SECS > t);
-        if i.paid.len() + i.disputed.len() > 0 {
+        let listed = &i.offers;
+        i.lister.retain(|id, _| listed.contains_key(id));
+        let day = t - t % 86_400;
+        i.sent.retain(|_, (d, _)| *d == day);
+        i.sent_to.retain(|_, (d, _)| *d == day);
+        // Completed swaps stay (the trade history); only beyond the cap do the oldest go.
+        if i.trades.len() > MAX_TRADES {
+            let extra = i.trades.len() - MAX_TRADES;
+            i.trades.drain(..extra);
+        }
+        if i.coin_trades.len() > MAX_TRADES {
+            let extra = i.coin_trades.len() - MAX_TRADES;
+            i.coin_trades.drain(..extra);
+        }
+        if i.paid.len() + i.disputed.len() > i.trades.len() {
             let kept: HashSet<&str> = i.trades.iter().map(|(x, _)| x.hash.as_str()).collect();
             i.paid.retain(|h, _| kept.contains(h.as_str()));
             i.disputed.retain(|h| kept.contains(h.as_str()));
@@ -340,6 +424,7 @@ impl Board {
         {
             i.paid = v.paid.into_iter().map(|(h, s, k)| (h, (s, k))).collect();
             i.disputed = v.disputed.into_iter().collect();
+            i.claims = v.claims.into_iter().collect();
         }
         // Offers and sealed messages survive restarts too (a node update must not drop
         // them, or a swap in progress could lose a code).
@@ -414,33 +499,129 @@ impl Board {
         }
     }
 
-    fn save(&self, i: &Inner) {
-        if let Some(p) = self.path.lock().as_ref() {
-            if let Ok(b) = serde_json::to_vec(&i.trades) {
-                Board::write(p, b);
-            }
-            if let Ok(b) = serde_json::to_vec(&i.coin_trades) {
-                Board::write(&p.with_file_name("swap-coin-trades.json"), b);
-            }
-            let paid = SavedPaid {
-                paid: i
-                    .paid
-                    .iter()
-                    .map(|(h, (s, k))| (h.clone(), *s, k.clone()))
-                    .collect(),
-                disputed: i.disputed.iter().cloned().collect(),
-            };
-            if let Ok(b) = serde_json::to_vec(&paid) {
-                Board::write(&p.with_file_name("swap-trades-paid.json"), b);
-            }
-        }
+    /// Something the board shows changed: snapshots are rebuilt on the next request.
+    fn changed(&self) {
+        self.generation.fetch_add(1, Ordering::AcqRel);
     }
 
-    fn save_board(&self, i: &Inner) {
+    /// The completed swaps changed: written by the next `flush`.
+    fn save(&self, _i: &Inner) {
+        self.dirty_trades.store(true, Ordering::Release);
+        self.changed();
+    }
+
+    /// The board changed: written by the next `flush` (every couple of seconds, and when
+    /// the node stops), never on the request that changed it.
+    fn save_board(&self, _i: &Inner) {
+        self.dirty_board.store(true, Ordering::Release);
+        self.changed();
+    }
+
+    /// Writes what changed since the last time. The board's lock is held only to copy
+    /// it; turning it into JSON and writing it happen after.
+    pub fn flush(&self) {
+        let _one = self.flushing.lock();
         let Some(p) = self.path.lock().clone() else {
             return;
         };
-        let s = Saved {
+        // What is written is always what was read plus what changed, never a board that
+        // was not read yet.
+        if self.dirty_trades.swap(false, Ordering::AcqRel) {
+            let (trades, coin_trades, paid) = {
+                let mut i = self.inner.lock();
+                self.load(&mut i);
+                (
+                    i.trades.clone(),
+                    i.coin_trades.clone(),
+                    Board::saved_paid(&i),
+                )
+            };
+            Board::write_trades(&p, &trades, &coin_trades, &paid);
+        }
+        if self.dirty_board.swap(false, Ordering::AcqRel) {
+            let s = {
+                let mut i = self.inner.lock();
+                self.load(&mut i);
+                Board::saved(&i)
+            };
+            Board::write_saved(&p, &s);
+        }
+    }
+
+    fn saved_paid(i: &Inner) -> SavedPaid {
+        SavedPaid {
+            paid: i
+                .paid
+                .iter()
+                .map(|(h, (s, k))| (h.clone(), *s, k.clone()))
+                .collect(),
+            disputed: i.disputed.iter().cloned().collect(),
+            claims: i
+                .trades
+                .iter()
+                .filter_map(|(x, _)| i.claims.get(&x.hash).map(|c| (x.hash.clone(), c.clone())))
+                .collect(),
+        }
+    }
+
+    fn write_trades(
+        p: &std::path::Path,
+        trades: &[(Trade, u64)],
+        coin_trades: &[(CoinTrade, u64)],
+        paid: &SavedPaid,
+    ) {
+        if let Ok(b) = serde_json::to_vec(trades) {
+            Board::write(p, b);
+        }
+        if let Ok(b) = serde_json::to_vec(coin_trades) {
+            Board::write(&p.with_file_name("swap-coin-trades.json"), b);
+        }
+        if let Ok(b) = serde_json::to_vec(paid) {
+            Board::write(&p.with_file_name("swap-trades-paid.json"), b);
+        }
+    }
+
+    fn write_saved(p: &std::path::Path, s: &Saved) {
+        if let Ok(b) = serde_json::to_vec(s) {
+            Board::write(&p.with_file_name("swap-board.json"), b);
+        }
+    }
+
+    /// Writes the board as `i` holds it, now (tests, and a board just loaded).
+    #[cfg(test)]
+    fn write_board_now(&self, i: &Inner) {
+        if let Some(p) = self.path.lock().clone() {
+            Board::write_saved(&p, &Board::saved(i));
+        }
+    }
+
+    /// Serves a large answer from its snapshot while the board has not changed and the
+    /// snapshot is younger than `ttl`; otherwise builds it once (others wait for it).
+    fn snapshot(
+        &self,
+        slot: &Mutex<Option<Snap>>,
+        ttl: Duration,
+        build: impl FnOnce() -> Vec<u8>,
+    ) -> Bytes {
+        let mut s = slot.lock();
+        let g = self.generation.load(Ordering::Acquire);
+        if let Some(x) = s.as_ref()
+            && x.generation == g
+            && x.at.elapsed() < ttl
+        {
+            return x.body.clone();
+        }
+        let body = Bytes::from(build());
+        *s = Some(Snap {
+            generation: g,
+            at: Instant::now(),
+            body: body.clone(),
+        });
+        body
+    }
+
+    fn saved(i: &Inner) -> Saved {
+        Saved {
             offers: i.offers.values().cloned().collect(),
             coin_offers: i.coin_offers.values().cloned().collect(),
             pending: i.pending.values().cloned().collect(),
@@ -473,9 +654,6 @@ impl Board {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
-        };
-        if let Ok(b) = serde_json::to_vec(&s) {
-            Board::write(&p.with_file_name("swap-board.json"), b);
         }
     }
 }
@@ -615,14 +793,21 @@ fn scan_claims(node: &Node) {
         return;
     }
     let mut i = node.board.inner.lock();
+    let known: HashSet<String> = i.trades.iter().map(|(x, _)| x.hash.clone()).collect();
+    let of_a_trade = found
+        .iter()
+        .any(|(h, _)| known.contains(h) && !i.claims.contains_key(h));
     i.claims.extend(found);
     if i.scanned.is_none_or(|s| s < tip) {
         i.scanned = Some(tip);
     }
+    if of_a_trade {
+        node.board.save(&i);
+    }
 }
 
 /// What the GNR chain shows of a completed swap (its amounts are private).
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, Deserialize)]
 struct Claim {
     height: u64,
     time: u64,
@@ -636,13 +821,22 @@ struct Claim {
 type S = State<Arc<Node>>;
 
 pub async fn offers(State(node): S) -> Response {
+    off_runtime(|| {
+        json_bytes(
+            node.board
+                .snapshot(&node.board.offers_snap, OFFERS_TTL, || offers_body(&node)),
+        )
+    })
+}
+
+fn offers_body(node: &Arc<Node>) -> Vec<u8> {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     Board::expire(&mut i, now());
     let t = now();
-    drop_unbacked(&node, &mut i, t);
+    drop_unbacked(node, &mut i, t);
     drop(i);
-    recheck_deposits(&node);
+    recheck_deposits(node);
     let i = node.board.inner.lock();
     let mut list: Vec<&Offer> = i.offers.values().collect();
     list.sort_by(|a, b| a.price().total_cmp(&b.price()));
@@ -675,7 +869,7 @@ pub async fn offers(State(node): S) -> Response {
         })
         .collect();
     p.sort_by_key(|x| std::cmp::Reverse(x["since"].as_u64()));
-    Json(json!({"offers": v, "in_progress": p, "now": now()})).into_response()
+    serde_json::to_vec(&json!({"offers": v, "in_progress": p, "now": now()})).unwrap_or_default()
 }
 
 #[derive(Deserialize)]
@@ -698,6 +892,10 @@ pub struct ProgressReq {
 /// says every few minutes that its swap still runs. Only the offer stored on the board can
 /// move, proven with its cancel secret: the request's own copy of the offer is ignored.
 pub async fn post_progress(State(node): S, Json(r): Json<ProgressReq>) -> Response {
+    off_runtime(move || post_progress_now(&node, r))
+}
+
+fn post_progress_now(node: &Arc<Node>, r: ProgressReq) -> Response {
     let Some(secret) = hex::decode(&r.secret)
         .ok()
         .and_then(|b| <[u8; 32]>::try_from(b).ok())
@@ -763,7 +961,12 @@ pub struct OfferPost {
     auto: Option<board::Auto>,
 }
 
-pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
+pub async fn post_offer(
+    State(node): S,
+    client: Option<Extension<ClientKey>>,
+    Json(p): Json<OfferPost>,
+) -> Response {
+    let client = client_of(client);
     let o = p.offer;
     if let Err(e) = o.validate(node.chain.params.network.as_str(), now()) {
         return bad(e);
@@ -774,19 +977,28 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
         return bad(e);
     }
     // What needs no work is refused first.
-    {
+    let refused = off_runtime(|| {
         let mut i = node.board.inner.lock();
         node.board.load(&mut i);
         Board::expire(&mut i, now());
         if i.offers.len() >= MAX_OFFERS {
-            return bad("the board is full; try again later");
+            return Some("the board is full; try again later");
         }
         if i.offers.contains_key(&o.id)
             || i.pending.contains_key(&o.id)
             || i.coin_offers.contains_key(&o.id)
         {
-            return bad("an offer with this id exists");
+            return Some("an offer with this id exists");
         }
+        if let Some(c) = client
+            && i.lister.values().filter(|x| **x == c).count() >= MAX_OFFERS_EACH
+        {
+            return Some("too many open offers from your address");
+        }
+        None
+    });
+    if let Some(why) = refused {
+        return bad(why);
     }
     // A sell offer is listed only with a proof that its GNR is there. The work is done
     // after the offer's own proof of work was checked and off the async runtime.
@@ -860,6 +1072,18 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
     };
     // Checked and listed in one step, under the board's lock: of two offers posted at the
     // same moment with the same coins behind them, only the first is listed.
+    off_runtime(move || list_offer(&node, client, o, p.prepaid, p.auto, backing, deposit))
+}
+
+fn list_offer(
+    node: &Arc<Node>,
+    client: Option<IpAddr>,
+    o: Offer,
+    prepaid: bool,
+    auto: Option<board::Auto>,
+    backing: Option<Backing>,
+    deposit: Option<String>,
+) -> Response {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
@@ -871,14 +1095,17 @@ pub async fn post_offer(State(node): S, Json(p): Json<OfferPost>) -> Response {
         return bad("this bitcoin deposit already stands behind another offer on the board");
     }
     let id = o.id.clone();
-    let prepaid = p.prepaid && o.side == Side::SellGnr;
+    let prepaid = prepaid && o.side == Side::SellGnr;
     if let Err(e) = i.list(o, backing, t) {
         return bad(e);
+    }
+    if let Some(c) = client {
+        i.lister.insert(id.clone(), c);
     }
     if prepaid {
         i.prepaid.insert(id.clone());
     }
-    if let Some(a) = p.auto {
+    if let Some(a) = auto {
         i.auto.insert(id.clone(), a);
     }
     let marked = deposit.is_some_and(|a| i.deposited(&id, a));
@@ -975,6 +1202,10 @@ pub struct PingReq {
 /// The maker's wallet says it is online, for all its open offers at once (each proven
 /// with its cancel secret).
 pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
+    off_runtime(move || ping_now(&node, r))
+}
+
+fn ping_now(node: &Arc<Node>, r: PingReq) -> Response {
     if r.items.len() > 500 {
         return bad("too many offers in one ping");
     }
@@ -982,7 +1213,7 @@ pub async fn ping(State(node): S, Json(r): Json<PingReq>) -> Response {
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
-    drop_unbacked(&node, &mut i, t);
+    drop_unbacked(node, &mut i, t);
     let mut ok = 0;
     let mut missing = vec![];
     for it in r.items {
@@ -1020,6 +1251,10 @@ pub struct CancelReq {
 }
 
 pub async fn cancel_offer(State(node): S, Json(r): Json<CancelReq>) -> Response {
+    off_runtime(move || cancel_offer_now(&node, r))
+}
+
+fn cancel_offer_now(node: &Arc<Node>, r: CancelReq) -> Response {
     let Some(secret) = hex::decode(&r.secret)
         .ok()
         .and_then(|b| <[u8; 32]>::try_from(b).ok())
@@ -1052,7 +1287,16 @@ pub async fn cancel_offer(State(node): S, Json(r): Json<CancelReq>) -> Response 
     Json(json!({"ok": true})).into_response()
 }
 
-pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
+pub async fn post_message(
+    State(node): S,
+    client: Option<Extension<ClientKey>>,
+    Json(e): Json<Envelope>,
+) -> Response {
+    let client = client_of(client);
+    off_runtime(move || post_message_now(&node, client, e))
+}
+
+fn post_message_now(node: &Arc<Node>, client: Option<IpAddr>, e: Envelope) -> Response {
     if let Err(x) = e.validate() {
         return bad(x);
     }
@@ -1060,25 +1304,52 @@ pub async fn post_message(State(node): S, Json(e): Json<Envelope>) -> Response {
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
+    if i.inbox
+        .get(&e.to)
+        .is_some_and(|q| q.iter().any(|(_, d)| *d == e.data))
+    {
+        return Json(json!({"ok": true})).into_response();
+    }
+    // One client cannot fill the service, nor one inbox: a day's quota of messages in
+    // all and into each inbox (a swap needs a handful).
+    if let Some(c) = client {
+        let all = count_today(i.sent.entry(c).or_insert((0, 0)), t);
+        let to = count_today(i.sent_to.entry((c, e.to.clone())).or_insert((0, 0)), t);
+        if all >= MAX_MESSAGES_A_DAY_EACH || to >= MAX_MESSAGES_A_DAY_EACH_INBOX {
+            return bad("too many messages from your address today; try again tomorrow");
+        }
+    }
     if i.messages >= MAX_MESSAGES || i.message_bytes + e.data.len() > MAX_MESSAGE_BYTES_TOTAL {
         return bad("the mailbox service is full; try again later");
     }
+    // A full inbox lets its oldest message go (its wallet reads it every few seconds, so
+    // what it needed is read already): a flood cannot shut a mailbox.
     let q = i.inbox.entry(e.to.clone()).or_default();
-    if q.len() >= MAX_PER_INBOX {
-        return bad("this inbox is full");
-    }
-    if q.iter().any(|(_, d)| *d == e.data) {
-        return Json(json!({"ok": true})).into_response();
+    let mut freed = 0;
+    let mut freed_n = 0;
+    while q.len() >= MAX_PER_INBOX {
+        if let Some((_, old)) = q.pop_front() {
+            freed += old.len();
+            freed_n += 1;
+        }
     }
     let len = e.data.len();
     q.push_back((t, e.data));
-    i.messages += 1;
-    i.message_bytes += len;
+    i.messages = i.messages + 1 - freed_n;
+    i.message_bytes = i.message_bytes + len - freed;
+    if let Some(c) = client {
+        i.sent.entry(c).or_insert((0, 0)).1 += 1;
+        i.sent_to.entry((c, e.to)).or_insert((0, 0)).1 += 1;
+    }
     node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()
 }
 
 pub async fn inbox(State(node): S, Path(id): Path<String>) -> Response {
+    off_runtime(move || inbox_now(&node, id))
+}
+
+fn inbox_now(node: &Arc<Node>, id: String) -> Response {
     if id.len() != 64 || hex::decode(&id).is_err() {
         return bad("bad inbox");
     }
@@ -1280,9 +1551,31 @@ fn quick(i: &Inner, t: u64) -> Value {
 }
 
 pub async fn market(State(node): S) -> Response {
-    // Each swap with what the GNR chain shows of it: its claim, block, time and secret.
-    let n = node.clone();
-    let _ = tokio::task::spawn_blocking(move || scan_claims(&n)).await;
+    off_runtime(|| {
+        json_bytes(
+            node.board
+                .snapshot(&node.board.market_snap, MARKET_TTL, || {
+                    // Each swap with what the GNR chain shows of it: its claim, block, time and secret.
+                    scan_claims(&node);
+                    market_body(&node)
+                }),
+        )
+    })
+}
+
+/// One completed swap as the history and the market show it.
+fn trade_json(i: &Inner, x: &Trade, at: u64, tip: u64) -> Value {
+    let c = i.claims.get(&x.hash);
+    json!({
+        "at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price(), "hash": x.hash,
+        // Its bitcoin was found on the Bitcoin chain, paid through the swap's contract.
+        "verified": i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash),
+        "claim": c,
+        "confirmations": c.map(|c| (tip + 1).saturating_sub(c.height)),
+    })
+}
+
+fn market_body(node: &Arc<Node>) -> Vec<u8> {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
@@ -1294,21 +1587,112 @@ pub async fn market(State(node): S) -> Response {
         .iter()
         .rev()
         .take(50)
-        .map(|(x, at)| {
-            let c = i.claims.get(&x.hash);
-            json!({
-                "at": at, "gnr": x.gnr, "sats": x.sats, "price": x.price(), "hash": x.hash,
-                // Its bitcoin was found on the Bitcoin chain, paid through the swap's contract.
-                "verified": i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash),
-                "claim": c,
-                "confirmations": c.map(|c| tip + 1 - c.height),
-            })
-        })
+        .map(|(x, at)| trade_json(&i, x, *at, tip))
         .collect();
     let taken = i.pending.len() - i.pending.keys().filter(|id| i.funded.contains(*id)).count();
     let q = quick(&i, t);
-    Json(json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS, "taken_unpaid": taken, "quick": q, "now": t}))
-        .into_response()
+    serde_json::to_vec(&json!({"market": m, "recent": recent, "window_secs": board::PRICE_WINDOW_SECS, "taken_unpaid": taken, "quick": q, "now": t}))
+        .unwrap_or_default()
+}
+
+#[derive(Deserialize)]
+pub struct HistoryQuery {
+    /// How many of the newest swaps to skip (pages of `limit`).
+    #[serde(default)]
+    offset: usize,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+/// Every completed swap, newest first, a page at a time (1.0.53): the trade history.
+pub async fn history(State(node): S, Query(q): Query<HistoryQuery>) -> Response {
+    off_runtime(|| {
+        let limit = q.limit.unwrap_or(50).clamp(1, HISTORY_PAGE_MAX);
+        let tip = node.chain.tip().height();
+        let mut i = node.board.inner.lock();
+        node.board.load(&mut i);
+        let total = i.trades.len();
+        let page: Vec<Value> = i
+            .trades
+            .iter()
+            .rev()
+            .skip(q.offset)
+            .take(limit)
+            .map(|(x, at)| trade_json(&i, x, *at, tip))
+            .collect();
+        let more = q.offset.saturating_add(page.len()) < total;
+        Json(json!({"swaps": page, "offset": q.offset, "more": more, "total": total, "now": now()}))
+            .into_response()
+    })
+}
+
+/// The whole trade history in figures (1.0.53): totals, and day by day the swaps, the GNR
+/// and bitcoin they moved and their prices. Swaps whose two wallets disagree do not count.
+pub async fn history_summary(State(node): S) -> Response {
+    off_runtime(|| {
+        json_bytes(
+            node.board
+                .snapshot(&node.board.summary_snap, HISTORY_TTL, || {
+                    summary_body(&node)
+                }),
+        )
+    })
+}
+
+fn summary_body(node: &Arc<Node>) -> Vec<u8> {
+    let mut i = node.board.inner.lock();
+    node.board.load(&mut i);
+    let list: Vec<Done> = i
+        .trades
+        .iter()
+        .filter(|(x, _)| !i.disputed.contains(&x.hash) && x.gnr > 0)
+        .map(|(x, at)| (*at, x.price(), x.gnr, x.sats, i.paid.contains_key(&x.hash)))
+        .collect();
+    drop(i);
+    serde_json::to_vec(&history_figures(&list, now())).unwrap_or_default()
+}
+
+/// A completed swap for the figures: (time, price, GNR, sat, verified).
+type Done = (u64, f64, u64, u64, bool);
+
+/// Totals and per-day figures of completed swaps.
+fn history_figures(list: &[Done], t: u64) -> Value {
+    fn figures(v: &[Done]) -> Value {
+        let mut prices: Vec<f64> = v.iter().map(|x| x.1).collect();
+        prices.sort_by(f64::total_cmp);
+        let gnr: u64 = v.iter().map(|x| x.2).fold(0, u64::saturating_add);
+        let sats: u64 = v.iter().map(|x| x.3).fold(0, u64::saturating_add);
+        let median = match prices.len() {
+            0 => None,
+            n if n % 2 == 1 => Some(prices[n / 2]),
+            n => Some((prices[n / 2 - 1] + prices[n / 2]) / 2.0),
+        };
+        json!({
+            "swaps": v.len(),
+            "verified": v.iter().filter(|x| x.4).count(),
+            "gnr": gnr,
+            "sats": sats,
+            "low": prices.first(),
+            "high": prices.last(),
+            "median": median,
+            // What a GNR cost on average, weighed by the bitcoin moved.
+            "vwap": if gnr > 0 { Some(sats as f64 / (gnr as f64 / 1e8)) } else { None },
+        })
+    }
+    let mut days: std::collections::BTreeMap<u64, Vec<Done>> = Default::default();
+    for x in list {
+        days.entry(x.0 - x.0 % 86_400).or_default().push(*x);
+    }
+    let mut all = figures(list);
+    all["first"] = json!(list.iter().map(|x| x.0).min());
+    all["last"] = json!(list.iter().map(|x| x.0).max());
+    let last24: Vec<_> = list.iter().filter(|x| x.0 + 86_400 > t).copied().collect();
+    json!({
+        "all": all,
+        "day": figures(&last24),
+        "days": days.iter().map(|(d, v)| { let mut f = figures(v); f["day"] = json!(d); f }).collect::<Vec<_>>(),
+        "now": t,
+    })
 }
 
 #[derive(Deserialize)]
@@ -1335,6 +1719,10 @@ pub struct PromisePost {
 /// and counted in one step under the board's lock, so two sellers asked at the same
 /// moment both see each other.
 pub async fn post_promise(State(node): S, Json(r): Json<PromisePost>) -> Response {
+    off_runtime(move || post_promise_now(&node, r))
+}
+
+fn post_promise_now(node: &Arc<Node>, r: PromisePost) -> Response {
     let p = r.promise;
     let address = match krypton_swap::engine::promise_address(&p) {
         Ok(a) => a.to_string(),
@@ -1401,6 +1789,10 @@ pub async fn post_promise(State(node): S, Json(r): Json<PromisePost>) -> Respons
 /// Takes a promise back (its swap was paid, or ended), proven with the secret of its
 /// release hash.
 pub async fn release_promise(State(node): S, Json(r): Json<ReleaseReq>) -> Response {
+    off_runtime(move || release_promise_now(&node, r))
+}
+
+fn release_promise_now(node: &Arc<Node>, r: ReleaseReq) -> Response {
     let Some(secret) = hex::decode(&r.secret)
         .ok()
         .and_then(|b| <[u8; 32]>::try_from(b).ok())
@@ -1424,6 +1816,10 @@ pub async fn release_promise(State(node): S, Json(r): Json<ReleaseReq>) -> Respo
 }
 
 pub async fn coin_offers(State(node): S) -> Response {
+    off_runtime(move || coin_offers_now(&node))
+}
+
+fn coin_offers_now(node: &Arc<Node>) -> Response {
     let mut i = node.board.inner.lock();
     node.board.load(&mut i);
     let t = now();
@@ -1465,6 +1861,15 @@ pub async fn coin_offers(State(node): S) -> Response {
 }
 
 pub async fn post_coin_offer(State(node): S, Json(o): Json<CoinOffer>) -> Response {
+    off_runtime(move || post_coin_offer_now(&node, o))
+}
+
+fn post_coin_offer_now(node: &Arc<Node>, o: CoinOffer) -> Response {
+    // Coins exist only once the network has activated them: until then a coin offer could
+    // only take up room on the board.
+    if node.chain.tip().height() < node.chain.params.assets_height {
+        return bad("Krypton coins are not active on this network yet");
+    }
     if let Err(e) = o.validate(node.chain.params.network.as_str(), now()) {
         return bad(e);
     }
@@ -1685,6 +2090,7 @@ mod tests {
             (b, i)
         };
         let (b, mut i) = open();
+        b.write_board_now(&i);
         assert!(i.offers.is_empty() && i.backing.is_empty());
         assert_eq!(i.pending.keys().collect::<Vec<_>>(), ["d"]);
         assert_eq!(i.messages, 1);
@@ -1700,7 +2106,7 @@ mod tests {
             Ok(())
         );
         i.start("f", t);
-        b.save_board(&i);
+        b.write_board_now(&i);
         let (_, mut i) = open();
         assert!(i.offers.contains_key("e") && i.pending.contains_key("f"));
         assert!(i.pending.contains_key("d"));

@@ -582,3 +582,195 @@ fn coin_registry_follows_reorganizations() {
     assert!(a.assets().unwrap().is_empty());
     assert!(a.take_disconnected_txs().contains(&tx));
 }
+
+/// Mines `n` blocks on `c` with `spacing` seconds between them (360 s lowers the
+/// difficulty as fast as the difficulty rule allows).
+fn mine_run(c: &Chain, n: usize, spacing: u64, now: u64) -> Vec<Block> {
+    (0..n)
+        .map(|_| {
+            let b = mine_next(c, spacing - 60);
+            assert_eq!(
+                c.process_block(&b, now).unwrap(),
+                Outcome::Connected { reorg_depth: 0 }
+            );
+            b
+        })
+        .collect()
+}
+
+#[test]
+fn a_cheap_chain_seen_first_does_not_strand_the_node() {
+    // The 1.0.53 audit's proof of concept: a short branch that lowers its own difficulty
+    // reaches the victim first; the honest chain must still win once it arrives.
+    let now = u64::MAX / 4;
+    let (d1, d2, d3) = (
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+    );
+    let honest = Chain::open(d1.path(), Network::Devnet).unwrap();
+    let attacker = Chain::open(d2.path(), Network::Devnet).unwrap();
+    let victim = Chain::open(d3.path(), Network::Devnet).unwrap();
+    let good = mine_run(&honest, 150, 60, now);
+    let cheap = mine_run(&attacker, 120, 360, now);
+    assert!(attacker.tip().header.difficulty * 16 < honest.tip().header.difficulty);
+    assert!(attacker.tip().work < honest.tip().work);
+    for b in &cheap {
+        victim.process_block(b, now).unwrap();
+    }
+    assert_eq!(victim.tip().hash, attacker.tip().hash);
+    for b in &good {
+        victim.process_block(b, now).unwrap();
+    }
+    assert_eq!(victim.tip().hash, honest.tip().hash, "on the honest chain");
+    // The cheap branch cannot take it back.
+    for b in &cheap {
+        victim.process_block(b, now).unwrap();
+    }
+    assert_eq!(victim.tip().hash, honest.tip().hash);
+    // Nor can more cheap blocks: far below the tip's difficulty, they are not even stored
+    // (and what builds on them has no parent here).
+    let more = mine_run(&attacker, 5, 360, now);
+    for (k, b) in more.iter().enumerate() {
+        let out = victim.process_block(b, now).unwrap();
+        if k == 0 {
+            assert_eq!(out, Outcome::SideChain);
+        } else {
+            assert!(matches!(out, Outcome::Orphan { .. }), "{out:?}");
+        }
+        assert!(!victim.has_block(&b.hash()).unwrap());
+    }
+    assert_eq!(victim.tip().hash, honest.tip().hash);
+}
+
+#[test]
+#[ignore = "mines 2,300 blocks: run with --release (CI does)"]
+fn a_partition_longer_than_a_thousand_blocks_heals() {
+    let now = u64::MAX / 4;
+    let (d1, d2) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let a = Chain::open(d1.path(), Network::Devnet).unwrap();
+    let b = Chain::open(d2.path(), Network::Devnet).unwrap();
+    for blk in mine_run(&a, 5, 60, now) {
+        b.process_block(&blk, now).unwrap();
+    }
+    // Cut apart: each side mines on its own for more than a day of blocks.
+    let side_a = mine_run(&a, 1100, 60, now);
+    let side_b = mine_run(&b, 1200, 60, now);
+    assert!(b.tip().work > a.tip().work);
+    let winner = b.tip().hash;
+    // Joined again: each hears the other's blocks, in order.
+    for blk in &side_b {
+        a.process_block(blk, now).unwrap();
+    }
+    for blk in &side_a {
+        b.process_block(blk, now).unwrap();
+    }
+    assert_eq!(a.tip().hash, winner, "the lighter side follows the heavier");
+    assert_eq!(b.tip().hash, winner, "the heavier side stays");
+    assert_eq!(a.tip().frontier, b.tip().frontier);
+}
+
+#[test]
+fn full_nodes_keep_the_release_checkpoint() {
+    let now = u64::MAX / 4;
+    let (d1, d2, d3, d4, d5) = (
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+    );
+    let mut ours = Chain::open(d1.path(), Network::Devnet).unwrap();
+    let other = Chain::open(d2.path(), Network::Devnet).unwrap();
+    let mut control = Chain::open(d3.path(), Network::Devnet).unwrap();
+    for blk in mine_run(&ours, 3, 60, now) {
+        other.process_block(&blk, now).unwrap();
+        control.process_block(&blk, now).unwrap();
+    }
+    let mine = mine_run(&ours, 7, 60, now);
+    for blk in &mine {
+        control.process_block(blk, now).unwrap();
+    }
+    // Another branch from block 3, heavier than ours.
+    let theirs = mine_run(&other, 9, 61, now);
+    assert!(other.tip().work > ours.tip().work);
+    let cp_hash = ours.main_hash(5).unwrap().unwrap();
+    let cp = krypton_core::params::Checkpoint {
+        height: 5,
+        hash: Box::leak(hex::encode(cp_hash).into_boxed_str()),
+        difficulty: ours.header_at(5).unwrap().unwrap().difficulty,
+        work: ours.header_record(&cp_hash).unwrap().unwrap().work,
+    };
+    ours.params.checkpoint = Some(cp);
+    let tip = ours.tip().hash;
+    for blk in &theirs {
+        let out = ours.process_block(blk, now).unwrap();
+        if blk.header.height == 4 {
+            // It leaves the main chain below the checkpoint: not stored.
+            assert_eq!(out, Outcome::SideChain);
+        } else {
+            // So what builds on it has no parent here.
+            assert!(matches!(out, Outcome::Orphan { .. }), "{out:?}");
+        }
+        assert!(!ours.has_block(&blk.hash()).unwrap());
+    }
+    assert_eq!(
+        ours.tip().hash,
+        tip,
+        "the heavier branch without the checkpoint is not followed"
+    );
+    // Another block at the checkpoint's height, on our own block 4: refused as invalid.
+    let fork5 = Chain::open(d5.path(), Network::Devnet).unwrap();
+    for h in 1..=4 {
+        fork5
+            .process_block(&ours.block_at(h).unwrap().unwrap(), now)
+            .unwrap();
+    }
+    let at_cp = mine_next(&fork5, 1);
+    assert_eq!(at_cp.header.height, 5);
+    assert!(matches!(
+        ours.process_block(&at_cp, now),
+        Err(ChainError::Invalid(_))
+    ));
+    assert!(!ours.has_block(&at_cp.hash()).unwrap());
+    // Without the checkpoint the same blocks are followed (they carry more work).
+    for blk in &theirs {
+        control.process_block(blk, now).unwrap();
+    }
+    assert_eq!(control.tip().hash, other.tip().hash);
+    // A node that followed that branch before this release goes back to the checkpoint's
+    // chain once it hears it, and does not extend the other branch any more.
+    control.params.checkpoint = Some(cp);
+    assert!(!control.main_has_checkpoint().unwrap());
+    let stranded_tip = control.tip().hash;
+    for blk in &mine {
+        control.process_block(blk, now).unwrap();
+    }
+    assert_eq!(control.tip().hash, stranded_tip, "ours is lighter so far");
+    let more = mine_run(&ours, 3, 60, now);
+    for blk in &more {
+        control.process_block(blk, now).unwrap();
+    }
+    assert_eq!(
+        control.tip().hash,
+        ours.tip().hash,
+        "back on the checkpoint's chain"
+    );
+    assert!(control.main_has_checkpoint().unwrap());
+    let next = mine_next(&other, 0);
+    assert!(
+        control.process_block(&next, now).is_err(),
+        "the other branch stays refused"
+    );
+    // A fresh node can still sync the checkpoint's chain from genesis.
+    let mut fresh = Chain::open(d4.path(), Network::Devnet).unwrap();
+    fresh.params.checkpoint = Some(cp);
+    for h in 1..=ours.tip().height() {
+        let blk = ours.block_at(h).unwrap().unwrap();
+        assert_eq!(
+            fresh.process_block(&blk, now).unwrap(),
+            Outcome::Connected { reorg_depth: 0 }
+        );
+    }
+    assert_eq!(fresh.tip().hash, ours.tip().hash);
+}

@@ -40,7 +40,9 @@ pub struct ChainParams {
     pub seeds: &'static [&'static str],
     /// A main-chain block this release vouches for. Light clients require it in the chain
     /// they are shown and refuse headers above it with far less difficulty, so a server
-    /// cannot present a cheap low-difficulty chain. Not a consensus rule.
+    /// cannot present a cheap low-difficulty chain. Full nodes refuse chains without it,
+    /// and keep every side branch until their chain carries its work. Not a consensus
+    /// rule: block validity does not change, only which of two valid chains a node keeps.
     pub checkpoint: Option<Checkpoint>,
     /// First height at which lock spends (atomic swaps) are valid. `u64::MAX` until an
     /// activation height is announced: older nodes reject them, so this is a hard fork.
@@ -58,6 +60,9 @@ pub struct Checkpoint {
     /// Block hash (hex).
     pub hash: &'static str,
     pub difficulty: u128,
+    /// Total work of the chain up to and including this block: no chain a node follows
+    /// can honestly carry less (the minimum chain work).
+    pub work: u128,
 }
 
 impl Checkpoint {
@@ -127,9 +132,10 @@ impl Network {
                 payout_interval: 360,
                 seeds: &["2.24.162.163:29710", "seed.genoryn.io:30333"],
                 checkpoint: Some(Checkpoint {
-                    height: 14_800,
-                    hash: "913387e26ae3a743954179c27a9ca6b20b7f2465d1db55b5cca3b391334ce01c",
-                    difficulty: 38_870_722_540,
+                    height: 31_000,
+                    hash: "20751b098fcdda933e0402f3ffb684a58aa170272b38d3c16fcb457cc9080c02",
+                    difficulty: 93_659_651_008,
+                    work: 1_842_849_811_280_578,
                 }),
                 // Atomic swaps (lock spends) activate here: announced with 1.0.13, about a
                 // day after its release, so wallets and nodes update first.

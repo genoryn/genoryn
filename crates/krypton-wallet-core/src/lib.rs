@@ -213,17 +213,29 @@ struct State {
     /// Application records stored (encrypted) with the wallet, e.g. swaps in progress.
     #[serde(default)]
     app: std::collections::BTreeMap<String, serde_json::Value>,
-    /// The most proof of work this wallet has verified for its chain (decimal), and that
-    /// tip's hash: a node showing a chain with less work is refused, so a cheap fork
-    /// cannot replace the chain the wallet already knows.
+    /// The most proof of work this wallet has verified for its chain (decimal), that tip's
+    /// hash and height: a node showing a chain with less work is refused, so a lighter
+    /// fork cannot replace the chain the wallet already knows (see `BEST_WORK_HORIZON`).
     #[serde(default)]
     best_work: Option<String>,
     #[serde(default)]
     best_tip: Option<String>,
+    /// Set from 1.0.53 on; a file without it has its `best_work` forgotten once.
+    #[serde(default)]
+    best_height: Option<u64>,
     /// Notes set aside (for open sell offers, or for a while after one was cancelled).
     #[serde(default)]
     holds: Vec<Hold>,
 }
+
+/// Blocks (about 12 hours) above the heaviest tip a wallet verified after which a chain is
+/// followed even if it claims less work. An honest chain that has grown this far past a
+/// tip carries more work than it did; a lighter fork does not get this far ahead of a
+/// heavier one (both find a block a minute once their difficulty has adjusted).
+#[cfg(not(test))]
+const BEST_WORK_HORIZON: u64 = 720;
+#[cfg(test)]
+const BEST_WORK_HORIZON: u64 = 3;
 
 pub struct Wallet {
     pub keys: Keys,
@@ -314,6 +326,7 @@ impl Wallet {
             app: Default::default(),
             best_work: None,
             best_tip: None,
+            best_height: None,
             holds: vec![],
         };
         let w = Self {
@@ -346,6 +359,12 @@ impl Wallet {
             incoming: Vec::new(),
             open_halves: Vec::new(),
         };
+        // The work a wallet before 1.0.53 remembered may have been overstated by a node (it
+        // could not be outgrown): it is forgotten, and set again by the next sync.
+        if w.state.best_height.is_none() {
+            w.state.best_work = None;
+            w.state.best_tip = None;
+        }
         // Checkpoints written by an older format or for an abandoned chain cannot be
         // trusted: drop the chain-derived state and rescan (keys are unaffected).
         match w.restore_verifier() {
@@ -362,6 +381,7 @@ impl Wallet {
         self.state.genesis = None;
         self.state.best_work = None;
         self.state.best_tip = None;
+        self.state.best_height = None;
         self.verifier = None;
         self.lock_rollback(0, 0, true);
     }
@@ -667,6 +687,10 @@ impl Wallet {
     /// Refuses a proven tip with less total work than the best this wallet has verified
     /// (an honest chain only gains work), and remembers it otherwise. Whether it is
     /// strictly heavier than the best before.
+    ///
+    /// The work is what the node's proofs claim, and a node can overstate it: a chain
+    /// `BEST_WORK_HORIZON` blocks above the remembered tip is followed whatever it claims,
+    /// so an overstated claim cannot keep the wallet from the honest chain for long.
     fn check_work(&mut self, src: &impl ChainSource, t: &BlockHeader) -> Result<bool> {
         let hash = hex::encode(t.hash());
         if self.state.best_tip.as_deref() == Some(hash.as_str()) {
@@ -680,13 +704,18 @@ impl Wallet {
             .best_work
             .as_deref()
             .and_then(|s| s.parse::<u128>().ok());
-        if best.is_some_and(|b| work < b) {
+        let outgrown = self
+            .state
+            .best_height
+            .is_some_and(|h| t.height >= h.saturating_add(BEST_WORK_HORIZON));
+        if best.is_some_and(|b| work < b) && !outgrown {
             bail!(
                 "this node shows a chain with less proof of work than one this wallet has already verified (it may be behind, or dishonest); try again later or use another node"
             );
         }
         self.state.best_work = Some(work.to_string());
         self.state.best_tip = Some(hash);
+        self.state.best_height = Some(t.height);
         Ok(best.is_none_or(|b| work > b))
     }
 

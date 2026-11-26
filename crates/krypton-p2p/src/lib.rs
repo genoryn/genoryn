@@ -58,6 +58,10 @@ struct Peer {
     dial: Option<String>,
     /// Bytes handed to the writer task and not yet written to the socket.
     queued: Arc<AtomicUsize>,
+    connected: Instant,
+    /// When it last delivered a new block, or a new transaction (see [`Net::note_block`]).
+    useful_block: Option<Instant>,
+    useful_tx: Option<Instant>,
 }
 
 impl Peer {
@@ -77,9 +81,10 @@ impl Peer {
     }
 }
 
-/// Limits and bans apply per IPv4 address and per IPv6 /64 (one customer's prefix).
+/// Limits and bans apply per IPv4 address and per IPv6 /64 (one customer's prefix). An
+/// IPv4 address seen through a dual-stack socket counts as itself.
 fn ip_key(ip: IpAddr) -> IpAddr {
-    match ip {
+    match ip.to_canonical() {
         IpAddr::V6(v6) => {
             let s = v6.segments();
             IpAddr::V6(std::net::Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
@@ -131,7 +136,7 @@ pub fn routable(ip: IpAddr) -> bool {
 }
 
 fn group(ip: IpAddr) -> (u8, u32) {
-    match ip {
+    match ip.to_canonical() {
         IpAddr::V4(a) => {
             let o = a.octets();
             (4, u32::from(o[0]) << 8 | u32::from(o[1]))
@@ -143,8 +148,71 @@ fn group(ip: IpAddr) -> (u8, u32) {
     }
 }
 
+/// Inbound peers kept from one network group (IPv4 /16, IPv6 /32) at most: a few
+/// providers' ranges cannot take every inbound slot.
+fn max_inbound_per_group(max_inbound: usize) -> usize {
+    (max_inbound / 8).max(4)
+}
+
+/// An inbound peer as eviction sees it.
+struct Candidate {
+    id: PeerId,
+    group: (u8, u32),
+    connected: Instant,
+    block: Option<Instant>,
+    tx: Option<Instant>,
+}
+
+/// Which inbound peer makes room for a new one, as Bitcoin Core chooses: the peers that
+/// most recently delivered new blocks (8) or transactions (4), and one peer from each of
+/// 4 network groups picked by a secret of this node, are kept. Of the others, the newest
+/// peer of the network group with the most peers goes. None when every one is kept.
+fn pick_eviction(mut c: Vec<Candidate>, salt: u64) -> Option<PeerId> {
+    use std::hash::{Hash, Hasher};
+    fn keep_recent(c: &mut Vec<Candidate>, n: usize, at: impl Fn(&Candidate) -> Option<Instant>) {
+        let mut v: Vec<(Instant, PeerId)> =
+            c.iter().filter_map(|x| at(x).map(|t| (t, x.id))).collect();
+        v.sort_by_key(|x| std::cmp::Reverse(x.0));
+        let kept: HashSet<PeerId> = v.into_iter().take(n).map(|x| x.1).collect();
+        c.retain(|x| !kept.contains(&x.id));
+    }
+    keep_recent(&mut c, 8, |x| x.block);
+    keep_recent(&mut c, 4, |x| x.tx);
+    let keyed = |g: &(u8, u32)| {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (salt, g).hash(&mut h);
+        h.finish()
+    };
+    let mut groups: Vec<(u8, u32)> = c.iter().map(|x| x.group).collect();
+    groups.sort_by_key(keyed);
+    groups.dedup();
+    for g in groups.into_iter().take(4) {
+        if let Some(oldest) = c
+            .iter()
+            .filter(|x| x.group == g)
+            .min_by_key(|x| x.connected)
+            .map(|x| x.id)
+        {
+            c.retain(|x| x.id != oldest);
+        }
+    }
+    let mut by_group: HashMap<(u8, u32), Vec<&Candidate>> = HashMap::new();
+    for x in &c {
+        by_group.entry(x.group).or_default().push(x);
+    }
+    let (_, members) = by_group
+        .into_iter()
+        .max_by_key(|(_, v)| (v.len(), v.iter().map(|x| x.connected).max()))?;
+    members
+        .into_iter()
+        .max_by_key(|x| x.connected)
+        .map(|x| x.id)
+}
+
 struct Inner {
     cfg: Config,
+    /// This node's secret for choosing which network groups eviction keeps.
+    salt: u64,
     peers: Mutex<HashMap<PeerId, Peer>>,
     next: AtomicU64,
     events: mpsc::Sender<Event>,
@@ -171,6 +239,7 @@ impl Net {
         let net = Net {
             inner: Arc::new(Inner {
                 cfg,
+                salt: rand::random(),
                 peers: Mutex::new(HashMap::new()),
                 next: AtomicU64::new(1),
                 events: tx,
@@ -211,17 +280,51 @@ impl Net {
                 continue;
             }
             let key = ip_key(peer.ip());
-            let (inbound, same_ip) = {
-                let p = self.inner.peers.lock();
-                (
-                    p.values().filter(|x| x.info.inbound).count(),
-                    p.values()
-                        .filter(|x| ip_key(x.info.addr.ip()) == key)
-                        .count(),
-                )
-            };
-            if inbound >= self.inner.cfg.max_inbound || same_ip >= self.inner.cfg.max_per_ip {
-                continue;
+            let g = group(peer.ip());
+            let max_inbound = self.inner.cfg.max_inbound;
+            {
+                let mut p = self.inner.peers.lock();
+                let inbound = p.values().filter(|x| x.info.inbound).count();
+                let same_ip = p
+                    .values()
+                    .filter(|x| ip_key(x.info.addr.ip()) == key)
+                    .count();
+                let same_group = p
+                    .values()
+                    .filter(|x| x.info.inbound && group(x.info.addr.ip()) == g)
+                    .count();
+                if max_inbound == 0
+                    || same_ip >= self.inner.cfg.max_per_ip
+                    || same_group >= max_inbound_per_group(max_inbound)
+                {
+                    continue;
+                }
+                // Full: an idle peer makes room, so whoever holds the slots cannot keep new
+                // nodes out (useful and diverse peers stay).
+                if inbound >= max_inbound {
+                    let c = p
+                        .values()
+                        .filter(|x| x.info.inbound)
+                        .map(|x| Candidate {
+                            id: x.info.id,
+                            group: group(x.info.addr.ip()),
+                            connected: x.connected,
+                            block: x.useful_block,
+                            tx: x.useful_tx,
+                        })
+                        .collect();
+                    match pick_eviction(c, self.inner.salt) {
+                        Some(id) => {
+                            if let Some(x) = p.remove(&id) {
+                                tracing::debug!(
+                                    "evicted inbound peer {} for a new one",
+                                    x.info.addr
+                                );
+                            }
+                        }
+                        None => continue,
+                    }
+                }
             }
             let Ok(permit) = self.inner.handshakes.clone().try_acquire_owned() else {
                 continue;
@@ -377,6 +480,9 @@ impl Net {
                 tx,
                 dial,
                 queued: queued.clone(),
+                connected: Instant::now(),
+                useful_block: None,
+                useful_tx: None,
             },
         );
         let _ = self.inner.events.send(Event::Connected(id)).await;
@@ -486,6 +592,20 @@ impl Net {
                 self.insert_addr(&mut book, a);
             }
             p.info.hello = Some(h);
+        }
+    }
+
+    /// The peer delivered a block this node did not have: eviction keeps such peers.
+    pub fn note_block(&self, peer: PeerId) {
+        if let Some(p) = self.inner.peers.lock().get_mut(&peer) {
+            p.useful_block = Some(Instant::now());
+        }
+    }
+
+    /// The peer delivered a transaction this node did not have.
+    pub fn note_tx(&self, peer: PeerId) {
+        if let Some(p) = self.inner.peers.lock().get_mut(&peer) {
+            p.useful_tx = Some(Instant::now());
         }
     }
 
@@ -655,6 +775,72 @@ mod tests {
         let same = n.addrs().iter().filter(|a| a.starts_with("5.6.")).count();
         assert_eq!(same, MAX_PER_GROUP);
     }
+    #[test]
+    fn mapped_ipv4_counts_as_itself() {
+        let mapped: IpAddr = "::ffff:2.24.162.163".parse().unwrap();
+        let plain: IpAddr = "2.24.162.163".parse().unwrap();
+        assert_eq!(ip_key(mapped), ip_key(plain));
+        assert_eq!(group(mapped), group(plain));
+        assert_ne!(
+            ip_key(mapped),
+            ip_key("::ffff:2.24.162.164".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn eviction_keeps_useful_and_diverse_peers_and_drops_a_crowd() {
+        let t0 = Instant::now();
+        let at = |s: u64| t0 + Duration::from_secs(s);
+        let mut c = Vec::new();
+        // 16 idle peers from 4 groups of 4 (one operator), connected first.
+        for i in 0..16u64 {
+            c.push(Candidate {
+                id: i,
+                group: (4, 100 + (i / 4) as u32),
+                connected: at(i),
+                block: None,
+                tx: None,
+            });
+        }
+        // Honest peers, each from its own group; two relay blocks, one transactions.
+        for i in 16..24u64 {
+            c.push(Candidate {
+                id: i,
+                group: (4, 1000 + i as u32),
+                connected: at(100 + i),
+                block: (i < 18).then(|| at(200 + i)),
+                tx: (i == 18).then(|| at(300)),
+            });
+        }
+        for salt in 0..50 {
+            let gone = pick_eviction(
+                c.iter()
+                    .map(|x| Candidate {
+                        id: x.id,
+                        group: x.group,
+                        connected: x.connected,
+                        block: x.block,
+                        tx: x.tx,
+                    })
+                    .collect(),
+                salt,
+            )
+            .unwrap();
+            assert!(gone < 16, "a peer of the crowd goes, not peer {gone}");
+        }
+        // Every peer useful: nobody is evicted for a newcomer.
+        let all: Vec<Candidate> = (0..8u64)
+            .map(|i| Candidate {
+                id: i,
+                group: (4, i as u32),
+                connected: at(i),
+                block: Some(at(50 + i)),
+                tx: None,
+            })
+            .collect();
+        assert_eq!(pick_eviction(all, 7), None);
+    }
+
     #[tokio::test]
     async fn two_nodes_handshake_and_exchange() {
         let la: SocketAddr = "127.0.0.1:38711".parse().unwrap();

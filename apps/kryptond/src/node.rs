@@ -8,7 +8,7 @@ use krypton_core::{CoreError, Hash32};
 use krypton_p2p::{Event, Hello, Message, Net, PeerId};
 use krypton_store::{Chain, ChainError, Outcome};
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc};
@@ -35,6 +35,102 @@ const MAX_IN_FLIGHT: usize = 4096;
 const MAX_IN_FLIGHT_PER_PEER: usize = 1024;
 /// A peer whose shares are mostly uncreditable after this many is disconnected.
 const STALE_SHARE_LIMIT: u32 = 256;
+/// Locator entries read from a peer (ours have about 30).
+const MAX_LOCATOR: usize = 101;
+/// Requests of one peer waiting to be served (one at a time, in order).
+const MAX_SERVING_EACH: usize = 32;
+/// Blocks kept while their parent is missing: in all, per peer, in bytes, and how long.
+const MAX_ORPHANS: usize = 128;
+const MAX_ORPHANS_EACH: usize = 32;
+const MAX_ORPHAN_BYTES: usize = 64 * 1024 * 1024;
+const ORPHAN_TTL: Duration = Duration::from_secs(20 * 60);
+/// Blocks that were not stored, remembered so a peer replaying them costs nothing.
+const MAX_DROPPED: usize = 8192;
+/// A peer that sends this many blocks leading nowhere within ten minutes is disconnected.
+const MAX_USELESS_BLOCKS: u32 = 500;
+
+/// Messages a peer may send per minute and in a burst; honest peers stay far below.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Ask {
+    Hello,
+    Hashes,
+    Blocks,
+    Addr,
+    Shares,
+}
+
+impl Ask {
+    fn budget(self) -> (f64, f64) {
+        match self {
+            Ask::Hello => (6.0, 3.0),
+            Ask::Hashes => (120.0, 60.0),
+            Ask::Blocks => (1200.0, 400.0),
+            Ask::Addr => (6.0, 3.0),
+            // The network finds about 32 shares a minute, each relayed on its own.
+            Ask::Shares => (240.0, 60.0),
+        }
+    }
+}
+
+/// A peer's turn to be served, and how many of its requests wait for it.
+type Turn = (Arc<tokio::sync::Mutex<()>>, usize);
+
+/// Blocks waiting for their parent; they are tried again when it connects.
+#[derive(Default)]
+struct Orphans {
+    blocks: HashMap<Hash32, (Block, PeerId, Instant, usize)>,
+    by_prev: HashMap<Hash32, Vec<Hash32>>,
+    bytes: usize,
+}
+
+impl Orphans {
+    fn remove(&mut self, h: &Hash32) -> Option<(Block, PeerId)> {
+        let (b, from, _, size) = self.blocks.remove(h)?;
+        self.bytes -= size;
+        if let Some(v) = self.by_prev.get_mut(&b.header.prev) {
+            v.retain(|x| x != h);
+            if v.is_empty() {
+                self.by_prev.remove(&b.header.prev);
+            }
+        }
+        Some((b, from))
+    }
+
+    /// Keeps `b` until its parent arrives; false when it was not kept.
+    fn add(&mut self, b: Block, from: PeerId, size: usize) -> bool {
+        let h = b.hash();
+        if self.blocks.contains_key(&h) || size > MAX_ORPHAN_BYTES {
+            return false;
+        }
+        let old: Vec<Hash32> = self
+            .blocks
+            .iter()
+            .filter(|(_, x)| x.2.elapsed() > ORPHAN_TTL)
+            .map(|(k, _)| *k)
+            .collect();
+        for k in old {
+            self.remove(&k);
+        }
+        if self.blocks.values().filter(|x| x.1 == from).count() >= MAX_ORPHANS_EACH {
+            return false;
+        }
+        while self.blocks.len() >= MAX_ORPHANS || self.bytes + size > MAX_ORPHAN_BYTES {
+            let Some(oldest) = self.blocks.iter().min_by_key(|(_, x)| x.2).map(|(k, _)| *k) else {
+                break;
+            };
+            self.remove(&oldest);
+        }
+        self.by_prev.entry(b.header.prev).or_default().push(h);
+        self.blocks.insert(h, (b, from, Instant::now(), size));
+        self.bytes += size;
+        true
+    }
+
+    fn children(&mut self, parent: &Hash32) -> Vec<(Block, PeerId)> {
+        let ids = self.by_prev.get(parent).cloned().unwrap_or_default();
+        ids.iter().filter_map(|h| self.remove(h)).collect()
+    }
+}
 
 /// Per-owner share counts over the recent blocks, computed once per tip:
 /// (tip hash, counts, blocks covered).
@@ -80,6 +176,11 @@ impl std::fmt::Display for TxReject {
 pub enum ShareError {
     /// Not creditable on top of the current tip (stale, duplicate, wrong context).
     Stale(String),
+    /// Mined on a block this node does not have on its main chain: the sender follows
+    /// another branch, or is ahead of this node.
+    OtherBranch,
+    /// For a height above this node's next block: the sender is ahead of this node.
+    Ahead,
     /// Fails the share target: the sender did no work.
     BadWork,
 }
@@ -88,6 +189,8 @@ impl std::fmt::Display for ShareError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ShareError::Stale(m) => write!(f, "share not creditable: {m}"),
+            ShareError::OtherBranch => write!(f, "share not creditable: not on the main chain"),
+            ShareError::Ahead => write!(f, "share not creditable: outside the inclusion window"),
             ShareError::BadWork => write!(f, "share does not meet the share target"),
         }
     }
@@ -107,6 +210,12 @@ pub struct Node {
     pub jobs: Mutex<HashMap<u64, Job>>,
     pub templates: Mutex<HashMap<String, (Hash32, u64, Instant, u64)>>,
     pub template_budget: Mutex<Vec<Instant>>,
+    /// Templates built for each client in the last minute.
+    pub template_each: Mutex<HashMap<std::net::IpAddr, Vec<Instant>>>,
+    /// New directory entries from each client in the last day.
+    pub address_each: Mutex<HashMap<std::net::IpAddr, Vec<Instant>>>,
+    /// Proof-of-work checks of submitted solutions running at once.
+    pub pow_checks: tokio::sync::Semaphore,
     /// When each peer last sent us addresses (one list per peer every 10 minutes).
     pub addr_from: Mutex<HashMap<PeerId, Instant>>,
     /// Recent address-directory writes (bounds disk use from the public API).
@@ -118,6 +227,8 @@ pub struct Node {
     pub nonce: u64,
     pub started: Instant,
     peer_heights: Mutex<HashMap<PeerId, u64>>,
+    /// The tip each peer announced (its Hello).
+    peer_best: Mutex<HashMap<PeerId, Hash32>>,
     /// Blocks requested and not yet received: who was asked and when.
     in_flight: Mutex<HashMap<Hash32, (PeerId, Instant)>>,
     /// When we last asked each peer for hashes; unsolicited `Hashes` are ignored.
@@ -129,6 +240,14 @@ pub struct Node {
     pub listen_port: u16,
     /// Swap offers, mailboxes and the market price (`/v1/swap/...`).
     pub board: crate::swapboard::Board,
+    orphans: Mutex<Orphans>,
+    /// Per peer: its requests' turn (one served at a time, in order) and how many wait.
+    serving: Mutex<HashMap<PeerId, Turn>>,
+    /// Per peer and kind of message: (tokens, last refill).
+    asks: Mutex<HashMap<(PeerId, Ask), (f64, Instant)>>,
+    /// Per peer: blocks leading nowhere in the current ten minutes.
+    useless: Mutex<HashMap<PeerId, (u32, Instant)>>,
+    dropped: Mutex<(HashSet<Hash32>, VecDeque<Hash32>)>,
 }
 
 impl Node {
@@ -147,6 +266,11 @@ impl Node {
             jobs: Mutex::new(HashMap::new()),
             templates: Mutex::new(HashMap::new()),
             template_budget: Mutex::new(Vec::new()),
+            template_each: Mutex::new(HashMap::new()),
+            address_each: Mutex::new(HashMap::new()),
+            pow_checks: tokio::sync::Semaphore::new(
+                std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).max(1)),
+            ),
             addr_from: Mutex::new(HashMap::new()),
             address_budget: Mutex::new(Vec::new()),
             guard: Arc::new(crate::guard::Guard::default()),
@@ -154,13 +278,91 @@ impl Node {
             nonce: rand::random(),
             started: Instant::now(),
             peer_heights: Mutex::new(HashMap::new()),
+            peer_best: Mutex::new(HashMap::new()),
             in_flight: Mutex::new(HashMap::new()),
             hash_requests: Mutex::new(HashMap::new()),
             share_counts: Mutex::new(HashMap::new()),
             stem: Mutex::new(Vec::new()),
             listen_port,
             board: Default::default(),
+            orphans: Mutex::new(Orphans::default()),
+            serving: Mutex::new(HashMap::new()),
+            asks: Mutex::new(HashMap::new()),
+            useless: Mutex::new(HashMap::new()),
+            dropped: Mutex::new((HashSet::new(), VecDeque::new())),
         })
+    }
+
+    /// Takes one message of kind `a` from the peer's budget.
+    fn allow(&self, p: PeerId, a: Ask) -> bool {
+        let (per_min, burst) = a.budget();
+        let now = Instant::now();
+        let mut m = self.asks.lock();
+        let e = m.entry((p, a)).or_insert((burst, now));
+        e.0 = (e.0 + now.duration_since(e.1).as_secs_f64() * per_min / 60.0).min(burst);
+        e.1 = now;
+        if e.0 >= 1.0 {
+            e.0 -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Runs a peer's request on the blocking pool, after its earlier ones: one peer's
+    /// requests never hold up the messages of the others. Beyond a few waiting, dropped.
+    fn serve(self: &Arc<Self>, p: PeerId, job: impl FnOnce(&Node) + Send + 'static) {
+        let turn = {
+            let mut m = self.serving.lock();
+            let e = m
+                .entry(p)
+                .or_insert_with(|| (Arc::new(tokio::sync::Mutex::new(())), 0));
+            if e.1 >= MAX_SERVING_EACH {
+                return;
+            }
+            e.1 += 1;
+            e.0.clone()
+        };
+        let me = self.clone();
+        tokio::spawn(async move {
+            let _turn = turn.lock().await;
+            let n = me.clone();
+            let _ = tokio::task::spawn_blocking(move || job(&n)).await;
+            if let Some(e) = me.serving.lock().get_mut(&p) {
+                e.1 = e.1.saturating_sub(1);
+            }
+        });
+    }
+
+    /// A block from `p` that led nowhere (known, not stored, no parent).
+    fn useless(&self, p: PeerId) {
+        let mut m = self.useless.lock();
+        let e = m.entry(p).or_insert((0, Instant::now()));
+        if e.1.elapsed() > Duration::from_secs(600) {
+            *e = (0, Instant::now());
+        }
+        e.0 += 1;
+        if e.0 > MAX_USELESS_BLOCKS {
+            drop(m);
+            tracing::warn!("peer {p} keeps sending blocks that lead nowhere");
+            self.net.disconnect(p);
+        }
+    }
+
+    fn was_dropped(&self, h: &Hash32) -> bool {
+        self.dropped.lock().0.contains(h)
+    }
+
+    fn remember_dropped(&self, h: Hash32) {
+        let mut d = self.dropped.lock();
+        if d.0.insert(h) {
+            d.1.push_back(h);
+            if d.1.len() > MAX_DROPPED
+                && let Some(old) = d.1.pop_front()
+            {
+                d.0.remove(&old);
+            }
+        }
     }
 
     fn hello(&self) -> Hello {
@@ -241,9 +443,13 @@ impl Node {
                 Event::Connected(p) => self.net.send(p, &Message::Hello(self.hello())),
                 Event::Disconnected(p) => {
                     self.peer_heights.lock().remove(&p);
+                    self.peer_best.lock().remove(&p);
                     self.hash_requests.lock().remove(&p);
                     self.share_counts.lock().remove(&p);
                     self.addr_from.lock().remove(&p);
+                    self.serving.lock().remove(&p);
+                    self.asks.lock().retain(|(q, _), _| *q != p);
+                    self.useless.lock().remove(&p);
                     // Whatever it was asked for may be asked from others right away.
                     self.in_flight.lock().retain(|_, (q, _)| *q != p);
                 }
@@ -310,6 +516,10 @@ impl Node {
     async fn handle(self: &Arc<Self>, p: PeerId, m: Message) -> Result<()> {
         match m {
             Message::Hello(h) => {
+                if !self.allow(p, Ask::Hello) {
+                    self.net.disconnect(p);
+                    return Ok(());
+                }
                 if h.nonce == self.nonce {
                     self.net.disconnect(p);
                     return Ok(());
@@ -325,23 +535,47 @@ impl Node {
                 let elapsed = krypton_core::now().saturating_sub(self.chain.params.genesis_time);
                 let plausible = elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
                 self.peer_heights.lock().insert(p, h.height.min(plausible));
+                self.peer_best.lock().insert(p, h.best);
                 self.net.set_hello(p, h.clone());
-                if h.height > self.chain.tip().height() {
+                let tip = self.chain.tip();
+                if h.height > tip.height() {
                     self.request_hashes(p);
                 }
                 self.net.send(p, &Message::GetAddr);
-                let pending: Vec<Vec<u8>> = self
-                    .shares
-                    .lock()
-                    .recent(krypton_p2p::message::MAX_SHARES_PER_MESSAGE)
-                    .iter()
-                    .map(|s| s.to_bytes())
-                    .collect();
+                // Our pending shares only help a peer on our chain near our tip; to one on
+                // another branch or far behind they are uncreditable, and nodes before 1.0.53
+                // disconnect whoever sends many of those (which kept a partition from healing).
+                let same_chain = h.best == tip.hash
+                    || (h.height + SHARE_WINDOW > tip.height()
+                        && self.chain.is_main(&h.best).unwrap_or(false));
+                let pending: Vec<Vec<u8>> = if same_chain {
+                    self.shares
+                        .lock()
+                        .recent(krypton_p2p::message::MAX_SHARES_PER_MESSAGE)
+                        .iter()
+                        .map(|s| s.to_bytes())
+                        .collect()
+                } else {
+                    vec![]
+                };
                 if !pending.is_empty() {
                     self.net.send(p, &Message::Shares(pending));
                 }
             }
             Message::Shares(v) => {
+                if !self.allow(p, Ask::Shares) {
+                    return Ok(());
+                }
+                // Shares of another branch, or from a peer ahead of us, are expected from a
+                // peer that is not (yet) on our chain: only a peer that claims our chain and
+                // still sends them is abusing.
+                let ours = self
+                    .peer_best
+                    .lock()
+                    .get(&p)
+                    .is_some_and(|b| self.chain.is_main(b).unwrap_or(false));
+                let ahead = self.peer_heights.lock().get(&p).copied().unwrap_or(0)
+                    > self.chain.tip().height();
                 let total = v.len();
                 let mut stale = 0usize;
                 for raw in v {
@@ -349,7 +583,7 @@ impl Node {
                         self.net.ban(p);
                         return Ok(());
                     };
-                    match self.accept_share(s, Some(p)).await {
+                    match self.accept_share(s, Some(p), false).await {
                         Ok(_) => {}
                         Err(ShareError::BadWork) => {
                             tracing::warn!("peer {p} sent a share without work");
@@ -358,6 +592,16 @@ impl Node {
                         }
                         Err(ShareError::Stale(e)) => {
                             stale += 1;
+                            tracing::debug!("share from {p}: {e}");
+                        }
+                        Err(e @ (ShareError::OtherBranch | ShareError::Ahead)) => {
+                            let expected = match e {
+                                ShareError::OtherBranch => !ours,
+                                _ => ahead,
+                            };
+                            if !expected {
+                                stale += 1;
+                            }
                             tracing::debug!("share from {p}: {e}");
                         }
                     }
@@ -380,11 +624,16 @@ impl Node {
             }
             Message::Ping(n) => self.net.send(p, &Message::Pong(n)),
             Message::Pong(_) => {}
-            Message::GetHashes { locator, max } => {
-                let v = self
-                    .chain
-                    .hashes_after(&locator, (max as usize).min(2000))?;
-                self.net.send(p, &Message::Hashes(v));
+            Message::GetHashes { mut locator, max } => {
+                if !self.allow(p, Ask::Hashes) {
+                    return Ok(());
+                }
+                locator.truncate(MAX_LOCATOR);
+                let max = (max as usize).min(2000);
+                self.serve(p, move |n| match n.chain.hashes_after(&locator, max) {
+                    Ok(v) => n.net.send(p, &Message::Hashes(v)),
+                    Err(e) => tracing::error!("storage error: {e}"),
+                });
             }
             Message::Hashes(v) => {
                 let asked = self
@@ -396,7 +645,7 @@ impl Node {
                     return Ok(());
                 }
                 let mut want = Vec::new();
-                for h in v {
+                for h in v.into_iter().take(2000) {
                     if !self.chain.has_block(&h)? && self.claim_block(h, p) {
                         want.push(h);
                     }
@@ -406,15 +655,25 @@ impl Node {
                 }
             }
             Message::GetBlocks(v) => {
-                // Requests beyond what the peer is reading are dropped; it asks again.
-                for h in v.iter().take(64) {
-                    if self.net.queued_bytes(p) > krypton_p2p::SOFT_QUEUED_BYTES {
-                        break;
-                    }
-                    if let Some(b) = self.chain.block(h)? {
-                        self.net.send(p, &Message::Block(b.to_bytes()));
-                    }
+                if !self.allow(p, Ask::Blocks) {
+                    return Ok(());
                 }
+                // Requests beyond what the peer is reading are dropped; it asks again.
+                self.serve(p, move |n| {
+                    for h in v.iter().take(64) {
+                        if n.net.queued_bytes(p) > krypton_p2p::SOFT_QUEUED_BYTES {
+                            break;
+                        }
+                        match n.chain.block(h) {
+                            Ok(Some(b)) => n.net.send(p, &Message::Block(b.to_bytes())),
+                            Ok(None) => {}
+                            Err(e) => {
+                                tracing::error!("storage error: {e}");
+                                break;
+                            }
+                        }
+                    }
+                });
             }
             Message::Block(raw) => {
                 let block = match Block::from_bytes(&raw) {
@@ -426,28 +685,11 @@ impl Node {
                 };
                 let hash = block.hash();
                 self.in_flight.lock().remove(&hash);
-                match self.submit_block(block.clone()).await {
-                    Ok(Outcome::Connected { .. }) => {
-                        let h = block.header.height;
-                        let mut ph = self.peer_heights.lock();
-                        let e = ph.entry(p).or_insert(0);
-                        *e = (*e).max(h);
-                        drop(ph);
-                        if self.in_flight.lock().is_empty()
-                            && self.best_peer_height() > self.chain.tip().height()
-                        {
-                            self.request_hashes(p);
-                        }
-                    }
-                    Ok(Outcome::Orphan { .. }) => self.request_hashes(p),
-                    Ok(_) => {}
-                    Err(ChainError::Invalid(CoreError::Future)) => {}
-                    Err(ChainError::Invalid(e)) => {
-                        tracing::warn!("invalid block from peer {p}: {e}");
-                        self.net.ban(p);
-                    }
-                    Err(e) => tracing::error!("storage error: {e}"),
+                if self.was_dropped(&hash) {
+                    self.useless(p);
+                    return Ok(());
                 }
+                self.block_from(p, block, raw.len()).await;
             }
             Message::Inv { blocks, txs } => {
                 let mut want_b = Vec::new();
@@ -491,13 +733,16 @@ impl Node {
                     return Ok(());
                 };
                 match self.accept_tx(tx).await {
-                    Ok(id) => self.net.broadcast(
-                        &Message::Inv {
-                            blocks: vec![],
-                            txs: vec![id],
-                        },
-                        Some(p),
-                    ),
+                    Ok(id) => {
+                        self.net.note_tx(p);
+                        self.net.broadcast(
+                            &Message::Inv {
+                                blocks: vec![],
+                                txs: vec![id],
+                            },
+                            Some(p),
+                        )
+                    }
                     // Honest nodes only relay transactions whose proofs they verified.
                     Err(TxReject::Invalid(e)) => {
                         tracing::warn!("peer {p} sent an invalid transaction: {e}");
@@ -506,7 +751,11 @@ impl Node {
                     Err(e) => tracing::debug!("rejected tx from {p}: {e}"),
                 }
             }
-            Message::GetAddr => self.net.send(p, &Message::Addr(self.net.addrs())),
+            Message::GetAddr => {
+                if self.allow(p, Ask::Addr) {
+                    self.net.send(p, &Message::Addr(self.net.addrs()))
+                }
+            }
             Message::Addr(v) => {
                 let mut seen = self.addr_from.lock();
                 let fresh = seen
@@ -520,6 +769,67 @@ impl Node {
             }
         }
         Ok(())
+    }
+
+    /// A block from peer `p`, and then any waiting blocks it is the parent of.
+    async fn block_from(self: &Arc<Self>, p: PeerId, block: Block, size: usize) {
+        let mut queue = vec![(block, p, size)];
+        while let Some((block, from, size)) = queue.pop() {
+            let hash = block.hash();
+            let height = block.header.height;
+            let ready = |q: &mut Vec<(Block, PeerId, usize)>| {
+                for (b, f) in self.orphans.lock().children(&hash) {
+                    let n = b.to_bytes().len();
+                    q.push((b, f, n));
+                }
+            };
+            match self.submit_block(block.clone()).await {
+                Ok(Outcome::Connected { .. }) => {
+                    self.net.note_block(from);
+                    let mut ph = self.peer_heights.lock();
+                    let e = ph.entry(from).or_insert(0);
+                    *e = (*e).max(height);
+                    drop(ph);
+                    ready(&mut queue);
+                    if queue.is_empty()
+                        && self.in_flight.lock().is_empty()
+                        && self.best_peer_height() > self.chain.tip().height()
+                    {
+                        self.request_hashes(from);
+                    }
+                }
+                Ok(Outcome::Orphan { .. }) => {
+                    if !self.orphans.lock().add(block, from, size) {
+                        self.useless(from);
+                    }
+                    // Ask for what leads to it, at most every few seconds.
+                    let recent = self
+                        .hash_requests
+                        .lock()
+                        .get(&from)
+                        .is_some_and(|t| t.elapsed() < Duration::from_secs(5));
+                    if !recent {
+                        self.request_hashes(from);
+                    }
+                }
+                Ok(Outcome::SideChain) => {
+                    if self.chain.has_block(&hash).unwrap_or(false) {
+                        // A branch with real work, kept: what builds on it may follow.
+                        ready(&mut queue);
+                    } else {
+                        self.remember_dropped(hash);
+                        self.useless(from);
+                    }
+                }
+                Ok(Outcome::AlreadyKnown) => self.useless(from),
+                Err(ChainError::Invalid(CoreError::Future)) => {}
+                Err(ChainError::Invalid(e)) => {
+                    tracing::warn!("invalid block from peer {from}: {e}");
+                    self.net.ban(from);
+                }
+                Err(e) => tracing::error!("storage error: {e}"),
+            }
+        }
     }
 
     /// Validates and stores a block (from a peer or a miner); relays it on success.
@@ -595,6 +905,7 @@ impl Node {
         self: &Arc<Self>,
         s: BlockHeader,
         from: Option<PeerId>,
+        work_checked: bool,
     ) -> std::result::Result<ShareOutcome, ShareError> {
         let hash = s.hash();
         if self.shares.lock().shares.contains_key(&hash) {
@@ -602,12 +913,15 @@ impl Node {
         }
         // Cheap window check before any storage access.
         let next = self.chain.tip().height() + 1;
-        if s.height == 0 || s.height > next || s.height + SHARE_WINDOW <= next {
+        if s.height > next {
+            return Err(ShareError::Ahead);
+        }
+        if s.height == 0 || s.height + SHARE_WINDOW <= next {
             return Err(ShareError::Stale("outside the inclusion window".into()));
         }
         // Creditable shares extend the main chain: one lookup rejects the rest cheaply.
         if self.chain.main_hash(s.height - 1).ok().flatten() != Some(s.prev) {
-            return Err(ShareError::Stale("not on the main chain".into()));
+            return Err(ShareError::OtherBranch);
         }
         let chain = self.chain.clone();
         let s2 = s.clone();
@@ -616,6 +930,9 @@ impl Node {
                 return Err(ShareError::Stale(
                     "outside the window, already credited or not on the main chain".into(),
                 ));
+            }
+            if work_checked {
+                return Ok(());
             }
             krypton_core::consensus::check_share_pow(&chain.pow, &s2)
                 .map_err(|_| ShareError::BadWork)

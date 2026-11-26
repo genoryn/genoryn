@@ -104,6 +104,16 @@ async fn main() -> Result<()> {
     node.board.set_path(trades);
     let n2 = node.clone();
     tokio::spawn(async move { n2.run(rx).await });
+    // The swap board is written in the background, never on the request that changed it.
+    let n3 = node.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            let n = n3.clone();
+            let _ = tokio::task::spawn_blocking(move || n.board.flush()).await;
+        }
+    });
+    let last = node.clone();
 
     let rpc_addr = a
         .rpc
@@ -116,10 +126,41 @@ async fn main() -> Result<()> {
         listener,
         rpc::router(node).into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(async {
-        let _ = tokio::signal::ctrl_c().await;
+    .with_graceful_shutdown(async move {
+        stop_signal().await;
         tracing::info!("shutting down");
+        let n = last.clone();
+        let _ = tokio::task::spawn_blocking(move || n.board.flush()).await;
+        // Open subscriptions do not hold the node up for long.
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::task::block_in_place(|| last.board.flush());
+            std::process::exit(0);
+        });
     })
     .await?;
     Ok(())
+}
+
+/// Ctrl-C, or (on Unix) the service manager's stop.
+async fn stop_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut term) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = term.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
