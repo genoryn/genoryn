@@ -63,6 +63,7 @@
  "825c325c0e": "<0>Portefeuilles :</0> les portefeuilles légers vérifient des en-têtes échantillonnés, le travail total et chaque bloc qu'ils lisent ; les clés ne quittent jamais l'appareil.",
  "4cb33e319d": "<0>Échanges :</0> le GNR et le bitcoin s'échangent au moyen de verrous de hachage et de verrous temporels ; les GNR du vendeur sont verrouillés avant que l'acheteur ne paie.",
  "4c6597b772": "Tous les détails : <0>documentation</0> · <1>spécifications</1>.",
+ "b2db2848bf": "Il ne détient aucune clé sur le protocole. Le bloc de genèse n’émet rien, les règles sont les mêmes pour tous, et elles ne changent que lorsque ceux qui font tourner des nœuds choisissent d’exécuter un nouveau logiciel.",
  "61e8d44ad4": "Commencer",
  "c2e2685a28": "<0>Téléchargez le portefeuille</0> pour Windows ou Linux, créez un portefeuille et <1>minez</1> sur un GPU ou un CPU, ou achetez des GNR avec des bitcoins sur le <2>tableau des offres</2>. Suivez le réseau en direct dans l'<3>explorateur</3>.",
  "357fedbed3": "Une cryptomonnaie à preuve de travail, résistante aux ordinateurs quantiques et privée par défaut (symbole GNR), dotée de la conception monétaire de Bitcoin : 21 millions de pièces, des halvings, le minage et un lancement équitable sans prémine.",

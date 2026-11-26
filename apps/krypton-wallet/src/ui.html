@@ -1244,7 +1244,7 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
     </div>
     <div id="tab-trades" class="hidden">
       <div class="th-bar">
-        <div class="seg" id="thMode" role="group" aria-label="Which swaps the figures and charts show"><button type="button" data-m="verified" class="on" aria-pressed="true">Verified</button><button type="button" data-m="all" aria-pressed="false">All reported</button></div>
+        <div class="seg" id="thMode" role="group" aria-label="Which swaps the figures and charts show"><button type="button" data-m="verified" class="on" aria-pressed="true">Verified swaps</button><button type="button" data-m="all" aria-pressed="false">All reported</button></div>
         <p class="th-modenote" id="thModeNote"></p>
       </div>
       <section class="glass card sw-totals th-kpis" aria-label="The whole trade history in figures">
@@ -2469,7 +2469,7 @@ function thRender(){
   // nothing); many are set out by their time.
   thChart('price', $('thChPrice'), pts, {kind:'area', straight:true, points:sw.length<=200, zero:false, range, ordinal:sw.length<=40, span:sw.length<=40?undefined:pspan, fmt:thSatAxis, label:T("Price per GNR of every completed swap"), height:230,
     empty:raw.swaps&&m==='verified'?T("No verified swap in this period"):undefined});
-  $('thLegend').innerHTML=soft?`<span><i></i>${TE("verified")}</span><span><i class="soft"></i>${TE("reported, bitcoin not found")}</span>`+(far?`<span><i class="far"></i>${TE("off the scale: its price is in the tip")}</span>`:''):'';
+  $('thLegend').innerHTML=soft?`<span><i></i>${TE("verified swap")}</span><span><i class="soft"></i>${TE("reported, bitcoin not found")}</span>`+(far?`<span><i class="far"></i>${TE("off the scale: its price is in the tip")}</span>`:''):'';
   // The medians of the days keep the scale of the verified ones too.
   const vm=m==='all'&&hasV?(s.days||[]).map(x=>x.verified_figures&&x.verified_figures.median).filter(x=>x!=null&&isFinite(x)):[];
   let mrange; if(vm.length){ const lo=Math.min(...vm), hi=Math.max(...vm), pad=Math.max((hi-lo)*0.18, hi*0.04); mrange=[Math.max(0,lo-pad), hi+pad]; }

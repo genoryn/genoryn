@@ -26,6 +26,7 @@
  "6377a06e81": "Ja, genau wie bei GNR: Token, Betrag, Absender und Empfänger werden durch einen Zero-Knowledge-Beweis verborgen. Nur das Erzeugen und Vernichten von Token wird öffentlich sein.",
  "377ed0c796": "Nein. Kein Herausgeber wird Token wegnehmen, Guthaben einsehen oder auch nur einen einzigen Inhaber sperren können; alles, was ein Herausgeber tun darf, wird erklärt, bevor der Token existiert.",
  "c914a0c430": "Nein. Halte deine Wallet aktuell; ihr Token-Tab schaltet sich von selbst ein, wenn Token aktiviert werden.",
+ "6b654526e0": "Genoryn Krypton 1.0.55: ein neues Design, ein Handelsverlauf, der verifizierte Swaps zuerst zeigt, und ein neues Genoryn Talks",
  "3fa8d0b2f5": "Genoryn Krypton 1.0.54: Swap-Rückerstattungen, die nicht hängen bleiben, und doppelt gezahlte Bitcoin kommen zurück",
  "4662007ace": "Genoryn Krypton 1.0.53: Light-Wallets, die jeden Block prüfen, ein robusterer Marktpreis, Handelsverlauf und Tor",
  "84457cacbc": "Genoryn Krypton 1.0.52: Ein vollständiges Sicherheitsaudit, und Handeln direkt aus deinem Bitcoin-Guthaben",
@@ -43,6 +44,5 @@
  "38b291e976": "Genoryn Krypton 1.0.40: Verkaufsangebote weisen ihre GNR nach",
  "4fdc50bcd4": "Genoryn Krypton 1.0.39: Das Guthaben in krypton, Summen als Geldwert, ein aufgeräumterer Verlauf",
  "d66cacd757": "Genoryn Krypton 1.0.38: Ein neues Wallet-Design, ein zweiseitiges Orderbuch, der krypton",
- "feeb690ede": "Genoryn Krypton 1.0.37: Quantum-Coins wandern in eine künftige Version",
- "1c40d47eef": "Genoryn Krypton 1.0.36: Ein neu gebauter Coins-Tab und ein aufgeräumteres Design"
+ "feeb690ede": "Genoryn Krypton 1.0.37: Quantum-Coins wandern in eine künftige Version"
 }

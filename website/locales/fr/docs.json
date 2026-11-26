@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentation de Genoryn Krypton (GNR) : portefeuille, minage, échanges, API",
- "b2384a36f0": "Documentation · mainnet · version 1.0.54",
+ "7de73a93c0": "Documentation · mainnet · version 1.0.55",
  "503bc1b9c1": "Documentation de Genoryn Krypton",
  "be0c07c7b6": "Tout ce qu’il faut pour utiliser, miner, échanger, exploiter, intégrer et auditer Genoryn Krypton : une monnaie résistante aux ordinateurs quantiques, privée par défaut, avec un lancement équitable, un plafond de 21,000,000 GNR et des échanges atomiques avec le bitcoin. Commencez par le démarrage rapide, ou accédez directement à n’importe quel sujet depuis le sommaire.",
  "437aea62a5": "Sommaire",
@@ -440,7 +440,7 @@
  "8ea45bca6d": "Signaler un échange terminé (accepté dès que sa réclamation est sur la chaîne)",
  "bcb30d3539": "Prix du marché et échanges terminés avec leurs réclamations sur la chaîne",
  "3321a24638": "Chaque échange terminé, du plus récent au plus ancien, par pages de 200 au plus (<0/>, <1/>) ; <2/> un horodatage Unix, <3/> uniquement les échanges dont les bitcoins ont été trouvés",
- "6cecdca951": "Totaux et médiane de tous les échanges terminés, et chiffres par jour",
+ "f013ba9751": "Totaux et médiane de tous les échanges terminés, et chiffres par jour. Depuis la 1.0.55, chaque jeu de chiffres contient aussi <0/> : les mêmes chiffres pour les échanges dont les bitcoins ont été trouvés sur la chaîne Bitcoin",
  "deab0afae7": "Prix du BTC en USD, EUR et autres (genoryn.io uniquement, depuis mempool.space)",
  "7687db6267": "JSON-RPC 2.0",
  "e42d7351ff": "avec <0/>.",

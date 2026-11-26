@@ -63,6 +63,7 @@
  "825c325c0e": "<0>Cüzdanlar:</0> hafif cüzdanlar örneklenen başlıkları, toplam işi ve okudukları her bloğu doğrular; anahtarlar cihazdan asla çıkmaz.",
  "4cb33e319d": "<0>Takaslar:</0> GNR ve bitcoin, hash ve zaman kilitleriyle değiştirilir; satıcının GNR'si alıcı ödeme yapmadan önce kilitlenir.",
  "4c6597b772": "Tüm ayrıntılar: <0>belgeler</0> · <1>spesifikasyonlar</1>.",
+ "b2db2848bf": "Protokol üzerinde hiçbir anahtarı yoktur. Genesis bloğu hiçbir şey çıkarmaz, kurallar herkes için aynıdır ve yalnızca düğüm operatörleri yeni yazılım çalıştırmayı seçtiğinde değişir.",
  "61e8d44ad4": "Başlayın",
  "c2e2685a28": "Windows veya Linux için <0>cüzdanı indirin</0>, bir cüzdan oluşturun ve GPU ya da CPU ile <1>madencilik yapın</1> veya <2>teklif panosunda</2> bitcoin ile GNR satın alın. Canlı ağı <3>blok gezgininde</3> görün.",
  "357fedbed3": "Bitcoin'in para tasarımına sahip, kuantuma dayanıklı, varsayılan olarak gizli, iş kanıtı tabanlı bir kripto para (sembol GNR): 21 milyon coin, yarılanmalar, madencilik ve ön madencilik olmadan adil başlangıç.",

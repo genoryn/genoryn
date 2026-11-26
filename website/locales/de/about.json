@@ -63,6 +63,7 @@
  "825c325c0e": "<0>Wallets:</0> Light-Wallets verifizieren stichprobenartig Header, die Gesamtarbeit und jeden Block, den sie lesen; Schlüssel verlassen nie das Gerät.",
  "4cb33e319d": "<0>Swaps:</0> GNR und Bitcoin werden mit Hash- und Zeitsperren getauscht; die GNR des Verkäufers werden gesperrt, bevor der Käufer bezahlt.",
  "4c6597b772": "Alle Details: <0>Dokumentation</0> · <1>Spezifikationen</1>.",
+ "b2db2848bf": "Er hält keinen Schlüssel über das Protokoll. Der Genesis-Block gibt nichts aus, die Regeln sind für alle gleich, und sie ändern sich nur, wenn Node-Betreiber sich entscheiden, neue Software auszuführen.",
  "61e8d44ad4": "Loslegen",
  "c2e2685a28": "<0>Lade die Wallet</0> für Windows oder Linux herunter, erstelle eine Wallet und <1>mine</1> auf einer GPU oder CPU, oder kaufe GNR mit Bitcoin auf der <2>Angebotstafel</2>. Das Live-Netzwerk siehst du im <3>Explorer</3>.",
  "357fedbed3": "Eine quantenresistente, standardmäßig private Proof-of-Work-Kryptowährung (Ticker GNR) mit dem Geldsystem von Bitcoin: 21 Millionen Coins, Halvings, Mining und ein Fair Launch ohne Premine.",

@@ -63,6 +63,7 @@
  "825c325c0e": "<0>Billeteras:</0> las billeteras ligeras verifican encabezados muestreados, el trabajo total y cada bloque que leen; las claves nunca salen del dispositivo.",
  "4cb33e319d": "<0>Intercambios:</0> GNR y bitcoin se intercambian con bloqueos de hash y de tiempo; los GNR del vendedor se bloquean antes de que pague el comprador.",
  "4c6597b772": "Todos los detalles: <0>documentación</0> · <1>especificaciones</1>.",
+ "b2db2848bf": "No tiene ninguna clave sobre el protocolo. El bloque génesis no emite nada, las reglas son las mismas para todos y solo cambian cuando los operadores de nodos deciden ejecutar software nuevo.",
  "61e8d44ad4": "Primeros pasos",
  "c2e2685a28": "<0>Descarga la billetera</0> para Windows o Linux, crea una billetera y <1>mina</1> con una GPU o una CPU, o compra GNR con bitcoin en el <2>tablón de ofertas</2>. Mira la red en vivo en el <3>explorador</3>.",
  "357fedbed3": "Una criptomoneda de prueba de trabajo resistente a la computación cuántica y privada por defecto (ticker GNR) con el diseño monetario de Bitcoin: 21 millones de monedas, halvings, minería y un lanzamiento justo sin preminado.",

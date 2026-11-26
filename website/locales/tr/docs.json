@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Genoryn Krypton (GNR) Dokümantasyonu: Cüzdan, Madencilik, Takaslar, API",
- "b2384a36f0": "Belgeler · ana ağ · sürüm 1.0.54",
+ "7de73a93c0": "Belgeler · ana ağ · sürüm 1.0.55",
  "503bc1b9c1": "Genoryn Krypton dokümantasyonu",
  "be0c07c7b6": "Genoryn Krypton'u kullanmak, madenciliğini yapmak, alıp satmak, çalıştırmak, entegre etmek ve denetlemek için ihtiyacınız olan her şey: adil başlangıçlı, 21,000,000 GNR üst sınırlı ve bitcoin ile atomik takas imkânı sunan, kuantuma dayanıklı ve varsayılan olarak gizli para. Hızlı başlangıçla başlayın veya içindekiler bölümünden istediğiniz konuya geçin.",
  "437aea62a5": "İçindekiler",
@@ -440,7 +440,7 @@
  "8ea45bca6d": "Tamamlanan bir takası bildirir (talebi zincire girdiğinde kabul edilir)",
  "bcb30d3539": "Piyasa fiyatı ve zincir üzerindeki talepleriyle tamamlanan takaslar",
  "3321a24638": "Tamamlanan her takas, en yenisi önce, en fazla 200'lük sayfalar hâlinde (<0/>, <1/>); <2/> bir Unix zamanı, <3/> yalnızca bitcoin'i bulunan takaslar",
- "6cecdca951": "Tamamlanan tüm takasların toplamları ve medyanı ile günlük rakamlar",
+ "f013ba9751": "Tamamlanan tüm takasların toplamları ve medyanı ile günlük rakamlar. 1.0.55 sürümünden itibaren her rakam kümesinde ayrıca <0/> bulunur: bitcoini Bitcoin zincirinde bulunan takaslar için aynı rakamlar",
  "deab0afae7": "USD, EUR ve diğer para birimleri cinsinden BTC fiyatı (yalnızca genoryn.io, mempool.space'ten)",
  "7687db6267": "JSON-RPC 2.0",
  "e42d7351ff": "<0/> ile.",

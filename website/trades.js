@@ -106,7 +106,7 @@
     var t0 = since || (sw.length ? at(sw[0]) : now - D), few = sw.length <= 40;
     draw("thChPrice", pts, { kind: "area", straight: true, points: sw.length <= 200, zero: false, range: range, ordinal: few, span: few ? undefined : [t0 - (now - t0) * 0.03, now + (now - t0) * 0.03], fmt: satAxis,
       label: T("Price per GNR of every completed swap"), height: 240, empty: (s.all || {}).swaps && m === "verified" ? T("No verified swap in this period") : undefined });
-    $("thLegend").innerHTML = soft ? "<span><i></i>" + e(T("verified")) + "</span><span><i class=\"soft\"></i>" + e(T("reported, bitcoin not found")) + "</span>" + (far ? "<span><i class=\"far\"></i>" + e(T("off the scale: its price is in the tip")) + "</span>" : "") : "";
+    $("thLegend").innerHTML = soft ? "<span><i></i>" + e(T("verified swap")) + "</span><span><i class=\"soft\"></i>" + e(T("reported, bitcoin not found")) + "</span>" + (far ? "<span><i class=\"far\"></i>" + e(T("off the scale: its price is in the tip")) + "</span>" : "") : "";
     // The medians of the days keep the scale of the verified ones too.
     var mrange = m === "all" && has ? scale((s.days || []).map(function (x) { return x.verified_figures ? x.verified_figures.median : null; })) : undefined;
     draw("thChMed", days.filter(function (x) { return x.median != null; }).map(function (x) { return { t: x.day + mid, v: Number(x.median) }; }), { kind: "line", straight: true, points: true, zero: false, range: mrange, span: span, tipTime: dayLabel, fmt: satAxis, label: $("thMedH").textContent, height: 200 });

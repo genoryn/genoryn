@@ -1,6 +1,6 @@
 {
  "4e487f0922": "Genoryn Krypton (GNR) Documentation: Wallet, Mining, Swaps, API",
- "b2384a36f0": "Documentation · mainnet · release 1.0.54",
+ "7de73a93c0": "Documentation · mainnet · release 1.0.55",
  "503bc1b9c1": "Genoryn Krypton documentation",
  "be0c07c7b6": "Everything you need to use, mine, trade, run, integrate and audit Genoryn Krypton: quantum-resistant, private-by-default money with a fair launch, a 21,000,000 GNR cap and atomic swaps with bitcoin. Start with the quick start, or jump to any topic from the contents.",
  "437aea62a5": "Contents",
@@ -439,7 +439,7 @@
  "8ea45bca6d": "Report a completed swap (accepted once its claim is on chain)",
  "bcb30d3539": "Market price and completed swaps with their on-chain claims",
  "3321a24638": "Every completed swap, newest first, in pages of up to 200 (<0/>, <1/>); <2/> a Unix time, <3/> only swaps whose bitcoin was found",
- "6cecdca951": "Totals and the median of all completed swaps, and figures per day",
+ "f013ba9751": "Totals and the median of all completed swaps, and figures per day. From 1.0.55 each set of figures also has <0/>: the same over the swaps whose bitcoin was found on the Bitcoin chain",
  "deab0afae7": "BTC price in USD, EUR and more (genoryn.io only, from mempool.space)",
  "7687db6267": "JSON-RPC 2.0",
  "e42d7351ff": "with <0/>.",

@@ -63,6 +63,7 @@
  "825c325c0e": "<0>Carteiras:</0> as carteiras leves verificam cabeçalhos amostrados, o trabalho total e cada bloco que leem; as chaves nunca saem do dispositivo.",
  "4cb33e319d": "<0>Trocas:</0> GNR e bitcoin são trocados com bloqueios de hash e de tempo; os GNR do vendedor ficam bloqueados antes de o comprador pagar.",
  "4c6597b772": "Todos os detalhes: <0>documentação</0> · <1>especificações</1>.",
+ "b2db2848bf": "Ele não detém nenhuma chave sobre o protocolo. O bloco gênese não emite nada, as regras são as mesmas para todos e só mudam quando os operadores de nós decidem rodar um novo software.",
  "61e8d44ad4": "Comece agora",
  "c2e2685a28": "<0>Baixe a carteira</0> para Windows ou Linux, crie uma carteira e <1>minere</1> com GPU ou CPU, ou compre GNR com bitcoin no <2>quadro de ofertas</2>. Veja a rede ao vivo no <3>explorador</3>.",
  "357fedbed3": "Uma criptomoeda de prova de trabalho resistente à computação quântica e privada por padrão (ticker GNR), com o design monetário do Bitcoin: 21 milhões de moedas, halvings, mineração e um lançamento justo, sem pré-mineração.",

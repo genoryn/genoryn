@@ -26,6 +26,7 @@
  "6377a06e81": "Sim, exatamente como o GNR: o token, o valor, o remetente e o destinatário serão ocultados por uma prova de conhecimento zero. Somente a criação e a destruição de tokens serão públicas.",
  "377ed0c796": "Não. Nenhum emissor poderá tomar tokens, ver saldos ou congelar um único detentor; tudo o que um emissor puder fazer será declarado antes de o token existir.",
  "c914a0c430": "Não. Mantenha sua carteira atualizada; a aba Tokens dela se liga sozinha quando os tokens forem ativados.",
+ "6b654526e0": "Genoryn Krypton 1.0.55: Um novo design, um histórico de trocas que mostra primeiro as trocas verificadas e um novo Genoryn Talks",
  "3fa8d0b2f5": "Genoryn Krypton 1.0.54: Reembolsos de troca que não ficam presos, e bitcoin pago duas vezes volta",
  "4662007ace": "Genoryn Krypton 1.0.53: Carteiras leves que verificam cada bloco, um preço de mercado mais robusto, histórico de trocas e Tor",
  "84457cacbc": "Genoryn Krypton 1.0.52: uma auditoria de segurança completa, e negociar direto do seu saldo de bitcoin",
@@ -43,6 +44,5 @@
  "38b291e976": "Genoryn Krypton 1.0.40: ofertas de venda provam seu GNR",
  "4fdc50bcd4": "Genoryn Krypton 1.0.39: o saldo em krypton, totais em dinheiro, um histórico mais organizado",
  "d66cacd757": "Genoryn Krypton 1.0.38: um novo design da carteira, um livro de ofertas de dois lados, o krypton",
- "feeb690ede": "Genoryn Krypton 1.0.37: as moedas quânticas passam para uma versão futura",
- "1c40d47eef": "Genoryn Krypton 1.0.36: uma aba Moedas reconstruída e um design mais limpo"
+ "feeb690ede": "Genoryn Krypton 1.0.37: as moedas quânticas passam para uma versão futura"
 }

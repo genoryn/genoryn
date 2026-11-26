@@ -1,7 +1,7 @@
 {
  "_review": "machine",
  "4e487f0922": "Documentação do Genoryn Krypton (GNR): carteira, mineração, trocas, API",
- "b2384a36f0": "Documentação · mainnet · versão 1.0.54",
+ "7de73a93c0": "Documentação · mainnet · versão 1.0.55",
  "503bc1b9c1": "Documentação do Genoryn Krypton",
  "be0c07c7b6": "Tudo o que você precisa para usar, minerar, negociar, executar, integrar e auditar o Genoryn Krypton: dinheiro resistente à computação quântica e privado por padrão, com lançamento justo, limite de 21,000,000 GNR e trocas atômicas com bitcoin. Comece pelo início rápido ou vá direto a qualquer tópico pelo sumário.",
  "437aea62a5": "Sumário",
@@ -440,7 +440,7 @@
  "8ea45bca6d": "Informa uma troca concluída (aceita quando o resgate dela está na cadeia)",
  "bcb30d3539": "Preço de mercado e trocas concluídas com seus resgates na cadeia",
  "3321a24638": "Cada troca concluída, da mais recente para a mais antiga, em páginas de até 200 (<0/>, <1/>); <2/> um horário Unix, <3/> apenas trocas cujo bitcoin foi encontrado",
- "6cecdca951": "Totais e a mediana de todas as trocas concluídas, e números por dia",
+ "f013ba9751": "Totais e a mediana de todas as trocas concluídas, e números por dia. A partir da 1.0.55, cada conjunto de números também tem <0/>: o mesmo, só para as trocas cujo bitcoin foi encontrado na cadeia do Bitcoin",
  "deab0afae7": "Preço do BTC em USD, EUR e outras moedas (somente genoryn.io, a partir do mempool.space)",
  "7687db6267": "JSON-RPC 2.0",
  "e42d7351ff": "com <0/>.",

@@ -17,6 +17,20 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.55", "date": "2026-11-26", "title": "A new design, a trade history that shows verified swaps first, and a new Genoryn Talks",
+     "tags": ["Wallet", "Site", "Swap"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.",
+         ("Changed", "A new design for the wallet, genoryn.io and Genoryn Talks: solid surfaces divided by thin lines, tighter corners, larger numbers. The colours are the same: black, white and grey."),
+         ("Changed", "The wallet has a top bar with its statuses, its tabs down the left edge, and a new look for every tab, every dialog and the unlock screen. What the wallet does with your keys and coins did not change."),
+         ("Added", "Search with Ctrl+K. On genoryn.io it finds a page, a block, a transaction or an address. In the wallet it goes to a tab, locks the wallet or switches the theme; it never sends, swaps or signs."),
+         ("Fixed", "Trade history: the figures and charts show verified swaps first, the ones whose bitcoin was found on the Bitcoin chain. A few early reports at odd prices no longer stretch the charts or move the low, the high and the median: they are counted apart, and one switch shows them."),
+         ("Changed", "Trade history charts keep a place for every day, also a day without a swap, and a few swaps are set out one after another, so one to five swaps read clearly. The price chart on the home page follows the same rule."),
+         ("Changed", "Nodes keep, for every day, the figures of the verified swaps alone; /v1/swap/history/summary returns them as verified_figures next to the fields it had."),
+         ("Added", "Genoryn Talks: a live chat like a messenger (rooms with what is new in each, the members' pictures, answers shown with what they answer, members named with @, messages over several lines, who is in the room), a picture for every member, notifications under a bell, and a channel that collects everything Zarazi Sokani writes."),
+         ("Fixed", "Genoryn Talks: the administrator's session lasts while it is in use, so an open chat no longer signs him out after eight hours."),
+         ("Added", "genoryn.io: a new home page, and a section about the author, Zarazi Sokani, with his portrait. The portrait is an illustration: a figure in a hood, the face in shadow."),
+     ]},
     {"v": "1.0.54", "date": "2026-11-26", "title": "Swap refunds that do not get stuck, and bitcoin paid twice comes back",
      "tags": ["Swap", "Security", "Wallet"],
      "items": [
