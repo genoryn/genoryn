@@ -93,14 +93,14 @@ impl PaymentProof {
 pub trait ProofSource {
     fn tx_height(&self, txid: &Hash32) -> Result<Option<u64>>;
     fn raw_block(&self, height: u64) -> Result<Block>;
-    /// The main-chain header at `height`, proven by proof of work back to the tip
-    /// (a trusted local store may return its own header).
+    /// The main-chain header at `height`, proven by proof of work back to the tip, and
+    /// that tip's height (a trusted local store may return its own header and tip).
     fn proven_header(
         &self,
         height: u64,
         params: &ChainParams,
         pow: &Verifier,
-    ) -> Result<BlockHeader>;
+    ) -> Result<(BlockHeader, u64)>;
     fn tip_height(&self) -> Result<u64>;
     /// The transaction if it is still waiting in the mempool (not confirmed yet).
     fn pending_tx(&self, _txid: &Hash32) -> Result<Option<Transaction>> {
@@ -173,7 +173,8 @@ pub fn verify(
         return report(proof, &tx, src, recipient, 0, 0, 0, true);
     };
     let block = src.raw_block(height)?;
-    let header = src.proven_header(height, &params, pow)?;
+    // Confirmations are counted from the proven tip, not from a height the node names.
+    let (header, tip) = src.proven_header(height, &params, pow)?;
     ensure!(
         block.header == header && tx_root(&block.txs) == header.tx_root,
         "block data does not match the chain"
@@ -183,7 +184,6 @@ pub fn verify(
         .iter()
         .find(|t| t.txid() == proof.txid)
         .context("transaction not in its block")?;
-    let tip = src.tip_height()?;
     report(
         proof,
         tx,
@@ -276,14 +276,14 @@ impl ProofSource for krypton_light::client::NodeClient {
         height: u64,
         params: &ChainParams,
         pow: &Verifier,
-    ) -> Result<BlockHeader> {
+    ) -> Result<(BlockHeader, u64)> {
         let tip = self.verified_tip(params, pow, None)?;
         let h = krypton_light::client::NodeClient::header(self, height)?;
         ensure!(
             self.header_in(&h, &tip)?,
             "the node's block is not part of the chain proven by proof of work"
         );
-        Ok(h)
+        Ok((h, tip.height))
     }
     fn tip_height(&self) -> Result<u64> {
         Ok(self.info()?.height)

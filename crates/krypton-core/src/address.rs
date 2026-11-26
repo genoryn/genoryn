@@ -173,12 +173,18 @@ impl NotePlain {
         b[40..].copy_from_slice(&self.memo);
         b
     }
+    /// `None` for a value no spend could ever prove: commitments reduce the value modulo
+    /// the field, so a sender could otherwise make a small payment read as a huge one.
     pub fn from_bytes(b: &[u8]) -> Option<Self> {
         if b.len() != NOTE_PLAINTEXT_LEN {
             return None;
         }
+        let value = u64::from_le_bytes(b[..8].try_into().ok()?);
+        if value > krypton_zk::layout::MAX_VALUE {
+            return None;
+        }
         Some(Self {
-            value: u64::from_le_bytes(b[..8].try_into().ok()?),
+            value,
             rcm: digest_from_bytes(b[8..40].try_into().ok()?).ok()?,
             memo: b[40..].try_into().ok()?,
         })
@@ -371,5 +377,11 @@ mod tests {
         let other = kem::SecretKey::from_seed(&[2; 96]);
         assert!(try_decrypt_note(&other, &keys.owner, &cm, &ct).is_none());
         assert!(try_decrypt_note(&ksk, &keys.owner, &[0; 32], &ct).is_none());
+        // A value past what a spend can prove is refused, even with a matching commitment.
+        let mut big = NotePlain::from_bytes(&note.to_bytes()).unwrap();
+        big.value = krypton_zk::layout::MAX_VALUE + 1;
+        assert!(NotePlain::from_bytes(&big.to_bytes()).is_none());
+        big.value = krypton_zk::layout::MAX_VALUE;
+        assert!(NotePlain::from_bytes(&big.to_bytes()).is_some());
     }
 }

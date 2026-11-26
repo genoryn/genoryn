@@ -112,8 +112,9 @@ impl proof::ProofSource for Local<'_> {
         height: u64,
         _: &krypton_core::ChainParams,
         _: &krypton_pow::Verifier,
-    ) -> Result<BlockHeader> {
-        self.chain.header_at(height)?.context("no header")
+    ) -> Result<(BlockHeader, u64)> {
+        let h = self.chain.header_at(height)?.context("no header")?;
+        Ok((h, self.chain.tip().height()))
     }
     fn tip_height(&self) -> Result<u64> {
         Ok(self.chain.tip().height())
@@ -146,7 +147,7 @@ impl proof::ProofSource for StalePool<'_> {
         h: u64,
         p: &krypton_core::ChainParams,
         v: &krypton_pow::Verifier,
-    ) -> Result<BlockHeader> {
+    ) -> Result<(BlockHeader, u64)> {
         proof::ProofSource::proven_header(self.0, h, p, v)
     }
     fn tip_height(&self) -> Result<u64> {
@@ -1322,4 +1323,90 @@ fn coins_end_to_end() {
             .iter()
             .any(|h| h.txid.starts_with("swap:") && h.height.is_some())
     );
+}
+
+/// A node that gets a header past the tip proof (a forged tip whose difficulty the rule
+/// does not set) is caught when the wallet checks every block as a full node does.
+struct Forger<'a>(Local<'a>);
+impl Forger<'_> {
+    fn forge(&self, mut h: BlockHeader) -> BlockHeader {
+        if h.height == self.0.chain.tip().height() {
+            h.difficulty += 1;
+        }
+        h
+    }
+}
+impl ChainSource for Forger<'_> {
+    fn tip_height(&self) -> Result<u64> {
+        self.0.tip_height()
+    }
+    fn header(&self, h: u64) -> Result<BlockHeader> {
+        Ok(self.forge(ChainSource::header(&self.0, h)?))
+    }
+    fn compact_blocks(&self, f: u64, c: u32) -> Result<Vec<CompactBlock>> {
+        let mut v = self.0.compact_blocks(f, c)?;
+        for b in &mut v {
+            b.header = self.forge(b.header.clone());
+        }
+        Ok(v)
+    }
+    fn frontier(&self, h: u64) -> Result<Frontier> {
+        self.0.frontier(h)
+    }
+    fn witness(&self, p: u64) -> Result<(Vec<Digest>, Digest)> {
+        self.0.witness(p)
+    }
+    fn submit(&self, tx: &Transaction) -> Result<Hash32> {
+        self.0.submit(tx)
+    }
+    fn verified_tip(
+        &self,
+        _: &krypton_core::ChainParams,
+        _: &krypton_pow::Verifier,
+        _: Option<&BlockHeader>,
+    ) -> Result<Option<BlockHeader>> {
+        Ok(Some(self.forge(self.0.chain.tip().header)))
+    }
+    fn header_in(&self, _: &BlockHeader, _: &BlockHeader) -> Result<bool> {
+        Ok(true)
+    }
+}
+
+#[test]
+fn sync_checks_every_header_as_a_node_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let mut w = Wallet::create(
+        &dir.path().join("w.wallet"),
+        "password-f",
+        &keys::new_mnemonic(),
+        "",
+        Network::Devnet,
+        0,
+        Argon2Params::TEST,
+    )
+    .unwrap();
+    for _ in 0..12 {
+        mine(&src, &w.address());
+    }
+    let forger = Forger(Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    });
+    let e = w.sync(&forger, |_, _| {}).unwrap_err().to_string();
+    assert!(e.contains("difficulty the rule sets"), "{e}");
+    assert!(
+        w.synced_height().unwrap() < chain.tip().height(),
+        "the forged block is not applied"
+    );
+    assert!(
+        w.state.best_work.is_none(),
+        "nothing remembered from a tip that failed"
+    );
+    w.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(w.synced_height(), Some(chain.tip().height()));
 }

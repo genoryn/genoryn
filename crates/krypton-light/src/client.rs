@@ -153,7 +153,7 @@ impl NodeClient {
         if !r.status().is_success() {
             bail!("{} /v1/tx", r.status());
         }
-        let v: serde_json::Value = r.json()?;
+        let v: serde_json::Value = serde_json::from_slice(&read_limited(r, 64 * 1024)?)?;
         Ok(v["height"].as_u64().filter(|_| v["status"] == "confirmed"))
     }
 
@@ -201,6 +201,12 @@ impl NodeClient {
         const CHUNK_LEVEL: u8 = 12;
         let chunk = pos >> CHUNK_LEVEL;
         let r: SubtreeResp = self.get(&format!("/v1/subtree/{chunk}"))?.json()?;
+        // A chunk has at most 4096 leaves and the path above it the rest of the depth.
+        anyhow::ensure!(
+            r.leaves.len() <= 1 << CHUNK_LEVEL
+                && r.upper.len() + CHUNK_LEVEL as usize == krypton_zk_depth(),
+            "the node's witness has the wrong shape"
+        );
         let leaves: Vec<Digest> = r
             .leaves
             .iter()
@@ -254,9 +260,16 @@ impl NodeClient {
             .body(tx.to_bytes())
             .send()?;
         if !r.status().is_success() {
-            bail!("transaction rejected: {}", r.text().unwrap_or_default());
+            let body = read_limited(r, 4096).unwrap_or_default();
+            bail!(
+                "transaction rejected: {}",
+                String::from_utf8_lossy(&body)
+                    .chars()
+                    .take(300)
+                    .collect::<String>()
+            );
         }
-        let v: serde_json::Value = r.json()?;
+        let v: serde_json::Value = serde_json::from_slice(&read_limited(r, 64 * 1024)?)?;
         let id = v["txid"].as_str().context("txid")?;
         hex::decode(id)?
             .try_into()
@@ -278,28 +291,46 @@ impl NodeClient {
         known: Option<&BlockHeader>,
     ) -> Result<BlockHeader> {
         let genesis = krypton_core::consensus::genesis_block(params).hash();
-        let info = self.info()?;
-        if let Some(k) = known
-            && hex::encode(k.hash()) == info.tip
-        {
-            return Ok(k.clone());
+        // The samples are drawn from the height the node names before it knows them, and
+        // its proof must be for a tip of exactly that height: a node naming a far greater
+        // height than the tip it proves would otherwise get almost every sample dropped.
+        // A tip that moved on between the two requests is asked for once more.
+        for attempt in 0..2 {
+            let info = self.info()?;
+            if let Some(k) = known
+                && hex::encode(k.hash()) == info.tip
+            {
+                return Ok(k.clone());
+            }
+            if info.height == 0 {
+                anyhow::ensure!(
+                    params.checkpoint.is_none(),
+                    "the node's chain ends before this release's checkpoint"
+                );
+                let g = self.header(0)?;
+                anyhow::ensure!(g.hash() == genesis, "node serves another chain");
+                return Ok(g);
+            }
+            let mut heights = crate::sample_heights(info.height, 48, rand::random());
+            heights.insert(0, 0);
+            if let Some(cp) = params.checkpoint {
+                heights.push(cp.height);
+            }
+            heights.sort_unstable();
+            heights.dedup();
+            let p = self.flyclient(&heights)?;
+            if p.tip.height != info.height {
+                anyhow::ensure!(
+                    attempt == 0 && p.tip.height > info.height && p.tip.height - info.height <= 3,
+                    "the node proved a tip at another height than it reported"
+                );
+                continue;
+            }
+            let expected: Vec<u64> = heights.into_iter().filter(|h| *h < p.tip.height).collect();
+            crate::verify_flyclient(params, &genesis, pow, &p, &expected)?;
+            return Ok(p.tip);
         }
-        if info.height == 0 {
-            let g = self.header(0)?;
-            anyhow::ensure!(g.hash() == genesis, "node serves another chain");
-            return Ok(g);
-        }
-        let mut heights = crate::sample_heights(info.height, 48, rand::random());
-        heights.insert(0, 0);
-        if let Some(cp) = params.checkpoint {
-            heights.push(cp.height);
-        }
-        heights.sort_unstable();
-        heights.dedup();
-        let p = self.flyclient(&heights)?;
-        let expected: Vec<u64> = heights.into_iter().filter(|h| *h < p.tip.height).collect();
-        crate::verify_flyclient(params, &genesis, pow, &p, &expected)?;
-        Ok(p.tip)
+        anyhow::bail!("the node's tip kept moving; try again")
     }
 
     /// Whether `h` is part of the chain committed by the verified `tip`.
@@ -368,7 +399,10 @@ impl NodeClient {
             .send()
             .context("node unreachable")?;
         let ok = r.status().is_success();
-        let v: serde_json::Value = r.json().unwrap_or_default();
+        let v: serde_json::Value = read_limited(r, 64 * 1024)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default();
         if !ok {
             bail!(
                 "{}",

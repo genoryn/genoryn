@@ -126,7 +126,14 @@ impl Frontier {
                 _ => return None,
             }
         }
-        (p == b.len()).then_some(Self { size, ommers })
+        // A frontier holds a left node exactly at the levels where its size has a one bit
+        // (what `append` keeps); any other shape could not be appended to.
+        let shaped = size < 1u64 << DEPTH
+            && ommers
+                .iter()
+                .enumerate()
+                .all(|(k, o)| o.is_some() == ((size >> k) & 1 == 1));
+        (p == b.len() && shaped).then_some(Self { size, ommers })
     }
 }
 
@@ -213,6 +220,27 @@ mod tests {
     use super::*;
     use krypton_crypto::rescue::scalar;
     use krypton_zk::layout::DEPTH;
+
+    /// Every frontier `append` makes decodes again; one whose left nodes do not match its
+    /// size (or a size past the tree) does not, so a node cannot make a wallet panic.
+    #[test]
+    fn only_well_shaped_frontiers_decode() {
+        let mut f = Frontier::new();
+        for i in 0..70u64 {
+            let back = Frontier::from_bytes(&f.to_bytes()).expect("own frontier");
+            assert_eq!(back.root(), f.root());
+            f.append(scalar(i + 1));
+        }
+        let mut bad = f.clone();
+        bad.size += 1;
+        assert!(Frontier::from_bytes(&bad.to_bytes()).is_none());
+        let mut bad = f.clone();
+        bad.ommers[20] = Some(scalar(9));
+        assert!(Frontier::from_bytes(&bad.to_bytes()).is_none());
+        let mut bad = Frontier::new();
+        bad.size = 1u64 << DEPTH;
+        assert!(Frontier::from_bytes(&bad.to_bytes()).is_none());
+    }
 
     fn naive_root(leaves: &[Digest]) -> Digest {
         let e = empty_roots();

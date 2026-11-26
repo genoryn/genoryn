@@ -235,8 +235,10 @@ pub fn verify_work(root: &Hash32, leaf: &MmrNode, proof: &MmrProof) -> Option<(u
         };
     }
     let pi = proof.peak_index as usize;
-    let left: u128 = proof.peaks[..pi].iter().map(|p| p.work).sum();
-    let right: u128 = proof.peaks[pi + 1..].iter().map(|p| p.work).sum();
+    // Work values come from whoever built the proof: summed without wrapping around.
+    let add = |a: u128, p: &MmrNode| a.saturating_add(p.work);
+    let left = proof.peaks[..pi].iter().fold(0u128, add);
+    let right = proof.peaks[pi + 1..].iter().fold(0u128, add);
     Some((
         left.saturating_add(before),
         left.saturating_add(node.work).saturating_add(right),

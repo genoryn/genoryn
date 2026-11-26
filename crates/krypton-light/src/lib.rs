@@ -158,7 +158,13 @@ pub fn decode_compact_list(b: &[u8]) -> Result<Vec<CompactBlock>> {
 pub struct CompactVerifier {
     pub last: BlockHeader,
     pub frontier: Frontier,
+    /// (timestamp, difficulty) of the latest headers, oldest first, ending with `last`:
+    /// what the difficulty rule and the median time past of the next header need.
+    history: Vec<(u64, u128)>,
 }
+
+/// Headers the consensus checks of the next header look back over.
+pub const HEADER_HISTORY: usize = krypton_core::difficulty::WINDOW + 1;
 
 impl CompactVerifier {
     /// Starts from a trusted header (from [`verify_flyclient`]) and the frontier at
@@ -168,11 +174,84 @@ impl CompactVerifier {
             digest_to_bytes(&frontier.root()) == start.note_root,
             "frontier does not match header note root"
         );
+        let history = vec![(start.timestamp, start.difficulty)];
         Ok(Self {
             last: start,
             frontier,
+            history,
         })
     }
+
+    /// Whether the headers before `last` are known as far back as the next header's
+    /// checks need (all of them near genesis).
+    pub fn history_complete(&self) -> bool {
+        self.history.len() as u64 >= (HEADER_HISTORY as u64).min(self.last.height + 1)
+    }
+
+    /// Takes the headers just before `last`, oldest first: they must link up to it.
+    pub fn seed_history(&mut self, before: &[BlockHeader]) -> Result<()> {
+        let mut next = &self.last;
+        for h in before.iter().rev() {
+            ensure!(
+                next.prev == h.hash() && next.height == h.height + 1,
+                "earlier headers do not link to the wallet's last block"
+            );
+            next = h;
+        }
+        let mut history: Vec<(u64, u128)> =
+            before.iter().map(|h| (h.timestamp, h.difficulty)).collect();
+        history.push((self.last.timestamp, self.last.difficulty));
+        let n = history.len();
+        self.history = history.split_off(n.saturating_sub(HEADER_HISTORY));
+        Ok(())
+    }
+
+    /// The consensus checks of a header that extends `last`, as a full node makes them:
+    /// version, link, time after the median of the last blocks and not in the future,
+    /// the difficulty the rule sets after those blocks, and its proof of work. Without them
+    /// a node could hand a light wallet blocks it never had to work for.
+    pub fn check_header(
+        &self,
+        params: &ChainParams,
+        pow: &Verifier,
+        h: &BlockHeader,
+        now: u64,
+    ) -> Result<()> {
+        ensure!(
+            self.history_complete(),
+            "the earlier headers are not known yet"
+        );
+        ensure!(
+            h.version == krypton_core::types::HEADER_VERSION,
+            "unsupported header version"
+        );
+        ensure!(
+            h.height == self.last.height + 1 && h.prev == self.last.hash(),
+            "header does not extend the chain"
+        );
+        ensure!(
+            h.timestamp > krypton_core::consensus::median_time_past(&self.history),
+            "block {} is dated before the median of the blocks before it",
+            h.height
+        );
+        ensure!(
+            h.timestamp <= now + krypton_core::params::MAX_FUTURE_DRIFT + CLOCK_SKEW_SECS,
+            "block {} is dated in the future",
+            h.height
+        );
+        ensure!(
+            h.difficulty == krypton_core::consensus::expected_difficulty(params, &self.history),
+            "block {} does not have the difficulty the rule sets",
+            h.height
+        );
+        ensure!(
+            pow.verify(h.height, &h.pow_hash(), h.nonce, h.difficulty),
+            "block {} lacks its proof of work",
+            h.height
+        );
+        Ok(())
+    }
+
     pub fn verify(&mut self, b: &CompactBlock) -> Result<()> {
         let h = &b.header;
         ensure!(
@@ -206,6 +285,10 @@ impl CompactVerifier {
         );
         self.frontier = f;
         self.last = h.clone();
+        self.history.push((h.timestamp, h.difficulty));
+        if self.history.len() > HEADER_HISTORY {
+            self.history.remove(0);
+        }
         Ok(())
     }
 }
@@ -410,5 +493,91 @@ mod tests {
         assert!(s.iter().any(|&h| h < 500_000_000), "old history sampled");
         assert!(s.iter().any(|&h| h > 999_000_000), "recent blocks sampled");
         assert!(s.iter().all(|&h| h < 1_000_000_000));
+    }
+
+    /// A header a node hands a light wallet is checked as a full node checks it: the
+    /// difficulty the rule sets, real proof of work, and a sane timestamp.
+    #[test]
+    fn headers_need_the_rules_difficulty_work_and_time() {
+        let params = krypton_core::Network::Devnet.params();
+        let genesis = krypton_core::consensus::genesis_block(&params);
+        let pow = Verifier::new(params.pow, genesis.hash());
+        let now = krypton_core::now();
+        let d = 1_000_000_000u128;
+        let mut last = genesis.header.clone();
+        let mut history = Vec::new();
+        for i in 0..HEADER_HISTORY as u64 {
+            last.height = 1_000 + i;
+            last.timestamp = now - 3_600 + i * 30;
+            last.difficulty = d;
+            history.push((last.timestamp, last.difficulty));
+        }
+        let v = CompactVerifier {
+            last: last.clone(),
+            frontier: Frontier::new(),
+            history,
+        };
+        let mut h = last.clone();
+        h.height = last.height + 1;
+        h.prev = last.hash();
+        h.timestamp = last.timestamp + 30;
+        h.difficulty = krypton_core::consensus::expected_difficulty(&params, &v.history);
+        let msg = |h: &BlockHeader| {
+            v.check_header(&params, &pow, h, now)
+                .unwrap_err()
+                .to_string()
+        };
+        assert!(msg(&h).contains("proof of work"), "{}", msg(&h));
+        let mut cheap = h.clone();
+        cheap.difficulty = 1;
+        assert!(msg(&cheap).contains("difficulty the rule sets"));
+        let mut old = h.clone();
+        old.timestamp = last.timestamp - 10_000;
+        assert!(msg(&old).contains("median"));
+        let mut future = h.clone();
+        future.timestamp = now + 6 * 3_600;
+        assert!(msg(&future).contains("future"));
+        let mut loose = h.clone();
+        loose.prev = [7; 32];
+        assert!(msg(&loose).contains("extend"));
+        let fresh = CompactVerifier::new(genesis.header.clone(), Frontier::new()).unwrap();
+        assert!(
+            fresh.history_complete(),
+            "at genesis nothing earlier is needed"
+        );
+        let mut start = last.clone();
+        start.note_root = genesis.header.note_root;
+        let unseeded = CompactVerifier::new(start, Frontier::new()).unwrap();
+        assert!(!unseeded.history_complete());
+        assert!(
+            unseeded
+                .check_header(&params, &pow, &h, now)
+                .unwrap_err()
+                .to_string()
+                .contains("earlier headers")
+        );
+    }
+
+    #[test]
+    fn earlier_headers_must_link_to_the_last_block() {
+        let params = krypton_core::Network::Devnet.params();
+        let g = krypton_core::consensus::genesis_block(&params).header;
+        let mut chain = vec![g.clone()];
+        for i in 1..=5u64 {
+            let mut h = chain[chain.len() - 1].clone();
+            h.prev = h.hash();
+            h.height = i;
+            h.timestamp += 60;
+            chain.push(h);
+        }
+        let mut v = CompactVerifier::new(chain[5].clone(), Frontier::new()).unwrap();
+        v.seed_history(&chain[..5]).unwrap();
+        assert!(v.history_complete());
+        assert_eq!(v.history.len(), 6);
+        let mut bad = chain[..5].to_vec();
+        bad[2].nonce ^= 1;
+        let mut w = CompactVerifier::new(chain[5].clone(), Frontier::new()).unwrap();
+        assert!(w.seed_history(&bad).is_err());
+        assert!(!w.history_complete());
     }
 }

@@ -1237,10 +1237,12 @@ impl krypton_wallet_core::proof::ProofSource for ChainProof {
         height: u64,
         _: &krypton_core::ChainParams,
         _: &krypton_pow::Verifier,
-    ) -> anyhow::Result<krypton_core::BlockHeader> {
-        self.0
+    ) -> anyhow::Result<(krypton_core::BlockHeader, u64)> {
+        let h = self
+            .0
             .header_at(height)?
-            .ok_or_else(|| anyhow::anyhow!("no header"))
+            .ok_or_else(|| anyhow::anyhow!("no header"))?;
+        Ok((h, self.0.tip().height()))
     }
     fn tip_height(&self) -> anyhow::Result<u64> {
         Ok(self.0.tip().height())

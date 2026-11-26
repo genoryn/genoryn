@@ -430,6 +430,10 @@ impl Wallet {
             if !live.contains(&id) || self.state.history.iter().any(|h| h.txid == id) {
                 continue;
             }
+            // A pending payment is only the node's word: shown once it is at least a
+            // well-formed transaction whose zk-STARK proof verifies (checked only for
+            // transactions with an output to us).
+            let mut valid: Option<bool> = None;
             for o in tx.all_outputs() {
                 if kept.iter().any(|i| i.cm == o.cm)
                     || self.state.notes.iter().any(|n| n.cm == o.cm)
@@ -438,6 +442,11 @@ impl Wallet {
                 }
                 if let Some(note) = try_decrypt_note(&self.keys.kem, &owner, &o.cm, &o.ciphertext)
                     && note.value > 0
+                    && *valid.get_or_insert_with(|| {
+                        krypton_core::consensus::check_tx_structure(tx)
+                            .and_then(|st| krypton_core::consensus::verify_proof(tx, &st))
+                            .is_ok()
+                    })
                 {
                     kept.push(Incoming {
                         txid: id.clone(),
@@ -685,19 +694,20 @@ impl Wallet {
     }
 
     /// Refuses a proven tip with less total work than the best this wallet has verified
-    /// (an honest chain only gains work), and remembers it otherwise. Whether it is
-    /// strictly heavier than the best before.
+    /// (an honest chain only gains work). Whether it is strictly heavier than the best
+    /// before, and its work, remembered by [`Wallet::remember_work`] only once the wallet
+    /// has checked every block up to it: a tip whose blocks fail the checks leaves nothing.
     ///
     /// The work is what the node's proofs claim, and a node can overstate it: a chain
     /// `BEST_WORK_HORIZON` blocks above the remembered tip is followed whatever it claims,
     /// so an overstated claim cannot keep the wallet from the honest chain for long.
-    fn check_work(&mut self, src: &impl ChainSource, t: &BlockHeader) -> Result<bool> {
+    fn check_work(&self, src: &impl ChainSource, t: &BlockHeader) -> Result<(bool, Option<u128>)> {
         let hash = hex::encode(t.hash());
         if self.state.best_tip.as_deref() == Some(hash.as_str()) {
-            return Ok(false);
+            return Ok((false, None));
         }
         let Some(work) = src.tip_work(t)? else {
-            return Ok(false);
+            return Ok((false, None));
         };
         let best = self
             .state
@@ -713,10 +723,46 @@ impl Wallet {
                 "this node shows a chain with less proof of work than one this wallet has already verified (it may be behind, or dishonest); try again later or use another node"
             );
         }
+        Ok((best.is_none_or(|b| work > b), Some(work)))
+    }
+
+    fn remember_work(&mut self, t: &BlockHeader, work: u128) {
         self.state.best_work = Some(work.to_string());
-        self.state.best_tip = Some(hash);
+        self.state.best_tip = Some(hex::encode(t.hash()));
         self.state.best_height = Some(t.height);
-        Ok(best.is_none_or(|b| work > b))
+    }
+
+    /// The headers just before the wallet's last block, which the checks of the next one
+    /// look back over: from the node, accepted only if they link up to that block.
+    fn seed_history(&mut self, src: &impl ChainSource) -> Result<()> {
+        let last = self.verifier.as_ref().expect("verifier").last.clone();
+        let n = (krypton_light::HEADER_HISTORY as u64 - 1).min(last.height);
+        let mut before: Vec<BlockHeader> = Vec::with_capacity(n as usize);
+        let mut h = last.height - n;
+        if h == 0 && n > 0 {
+            before.push(src.header(0)?);
+            h = 1;
+        }
+        while h < last.height {
+            let count = (last.height - h).min(50) as u32;
+            let got = src.compact_blocks(h, count)?;
+            let mut advanced = false;
+            for b in got {
+                if b.header.height == h && h < last.height {
+                    before.push(b.header);
+                    h += 1;
+                    advanced = true;
+                }
+            }
+            ensure!(
+                advanced,
+                "the node did not send the blocks before the wallet's last one"
+            );
+        }
+        self.verifier
+            .as_mut()
+            .expect("verifier")
+            .seed_history(&before)
     }
 
     /// Synchronizes with `src`. The tip is proven by proof of work (FlyClient); every
@@ -759,8 +805,10 @@ impl Wallet {
             report.reset = true;
         }
         self.state.genesis = Some(genesis);
+        let mut tip_work = None;
         if let Some(t) = &vtip {
-            let heavier = self.check_work(src, t)?;
+            let (heavier, work) = self.check_work(src, t)?;
+            tip_work = work;
             // We followed a fork: the proven chain (at least as heavy) has another block at
             // our height, itself proven by the tip's MMR, or is strictly heavier and shorter.
             // A node that merely sends bad proofs proves nothing and changes nothing. Go
@@ -779,20 +827,38 @@ impl Wallet {
                     Ok(n) => report.reorged += n,
                     Err(_) => {
                         self.reset_chain_state();
-                        self.check_work(src, t)?;
+                        tip_work = self.check_work(src, t)?.1;
                         report.reset = true;
                     }
                 }
             }
         }
+        // Every header above the release checkpoint (all of them on networks without one)
+        // is checked as a full node checks it, and the chain must pass through the
+        // checkpoint itself: a node cannot show the wallet blocks nobody worked for.
+        let anchor = params.checkpoint.map_or(0, |c| c.height);
+        let now = krypton_core::now();
         if self.verifier.is_none() {
             let start = (self.state.birthday / CHECKPOINT) * CHECKPOINT;
             let start = start.min(tip / CHECKPOINT * CHECKPOINT);
+            // A wallet made after the checkpoint still starts there, so it has the honest
+            // headers its own checks begin from.
+            let start = params
+                .checkpoint
+                .map_or(start, |c| start.min(c.height / CHECKPOINT * CHECKPOINT));
             let header = src.header(start)?;
             if let Some(t) = &vtip {
                 ensure!(
                     src.header_in(&header, t)?,
                     "starting header is not part of the proven chain"
+                );
+            }
+            if let Some(c) = params.checkpoint
+                && header.height == c.height
+            {
+                ensure!(
+                    hex::encode(header.hash()) == c.hash,
+                    "the node's chain does not contain this release's checkpoint"
                 );
             }
             let frontier = src.frontier(start)?;
@@ -842,6 +908,25 @@ impl Wallet {
                     report.reorged += self.rollback(src, vtip.as_ref())?;
                     break;
                 }
+                if let Some(c) = params.checkpoint
+                    && b.header.height == c.height
+                {
+                    ensure!(
+                        hex::encode(b.hash()) == c.hash,
+                        "the node's chain does not contain this release's checkpoint"
+                    );
+                }
+                if b.header.height > anchor {
+                    if !self.verifier.as_ref().expect("verifier").history_complete() {
+                        self.seed_history(src)?;
+                    }
+                    self.verifier.as_ref().expect("verifier").check_header(
+                        &params,
+                        self.pow(),
+                        &b.header,
+                        now,
+                    )?;
+                }
                 self.verifier.as_mut().expect("verifier").verify(b)?;
                 self.process_block(b, &mut report)?;
                 self.push_checkpoint();
@@ -849,6 +934,11 @@ impl Wallet {
             }
         }
         report.to = self.verifier.as_ref().map(|v| v.last.height).unwrap_or(0);
+        if let (Some(t), Some(w)) = (&vtip, tip_work)
+            && report.to == t.height
+        {
+            self.remember_work(t, w);
+        }
         self.expire_pending(report.to);
         self.save()?;
         Ok(report)
