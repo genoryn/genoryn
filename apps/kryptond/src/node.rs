@@ -48,6 +48,13 @@ const ORPHAN_TTL: Duration = Duration::from_secs(20 * 60);
 const MAX_DROPPED: usize = 8192;
 /// A peer that sends this many blocks leading nowhere within ten minutes is disconnected.
 const MAX_USELESS_BLOCKS: u32 = 500;
+/// Transactions of one peer waiting for their proof to be checked; more are dropped.
+const MAX_TX_CHECKS_EACH: usize = 32;
+/// Transactions whose proof failed, remembered so the same bytes cost nothing again.
+const MAX_REJECTED_TXS: usize = 8192;
+/// Blocks one announcement may make this node ask for (new blocks come one or two at a
+/// time; catching up goes through `GetHashes`).
+const MAX_INV_BLOCKS: usize = 64;
 
 /// Messages a peer may send per minute and in a burst; honest peers stay far below.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,6 +64,8 @@ enum Ask {
     Blocks,
     Addr,
     Shares,
+    Txs,
+    Inv,
 }
 
 impl Ask {
@@ -68,6 +77,9 @@ impl Ask {
             Ask::Addr => (6.0, 3.0),
             // The network finds about 32 shares a minute, each relayed on its own.
             Ask::Shares => (240.0, 60.0),
+            // The whole network has sent fewer than a thousand transactions so far.
+            Ask::Txs => (240.0, 120.0),
+            Ask::Inv => (240.0, 120.0),
         }
     }
 }
@@ -226,6 +238,11 @@ pub struct Node {
     pub guard: Arc<crate::guard::Guard>,
     /// At most a few HTTP-submitted transaction proofs are verified at once.
     pub tx_verify: tokio::sync::Semaphore,
+    /// The same for transactions from peers (apart, so peers cannot crowd out wallets).
+    peer_tx_verify: Arc<tokio::sync::Semaphore>,
+    /// Per peer: its transactions waiting for their proof to be checked.
+    tx_checks: Mutex<HashMap<PeerId, usize>>,
+    rejected_txs: Mutex<(HashSet<Hash32>, VecDeque<Hash32>)>,
     pub nonce: u64,
     pub started: Instant,
     peer_heights: Mutex<HashMap<PeerId, u64>>,
@@ -278,6 +295,9 @@ impl Node {
             address_budget: Mutex::new(Vec::new()),
             guard: Arc::new(crate::guard::Guard::default()),
             tx_verify: tokio::sync::Semaphore::new(4),
+            peer_tx_verify: Arc::new(tokio::sync::Semaphore::new(4)),
+            tx_checks: Mutex::new(HashMap::new()),
+            rejected_txs: Mutex::new((HashSet::new(), VecDeque::new())),
             nonce: rand::random(),
             started: Instant::now(),
             peer_heights: Mutex::new(HashMap::new()),
@@ -356,6 +376,65 @@ impl Node {
         self.dropped.lock().0.contains(h)
     }
 
+    fn remember_rejected(&self, id: Hash32) {
+        let mut d = self.rejected_txs.lock();
+        if d.0.insert(id) {
+            d.1.push_back(id);
+            if d.1.len() > MAX_REJECTED_TXS
+                && let Some(old) = d.1.pop_front()
+            {
+                d.0.remove(&old);
+            }
+        }
+    }
+
+    /// Checks a peer's transaction off the message loop (its proof takes milliseconds):
+    /// at most a few at once from all peers and from each, the rest dropped.
+    fn check_peer_tx(self: &Arc<Self>, p: PeerId, tx: Transaction) {
+        {
+            let mut m = self.tx_checks.lock();
+            let n = m.entry(p).or_insert(0);
+            if *n >= MAX_TX_CHECKS_EACH {
+                return;
+            }
+            *n += 1;
+        }
+        let me = self.clone();
+        tokio::spawn(async move {
+            let id = tx.txid();
+            let permit = me.peer_tx_verify.clone().acquire_owned().await;
+            let result = if me.net.connected(p) {
+                Some(me.accept_tx(tx).await)
+            } else {
+                None
+            };
+            drop(permit);
+            if let Some(m) = me.tx_checks.lock().get_mut(&p) {
+                *m = m.saturating_sub(1);
+            }
+            match result {
+                Some(Ok(id)) => {
+                    me.net.note_tx(p);
+                    me.net.broadcast(
+                        &Message::Inv {
+                            blocks: vec![],
+                            txs: vec![id],
+                        },
+                        Some(p),
+                    )
+                }
+                // Honest nodes only relay transactions whose proofs they verified.
+                Some(Err(TxReject::Invalid(e))) => {
+                    me.remember_rejected(id);
+                    tracing::warn!("peer {p} sent an invalid transaction: {e}");
+                    me.net.ban(p);
+                }
+                Some(Err(e)) => tracing::debug!("rejected tx from {p}: {e}"),
+                None => {}
+            }
+        });
+    }
+
     fn remember_dropped(&self, h: Hash32) {
         let mut d = self.dropped.lock();
         if d.0.insert(h) {
@@ -413,7 +492,28 @@ impl Node {
         if f.len() >= MAX_IN_FLIGHT {
             f.retain(|_, (_, t)| now.duration_since(*t) < IN_FLIGHT_TTL);
             if f.len() >= MAX_IN_FLIGHT {
-                return false;
+                // Full: the peer holding the most requests gives up its older half, so
+                // announcements that are never delivered cannot crowd out real blocks.
+                let mut per: HashMap<PeerId, usize> = HashMap::new();
+                for (q, _) in f.values() {
+                    *per.entry(*q).or_default() += 1;
+                }
+                let Some((top, _)) = per.into_iter().max_by_key(|x| x.1) else {
+                    return false;
+                };
+                if top == p {
+                    return false;
+                }
+                let mut theirs: Vec<(Hash32, Instant)> = f
+                    .iter()
+                    .filter(|(_, (q, _))| *q == top)
+                    .map(|(h, (_, t))| (*h, *t))
+                    .collect();
+                theirs.sort_by_key(|x| x.1);
+                let n = theirs.len().div_ceil(2);
+                for (h, _) in theirs.into_iter().take(n) {
+                    f.remove(&h);
+                }
             }
         }
         if f.values().filter(|(q, _)| *q == p).count() >= MAX_IN_FLIGHT_PER_PEER {
@@ -453,9 +553,12 @@ impl Node {
                     self.serving.lock().remove(&p);
                     self.asks.lock().retain(|(q, _), _| *q != p);
                     self.useless.lock().remove(&p);
+                    self.tx_checks.lock().remove(&p);
                     // Whatever it was asked for may be asked from others right away.
                     self.in_flight.lock().retain(|_, (q, _)| *q != p);
                 }
+                // A peer dropped or banned since: what it queued before is not handled.
+                Event::Message(p, _) if !self.net.connected(p) => {}
                 Event::Message(p, m) => {
                     if let Err(e) = self.handle(p, m).await {
                         tracing::debug!("peer {p}: {e}");
@@ -695,8 +798,11 @@ impl Node {
                 self.block_from(p, block, raw.len()).await;
             }
             Message::Inv { blocks, txs } => {
+                if !self.allow(p, Ask::Inv) {
+                    return Ok(());
+                }
                 let mut want_b = Vec::new();
-                for h in blocks.into_iter().take(500) {
+                for h in blocks.into_iter().take(MAX_INV_BLOCKS) {
                     if !self.chain.has_block(&h)? && self.claim_block(h, p) {
                         want_b.push(h);
                     }
@@ -731,28 +837,19 @@ impl Node {
                 }
             }
             Message::Tx(raw) => {
+                if !self.allow(p, Ask::Txs) {
+                    return Ok(());
+                }
                 let Ok(tx) = Transaction::from_bytes(&raw) else {
                     self.net.ban(p);
                     return Ok(());
                 };
-                match self.accept_tx(tx).await {
-                    Ok(id) => {
-                        self.net.note_tx(p);
-                        self.net.broadcast(
-                            &Message::Inv {
-                                blocks: vec![],
-                                txs: vec![id],
-                            },
-                            Some(p),
-                        )
-                    }
-                    // Honest nodes only relay transactions whose proofs they verified.
-                    Err(TxReject::Invalid(e)) => {
-                        tracing::warn!("peer {p} sent an invalid transaction: {e}");
-                        self.net.ban(p);
-                    }
-                    Err(e) => tracing::debug!("rejected tx from {p}: {e}"),
+                // The same invalid bytes again: known already, no proof to check.
+                if self.rejected_txs.lock().0.contains(&tx.txid()) {
+                    self.net.ban(p);
+                    return Ok(());
                 }
+                self.check_peer_tx(p, tx);
             }
             Message::GetAddr => {
                 if self.allow(p, Ask::Addr) {

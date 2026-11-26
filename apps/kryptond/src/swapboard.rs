@@ -48,6 +48,9 @@ const MEMORY_TRADES_MIN: usize = 1_000;
 const MAX_OFFERS_EACH: usize = 200;
 const MAX_MESSAGES_A_DAY_EACH: u32 = 2_000;
 const MAX_MESSAGES_A_DAY_EACH_INBOX: u32 = 40;
+/// Bytes of messages one client may leave in a day: a few coin swaps' worth, a sixth of
+/// the service, so one address cannot fill it.
+const MAX_MESSAGE_BYTES_A_DAY_EACH: u64 = 16 * 1024 * 1024;
 /// How long the snapshots of the board's large answers may be served unchanged.
 const OFFERS_TTL: Duration = Duration::from_secs(2);
 const MARKET_TTL: Duration = Duration::from_secs(3);
@@ -133,6 +136,8 @@ struct Inner {
     /// Sealed messages each client sent in the current day, in all and into each inbox.
     sent: HashMap<IpAddr, (u64, u32)>,
     sent_to: HashMap<(IpAddr, String), (u64, u32)>,
+    /// Per client: (day, bytes of messages it left that day).
+    sent_bytes: HashMap<IpAddr, (u64, u64)>,
     /// The history on disk is open: memory may let old swaps go.
     hist_ok: bool,
     /// Swaps, and swaps whose status changed, not yet written to the history.
@@ -398,6 +403,7 @@ impl Board {
         let day = t - t % 86_400;
         i.sent.retain(|_, (d, _)| *d == day);
         i.sent_to.retain(|_, (d, _)| *d == day);
+        i.sent_bytes.retain(|_, (d, _)| *d == day);
         // Completed swaps stay on disk (the trade history); memory keeps what the price
         // needs, and without the history every swap up to the cap.
         if i.hist_ok && i.trades.len() > MEMORY_TRADES_MIN {
@@ -1467,7 +1473,15 @@ fn post_message_now(node: &Arc<Node>, client: Option<IpAddr>, e: Envelope) -> Re
     if let Some(c) = client {
         let all = count_today(i.sent.entry(c).or_insert((0, 0)), t);
         let to = count_today(i.sent_to.entry((c, e.to.clone())).or_insert((0, 0)), t);
-        if all >= MAX_MESSAGES_A_DAY_EACH || to >= MAX_MESSAGES_A_DAY_EACH_INBOX {
+        let day = t - t % 86_400;
+        let bytes = i.sent_bytes.entry(c).or_insert((day, 0));
+        if bytes.0 != day {
+            *bytes = (day, 0);
+        }
+        if all >= MAX_MESSAGES_A_DAY_EACH
+            || to >= MAX_MESSAGES_A_DAY_EACH_INBOX
+            || bytes.1 + e.data.len() as u64 > MAX_MESSAGE_BYTES_A_DAY_EACH
+        {
             return bad("too many messages from your address today; try again tomorrow");
         }
     }
@@ -1492,6 +1506,7 @@ fn post_message_now(node: &Arc<Node>, client: Option<IpAddr>, e: Envelope) -> Re
     if let Some(c) = client {
         i.sent.entry(c).or_insert((0, 0)).1 += 1;
         i.sent_to.entry((c, e.to)).or_insert((0, 0)).1 += 1;
+        i.sent_bytes.entry(c).or_insert((0, 0)).1 += len as u64;
     }
     node.board.save_board(&i);
     Json(json!({"ok": true})).into_response()

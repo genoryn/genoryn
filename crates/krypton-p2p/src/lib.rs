@@ -283,12 +283,14 @@ impl Net {
             let g = group(peer.ip());
             let max_inbound = self.inner.cfg.max_inbound;
             {
-                let mut p = self.inner.peers.lock();
-                let inbound = p.values().filter(|x| x.info.inbound).count();
+                let p = self.inner.peers.lock();
+                // Connections still in their handshake count for their address too.
+                let pending = self.inner.pending.lock().get(&key).copied().unwrap_or(0);
                 let same_ip = p
                     .values()
                     .filter(|x| ip_key(x.info.addr.ip()) == key)
-                    .count();
+                    .count()
+                    + pending;
                 let same_group = p
                     .values()
                     .filter(|x| x.info.inbound && group(x.info.addr.ip()) == g)
@@ -298,32 +300,6 @@ impl Net {
                     || same_group >= max_inbound_per_group(max_inbound)
                 {
                     continue;
-                }
-                // Full: an idle peer makes room, so whoever holds the slots cannot keep new
-                // nodes out (useful and diverse peers stay).
-                if inbound >= max_inbound {
-                    let c = p
-                        .values()
-                        .filter(|x| x.info.inbound)
-                        .map(|x| Candidate {
-                            id: x.info.id,
-                            group: group(x.info.addr.ip()),
-                            connected: x.connected,
-                            block: x.useful_block,
-                            tx: x.useful_tx,
-                        })
-                        .collect();
-                    match pick_eviction(c, self.inner.salt) {
-                        Some(id) => {
-                            if let Some(x) = p.remove(&id) {
-                                tracing::debug!(
-                                    "evicted inbound peer {} for a new one",
-                                    x.info.addr
-                                );
-                            }
-                        }
-                        None => continue,
-                    }
                 }
             }
             let Ok(permit) = self.inner.handshakes.clone().try_acquire_owned() else {
@@ -353,11 +329,53 @@ impl Net {
                 }
                 drop(permit);
                 match hs {
-                    Ok(Ok((send, recv))) => n.run_peer(peer, true, None, send, recv).await,
+                    Ok(Ok((send, recv))) => {
+                        if n.make_room() {
+                            n.run_peer(peer, true, None, send, recv).await
+                        }
+                    }
                     _ => tracing::debug!("inbound handshake with {peer} failed"),
                 }
             });
         }
+    }
+
+    /// When the inbound slots are full, an idle peer makes room for one that has just
+    /// completed its handshake, so whoever holds the slots cannot keep new nodes out
+    /// (useful and diverse peers stay). Only after the handshake: a bare connection
+    /// costs nothing and must not push anyone out. False: no room.
+    fn make_room(&self) -> bool {
+        let mut p = self.inner.peers.lock();
+        let inbound = p.values().filter(|x| x.info.inbound).count();
+        if inbound < self.inner.cfg.max_inbound {
+            return true;
+        }
+        let c = p
+            .values()
+            .filter(|x| x.info.inbound)
+            .map(|x| Candidate {
+                id: x.info.id,
+                group: group(x.info.addr.ip()),
+                connected: x.connected,
+                block: x.useful_block,
+                tx: x.useful_tx,
+            })
+            .collect();
+        match pick_eviction(c, self.inner.salt) {
+            Some(id) => {
+                if let Some(x) = p.remove(&id) {
+                    tracing::debug!("evicted inbound peer {} for a new one", x.info.addr);
+                }
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Whether `peer` is still connected (messages it queued before it was dropped or
+    /// banned are not worth handling).
+    pub fn connected(&self, peer: PeerId) -> bool {
+        self.inner.peers.lock().contains_key(&peer)
     }
 
     async fn dial_loop(&self) {
