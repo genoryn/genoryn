@@ -15,6 +15,21 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+/// The most a node's answer may be: a mining job is a few kilobytes.
+const MAX_ANSWER: u64 = 4 << 20;
+
+/// A node's answer as JSON, read only up to [`MAX_ANSWER`].
+fn answer(r: reqwest::blocking::Response) -> Result<Value> {
+    use std::io::Read;
+    let mut b = Vec::new();
+    r.take(MAX_ANSWER + 1).read_to_end(&mut b)?;
+    anyhow::ensure!(
+        b.len() as u64 <= MAX_ANSWER,
+        "the node's answer is too large"
+    );
+    Ok(serde_json::from_slice(&b)?)
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum Backend {
     /// Use every NVIDIA GPU (CUDA), else OpenCL GPUs, else the CPU
@@ -109,7 +124,7 @@ fn payout_address(input: &str, base: &str, http: &reqwest::blocking::Client) -> 
                 "the node does not know the short address {s}: open the wallet once while it is online (it publishes the address), or pass the full address"
             ),
             Ok(r) if r.status().is_success() => {
-                let v: Value = r.json()?;
+                let v = answer(r)?;
                 return checked_full(s, v["address"].as_str().context("node answer")?);
             }
             Ok(r) => eprintln!("waiting for node: {}", r.status()),
@@ -200,7 +215,7 @@ impl Client {
             .json(&json!({"address": self.address}))
             .send()?;
         let status = r.status();
-        let v: Value = r.json()?;
+        let v = answer(r)?;
         if !status.is_success() {
             bail!("node: {}", clean(v["error"].as_str().unwrap_or("error")));
         }
@@ -212,19 +227,15 @@ impl Client {
             .post(format!("{}/v1/mining/submit", self.base))
             .json(&json!({"job_id": job_id, "nonce": nonce}))
             .send()?;
-        Ok(r.json()?)
+        answer(r)
     }
     fn net_view(&self) -> Result<NetView> {
-        let i: Value = self
-            .http
-            .get(format!("{}/v1/info", self.base))
-            .send()?
-            .json()?;
-        let m: Value = self
-            .http
-            .get(format!("{}/v1/miner/{}", self.base, self.address))
-            .send()?
-            .json()?;
+        let i = answer(self.http.get(format!("{}/v1/info", self.base)).send()?)?;
+        let m = answer(
+            self.http
+                .get(format!("{}/v1/miner/{}", self.base, self.address))
+                .send()?,
+        )?;
         Ok(NetView {
             hashrate: i["hashrate"].as_f64().unwrap_or(0.0),
             subsidy: i["next_subsidy"].as_u64().unwrap_or(0),

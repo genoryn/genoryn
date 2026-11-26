@@ -1459,14 +1459,15 @@ impl<G: ChainSource> Engine<'_, G> {
                 value: u.value,
             };
             match htlc.refund(f, &dest, rate, &key) {
-                Ok(tx) => match self.btc.broadcast(&tx) {
-                    Ok(id) => s.say(format!(
-                        "{} BTC more was in the contract; sent back ({id}).",
-                        u.value.to_btc()
-                    )),
-                    // Sent already and waiting for a block.
-                    Err(_) => {}
-                },
+                // Sent already and waiting for a block, when the broadcast is refused.
+                Ok(tx) => {
+                    if let Ok(id) = self.btc.broadcast(&tx) {
+                        s.say(format!(
+                            "{} BTC more was in the contract; sent back ({id}).",
+                            u.value.to_btc()
+                        ));
+                    }
+                }
                 // Too little to pay its own fee: it stays, and is not looked at again.
                 Err(crate::SwapError::Dust(_)) => s.extras_done = true,
                 Err(e) => return Err(e.into()),

@@ -945,7 +945,7 @@ fn fee_options(src: &Multi) -> (u64, u64, u64, bool) {
         Some(r) => (
             krypton_wallet_core::transfer_fee(r.economy_per_kb),
             krypton_wallet_core::transfer_fee(r.normal_per_kb),
-            krypton_wallet_core::transfer_fee(r.fast_per_kb.max(r.normal_per_kb * 2)),
+            krypton_wallet_core::transfer_fee(r.fast_per_kb.max(r.normal_per_kb.saturating_mul(2))),
             true,
         ),
         None => (

@@ -1095,12 +1095,28 @@ pub(crate) fn post_json(base: &str, path: &str, body: &impl Serialize) -> Result
     post(base, path, body)
 }
 
+/// The most a board's answer may be (the whole offer book with its proofs fits many
+/// times over).
+const MAX_BOARD_ANSWER: u64 = 64 << 20;
+
+/// A board's answer as JSON, read only up to [`MAX_BOARD_ANSWER`] (`null` otherwise).
+fn answer(r: reqwest::blocking::Response) -> Value {
+    use std::io::Read;
+    let mut b = Vec::new();
+    match r.take(MAX_BOARD_ANSWER + 1).read_to_end(&mut b) {
+        Ok(_) if b.len() as u64 <= MAX_BOARD_ANSWER => {
+            serde_json::from_slice(&b).unwrap_or_default()
+        }
+        _ => Value::Null,
+    }
+}
+
 fn get(base: &str, path: &str) -> Result<Value> {
     let r = http()
         .get(format!("{}{path}", base.trim_end_matches('/')))
         .send()?;
     let st = r.status();
-    let v: Value = r.json().unwrap_or_default();
+    let v = answer(r);
     ensure!(
         st.is_success(),
         "board: {}",
@@ -1115,7 +1131,7 @@ fn post(base: &str, path: &str, body: &impl Serialize) -> Result<Value> {
         .json(body)
         .send()?;
     let st = r.status();
-    let v: Value = r.json().unwrap_or_default();
+    let v = answer(r);
     ensure!(
         st.is_success(),
         "board: {}",
@@ -1379,9 +1395,9 @@ fn split_lots(side: Side, gnr: u64, sats: u64, k: usize) -> Vec<(u64, u64)> {
         .collect();
     // Buying: the lots together never pay more than the whole offer.
     if side == Side::BuyGnr {
-        let total: u64 = v.iter().map(|x| x.1).sum();
+        let total = v.iter().fold(0u64, |a, x| a.saturating_add(x.1));
         if total > sats {
-            v[0].1 -= total - sats;
+            v[0].1 = v[0].1.saturating_sub(total - sats);
         }
     }
     v

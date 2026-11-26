@@ -772,9 +772,9 @@ fn quote_json(
     want: board::Want,
 ) -> Value {
     let plan = plan_in(book, buying, want, &[], board::MAX_PARTS);
-    let (gnr, sats) = plan
-        .iter()
-        .fold((0u64, 0u64), |(g, s), p| (g + p.gnr, s + p.sats));
+    let (gnr, sats) = plan.iter().fold((0u64, 0u64), |(g, s), p| {
+        (g.saturating_add(p.gnr), s.saturating_add(p.sats))
+    });
     let worst = plan
         .iter()
         .map(|p| price_of(p.gnr, p.sats))
@@ -999,7 +999,9 @@ pub async fn start(
                 plan.len() == n,
                 "prices moved since you looked: look at the new quote and swap again"
             );
-            let (gnr, sats) = plan.iter().fold((0u64, 0u64), |(g, s), p| (g + p.gnr, s + p.sats));
+            let (gnr, sats) = plan.iter().fold((0u64, 0u64), |(g, s), p| {
+            (g.saturating_add(p.gnr), s.saturating_add(p.sats))
+        });
             let fees = btc_fee(e) * plan.len() as u64;
             if buying {
                 let bal = balance(e, &st)?;

@@ -183,6 +183,12 @@ fn password(prompt: &str) -> Result<String> {
     Ok(rpassword::prompt_password(prompt)?)
 }
 
+/// A memo as the sender wrote it, without control characters: a terminal would run
+/// escape sequences in it (moving the cursor, rewriting what is shown).
+fn printable(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control()).collect()
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let network = Network::parse(&cli.network).context("unknown network")?;
@@ -285,7 +291,7 @@ fn main() -> Result<()> {
                             sign,
                             format_amount(h.amount.unsigned_abs() as u64),
                             h.to.as_deref().map(|s| &s[..s.len().min(12)]).unwrap_or(""),
-                            h.memo,
+                            printable(&h.memo),
                             if h.disclosure.is_some() {
                                 format!("  [provable: {}]", h.txid)
                             } else {
@@ -389,7 +395,7 @@ fn main() -> Result<()> {
             println!("VALID payment proof");
             println!("amount         {} GNR", format_amount(r.value));
             println!("recipient      {}", r.recipient);
-            println!("memo           {}", r.memo);
+            println!("memo           {}", printable(&r.memo));
             println!(
                 "transaction    {} (block {}, {} confirmations)",
                 r.txid, r.height, r.confirmations
