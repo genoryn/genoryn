@@ -531,6 +531,7 @@ header{padding:14px 30px}
 .mk-run{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:12px 16px;margin-bottom:18px;border:1px solid var(--line-strong);border-radius:14px;background:var(--bg-inset);font-size:13.5px}
 .mk-run .btn{margin-left:auto;height:32px;padding:0 14px;font-size:12.5px}
 .sw-totals{gap:0;padding:0;overflow:hidden}
+.sum .row b.sum-tx{font:500 12.5px/1.45 var(--font-sans);text-align:right;max-width:62%}
 .mk-depthc{margin-bottom:18px}.mk-depthc .gk-card-head{flex-wrap:wrap;gap:8px}.mk-depthc .gk-card-head span{font-size:12px}
 .dp-bid{fill:var(--text-primary);fill-opacity:.12;stroke:var(--text-primary);stroke-width:1.5}.dp-ask{fill:var(--text-secondary);fill-opacity:.06;stroke:var(--text-secondary);stroke-width:1.5;stroke-dasharray:5 3}.dp-ref{stroke:var(--line-strong);stroke-dasharray:2 3}
 .th-charts .bd-head,.th-mine .bd-head,.th-all .bd-head{flex-wrap:wrap;margin-bottom:14px}.th-charts,.th-mine,.th-all{margin-bottom:18px}
@@ -1811,7 +1812,9 @@ function feeNote(){ const o=FEE.opts; if(!o) return; const v=FEE.speed==='custom
   $('feeNote').textContent=(v!=null?T("Fee {amount} GNR", {amount: gnrShort(v)})+' · ':'')+(o.live?T("estimated from the network backlog; when blocks have room the lowest fee confirms just as fast.")+' ':'')+T("Fees go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof."); }
 document.querySelectorAll('#feeSeg button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#feeSeg button').forEach(x=>x.classList.toggle('on',x===b)); FEE.speed=b.dataset.s; $('feeCustom').classList.toggle('hidden',FEE.speed!=='custom'); if(FEE.speed==='custom') $('feeCustom').focus(); feeNote(); });
 setInterval(()=>{ if(!document.hidden && !$('app').classList.contains('hidden') && Date.now()-FEE.t>60000) loadFees(); }, 10000);
-async function send(){
+let GNR_SENDING=false;
+async function send(){ if(GNR_SENDING) return; GNR_SENDING=true; try{ await sendOnce(); } finally { GNR_SENDING=false; } }
+async function sendOnce(){
   const body={to:$('to').value, amount:$('amount').value, memo:$('memo').value};
   if(FEE.speed==='custom'){ const f=$('feeCustom').value.trim(); if(!f) return toast(T("Enter the fee in GNR"), true); body.fee=f; } else body.speed=FEE.speed;
   if(!body.to.trim()) return toast(T("Enter the recipient's address"), true);
@@ -1826,6 +1829,7 @@ async function send(){
     body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(Math.round(amt*1e8)))} GNR</b><span>${who.own?TE("to your wallet “{name}”", {name: who.own}):TE("to {address}").replace('{address}', ()=>'<span class="mono">'+esc(who.short.slice(0,28))+'…</span>')}</span></div>
       <div class="row">${TE("Network fee")}<b>${esc(gnrShort(feeG))} GNR · ${speed}</b></div>
       <div class="row tot">${TE("Total")}<b>${esc(gnrShort(Math.round(amt*1e8)+feeG))} GNR</b></div>
+      ${S.balance&&S.balance.spendable!=null?`<div class="row">${TE("Spendable after this")}<b>${esc(gnrShort(Math.max(0,Number(S.balance.spendable)-Math.round(amt*1e8)-feeG)))} GNR</b></div>`:''}
       ${body.memo?`<div class="row">${TE("Private memo")}<b>${esc(body.memo)}</b></div>`:''}</div>
       ${plan.merge?'<div class="sum-note"><b>'+TE("This payment takes a few minutes.")+'</b>'+TE("Your coins are in many small notes (every mining payout is its own note), and one transfer can spend two of them. The wallet first merges them, which takes a few blocks, and then sends the payment by itself. Keep the wallet open until it says “Sent”.")+'</div>':''}
       <p class="mtext">${TE("Transfers are final. Amount, sender and recipient stay hidden on chain; proving takes a few seconds.")}</p>`, pass:true});
@@ -2631,6 +2635,19 @@ function bdRulesBuy(){ return `<div class="rules"><b>${TE("How a buy offer works
 function lockSoonMsg(){ const s=(S.active||{}).locks_in; return s!=null&&s<6*3600?`<p class="mtext">${TE("This wallet locks itself in {time}. Once its coins are in the swap it stays unlocked until the swap is done.", {time: dur(s)})}</p>`:''; }
 /* Taking an offer: by default with the wallet's Bitcoin balance (buying pays from it at once,
    selling is paid into it); or a new deposit address, or by hand, with an address of your own. */
+/* The terms of a swap at a glance, before it is confirmed: what goes and comes, the price
+   against the market, the fees, the confirmations the seller waits for, and what happens if
+   it does not complete. */
+function swapSummary(buy, gnrK, sats, price, feeSats){
+  const u=btcUsd(), mp=bdMkt().price, vs=mp&&price?(price/mp-1)*100:null;
+  const conf=sats<=1e6?1:sats<=1e7?2:sats<=1e8?3:4, usd=x=>u?' ≈ '+GKValue.usd(x/1e8*u):'';
+  const row=(k,v,tx)=>`<div class="row">${k}<b${tx?' class="sum-tx"':''}>${v}</b></div>`;
+  return `<div class="sum">${row(buy?TE("You pay"):TE("You sell"), buy?esc(btcFmt(sats/1e8))+' BTC'+usd(sats):esc(gnrShort(gnrK))+' GNR')}
+    ${row(TE("You receive"), buy?esc(gnrShort(gnrK))+' GNR':esc(btcFmt(sats/1e8))+' BTC'+usd(sats))}
+    ${row(TE("Price per GNR"), esc(fmtPx(price))+(vs!=null?' · '+esc(T("{pct}% vs market", {pct: (vs>=0?'+':'')+vs.toFixed(1)})):''))}
+    ${row(TE("Network fees"), (feeSats?'≈ '+esc(btcFmt(feeSats/1e8))+' BTC · ':'')+TE("plus a small GNR fee for the lock and the claim"), true)}
+    ${row(TE("Bitcoin confirmations"), esc(Tn(conf, "the seller waits for {n} before taking the bitcoin", "the seller waits for {n} before taking the bitcoin", {n: conf})), true)}
+    ${row(TE("If it does not complete"), TE("each side gets its coins back when the time locks end (the GNR in about 21 hours)"), true)}</div>`; }
 async function boardTake(id, side, g, b){
   const buy=side==='sell_gnr', of=(BD.offers||[]).find(x=>x.id===id)||{}, q=QS.bal;
   const free=q?Math.max(0,(q.confirmed||0)-(q.committed||0)):0, need=Math.round(Number(b)*1e8), canBal=!buy||(q&&free>=need+1000);
@@ -2642,7 +2659,7 @@ async function boardTake(id, side, g, b){
     :opt('bal', true, false, TE("Receive into my Bitcoin balance"), TE("Ready for your next purchase at once; send it out whenever you like."))
       +opt('addr', false, false, TE("Receive at another Bitcoin address"), TE("An address of your own, in another wallet."));
   const ok=await ask({title:buy?T("Buy {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}):T("Sell {gnr} GNR for {btc} BTC?", {gnr: g, btc: b}), icon:'swap', ok:buy?T("Buy"):T("Sell"), pass:true,
-    body:`${buy&&of.prepaid?'<p class="mtext"><b>'+TE("This seller sells only to buyers whose bitcoin is deposited first.")+'</b></p>':''}
+    body:`${swapSummary(buy, Math.round(Number(String(g).replace(/,/g,''))*1e8), need, of.price)}${buy&&of.prepaid?'<p class="mtext"><b>'+TE("This seller sells only to buyers whose bitcoin is deposited first.")+'</b></p>':''}
     <div class="rm-modes">${modes}</div>
     <div id="tkAddrBox" class="${window.tkMode==='bal'?'hidden':''}"><label for="tkAddr" class="mpass-l">${buy?TE("Your Bitcoin address: change and refunds come back to it"):TE("Your Bitcoin address to receive the bitcoin")}</label><input id="tkAddr" class="mono" maxlength="100" placeholder="bc1q…" spellcheck="false" autocomplete="off"></div>
     <div class="rules"><ol>
@@ -2732,7 +2749,7 @@ function qsShow(){ const q=QS.q; if(!q) return; const w=qsWant(), u=Number(q.btc
 $('qsGo').onclick=async()=>{ const q=QS.q; if(!q||!q.can) return; if(!SW.active) return bdNotYet();
   const u=Number(q.btc_usd)||btcUsd(), buy=q.buying, lim=q.limit;
   const okQ=await ask({pass:true, icon:'swap', ok:buy?T("Buy now"):T("Sell now"), title:buy?T("Buy {gnr} GNR for {btc} BTC?", {gnr: gnrShort(q.gnr), btc: btcFmt(q.sats/1e8)}):T("Sell {gnr} GNR for {btc} BTC?", {gnr: gnrShort(q.gnr), btc: btcFmt(q.sats/1e8)}),
-    body:`<p class="mtext">${esc(Tn(q.parts.length, "{price} per GNR on average{usd}, in {n} part.", "{price} per GNR on average{usd}, in {n} parts.", {price: fmtPx(q.price), usd: u?' ('+GKValue.usd(q.price*u/1e8)+')':'', n: q.parts.length}))} ${buy?TE("Your wallet pays each part from your Bitcoin balance once the seller's GNR is locked for you on chain."):TE("Your wallet locks each part's GNR for a buyer whose bitcoin is already there; the bitcoin comes to your Bitcoin balance.")}</p>
+    body:`${swapSummary(buy, q.gnr, q.sats, q.price, q.fee)}<p class="mtext">${esc(Tn(q.parts.length, "{price} per GNR on average{usd}, in {n} part.", "{price} per GNR on average{usd}, in {n} parts.", {price: fmtPx(q.price), usd: u?' ('+GKValue.usd(q.price*u/1e8)+')':'', n: q.parts.length}))} ${buy?TE("Your wallet pays each part from your Bitcoin balance once the seller's GNR is locked for you on chain."):TE("Your wallet locks each part's GNR for a buyer whose bitcoin is already there; the bitcoin comes to your Bitcoin balance.")}</p>
     <div class="rules"><b>${TE("How a Quick Swap works")}</b><ol>
       <li>${TH("**Each part is its own atomic swap.** Both sides are paid, or both keep their coins.")} ${buy?TE("You never pay before the GNR is locked for you."):TE("Your GNR is locked only for a buyer whose bitcoin waits at an address of their own wallet.")}</li>
       <li>${buy?TH("**Never a worse price.** If a part cannot start (someone else took that offer a moment earlier, its maker went offline), the wallet tries another, never above {price} per GNR.", {price: fmtPx(lim)}):TH("**Never a worse price.** If a part cannot start (someone else took that offer a moment earlier, its maker went offline), the wallet tries another, never above {price} per GNR (never below, when selling).", {price: fmtPx(lim)})}</li>
@@ -2792,11 +2809,26 @@ async function btcAdd(){ let b=QS.bal; if(!b){ await btcLoad(true); b=QS.bal; } 
         <label>${TE("Send bitcoin to")}</label><div class="pay-row"><span class="mono pay-addr">${esc(b.address)}</span><button class="btn" type="button" data-c="${esc(b.address)}" onclick="copyText(this.dataset.c)">${TE("Copy")}</button></div>
         <p class="mtext">${TE("Any amount, from any Bitcoin wallet or exchange. The same address every time: it is the balance of this wallet.")}</p></div></div>`});
   try{ const r=await fetch('/api/qr?d='+encodeURIComponent(uri),{headers:{'x-token':token}}); if(r.ok){ const q=$('payQr'); if(q) q.innerHTML=await r.text(); } }catch(e){} }
-async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There is no bitcoin in the balance"),true);
-  const okS=await ask({pass:true, title:T("Send bitcoin out of the balance"), icon:'swap', ok:T("Send"),
+let BTC_SENDING=false;
+async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There is no bitcoin in the balance"),true); if(BTC_SENDING) return;
+  const okS=await ask({title:T("Send bitcoin out of the balance"), icon:'swap', ok:T("Continue"),
     body:`<p class="mtext">${b.committed?TE("{amount} BTC can be sent ({held} BTC stays for running Quick Swaps). The network fee comes out of it.", {amount: btcFmt(b.free/1e8), held: btcFmt(b.committed/1e8)}):TE("{amount} BTC can be sent. The network fee comes out of it.", {amount: btcFmt(b.free/1e8)})}</p><label for="btcTo">${TE("To this Bitcoin address")}</label><input id="btcTo" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"><label for="btcAmt">${TE("Amount (BTC), or max")}</label><input id="btcAmt" class="mono" value="max" autocomplete="off">`});
-  const addr=(($('btcTo')||{}).value||'').trim(), amt=(($('btcAmt')||{}).value||'max').trim(), pw=takePass(); if(!okS) return; if(!addr) return toast(T("Enter the Bitcoin address"),true);
-  try{ const r=await api('/api/btc/send',{address:addr, amount:amt, password:pw}); toast(T("Sent: {txid}", {txid: r.txid})); btcLoad(true); }catch(e){ toast(e.message,true) } }
+  const addr=(($('btcTo')||{}).value||'').trim(), amt=(($('btcAmt')||{}).value||'max').trim(); if(!okS) return; if(!addr) return toast(T("Enter the Bitcoin address"),true);
+  // Checked first (address, network, amount, fee), then confirmed with everything it does.
+  let pv; try{ pv=await api('/api/btc/send',{address:addr, amount:amt, preview:true}); }catch(e){ return toast(e.message,true); }
+  const u=btcUsd(), usd=s=>u?' <span class="muted">≈ '+GKValue.usd(s/1e8*u)+'</span>':'';
+  const net=pv.network==='main'?'Bitcoin':'Bitcoin '+esc(pv.network);
+  const okC=await ask({pass:true, title:T("Confirm the bitcoin payment"), icon:'swap', ok:T("Send now"), danger:true,
+    body:`<div class="sum"><div class="sum-amt"><b>${esc(btcFmt(pv.amount/1e8))} BTC</b>${usd(pv.amount)}<span>${TE("to")} <span class="mono">${esc(pv.address)}</span></span></div>
+      <div class="row">${TE("Network")}<b>${net}</b></div>
+      <div class="row">${TE("Network fee, about")}<b>${esc(btcFmt(pv.fee/1e8))} BTC</b></div>
+      <div class="row tot">${TE("Total")}<b>${esc(btcFmt(pv.total/1e8))} BTC</b></div>
+      <div class="row">${TE("Left in the balance")}<b>${esc(btcFmt(pv.left/1e8))} BTC</b></div></div>
+      <p class="mtext">${TE("Bitcoin payments are final: check the address. The exact fee depends on the coins the payment spends; the wallet never pays more than a tenth of the payment in fees. It confirms in about ten minutes.")}</p>`});
+  const pw=takePass(); if(!okC) return;
+  BTC_SENDING=true;
+  try{ const r=await api('/api/btc/send',{address:pv.address, amount:pv.max?'max':(pv.amount/1e8).toFixed(8), password:pw}); toast(T("Sent: {txid}", {txid: r.txid})); btcLoad(true); }catch(e){ toast(e.message,true) }
+  BTC_SENDING=false; }
 qsLabels();
 setInterval(()=>{ if(!document.hidden && TRADE.some(tabOn)){ loadSwaps(); btcLoad(); } if(!document.hidden && tabOn('wallet') && S.unlocked && Date.now()-QS.balAt>60000) btcLoad(true); }, 8000);
 

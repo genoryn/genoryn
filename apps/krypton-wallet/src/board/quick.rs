@@ -1141,6 +1141,9 @@ pub struct SendReq {
     amount: String,
     #[serde(default)]
     password: String,
+    /// Only check it and say what it would send, pay and leave (nothing is sent).
+    #[serde(default)]
+    preview: bool,
 }
 
 /// Sends bitcoin from the balance to an address of the user's choice. What running Quick
@@ -1155,7 +1158,9 @@ pub async fn btc_send(
     }
     let a = app.clone();
     match blocking(move || {
-        crate::confirm_password(&a, &r.password)?;
+        if !r.preview {
+            crate::confirm_password(&a, &r.password)?;
+        }
         with_engine(&a, false, |e, _| {
             let dest = engine::btc_address(&r.address, e.btc_network)?;
             ensure!(
@@ -1166,6 +1171,37 @@ pub async fn btc_send(
             let b = balance(e, &st)?;
             let free = b.total.saturating_sub(b.committed);
             ensure!(free > 0, "there is no bitcoin free in the balance");
+            if r.preview {
+                // What the payment would be, with the fee as estimated now (the coins it
+                // spends set the exact fee; it is never more than a tenth of the payment).
+                let fee = btc_fee(e);
+                let max = r.amount.trim().eq_ignore_ascii_case("max");
+                let amount = if max {
+                    let keep = if b.committed == 0 { fee } else { b.committed + fee * 2 };
+                    b.total.saturating_sub(keep)
+                } else {
+                    Amount::from_str_in(r.amount.trim(), Denomination::Bitcoin)
+                        .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
+                        .to_sat()
+                };
+                ensure!(amount >= 1_000, "send at least 0.00001 BTC");
+                ensure!(
+                    amount + fee <= free,
+                    "the balance has {} BTC free (running Quick Swaps still pay {} BTC)",
+                    btc_text(free),
+                    btc_text(b.committed)
+                );
+                return Ok(json!({
+                    "address": dest.to_string(),
+                    "amount": amount,
+                    "fee": fee,
+                    "total": amount + fee,
+                    "free": free,
+                    "left": free.saturating_sub(amount + fee),
+                    "max": max,
+                    "network": e.btc_network.to_core_arg(),
+                }));
+            }
             let id = if r.amount.trim().eq_ignore_ascii_case("max") {
                 if b.committed == 0 {
                     e.sweep_deposit(deposit::BALANCE, &dest.to_string())?
