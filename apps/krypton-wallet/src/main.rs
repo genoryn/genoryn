@@ -32,6 +32,7 @@ mod coins;
 mod console;
 mod i18n;
 mod swaps;
+mod trades;
 mod update;
 mod vault;
 mod verified;
@@ -2295,6 +2296,10 @@ async fn serve(
         .route("/api/console", post(console::run))
         .route("/api/console/commands", get(console::commands))
         .route("/api/swap/settings", post(swaps::settings))
+        .route("/api/trades", get(trades::page))
+        .route("/api/trades/summary", get(trades::summary))
+        .route("/api/trades/mine", get(trades::mine))
+        .route("/api/trades/export", post(trades::export))
         .route("/api/coins", get(coins::list))
         .route("/api/coin/send", post(coins::send))
         .route("/api/coin/preview", post(coins::preview))

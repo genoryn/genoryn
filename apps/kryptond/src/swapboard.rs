@@ -1597,29 +1597,46 @@ fn market_body(node: &Arc<Node>) -> Vec<u8> {
 
 #[derive(Deserialize)]
 pub struct HistoryQuery {
-    /// How many of the newest swaps to skip (pages of `limit`).
+    /// How many of the newest matching swaps to skip (pages of `limit`).
     #[serde(default)]
     offset: usize,
     #[serde(default)]
     limit: Option<usize>,
+    /// Only swaps reported at or after this time.
+    #[serde(default)]
+    since: Option<u64>,
+    /// Only swaps whose bitcoin the board found on the Bitcoin chain.
+    #[serde(default)]
+    verified: bool,
 }
 
 /// Every completed swap, newest first, a page at a time (1.0.53): the trade history.
 pub async fn history(State(node): S, Query(q): Query<HistoryQuery>) -> Response {
     off_runtime(|| {
         let limit = q.limit.unwrap_or(50).clamp(1, HISTORY_PAGE_MAX);
+        let since = q.since.unwrap_or(0);
         let tip = node.chain.tip().height();
         let mut i = node.board.inner.lock();
         node.board.load(&mut i);
-        let total = i.trades.len();
-        let page: Vec<Value> = i
-            .trades
-            .iter()
-            .rev()
-            .skip(q.offset)
-            .take(limit)
-            .map(|(x, at)| trade_json(&i, x, *at, tip))
-            .collect();
+        let shown = |x: &Trade, at: u64| {
+            at >= since
+                && (!q.verified || (i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash)))
+        };
+        let mut total = 0usize;
+        let mut page: Vec<Value> = Vec::new();
+        for (x, at) in i.trades.iter().rev() {
+            // Reported in time order: nothing older can match.
+            if *at < since {
+                break;
+            }
+            if !shown(x, *at) {
+                continue;
+            }
+            if total >= q.offset && page.len() < limit {
+                page.push(trade_json(&i, x, *at, tip));
+            }
+            total += 1;
+        }
         let more = q.offset.saturating_add(page.len()) < total;
         Json(json!({"swaps": page, "offset": q.offset, "more": more, "total": total, "now": now()}))
             .into_response()

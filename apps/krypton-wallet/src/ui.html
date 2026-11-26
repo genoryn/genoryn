@@ -531,6 +531,14 @@ header{padding:14px 30px}
 .mk-run{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:12px 16px;margin-bottom:18px;border:1px solid var(--line-strong);border-radius:14px;background:var(--bg-inset);font-size:13.5px}
 .mk-run .btn{margin-left:auto;height:32px;padding:0 14px;font-size:12.5px}
 .sw-totals{gap:0;padding:0;overflow:hidden}
+.th-charts .bd-head,.th-mine .bd-head,.th-all .bd-head{flex-wrap:wrap;margin-bottom:14px}.th-charts,.th-mine,.th-all{margin-bottom:18px}
+.th-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.th-grid .th-wide{grid-column:1/-1}
+.th-c{padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-inset);min-width:0}
+.th-kp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.th-kp>div{display:flex;flex-direction:column;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;min-width:0}
+.th-kp span{font-size:12px;color:var(--text-tertiary)}.th-kp b{font:600 16px var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.th-kp em{font-style:normal;font-size:12px;color:var(--text-secondary)}.th-kp>p{grid-column:1/-1;margin:0}
+#thChMine{margin-bottom:12px}.th-side{font-size:12px;padding:2px 9px;border:1px solid var(--line-strong);border-radius:99px;white-space:nowrap}
+.th-ok{margin-left:8px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap}.th-ver{margin:0;align-self:center;font-size:13px}
+@media (max-width:900px){.th-grid{grid-template-columns:1fr}.th-kp{grid-template-columns:1fr 1fr}}
 .sw-totals .swt{padding:16px 20px;border-radius:0}
 .sw-totals .swt+.swt{border-left:1px solid var(--line)}
 .sw-totals .swt b{font-size:clamp(18px,1.6vw,23px)}
@@ -741,6 +749,7 @@ header{padding:14px 30px}
         <button class="rail rail-sub" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>Market</span></button>
         <button class="rail rail-sub" data-tab="publish"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span>Publish an offer</span></button>
         <button class="rail rail-sub" data-tab="swaps"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>Your swaps</span><em class="tab-badge hidden" id="swBadge"></em></button>
+        <button class="rail rail-sub" data-tab="trades"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>Trade history</span></button>
       </div>
       <button class="rail" data-tab="coins"><svg class="ic" aria-hidden="true"><use href="#i-coins"/></svg><span>Tokens</span><em class="tab-soon">soon</em></button>
       <button class="rail" data-tab="mining"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span>Mining</span></button>
@@ -1104,6 +1113,38 @@ header{padding:14px 30px}
         <div id="swTakes"></div>
         <div id="swapList"><p class="muted">No swaps yet.</p></div>
         <details class="sw-past hidden" id="swPastBox" open><summary>Completed and past swaps <em id="swPastN"></em></summary><div id="swapPast" class="swr-grid"></div></details>
+      </section>
+    </div>
+    <div id="tab-trades" class="hidden">
+      <section class="glass card sw-totals th-kpis" aria-label="The whole trade history in figures">
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Completed swaps</span><b id="thN">-</b><em id="thNN">&nbsp;</em></div>
+        <div class="swt"><span class="swt-k"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg>GNR traded</span><b id="thG">-</b><em id="thGN">&nbsp;</em></div>
+        <div class="swt"><span class="swt-k"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin traded</span><b id="thB">-</b><em id="thBN">&nbsp;</em></div>
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Average price</span><b id="thAvg">-</b><em id="thAvgN">&nbsp;</em></div>
+        <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Median price</span><b id="thMed">-</b><em id="thRange">&nbsp;</em></div>
+      </section>
+      <section class="glass card th-charts">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Trade history</h2><div class="seg" id="thRng" role="group" aria-label="Period"><button type="button" data-r="7">7 days</button><button type="button" data-r="30" class="on">30 days</button><button type="button" data-r="90">90 days</button><button type="button" data-r="0">All</button></div></div>
+        <div class="th-grid">
+          <div class="th-c th-wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">-</b></div><div id="thChPrice"></div></div>
+          <div class="th-c"><div class="gk-card-head"><h3>Median price per day</h3><b id="thMedR">-</b></div><div id="thChMed"></div></div>
+          <div class="th-c"><div class="gk-card-head"><h3>GNR traded per day</h3><b id="thVolR">-</b></div><div id="thChVol"></div></div>
+          <div class="th-c th-wide"><div class="gk-card-head"><h3>Swaps per day</h3><b id="thCntR">-</b></div><div id="thChCnt"></div></div>
+        </div>
+        <p class="hero-note" id="thNote"></p>
+      </section>
+      <section class="glass card th-mine">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Your trades</h2><button class="btn" type="button" id="thCsv" onclick="tradesCsv()" disabled><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Export CSV</button></div>
+        <div class="th-kp" id="thMineK"></div>
+        <div id="thChMine" class="hidden"></div>
+        <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>When</th><th>Side</th><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th></tr></thead><tbody id="thMineRows"></tbody></table></div>
+      </section>
+      <section class="glass card th-all">
+        <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>All swaps <em class="muted" id="thAllN"></em></h2>
+          <div class="bd-filters"><label class="mcheck th-ver"><input type="checkbox" id="thVer" onchange="tradesPage(0)"> Only swaps whose bitcoin was found on the Bitcoin chain</label><select id="thPer" aria-label="Swaps per page" onchange="tradesPage(0)"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div></div>
+        <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>When</th><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">Proof</th></tr></thead><tbody id="thRows"></tbody></table></div>
+        <div class="pager" id="thPager"></div>
+        <details class="mk-how"><summary>Where these figures come from</summary><p class="hero-note">Every completed swap the board has recorded, newest first. A swap counts once its GNR claim is on the GNR chain; the amounts are private on chain, so the ones shown were reported by the two wallets of the swap. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain. The average price weighs each swap by the bitcoin it moved; the median is the price half of the swaps were below. Swaps whose two wallets disagree are left out of the figures. The proof link opens the GNR claim in the explorer.</p></details>
       </section>
     </div>
     <div id="tab-coins" class="hidden">
@@ -1721,7 +1762,7 @@ async function useWallet(id){
   QS.bal=null; QS.balAt=0; QS.q=null; ++QS.seq; $('btcBal').textContent='-'; $('btcBalSub').textContent=T("Loading this wallet's Bitcoin balance…");
   await refresh(); loadWallets();
   const vis=t=>!$('tab-'+t).classList.contains('hidden');
-  if(vis('history')) loadHistory(); if(TRADE.some(vis)){ loadSwaps(); btcLoad(true); } if(vis('swap')) qsAsk(); if(vis('network')) loadNetExtras();
+  if(vis('history')) loadHistory(); if(TRADE.some(vis)){ loadSwaps(); btcLoad(true); } if(vis('swap')) qsAsk(); if(vis('network')) loadNetExtras(); if(vis('trades')) loadTrades();
 }
 /* Which wallet the miner pays, at the top of the Mining tab: by name, and a way to it when
    another wallet is the one shown (the payouts and amounts below are the shown wallet's). */
@@ -2034,11 +2075,11 @@ async function quitApp(){ if(!await ask({title:T("Quit Genoryn Krypton?"), icon:
 function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast(T("Copied")); }
 const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'); };
 const TRADE=['swap','market','publish','swaps'];
-const TABS=['wallet','history','swap','market','publish','swaps','coins','mining','network','settings','console','security','about'];
-const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],publish:[T("Publish an offer"),T("Sell or buy GNR at a price of your own, paid from or into your Bitcoin balance.")],swaps:[T("Your swaps"),T("Every swap of this wallet: running, completed and refunded.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
+const TABS=['wallet','history','swap','market','publish','swaps','trades','coins','mining','network','settings','console','security','about'];
+const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],publish:[T("Publish an offer"),T("Sell or buy GNR at a price of your own, paid from or into your Bitcoin balance.")],swaps:[T("Your swaps"),T("Every swap of this wallet: running, completed and refunded.")],trades:[T("Trade history"),T("Every completed GNR swap with its price, in charts and in full, and your own trades.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
 function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
-  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(TRADE.includes(t)){ loadSwaps(true); btcLoad(true); renderTradeBars(); } if(t==='publish') bdBalSet(); if(t==='coins') loadCoins(); if(t==='wallet'){ fitBig($('bal')); if(S.unlocked) btcLoad(); renderTradeBars(); } if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
+  if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(TRADE.includes(t)){ loadSwaps(true); btcLoad(true); renderTradeBars(); } if(t==='publish') bdBalSet(); if(t==='trades') loadTrades(); if(t==='coins') loadCoins(); if(t==='wallet'){ fitBig($('bal')); if(S.unlocked) btcLoad(); renderTradeBars(); } if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
 let SW={swaps:[]}, swInit=false;
 const SW_STEPS=[TE("Request"),TE("Accept"),TE("Deposit"),TE("Lock"),TE("Claim"),TE("Done")];
@@ -2182,6 +2223,90 @@ async function swapCode(){
     body:`<p class="mtext">${TE("Your wallet locks the GNR for the buyer at once; they pay after the lock confirms. If they never pay, the GNR comes back to you after about 21 hours. The bitcoin goes to {address}. You take the bitcoin with your secret, which lets the buyer claim the GNR.").replace('{address}', ()=>'<span class="mono">'+esc(pay)+'</span>')}</p>`}); const pw=takePass(); if(!okA) return;
   try{ await api('/api/swap/accept',{code, address:pay, password:pw}); $('swCode').value=''; hide('swPayRow'); toast(T("Accepted: send the accept code to the buyer")); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
+/* Trade history (1.0.53): every completed swap the board has recorded, its figures, and this
+   wallet's own trades. A board before 1.0.53 shows only its last 50 swaps; the figures are
+   then worked out here from those. */
+const TRD={range:30, page:0, sum:null, swaps:[], fallback:false, ch:{}, seq:0};
+const thChart=(k,host,data,o)=>{ if(!window.GKCharts||!host) return; if(TRD.ch[k]) TRD.ch[k].update(data,o); else TRD.ch[k]=GKCharts.chart(host,data,o); };
+const thPx=p=>p==null||!isFinite(p)?'-':fmtPx(p);
+const thUsd=p=>{ const u=btcUsd(); return p!=null&&isFinite(p)&&u>0?GKValue.usd(p*u/1e8):''; };
+const thSatsUsd=s=>{ const u=btcUsd(); return u>0?GKValue.usd(Number(s||0)/1e8*u):''; };
+const thWhen=t=>t?new Date(t*1000).toLocaleString(GKI18N.lang,{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
+const thSatAxis=(v,axis)=>axis?GKCharts.fmtNum(v)+' sat':fmtPx(v)+satUsd(v);
+/* Short amounts and prices for the figures at the top: GNR to 2 decimals, bitcoin to what
+   matters, a price in dollars when the bitcoin price is known. */
+const thG=v=>GKI18N.num(Number(v||0)/1e8,{maximumFractionDigits:Number(v)>=1e10?0:2});
+const thB=v=>GKI18N.num(Number(v||0)/1e8,{maximumFractionDigits:Number(v)>=1e8?2:Number(v)>=1e6?4:6});
+const thMain=p=>p==null||!isFinite(p)?'-':btcUsd()>0?thUsd(p):thPx(p);
+function thFig(l){ const ps=l.map(x=>Number(x.price)).filter(isFinite).sort((a,b)=>a-b), n=ps.length;
+  const g=l.reduce((a,x)=>a+Number(x.gnr||0),0), s=l.reduce((a,x)=>a+Number(x.sats||0),0);
+  return {swaps:l.length, verified:l.filter(x=>x.verified).length, gnr:g, sats:s, low:n?ps[0]:null, high:n?ps[n-1]:null,
+    median:n?(n%2?ps[(n-1)/2]:(ps[n/2-1]+ps[n/2])/2):null, vwap:g>0?s/(g/1e8):null}; }
+function thLocal(l){ const by={}, now=Date.now()/1000;
+  l.forEach(x=>{ const d=x.at-x.at%86400; (by[d]=by[d]||[]).push(x); });
+  const all=thFig(l); all.first=l.length?Math.min(...l.map(x=>x.at)):null; all.last=l.length?Math.max(...l.map(x=>x.at)):null;
+  return {all, day:thFig(l.filter(x=>x.at>now-86400)), days:Object.keys(by).map(Number).sort((a,b)=>a-b).map(d=>Object.assign(thFig(by[d]),{day:d}))}; }
+async function loadTrades(){
+  const seq=++TRD.seq, now=Math.floor(Date.now()/1000), since=TRD.range?now-TRD.range*86400:0;
+  if(!BD.market) loadBoard();
+  let sum=null; try{ sum=await api('/api/trades/summary'); }catch(e){}
+  // The swaps of the period for the per-swap chart: the newest 1,000 at most.
+  let list=[], off=0, fb=false;
+  try{ for(let i=0;i<5;i++){ const r=await api('/api/trades?limit=200&offset='+off+(since?'&since='+since:'')); fb=!!r.fallback; list=list.concat(r.swaps||[]); off+=(r.swaps||[]).length; if(!r.more||fb) break; } }catch(e){}
+  if(!sum||sum.fallback){ let all=list; if(since){ try{ all=(await api('/api/trades?limit=200')).swaps||[]; }catch(e){} } sum=thLocal(all); fb=true; }
+  if(seq!==TRD.seq) return;
+  TRD.sum=sum; TRD.swaps=list; TRD.fallback=fb;
+  thRender(); tradesPage(TRD.page); loadMyTrades();
+}
+function thRender(){
+  const s=TRD.sum||{}, a=s.all||{}, d=s.day||{}, u=btcUsd(), nb='\u00a0';
+  $('thN').textContent=GKI18N.num(a.swaps||0);
+  $('thNN').textContent=a.swaps?T("{n} in the last 24 hours", {n: GKI18N.num(d.swaps||0)})+(a.first?' · '+T("since {date}", {date: new Date(a.first*1000).toLocaleDateString(GKI18N.lang)}):''):T("no swaps yet");
+  $('thG').textContent=a.swaps?thG(a.gnr)+' GNR':'-'; $('thGN').textContent=a.swaps?T("{amount} GNR in the last 24 hours", {amount: thG(d.gnr||0)}):nb;
+  $('thB').textContent=a.swaps?thB(a.sats)+' BTC':'-'; $('thBN').textContent=a.swaps&&u?'≈ '+thSatsUsd(a.sats):nb;
+  $('thAvg').textContent=thMain(a.vwap); $('thAvgN').textContent=(a.vwap!=null&&u?thPx(a.vwap)+' · ':'')+T("weighed by the bitcoin moved");
+  $('thMed').textContent=thMain(a.median); $('thRange').textContent=a.low!=null?T("low {low} · high {high}", {low: thMain(a.low), high: thMain(a.high)}):nb;
+  const now=Date.now()/1000, since=TRD.range?now-TRD.range*86400:0;
+  const days=(s.days||[]).filter(x=>x.day+86400>since), at=x=>(x.claim&&x.claim.time)||x.at;
+  const sw=TRD.swaps.slice().sort((x,y)=>at(x)-at(y));
+  thChart('price', $('thChPrice'), sw.map(x=>({t:at(x), v:Number(x.price), h:x.claim?x.claim.height:null})), {kind:'area', straight:true, points:sw.length<=200, zero:false, fmt:thSatAxis, label:T("Price per GNR of every completed swap"), height:230});
+  thChart('med', $('thChMed'), days.filter(x=>x.median!=null).map(x=>({t:x.day+43200, v:x.median})), {kind:'line', straight:true, points:true, zero:false, fmt:thSatAxis, label:T("Median price per day"), height:190});
+  thChart('vol', $('thChVol'), days.map(x=>({t:x.day+43200, v:x.gnr/1e8})), {kind:'bars', fmt:(v,axis)=>axis?GKCharts.fmtNum(v):gnrShort(v*1e8)+' GNR', label:T("GNR traded per day"), height:190});
+  thChart('cnt', $('thChCnt'), days.map(x=>({t:x.day+43200, v:x.swaps})), {kind:'bars', integer:true, fmt:(v,axis)=>axis?String(Math.round(v)):Tn(Math.round(v), "{n} swap", "{n} swaps", {n: Math.round(v)}), label:T("Swaps per day"), height:170});
+  const r=thFig(sw), last=sw[sw.length-1], dsum=(k)=>days.reduce((x,o)=>x+Number(o[k]||0),0);
+  $('thLast').textContent=last?T("last {price}", {price: thPx(last.price)}):'-';
+  $('thMedR').textContent=thPx(r.median); $('thVolR').textContent=days.length?thG(dsum('gnr'))+' GNR':'-';
+  $('thCntR').textContent=days.length?Tn(dsum('swaps'), "{n} swap", "{n} swaps", {n: GKI18N.num(dsum('swaps'))}):'-';
+  $('thNote').textContent=TRD.fallback?T("This board shows only its last 50 swaps; the whole history appears once it runs version 1.0.53 or newer."):T("Every point is one completed swap, at the price its two wallets agreed on. Move over a chart to read a swap or a day.");
+  document.querySelectorAll('#thRng button').forEach(b=>b.classList.toggle('on', Number(b.dataset.r)===TRD.range));
+}
+function thRow(x){ const c=x.claim, t=(c&&c.time)||x.at;
+  return `<tr><td>${esc(thWhen(t))}</td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td><td class="r">${c?`<button type="button" class="linkbtn" onclick="openLink('tx',${jsq(c.txid)})">${TE("Block #{h}", {h: GKI18N.num(Number(c.height))})} ↗</button>`:''}${x.verified?`<span class="th-ok" title="${TE("The board found this swap's bitcoin on the Bitcoin chain")}">BTC ✓</span>`:''}</td></tr>`; }
+async function tradesPage(p){
+  const per=Number($('thPer').value)||50, ver=$('thVer').checked;
+  let r; try{ r=await api('/api/trades?offset='+(p*per)+'&limit='+per+(ver?'&verified=true':'')); }catch(e){ $('thRows').innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`; return; }
+  const total=Number(r.total)||0, pages=Math.max(1,Math.ceil(total/per));
+  if(p>0&&p>=pages) return tradesPage(pages-1);
+  TRD.page=p; $('thAllN').textContent=total?'· '+GKI18N.num(total):'';
+  $('thRows').innerHTML=(r.swaps||[]).length?r.swaps.map(thRow).join(''):`<tr><td colspan="5" class="muted">${TE("No completed swaps yet.")}</td></tr>`;
+  $('thPager').innerHTML=pages>1?`<span>${TE("Page {n} of {m}", {n: GKI18N.num(p+1), m: GKI18N.num(pages)})}</span><span class="pg"><button type="button" aria-label="${TE("Previous page")}" ${p?'':'disabled'} onclick="tradesPage(${p-1})">‹</button><button type="button" aria-label="${TE("Next page")}" ${p<pages-1?'':'disabled'} onclick="tradesPage(${p+1})">›</button></span>`:'';
+}
+async function loadMyTrades(){
+  let r; try{ r=await api('/api/trades/mine'); }catch(e){ $('thMineK').innerHTML=`<p class="muted">${TE("Unlock the wallet to see your own trades.")}</p>`; $('thMineRows').innerHTML=''; hide('thChMine'); $('thCsv').disabled=true; return; }
+  const l=r.trades||[], buys=l.filter(x=>x.side==='buy'), sells=l.filter(x=>x.side==='sell');
+  const sum=(a,k)=>a.reduce((x,o)=>x+Number(o[k]||0),0), avg=a=>{ const g=sum(a,'gnr'); return g>0?sum(a,'sats')/(g/1e8):null; };
+  const k=(label,main,sub)=>`<div><span>${label}</span><b>${main}</b><em>${sub||'&nbsp;'}</em></div>`;
+  $('thCsv').disabled=!l.length;
+  $('thMineK').innerHTML=l.length?k(TE("Bought"), esc(gnrShort(sum(buys,'gnr')))+' GNR', TE("for {amount} BTC", {amount: btcFmt(sum(buys,'sats')/1e8)}))+
+    k(TE("Sold"), esc(gnrShort(sum(sells,'gnr')))+' GNR', TE("for {amount} BTC", {amount: btcFmt(sum(sells,'sats')/1e8)}))+
+    k(TE("Average buy price"), esc(thPx(avg(buys))), esc(thUsd(avg(buys))))+k(TE("Average sell price"), esc(thPx(avg(sells))), esc(thUsd(avg(sells))))
+    :`<p class="muted">${TE("This wallet has not completed a swap yet. Take an offer on the board, or publish your own.")}</p>`;
+  const mp=bdMkt().price;
+  if(l.length){ show('thChMine'); thChart('mine', $('thChMine'), l.slice().reverse().map(x=>({t:x.at, v:Number(x.price)})), {kind:'line', straight:true, points:true, zero:false, fmt:thSatAxis, target:mp!=null?Number(mp):undefined, targetLabel:T("market price now"), label:T("The price of each of your swaps"), height:170}); } else hide('thChMine');
+  $('thMineRows').innerHTML=l.slice(0,200).map(x=>`<tr><td>${esc(thWhen(x.at))}</td><td><span class="th-side">${x.side==='buy'?TE("Bought GNR"):TE("Sold GNR")}</span></td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td></tr>`).join('');
+}
+async function tradesCsv(){ try{ const r=await api('/api/trades/export',{}); toast(T("Saved to {path}", {path: r.path})); }catch(e){ toast(e.message,true); } }
+document.querySelectorAll('#thRng button').forEach(b=>b.addEventListener('click',()=>{ TRD.range=Number(b.dataset.r)||0; loadTrades(); }));
 /* Offer board: an order book that stays usable with thousands of offers. */
 let BD={}, bdSide='sell_gnr';
 const BDV={tab:'book', sort:'price', min:'', max:'', per:10, page:0};
