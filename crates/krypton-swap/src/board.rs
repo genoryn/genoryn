@@ -836,11 +836,11 @@ pub struct Market {
     /// while the board has none.
     pub price: Option<f64>,
     /// What the price rests on: `verified swaps` (their bitcoin was found on the Bitcoin
-    /// chain; the price is their volume-weighted median) or `swaps` (too few of those
-    /// yet: the plain average of the reported ones).
+    /// chain; the price is their weighted median) or `swaps` (too few of those yet: the
+    /// plain average of the reported ones).
     pub source: Option<String>,
-    /// How much the price can be trusted, 0 to 1: grows with the (time-weighted) GNR volume
-    /// behind it, `w / (w + DEPTH_GNR)`.
+    /// How much the price can be trusted, 0 to 1: [`crate::price::confidence`] / 100, and 0
+    /// while the price is still forming.
     #[serde(default)]
     pub confidence: f64,
     /// `thin`, `moderate` or `deep`.
@@ -956,8 +956,6 @@ pub const OUTLIER_FACTOR: f64 = 4.0;
 pub const MIN_VERIFIED: usize = 3;
 /// No single swap carries more than this share of the weight behind the price.
 pub const MAX_SHARE: f64 = 0.2;
-/// GNR swapped behind the price at which confidence reaches one half.
-pub const DEPTH_GNR: f64 = 25.0;
 /// The book's best price is where at least this much GNR can be bought (or sold) at once,
 /// so a dust offer does not set it.
 pub const BOOK_MIN_GNR: f64 = 1.0;
@@ -1216,11 +1214,11 @@ pub fn reference(
 /// The market price, from completed swaps (each one's claim is on the GNR chain).
 ///
 /// With enough swaps whose bitcoin the board found on the Bitcoin chain, the price is
-/// their **volume-weighted median**: half of the bitcoin that changed hands did so below
-/// it, half above. Moving it takes more bitcoin, really paid through swap contracts, than
-/// everyone else traded in the window; a report that is not one of a swap's two wallets'
-/// or that names no payment weighs nothing. See [`priced_swaps`]. Until there are enough
-/// such swaps it is the plain average of the reported ones, as before 1.0.44.
+/// their weighted median from [`crate::price::assess`]: half of the bitcoin that changed
+/// hands did so below it, half above. Moving it takes more bitcoin, really paid through
+/// swap contracts, than everyone else traded in the window; a report that is not one of a
+/// swap's two wallets' or that names no payment weighs nothing. Until there are enough
+/// such swaps it is the forming estimate of [`priced_swaps`].
 ///
 /// Open offers and swaps in progress are counted and shown, but never move the price:
 /// anyone can post an offer at any price, and nothing proves a swap in progress runs.

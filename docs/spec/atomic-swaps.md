@@ -278,9 +278,11 @@ code is in `crates/krypton-swap/src/board.rs` and `apps/kryptond/src/swapboard.r
     key, that names other amounts marks the swap as disputed: it no longer counts. Lookups
     are bounded: 10 a minute in all, 12 an hour for one swap, and no further back than
     576 Bitcoin blocks.
-  * The market price is stored in sat per GNR and shown in BTC (`board::market`,
-    `board::priced_swaps`), from the swaps completed in the last 72 hours (all recorded
-    swaps while none is that recent):
+  * The market price is stored in sat per GNR and shown in BTC (`board::market`). From
+    1.0.53 the published price, its confidence and status come from `price::assess`
+    (method `gnr-price-2`, specified in [market-price.md](market-price.md)); while it has
+    none yet, the forming estimate below (`board::priced_swaps`) is shown, from the swaps
+    completed in the last 72 hours (all recorded swaps while none is that recent):
     * with three or more verified swaps, their **volume-weighted median**. A swap weighs
       its verified bitcoin, never more than the bitcoin it reports, never more than its
       GNR is worth at the going price (the median taken with the shares already capped),

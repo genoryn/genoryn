@@ -613,12 +613,27 @@ The GNR price shown by the wallet and genoryn.io is the board's market price and
   signed with one of the contract's two keys, which only the swap's two wallets hold. The board
   looks the contract up on the Bitcoin chain and notes how much was taken out of it with the
   swap's secret. A swap whose two wallets report different amounts does not count.
-* With three or more such swaps in the last 72 hours, the price is their **volume-weighted
-  median**. A swap weighs the bitcoin it moved, never more than its GNR is worth at the going
-  price, and never more than a fifth of the total. Reports without a proof then weigh nothing.
-  One or two large swaps cannot set the price; it takes several that together outweigh the rest.
-* Until there are three, the price is the plain average of the reported swaps, as before.
-* A swap more than 4× from the median is left out as a typo or fake.
+* With three or more such swaps of at least 0.001 BTC, the price is their **weighted median**
+  (method `gnr-price-2`, from 1.0.53). It uses the shortest window that has enough of them:
+  the last 24 hours when the market is busy (8 swaps over at least three 6-hour blocks),
+  otherwise 72 hours, 7 days or 30 days. Newer swaps weigh more (one at the window's end half
+  as much as a new one). A swap weighs the bitcoin it moved, never more than its GNR is worth
+  at the going price, never more than a fifth of the total, and the swaps of one 6-hour block
+  never more than a quarter. Reports without a proof then weigh nothing. One or two large
+  swaps, or a burst in one afternoon, cannot set the price.
+* Swaps far from the rest are left out: more than 4× from the median, then any further from it
+  than five times the typical deviation (a swap within 50 % of the median is always kept).
+* The price moves at most 10 % an hour. It is rebuilt hour by hour from the swaps themselves,
+  so anyone with the same swaps gets the same price.
+* Every price comes with a **confidence** from 0 to 100: how much bitcoin is behind it (half
+  the score at 0.01 BTC), how many swaps effectively count, how closely they agree (half at a
+  15 % spread) and how fresh the newest is. Its status reads reliable, moderate, low
+  liquidity, low confidence, stale (no swap for 72 hours), insufficient or unavailable.
+* Until there are three, the price is still forming: the plain average of the reported swaps,
+  shown as such, with confidence 0.
+* Anyone can recompute it: the wallet console's `verifymarketprice` rebuilds the price from
+  the board's history and compares it; the method is in
+  [docs/spec/market-price.md](docs/spec/market-price.md).
 * **Offers and swaps in progress never move it**; they are listed with their totals in bitcoin
   and dollars. Dollar values use the BTC price, which genoryn.io fetches from mempool.space so
   browsers and wallets contact no third party.
@@ -735,6 +750,7 @@ sudo bash /usr/lib/genoryn-krypton/deploy/setup-server.sh mainnet   # the same a
 | `--peer` | – | Extra peer (host:port), repeatable |
 | `--no-seeds` | off | Do not use the built-in seeds |
 | `--max-inbound` / `--max-outbound` | 64 / 8 | Peer limits |
+| `--api-host` | – | Host names the API also answers to when a reverse proxy on the same computer passes no `X-Real-IP` (comma-separated; also `KRYPTON_API_HOSTS`). Better: let the proxy set `X-Real-IP` |
 
 | Network | P2P | API | Reward maturity |
 |---|---|---|---|
@@ -777,7 +793,7 @@ prices in sat per GNR.
 | Light wallets | `GET /v1/compact` · `/v1/frontier/{h}` · `/v1/subtree/{chunk}` · `/v1/witness/{pos}` · `/v1/mmrproof` · `/v1/flyclient` |
 | Addresses | `GET /v1/validate/{address}` · `POST /v1/address` · `GET /v1/address/{short}` · `/v1/address-info/{address}` |
 | Mining | `POST /v1/mining/template` · `POST /v1/mining/submit` · `GET /v1/miner/{address}` · `/v1/shares` |
-| Swap board | `GET/POST /v1/swap/offers` · `POST /v1/swap/offers/cancel` · `/v1/swap/offers/ping` · `/v1/swap/progress` · `/v1/swap/inbox` · `GET /v1/swap/inbox/{id}` · `POST /v1/swap/trade` · `GET /v1/swap/market` |
+| Swap board | `GET/POST /v1/swap/offers` · `POST /v1/swap/offers/cancel` · `/v1/swap/offers/ping` · `/v1/swap/progress` · `/v1/swap/inbox` · `GET /v1/swap/inbox/{id}` · `POST /v1/swap/trade` · `GET /v1/swap/market` · `GET /v1/swap/history` (pages of every completed swap) · `GET /v1/swap/history/summary` |
 | JSON-RPC 2.0 | `POST /rpc`: `getinfo`, `getblockcount`, `getbestblockhash`, `getblockhash`, `getblock`, `getblockheader`, `gettransaction`, `sendrawtransaction`, `getmempoolinfo`, `getpeerinfo`, `getnetworkhashps`, `getsupply`, `validateaddress`, `resolveaddress`, `getblocktemplate`, `submitwork` |
 | WebSocket | `wss://genoryn.io/v1/ws`: node info, then `{"type":"block",…}` and `{"type":"tx",…}` events |
 
