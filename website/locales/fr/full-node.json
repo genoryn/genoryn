@@ -70,7 +70,7 @@
  "9d3ff6d06f": "Sur les systèmes plus anciens, ou pour exécuter exactement ce que vous avez lu. Il vous faut Rust 1.89 ou plus récent, et rien d'autre :",
  "d5aecbd8ab": "<0>Vérifiez aussi la signature.</0> <1/> est signé avec la clé de publication hybride post-quantique du projet (ML-DSA-87 + SLH-DSA, empreinte <2/>). Avec le code source sous la main, <3/> la vérifie. Le programme de mise à jour du portefeuille le fait de lui-même avant d'installer quoi que ce soit.",
  "4b05a902f9": "La méthode simple : le portefeuille",
- "94b3a6cbdc": "Téléchargez <0>GenorynKrypton-1.0.52-Windows-x64-Setup.exe</0> depuis <1>Téléchargement</1> et exécutez-le. Il s'installe pour vous seul et ne demande aucun droit d'administrateur. Le nœud est inclus.",
+ "8fada10264": "Téléchargez <0>GenorynKrypton-1.0.53-Windows-x64-Setup.exe</0> depuis <1>Téléchargement</1> et exécutez-le. Il s'installe pour vous seul et ne demande aucun droit d'administrateur. Le nœud est inclus.",
  "d2ad01f336": "Créez ou ouvrez un portefeuille",
  "0cac70b994": "Choisissez un mot de passe, écrivez les 24 mots sur papier.",
  "eb3260a856": "Passez en nœud complet",
