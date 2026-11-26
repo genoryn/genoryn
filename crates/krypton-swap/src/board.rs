@@ -283,6 +283,10 @@ pub fn check_reserve(o: &Offer, tx: &krypton_core::types::Transaction) -> Result
 // the offer's amount is there, unspent, and marks the offer; it keeps the address to
 // itself. From that address the buyer's wallet pays the swap contract by itself.
 
+/// The board's reply to a buy offer without its deposit (wallets before 1.0.56, which
+/// could list a buy offer and pay later).
+pub const FUNDING_MISSING: &str = "buy offers must have their bitcoin deposited since 1.0.56: update your wallet (About, Check for updates), add bitcoin to its balance and publish the offer again";
+
 /// What a wallet sends with a buy offer whose bitcoin is deposited: the public key of the
 /// deposit address and its signature over the offer (both hex).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

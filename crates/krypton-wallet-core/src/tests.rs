@@ -915,6 +915,28 @@ fn notes_set_aside_are_not_spent() {
         .to_string();
     assert!(err.contains("insufficient"), "{err}");
     assert!(!a.needs_consolidation(b.spendable, DEFAULT_FEE));
+    // "Max" never reaches into it, and the send that merges notes by itself does not
+    // either: what is published stays until its offer ends.
+    let max = a.max_send(DEFAULT_FEE);
+    assert!(max > 0 && max <= b.spendable - DEFAULT_FEE, "{max}");
+    assert!(
+        a.send_auto(
+            &src,
+            &to,
+            b.spendable - DEFAULT_FEE + 1,
+            DEFAULT_FEE,
+            "",
+            |_| {}
+        )
+        .is_err()
+    );
+    assert!(
+        a.send_auto(&src, &to, b.total - DEFAULT_FEE, DEFAULT_FEE, "", |_| {})
+            .is_err(),
+        "nor the whole balance"
+    );
+    let n = a.note(&cm).expect("still there").clone();
+    assert!(n.pending_spend.is_none(), "nothing reached for it");
     // Merging notes leaves it alone.
     if a.consolidate(&src, DEFAULT_FEE, 64).is_ok() {
         mine(&src, &to);

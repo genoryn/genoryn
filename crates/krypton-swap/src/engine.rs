@@ -555,6 +555,9 @@ pub struct Bump {
     pub together: u64,
 }
 
+/// What a seller's wallet says to a request that names no bitcoin.
+pub const NOT_SHOWN: &str = "this request does not say where its bitcoin is. A swap starts only when your wallet can see the buyer's bitcoin: ask the buyer to update the wallet (1.0.56 or newer) and to make the request again, from its Bitcoin balance. Nothing was locked";
+
 /// Why speeding up is not offered.
 pub const BUMP_NONE: &str = "Nothing that came from outside is waiting for a block.";
 pub const BUMP_ENOUGH: &str = "It already pays enough for the next blocks.";
@@ -840,8 +843,43 @@ impl<G: ChainSource> Engine<'_, G> {
         self.accept_from(code, payout_address, None, false)
     }
 
+    /// Accepts a request only when this wallet sees the buyer's bitcoin itself: the
+    /// request must name an address of the buyer's wallet, signed by that address's key
+    /// ([`prepaid_address`]), and the Bitcoin chain must show the swap's amount there,
+    /// confirmed and unspent. Otherwise nothing is accepted and nothing will be locked.
+    /// This is how a wallet sells (1.0.56): there is no lock on a promise to pay later.
+    /// The lock spends the note `from`, if one was set aside.
+    pub fn accept_seen(
+        &mut self,
+        code: &str,
+        payout_address: &str,
+        from: Option<krypton_core::Hash32>,
+    ) -> Result<Swap> {
+        let sats = match Msg::decode(code)? {
+            Msg::Request2 { sats, .. } => sats,
+            Msg::Request { .. } => bail!(UPDATE_HINT),
+            _ => bail!("this is not a swap request"),
+        };
+        let at = prepaid_address(code, self.btc_network)?.context(NOT_SHOWN)?;
+        let have = self
+            .btc
+            .unspent(&at)
+            .context("the Bitcoin server did not answer, so the buyer's bitcoin could not be looked up; try again in a moment. Nothing was locked")?
+            .iter()
+            .filter(|u| u.height.is_some())
+            .fold(0u64, |a, u| a.saturating_add(u.value.to_sat()));
+        ensure!(
+            have >= sats,
+            "the buyer's bitcoin is not there: the address the request names holds {} BTC confirmed and unspent, and the swap is for {} BTC. Nothing was locked",
+            Amount::from_sat(have).to_string_in(bitcoin::Denomination::Bitcoin),
+            Amount::from_sat(sats).to_string_in(bitcoin::Denomination::Bitcoin)
+        );
+        self.accept_from(code, payout_address, from, true)
+    }
+
     /// [`Engine::accept`] for an offer whose GNR was set aside: the lock spends the note
-    /// `from` and nothing else.
+    /// `from` and nothing else. `prepaid`: the caller saw the buyer's bitcoin
+    /// ([`Engine::accept_seen`] is the way to say so).
     pub fn accept_from(
         &mut self,
         code: &str,

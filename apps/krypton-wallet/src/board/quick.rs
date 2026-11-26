@@ -232,21 +232,42 @@ fn pending_since(coins: &[krypton_swap::btc::Utxo]) -> Option<u64> {
     oldest
 }
 
+/// What the balance is promised to and has not paid yet: purchases taken on the board,
+/// and swaps by codes that pay from it. The same bitcoin is never promised twice.
 fn committed(w: &Wallet, st: &State) -> u64 {
-    let swaps = engine::load(w);
-    st.takes
+    committed_in(&engine::load(w), st)
+}
+
+fn committed_in(swaps: &[engine::Swap], st: &State) -> u64 {
+    // A swap that still has to pay: running, nothing paid, not ended before it paid.
+    let owes = |s: &engine::Swap| !s.stage.finished() && s.paid_tx.is_none() && !s.ended_unlocked();
+    let takes: Vec<&MyTake> = st
+        .takes
         .iter()
         .filter(|x| x.fund.as_ref().is_some_and(|f| f.d == deposit::BALANCE))
+        .collect();
+    let taken = takes
+        .iter()
         .filter(|x| !x.gone)
         .filter(|x| match &x.swap_id {
             None => true,
-            Some(id) => swaps
-                .iter()
-                .find(|s| s.id == *id)
-                .is_some_and(|s| !s.stage.finished() && s.paid_tx.is_none() && !s.ended_unlocked()),
+            Some(id) => swaps.iter().find(|s| s.id == *id).is_some_and(owes),
         })
         .map(|x| x.amounts().1)
-        .fold(0, u64::saturating_add)
+        .fold(0u64, u64::saturating_add);
+    // Swaps that pay from the balance without a purchase on the board behind them.
+    let direct = swaps
+        .iter()
+        .filter(|s| s.role == engine::Role::BtcSeller && s.fund == Some(deposit::BALANCE))
+        .filter(|s| owes(s))
+        .filter(|s| {
+            !takes
+                .iter()
+                .any(|x| x.swap_id.as_deref() == Some(s.id.as_str()))
+        })
+        .map(|s| s.sats)
+        .fold(0u64, u64::saturating_add);
+    taken.saturating_add(direct)
 }
 
 pub(super) fn balance(e: &Engine<'_, Multi>, st: &State) -> Result<Balance> {
@@ -368,17 +389,11 @@ fn start_parts(
         let Some(l) = book.iter().find(|l| l.offer.id == p.id) else {
             continue;
         };
-        let pay = if q.buying {
-            TakePay::Balance
-        } else {
-            TakePay::Later
-        };
         match take_listed(
             e,
             base,
             &l.raw,
             &bal,
-            pay,
             Some((p.gnr, p.sats)),
             Some(q.id.clone()),
         ) {
@@ -1429,6 +1444,97 @@ pub async fn btc_send(
 #[cfg(test)]
 mod guard_tests {
     use super::*;
+
+    fn swap(id: &str, sats: u64, fund: Option<u32>, stage: &str, paid: bool) -> engine::Swap {
+        let z = "00".repeat(32);
+        serde_json::from_value(json!({
+            "id": id, "index": 1, "role": "btc_seller",
+            "gnr_network": Network::Devnet, "btc_network": "regtest",
+            "gnr": 100_000_000u64, "sats": sats, "hash": z,
+            "claim_fee": 1000, "claim_outputs": [z, z],
+            "btc_refund_pub": "", "btc_claim_pub": null, "gnr_refund_height": null,
+            "refund_outputs": null, "refund_fee": null, "btc_refund_height": null,
+            "deposit": null, "btc_address": "", "stage": stage, "code": null,
+            "lock_cm": null, "btc_spend": null, "status": "", "log": [], "created": 0,
+            "fund": fund, "paid_tx": paid.then_some("tx"),
+        }))
+        .expect("a swap record")
+    }
+
+    fn take(id: &str, sats: u64, swap: Option<&str>, gone: bool) -> MyTake {
+        MyTake {
+            n: 1,
+            offer: Offer {
+                id: id.into(),
+                network: "devnet".into(),
+                btc_network: "regtest".into(),
+                side: Side::SellGnr,
+                gnr: 100_000_000,
+                sats,
+                key: String::new(),
+                expires: 0,
+                cancel: String::new(),
+                nonce: 0,
+            },
+            btc_address: String::new(),
+            swap_id: swap.map(String::from),
+            gone,
+            fund: Some(Fund {
+                d: deposit::BALANCE,
+                need: sats,
+                ..Default::default()
+            }),
+            at: 0,
+            ended: 0,
+            why: String::new(),
+            part: None,
+            quick: None,
+            promise: None,
+        }
+    }
+
+    /// The balance is never promised twice: what purchases on the board and swaps by
+    /// codes still have to pay from it is kept aside, each counted once, until it is
+    /// paid or the swap is over.
+    #[test]
+    fn what_the_balance_still_owes_is_kept_aside() {
+        let mut st = State::default();
+        assert_eq!(committed_in(&[], &st), 0);
+        // A purchase taken on the board: counted from the moment it is taken.
+        st.takes.push(take("o1", 30_000, Some("s1"), false));
+        let s1 = swap("s1", 30_000, Some(deposit::BALANCE), "requested", false);
+        assert_eq!(
+            committed_in(std::slice::from_ref(&s1), &st),
+            30_000,
+            "once, not twice"
+        );
+        // A swap by codes that pays from the balance, with no purchase on the board.
+        let d1 = swap("d1", 45_000, Some(deposit::BALANCE), "accepted", false);
+        assert_eq!(committed_in(&[s1.clone(), d1.clone()], &st), 75_000);
+        // What pays from a deposit of its own, or by hand (an old swap), is not the balance's.
+        let other = swap("x1", 99_000, Some(7), "accepted", false);
+        let by_hand = swap("x2", 88_000, None, "accepted", false);
+        assert_eq!(
+            committed_in(&[s1.clone(), d1.clone(), other, by_hand], &st),
+            75_000
+        );
+        // Paid: the bitcoin has left the balance, nothing more is owed.
+        let d_paid = swap("d1", 45_000, Some(deposit::BALANCE), "deposited", true);
+        assert_eq!(committed_in(&[s1.clone(), d_paid], &st), 30_000);
+        // Over before it paid: free again.
+        let d_failed = swap("d1", 45_000, Some(deposit::BALANCE), "failed", false);
+        let s_done = swap("s1", 30_000, Some(deposit::BALANCE), "done", true);
+        assert_eq!(committed_in(&[s_done, d_failed], &st), 0);
+        // A purchase that was called off owes nothing; one not yet answered does.
+        st.takes.clear();
+        st.takes.push(take("o2", 20_000, None, false));
+        st.takes.push(take("o3", 25_000, None, true));
+        assert_eq!(committed_in(&[], &st), 20_000);
+        // A swap we sell GNR in never pays bitcoin.
+        let mut selling = swap("g1", 70_000, Some(deposit::BALANCE), "accepted", false);
+        selling.role = engine::Role::GnrSeller;
+        assert_eq!(committed_in(&[selling], &st), 20_000);
+    }
 
     #[test]
     fn the_guard_is_a_band_around_the_market_worse_for_the_taker() {

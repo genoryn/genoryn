@@ -74,9 +74,14 @@ const PRICED_SECS: u64 = 600;
 /// survives a computer that sleeps at night.
 const STALE_SECS: u64 = 7 * 24 * 3600;
 /// The rules the stored offers were accepted under. 2: every sell offer proves its GNR
-/// (`krypton_swap::board::check_reserve`). Offers stored under older rules are dropped
-/// when the board loads: nobody could tell which of them were real.
-const RULES: u32 = 2;
+/// (`krypton_swap::board::check_reserve`). 3: every buy offer has its bitcoin at a deposit
+/// address of the buyer's wallet, found there by this board (`board::check_funding`).
+/// Offers stored before rule 2 are dropped when the board loads: nobody could tell which
+/// of them were real. From a file of rule 2 the sell offers stay, and the buy offers whose
+/// bitcoin this board had found.
+const RULES: u32 = 3;
+/// The oldest rules whose offers are read at all.
+const RULES_READ: u32 = 2;
 /// The notes behind the sell offers are looked up on the chain at most this often.
 const BACKING_CHECK_SECS: u64 = 10;
 /// The longest proof of funds a board reads (hex): a transfer is about 100 KB.
@@ -110,12 +115,19 @@ struct Inner {
     backing_checked: u64,
     /// Swaps in progress whose bitcoin has been paid, as their makers report it.
     funded: HashSet<String>,
-    /// Buy offers whose bitcoin was found at the deposit address their maker proved to
-    /// own (`board::check_funding`), with that address. It is never published.
+    /// The deposit address behind each buy offer: its maker proved to own it
+    /// (`board::check_funding`) and this board found the offer's bitcoin there. It is
+    /// never published. Every open buy offer has one.
     deposits: HashMap<String, String>,
     deposits_checked: u64,
-    /// Sell offers whose makers lock GNR only for buyers whose bitcoin is deposited.
-    prepaid: HashSet<String>,
+    /// Where the next round of looking the deposits up again starts, and how many times
+    /// in a row each was clearly not there.
+    deposit_cursor: usize,
+    deposit_misses: HashMap<String, u8>,
+    /// When deposits of new buy offers were looked up on the Bitcoin chain, to keep the
+    /// lookups few: all of them, and per client (the minute, lookups in it).
+    deposit_lookups: VecDeque<u64>,
+    deposit_lookups_of: HashMap<IpAddr, (u64, u32)>,
     /// Completed swaps whose bitcoin this board found on the Bitcoin chain (1.0.44): by
     /// hash lock, the sat taken out of the swap's contract with its secret, and the key
     /// of the contract that proved the report. Kept on disk with the trades.
@@ -169,6 +181,16 @@ const MAX_PROMISES_AN_OFFER: usize = 4;
 const LOOKUPS_A_MINUTE: usize = 10;
 const LOOKUPS_AN_HOUR_EACH: u32 = 12;
 
+/// Lookups of the deposits of new buy offers: this many a minute in all and from one
+/// client. Each comes after the offer's proof of work and a signature by the deposit's
+/// key, but anyone can make a key.
+const DEPOSIT_LOOKUPS_A_MINUTE: usize = 30;
+const DEPOSIT_LOOKUPS_A_MINUTE_EACH: u32 = 6;
+/// How long such a lookup may take before the wallet is asked to try again.
+const DEPOSIT_LOOKUP_SECS: u64 = 25;
+/// What a wallet is told when the same bitcoin is offered twice.
+const DEPOSIT_TAKEN: &str = "this bitcoin deposit already stands behind another offer on the board";
+
 /// What is kept on disk of the swaps whose bitcoin was found.
 #[derive(serde::Serialize, Deserialize, Default)]
 struct SavedPaid {
@@ -221,9 +243,125 @@ impl Inner {
             .any(|x| x.nullifiers.iter().any(|n| b.nullifiers.contains(n)))
     }
 
-    /// Lists a new offer. A sell offer comes with its checked proof of funds, and its
-    /// coins must not be behind anything else on the board.
-    fn list(&mut self, o: Offer, backing: Option<Backing>, t: u64) -> Result<(), &'static str> {
+    /// Whether one more look at the Bitcoin chain for a new buy offer's deposit fits the
+    /// budget; counts it if so.
+    fn deposit_lookup_allowed(&mut self, client: Option<IpAddr>, t: u64) -> bool {
+        while self.deposit_lookups.front().is_some_and(|at| at + 60 <= t) {
+            self.deposit_lookups.pop_front();
+        }
+        if self.deposit_lookups.len() >= DEPOSIT_LOOKUPS_A_MINUTE {
+            return false;
+        }
+        let minute = t - t % 60;
+        if let Some(c) = client {
+            if self.deposit_lookups_of.len() > 20_000 {
+                self.deposit_lookups_of.retain(|_, (m, _)| *m == minute);
+            }
+            let e = self.deposit_lookups_of.entry(c).or_insert((minute, 0));
+            if e.0 != minute {
+                *e = (minute, 0);
+            }
+            if e.1 >= DEPOSIT_LOOKUPS_A_MINUTE_EACH {
+                return false;
+            }
+            e.1 += 1;
+        }
+        self.deposit_lookups.push_back(t);
+        true
+    }
+
+    /// The deposits to look up again this round: at most `n` open buy offers (id, deposit
+    /// address, sat), taking up where the last round stopped, so that every deposit has
+    /// its turn however many there are.
+    fn next_deposits(&mut self, n: usize) -> Vec<(String, String, u64)> {
+        let mut all: Vec<(String, String, u64)> = self
+            .deposits
+            .iter()
+            .filter_map(|(id, a)| self.offers.get(id).map(|o| (id.clone(), a.clone(), o.sats)))
+            .collect();
+        all.sort();
+        if all.len() <= n {
+            self.deposit_cursor = 0;
+            return all;
+        }
+        let from = self.deposit_cursor % all.len();
+        self.deposit_cursor = (from + n) % all.len();
+        all.iter().cycle().skip(from).take(n).cloned().collect()
+    }
+
+    /// Takes in what a later look at the Bitcoin chain said about the deposit at `address`
+    /// behind the buy offer `id`: `Some(true)` it is there, `Some(false)` it clearly is
+    /// not, `None` the server did not answer. An offer whose bitcoin was clearly not there
+    /// [`DEPOSIT_MISSES`] times in a row is taken down. Says whether the board changed.
+    fn deposit_seen(&mut self, id: &str, address: &str, there: Option<bool>) -> bool {
+        // The offer may have been taken, cancelled or listed anew while the lookup ran.
+        if !self.offers.contains_key(id)
+            || self.deposits.get(id).map(String::as_str) != Some(address)
+        {
+            return false;
+        }
+        match there {
+            None => false,
+            Some(true) => {
+                self.deposit_misses.remove(id);
+                false
+            }
+            Some(false) => {
+                let n = self.deposit_misses.entry(id.to_string()).or_insert(0);
+                *n += 1;
+                if *n < DEPOSIT_MISSES {
+                    return false;
+                }
+                self.take_down(id);
+                true
+            }
+        }
+    }
+
+    /// Counts the promise `p` against the deposit at `address` (a request is counted once)
+    /// and says what that deposit is promised to in all, and to how many swaps. A seller's
+    /// wallet compares the sum with what the Bitcoin chain shows at the address: the same
+    /// bitcoin shown to two sellers is seen by both.
+    fn promise(&mut self, address: String, p: Promised) -> Result<(u64, usize), &'static str> {
+        let known = self
+            .promises
+            .get(&address)
+            .is_some_and(|v| v.iter().any(|x| x.id == p.id));
+        if !known {
+            let here = self.promises.get(&address).map_or(0, Vec::len);
+            let of_offer = self
+                .promises
+                .values()
+                .flatten()
+                .filter(|x| x.offer == p.offer)
+                .count();
+            let total: usize = self.promises.values().map(Vec::len).sum();
+            if here >= MAX_PROMISES_EACH
+                || of_offer >= MAX_PROMISES_AN_OFFER
+                || total >= MAX_PROMISES
+            {
+                return Err("too many promises; try again later");
+            }
+            self.promises.entry(address.clone()).or_default().push(p);
+        }
+        let v = &self.promises[&address];
+        Ok((
+            v.iter().fold(0u64, |a, x| a.saturating_add(x.sats)),
+            v.len(),
+        ))
+    }
+
+    /// Lists a new offer: the only way onto the board. A sell offer comes with its checked
+    /// proof of funds, and its coins must not be behind anything else on the board. A buy
+    /// offer comes with the deposit address its bitcoin was found at, and one deposit
+    /// stands behind one offer.
+    fn list(
+        &mut self,
+        o: Offer,
+        backing: Option<Backing>,
+        deposit: Option<String>,
+        t: u64,
+    ) -> Result<(), &'static str> {
         if self.offers.len() >= MAX_OFFERS {
             return Err("the board is full; try again later");
         }
@@ -233,14 +371,27 @@ impl Inner {
         {
             return Err("an offer with this id exists");
         }
-        if o.side == Side::SellGnr {
-            let Some(b) = backing else {
-                return Err(board::RESERVE_MISSING);
-            };
-            if self.backs_another(&b) {
-                return Err("this GNR already backs another offer on the board");
+        match o.side {
+            Side::SellGnr => {
+                let Some(b) = backing else {
+                    return Err(board::RESERVE_MISSING);
+                };
+                if self.backs_another(&b) {
+                    return Err("this GNR already backs another offer on the board");
+                }
+                self.backing.insert(o.id.clone(), b);
             }
-            self.backing.insert(o.id.clone(), b);
+            Side::BuyGnr => {
+                let Some(a) = deposit else {
+                    return Err(board::FUNDING_MISSING);
+                };
+                // Open offers and swaps in progress alike: a deposit on its way into a
+                // swap's contract is not there for a second offer.
+                if self.deposits.values().any(|x| *x == a) {
+                    return Err(DEPOSIT_TAKEN);
+                }
+                self.deposits.insert(o.id.clone(), a);
+            }
         }
         self.seen.insert(o.id.clone(), t);
         self.offers.insert(o.id.clone(), o);
@@ -263,7 +414,7 @@ impl Inner {
         self.pending.remove(id);
         self.backing.remove(id);
         self.deposits.remove(id);
-        self.prepaid.remove(id);
+        self.deposit_misses.remove(id);
         self.auto.remove(id);
         self.part.remove(id);
         if !self.coin_offers.contains_key(id) {
@@ -271,16 +422,6 @@ impl Inner {
         }
         self.pending_seen.remove(id);
         self.funded.remove(id);
-    }
-
-    /// Marks the buy offer `id` (just listed) as having its bitcoin at `address`. One
-    /// deposit stands behind one offer.
-    fn deposited(&mut self, id: &str, address: String) -> bool {
-        if self.deposits.values().any(|a| *a == address) {
-            return false;
-        }
-        self.deposits.insert(id.to_string(), address);
-        true
     }
 }
 
@@ -383,6 +524,13 @@ impl Board {
             .retain(|id, _| seen.get(id).is_some_and(|s| s + STALE_SECS > t));
         i.coin_offers
             .retain(|id, o| o.expires > t && seen.get(id).is_some_and(|s| s + STALE_SECS > t));
+        // Whatever put it there, an offer stays only with what stands behind it: the
+        // proven GNR of a sell offer, the found bitcoin of a buy offer.
+        let (backing, deposits) = (&i.backing, &i.deposits);
+        i.offers.retain(|id, o| match o.side {
+            Side::SellGnr => backing.contains_key(id),
+            Side::BuyGnr => deposits.contains_key(id),
+        });
         let ps = &i.pending_seen;
         i.pending.retain(|id, (_, at)| {
             *at + PENDING_SECS > t && ps.get(id).copied().unwrap_or(*at) + PENDING_IDLE_SECS > t
@@ -396,7 +544,7 @@ impl Board {
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
         i.deposits
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
-        i.prepaid.retain(|id| offers.contains_key(id));
+        i.deposit_misses.retain(|id, _| offers.contains_key(id));
         // Kept while a part of the offer runs: the part is checked against it.
         i.auto
             .retain(|id, _| offers.contains_key(id) || pending.contains_key(id));
@@ -480,14 +628,16 @@ impl Board {
         let mut purged = false;
         if let Some(s) = read_json::<Saved>(&p.with_file_name("swap-board.json")) {
             // Offers from before sell offers had to prove their GNR are not carried over.
-            // Mailboxes are, and swaps in progress as far as the board can stand for them
-            // (see below): a running swap must not lose a code.
+            // From a file written before buy offers had to have their bitcoin deposited,
+            // the buy offers without a found deposit go (`expire` below; their makers'
+            // wallets see it in their next ping). Mailboxes always stay, and swaps in
+            // progress as far as the board can stand for them: a running swap must not
+            // lose a code.
             purged = s.rules < RULES;
-            if !purged {
+            if s.rules >= RULES_READ {
                 i.offers = s.offers.into_iter().map(|o| (o.id.clone(), o)).collect();
                 i.backing = s.backing.into_iter().collect();
                 i.deposits = s.deposits.into_iter().collect();
-                i.prepaid = s.prepaid.into_iter().collect();
                 i.auto = s.auto.into_iter().collect();
             }
             i.part = s
@@ -525,14 +675,12 @@ impl Board {
         }
         self.open_history(&p, i);
         Board::expire(i, now());
-        // A sell offer without its proof cannot be on the board, whatever the file said:
-        // not as an open offer, and not as a swap in progress carried over from before
-        // sell offers proved their GNR (the board cannot vouch for it, and nothing would
-        // keep its coins from being listed again). Such a swap itself goes on: it needs
-        // only the mailboxes.
+        // An offer without what stands behind it cannot be on the board, whatever the
+        // file said (`expire` has dropped those). Nor can a sell swap in progress carried
+        // over from before sell offers proved their GNR: the board cannot vouch for it,
+        // and nothing would keep its coins from being listed again. Such a swap itself
+        // goes on: it needs only the mailboxes.
         let backing = &i.backing;
-        i.offers
-            .retain(|id, o| o.side != Side::SellGnr || backing.contains_key(id));
         i.pending
             .retain(|id, (o, _)| o.side != Side::SellGnr || backing.contains_key(id));
         if purged {
@@ -780,7 +928,6 @@ impl Board {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
-            prepaid: i.prepaid.iter().cloned().collect(),
             auto: i.auto.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
             part: i
                 .part
@@ -812,8 +959,6 @@ struct Saved {
     funded: Vec<String>,
     #[serde(default)]
     deposits: Vec<(String, String)>,
-    #[serde(default)]
-    prepaid: Vec<String>,
     #[serde(default)]
     auto: Vec<(String, board::Auto)>,
     #[serde(default)]
@@ -1031,8 +1176,9 @@ fn offers_body(node: &Arc<Node>) -> Vec<u8> {
             x["backed"] = json!(i.backing.contains_key(&o.id));
             // The buyer's bitcoin was found at a deposit address of the buyer's wallet.
             x["deposited"] = json!(i.deposits.contains_key(&o.id));
-            // The seller locks GNR only for a buyer whose bitcoin is deposited.
-            x["prepaid"] = json!(i.prepaid.contains(&o.id));
+            // Every seller locks GNR only for a buyer whose bitcoin is deposited (wallets
+            // before 1.0.56 read this to know that they must pay from a deposit).
+            x["prepaid"] = json!(o.side == Side::SellGnr);
             // A Quick Swap offer: its maker's wallet swaps parts of it by itself.
             if let Some(a) = i.auto.get(&o.id) {
                 x["auto"] = json!(a);
@@ -1049,7 +1195,22 @@ fn offers_body(node: &Arc<Node>) -> Vec<u8> {
         })
         .collect();
     p.sort_by_key(|x| std::cmp::Reverse(x["since"].as_u64()));
-    serde_json::to_vec(&json!({"offers": v, "in_progress": p, "now": now()})).unwrap_or_default()
+    // What is on offer in all. Every open offer is covered, so these are sums of coins
+    // that exist: GNR proven by its sellers, bitcoin found at its buyers' deposits.
+    let total = |side: Side, f: fn(&Offer) -> u64| {
+        i.offers
+            .values()
+            .filter(|o| o.side == side)
+            .map(f)
+            .fold(0u64, u64::saturating_add)
+    };
+    serde_json::to_vec(&json!({
+        "offers": v, "in_progress": p, "now": now(),
+        "for_sale_gnr": total(Side::SellGnr, |o| o.gnr),
+        "wanted_sats": total(Side::BuyGnr, |o| o.sats),
+        "issued": node.chain.supply(),
+    }))
+    .unwrap_or_default()
 }
 
 #[derive(Deserialize)]
@@ -1128,14 +1289,10 @@ pub struct OfferPost {
     /// Hex of a transfer that can never be mined (`krypton_swap::board::check_reserve`).
     #[serde(default)]
     reserve: Option<String>,
-    /// A buy offer whose bitcoin is deposited: the proof of the deposit address
+    /// A buy offer: the proof of the deposit address its bitcoin is at
     /// (`krypton_swap::board::check_funding`).
     #[serde(default)]
     funding: Option<board::Funding>,
-    /// A sell offer for buyers whose bitcoin is deposited first (the maker's wallet
-    /// checks that itself; the board only shows it).
-    #[serde(default)]
-    prepaid: bool,
     /// A Quick Swap offer (1.0.46): sold or bought in parts of at least this size.
     #[serde(default)]
     auto: Option<board::Auto>,
@@ -1229,43 +1386,63 @@ pub async fn post_offer(
     } else {
         None
     };
-    // A buy offer may say that its bitcoin is deposited. The claim is checked on the
-    // Bitcoin chain if this board can read it, and the offer is marked only then.
-    let deposit = match (&p.funding, o.side) {
-        (Some(f), Side::BuyGnr) => {
-            let address = match board::check_funding(&o, f) {
-                Ok(a) => a,
-                Err(e) => return bad(e),
-            };
-            match btc_api() {
-                None => None,
-                Some(api) => {
-                    let (a, need) = (address.clone(), o.sats);
-                    match tokio::task::spawn_blocking(move || deposit_at(&api, &a, need)).await {
-                        Ok(Ok(true)) => Some(address.to_string()),
-                        Ok(Ok(false)) => {
-                            return bad(
-                                "the bitcoin of this offer is not at its deposit address, confirmed and unspent",
-                            );
-                        }
-                        // The Bitcoin server did not answer: list the offer unmarked.
-                        Ok(Err(_)) | Err(_) => None,
-                    }
-                }
+    // A buy offer is listed only with its bitcoin at a deposit address of the buyer's own
+    // wallet: the wallet proves the address is its own, and this board finds the offer's
+    // amount there on the Bitcoin chain, confirmed and unspent. A board that cannot read
+    // the Bitcoin chain takes no buy offers, and a lookup that fails lists nothing.
+    let deposit = if o.side == Side::BuyGnr {
+        let Some(f) = &p.funding else {
+            return bad(board::FUNDING_MISSING);
+        };
+        let address = match board::check_funding(&o, f) {
+            Ok(a) => a,
+            Err(e) => return bad(e),
+        };
+        let Some(api) = btc_api() else {
+            return bad("this board cannot read the Bitcoin chain, so it lists no buy offers");
+        };
+        let known = address.to_string();
+        // What needs no lookup is refused before one is spent on it.
+        let refused = off_runtime(|| {
+            let mut i = node.board.inner.lock();
+            if i.deposits.values().any(|x| *x == known) {
+                return Some(DEPOSIT_TAKEN);
+            }
+            (!i.deposit_lookup_allowed(client, now()))
+                .then_some("the board is busy looking deposits up; try again in a moment")
+        });
+        if let Some(why) = refused {
+            return bad(why);
+        }
+        let need = o.sats;
+        let looked = tokio::time::timeout(
+            Duration::from_secs(DEPOSIT_LOOKUP_SECS),
+            tokio::task::spawn_blocking(move || deposit_at(&api, &address, need)),
+        )
+        .await;
+        match looked {
+            Ok(Ok(Ok(true))) => Some(known),
+            Ok(Ok(Ok(false))) => {
+                return bad(
+                    "the bitcoin of this offer is not at its deposit address, confirmed and unspent",
+                );
+            }
+            _ => {
+                return bad("the board could not reach its Bitcoin server; try again in a moment");
             }
         }
-        _ => None,
+    } else {
+        None
     };
     // Checked and listed in one step, under the board's lock: of two offers posted at the
     // same moment with the same coins behind them, only the first is listed.
-    off_runtime(move || list_offer(&node, client, o, p.prepaid, p.auto, backing, deposit))
+    off_runtime(move || list_offer(&node, client, o, p.auto, backing, deposit))
 }
 
 fn list_offer(
     node: &Arc<Node>,
     client: Option<IpAddr>,
     o: Offer,
-    prepaid: bool,
     auto: Option<board::Auto>,
     backing: Option<Backing>,
     deposit: Option<String>,
@@ -1274,39 +1451,38 @@ fn list_offer(
     node.board.load(&mut i);
     let t = now();
     Board::expire(&mut i, t);
-    if deposit
-        .as_ref()
-        .is_some_and(|a| i.deposits.values().any(|x| x == a))
-    {
-        return bad("this bitcoin deposit already stands behind another offer on the board");
-    }
-    let id = o.id.clone();
-    let prepaid = prepaid && o.side == Side::SellGnr;
-    if let Err(e) = i.list(o, backing, t) {
+    let (id, buying) = (o.id.clone(), o.side == Side::BuyGnr);
+    if let Err(e) = i.list(o, backing, deposit, t) {
         return bad(e);
     }
     if let Some(c) = client {
         i.lister.insert(id.clone(), c);
     }
-    if prepaid {
-        i.prepaid.insert(id.clone());
-    }
     if let Some(a) = auto {
-        i.auto.insert(id.clone(), a);
+        i.auto.insert(id, a);
     }
-    let marked = deposit.is_some_and(|a| i.deposited(&id, a));
     node.board.save_board(&i);
-    Json(json!({"ok": true, "deposited": marked})).into_response()
+    Json(json!({"ok": true, "deposited": buying})).into_response()
 }
 
 /// The Bitcoin server this board reads deposits of buy offers from (`KRYPTON_BTC_API`:
-/// an Esplora URL, or `rpc:` and a Bitcoin Core URL). Without it buy offers are listed
-/// as before, unmarked.
+/// an Esplora URL, or `rpc:` and a Bitcoin Core URL). Without it the board lists no buy
+/// offers: it could not tell whether their bitcoin exists.
 fn btc_api() -> Option<String> {
     std::env::var("KRYPTON_BTC_API")
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+}
+
+/// Whether `coins` (the unspent outputs of an address) hold at least `need` sat in blocks:
+/// bitcoin that is still on its way does not count.
+fn covered(coins: &[krypton_swap::btc::Utxo], need: u64) -> bool {
+    coins
+        .iter()
+        .filter(|u| u.height.is_some())
+        .fold(0u64, |a, u| a.saturating_add(u.value.to_sat()))
+        >= need
 }
 
 /// Whether confirmed, unspent outputs worth at least `need` sat pay `address`.
@@ -1316,33 +1492,29 @@ fn deposit_at(
     need: u64,
 ) -> anyhow::Result<bool> {
     let btc = krypton_swap::btc::connect(api)?;
-    let have = btc
-        .unspent(address)?
-        .iter()
-        .filter(|u| u.height.is_some())
-        .fold(0u64, |a, u| a.saturating_add(u.value.to_sat()));
-    Ok(have >= need)
+    Ok(covered(&btc.unspent(address)?, need))
 }
 
-/// How often the deposits behind open buy offers are looked up again.
-const DEPOSIT_CHECK_SECS: u64 = 300;
+/// How often deposits behind open buy offers are looked up again, how many each time
+/// (they take turns), and how many times in a row a deposit must be clearly missing
+/// before its offer is taken down: one odd answer of a Bitcoin server takes nothing down.
+const DEPOSIT_CHECK_SECS: u64 = 120;
+const DEPOSIT_CHECK_BATCH: usize = 60;
+const DEPOSIT_MISSES: u8 = 2;
 
-/// Looks the deposits of open buy offers up again and takes the mark off those whose
-/// bitcoin has moved. The lookups run off the board's lock.
+/// Looks the deposits of open buy offers up again and takes down the offers whose bitcoin
+/// has moved: a buy offer says its bitcoin is there, and this keeps it true. The lookups
+/// run off the board's lock and off the request that started them.
 fn recheck_deposits(node: &Arc<Node>) {
     let Some(api) = btc_api() else { return };
-    let list: Vec<(String, String, u64)> = {
+    let list = {
         let mut i = node.board.inner.lock();
         let t = now();
         if i.deposits_checked + DEPOSIT_CHECK_SECS > t {
             return;
         }
         i.deposits_checked = t;
-        i.deposits
-            .iter()
-            .filter_map(|(id, a)| i.offers.get(id).map(|o| (id.clone(), a.clone(), o.sats)))
-            .take(100)
-            .collect()
+        i.next_deposits(DEPOSIT_CHECK_BATCH)
     };
     if list.is_empty() {
         return;
@@ -1350,27 +1522,25 @@ fn recheck_deposits(node: &Arc<Node>) {
     let node = node.clone();
     tokio::task::spawn_blocking(move || {
         use std::str::FromStr;
-        let gone: Vec<String> = list
+        // Only a clear "not there" counts against an offer, never a failed lookup.
+        let seen: Vec<(String, String, Option<bool>)> = list
             .into_iter()
-            .filter(|(_, a, need)| {
-                krypton_swap::bitcoin::Address::from_str(a)
+            .map(|(id, a, need)| {
+                let there = krypton_swap::bitcoin::Address::from_str(&a)
                     .ok()
-                    .map(|a| a.assume_checked())
-                    // Only a clear "not there" takes the mark off, not a failed lookup.
-                    .is_some_and(|a| matches!(deposit_at(&api, &a, *need), Ok(false)))
+                    .map(|x| x.assume_checked())
+                    .and_then(|x| deposit_at(&api, &x, need).ok());
+                (id, a, there)
             })
-            .map(|(id, _, _)| id)
             .collect();
-        if gone.is_empty() {
-            return;
-        }
         let mut i = node.board.inner.lock();
-        for id in &gone {
-            if i.offers.contains_key(id) {
-                i.deposits.remove(id);
-            }
+        let mut changed = false;
+        for (id, a, there) in &seen {
+            changed |= i.deposit_seen(id, a, *there);
         }
-        node.board.save_board(&i);
+        if changed {
+            node.board.save_board(&i);
+        }
     });
 }
 
@@ -2153,33 +2323,17 @@ fn post_promise_now(node: &Arc<Node>, r: PromisePost) -> Response {
     if !maker && !its_deposit {
         return bad("this promise is not for an offer on this board");
     }
-    let of_offer = i
-        .promises
-        .values()
-        .flatten()
-        .filter(|x| x.offer == r.offer)
-        .count();
-    let total: usize = i.promises.values().map(Vec::len).sum();
-    let v = i.promises.entry(address).or_default();
-    if !v.iter().any(|x| x.id == p.id) {
-        if v.len() >= MAX_PROMISES_EACH
-            || of_offer >= MAX_PROMISES_AN_OFFER
-            || total >= MAX_PROMISES
-        {
-            return bad("too many promises; try again later");
-        }
-        v.push(Promised {
-            id: p.id,
-            offer: r.offer,
-            sats: p.sats,
-            release: p.release,
-            at: t,
-        });
-    }
-    let (sum, n) = (
-        v.iter().fold(0u64, |a, x| a.saturating_add(x.sats)),
-        v.len(),
-    );
+    let made = Promised {
+        id: p.id,
+        offer: r.offer,
+        sats: p.sats,
+        release: p.release,
+        at: t,
+    };
+    let (sum, n) = match i.promise(address, made) {
+        Ok(x) => x,
+        Err(e) => return bad(e),
+    };
     node.board.save_board(&i);
     Json(json!({"ok": true, "promised": sum, "promises": n})).into_response()
 }
@@ -2370,17 +2524,341 @@ mod tests {
         })
     }
 
+    fn at(a: &str) -> Option<String> {
+        Some(a.to_string())
+    }
+
+    fn coin(sats: u64, height: Option<u32>) -> krypton_swap::btc::Utxo {
+        use krypton_swap::bitcoin::{Amount, OutPoint};
+        krypton_swap::btc::Utxo {
+            outpoint: OutPoint::null(),
+            value: Amount::from_sat(sats),
+            height,
+        }
+    }
+
+    /// The one way onto the board: a sell offer with its proven GNR, a buy offer with its
+    /// found bitcoin. Neither stands in for the other.
     #[test]
-    fn a_sell_offer_is_listed_only_with_its_proof() {
+    fn an_offer_is_listed_only_with_what_stands_behind_it() {
         let mut i = Inner::default();
         assert_eq!(
-            i.list(offer("a", Side::SellGnr), None, T),
+            i.list(offer("a", Side::SellGnr), None, None, T),
             Err(board::RESERVE_MISSING)
         );
-        assert!(i.offers.is_empty() && i.backing.is_empty());
-        // Buying promises bitcoin, which no GNR board can check: no proof is asked for.
-        assert_eq!(i.list(offer("b", Side::BuyGnr), None, T), Ok(()));
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, None, T),
+            Err(board::FUNDING_MISSING)
+        );
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), backing("n1", "d1"), None, T),
+            Err(board::FUNDING_MISSING)
+        );
+        assert_eq!(
+            i.list(offer("a", Side::SellGnr), None, at("addr1"), T),
+            Err(board::RESERVE_MISSING)
+        );
+        assert!(i.offers.is_empty() && i.seen.is_empty());
+        assert!(i.backing.is_empty() && i.deposits.is_empty());
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
         assert!(i.offers.contains_key("b") && i.backing.is_empty());
+        assert_eq!(i.deposits.get("b").map(String::as_str), Some("addr1"));
+        // An offer that got onto the board any other way does not stay there.
+        i.offers.insert("x".into(), offer("x", Side::BuyGnr));
+        i.offers.insert("y".into(), offer("y", Side::SellGnr));
+        i.seen.insert("x".into(), T);
+        i.seen.insert("y".into(), T);
+        Board::expire(&mut i, T + 1);
+        assert_eq!(i.offers.keys().collect::<Vec<_>>(), ["b"]);
+    }
+
+    /// The same bitcoin cannot be offered twice: not while its offer is open, and not
+    /// while the swap it was taken for runs.
+    #[test]
+    fn one_deposit_stands_behind_one_offer() {
+        let mut i = Inner::default();
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
+        assert_eq!(
+            i.list(offer("c", Side::BuyGnr), None, at("addr1"), T),
+            Err(DEPOSIT_TAKEN)
+        );
+        assert!(!i.offers.contains_key("c") && !i.deposits.contains_key("c"));
+        i.start("b", T);
+        Board::expire(&mut i, T + 60);
+        assert!(i.pending.contains_key("b") && i.deposits.contains_key("b"));
+        assert_eq!(
+            i.list(offer("c", Side::BuyGnr), None, at("addr1"), T),
+            Err(DEPOSIT_TAKEN)
+        );
+        i.take_down("b");
+        assert!(i.deposits.is_empty());
+        assert_eq!(
+            i.list(offer("c", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
+        assert_eq!(
+            i.list(offer("d", Side::BuyGnr), None, at("addr2"), T),
+            Ok(())
+        );
+        assert_eq!(i.deposits.len(), 2);
+    }
+
+    /// A buy offer says its bitcoin is there; when it has clearly gone, the offer goes.
+    /// A Bitcoin server that does not answer, or answers oddly once, takes nothing down.
+    #[test]
+    fn a_buy_offer_goes_when_its_bitcoin_has_gone() {
+        let mut i = Inner::default();
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
+        assert_eq!(
+            i.list(offer("c", Side::BuyGnr), None, at("addr2"), T),
+            Ok(())
+        );
+        assert!(!i.deposit_seen("b", "addr1", None));
+        assert!(!i.deposit_seen("b", "addr1", Some(false)));
+        assert!(i.offers.contains_key("b"), "one miss is not enough");
+        assert!(!i.deposit_seen("b", "addr1", Some(true)));
+        assert!(!i.deposit_seen("b", "addr1", Some(false)));
+        assert!(
+            i.offers.contains_key("b"),
+            "found in between, the count starts over"
+        );
+        assert!(!i.deposit_seen("b", "addr1", None));
+        assert!(i.deposit_seen("b", "addr1", Some(false)));
+        assert!(!i.offers.contains_key("b") && !i.deposits.contains_key("b"));
+        assert!(!i.seen.contains_key("b") && i.deposit_misses.is_empty());
+        assert!(i.offers.contains_key("c"), "the other offer is not touched");
+        // An answer about a deposit the offer no longer has is not used.
+        for _ in 0..3 {
+            assert!(!i.deposit_seen("c", "addr1", Some(false)));
+            assert!(!i.deposit_seen("gone", "addr2", Some(false)));
+        }
+        assert!(i.offers.contains_key("c") && i.deposit_misses.is_empty());
+        // A swap in progress is not judged by its deposit: that bitcoin is on its way into
+        // the swap's contract.
+        i.start("c", T);
+        for _ in 0..3 {
+            assert!(!i.deposit_seen("c", "addr2", Some(false)));
+        }
+        assert!(i.pending.contains_key("c") && i.deposits.contains_key("c"));
+        // The address that was given up can stand behind a new offer.
+        assert_eq!(
+            i.list(offer("e", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
+    }
+
+    /// One deposit shown to two sellers: the board counts both promises against it, and
+    /// each seller sees a sum the Bitcoin chain does not cover, so neither locks twice
+    /// for the same bitcoin.
+    #[test]
+    fn a_deposit_promised_to_two_sellers_shows_both() {
+        let p = |id: &str, offer: &str, sats: u64| Promised {
+            id: id.into(),
+            offer: offer.into(),
+            sats,
+            release: "r".into(),
+            at: T,
+        };
+        let mut i = Inner::default();
+        assert_eq!(
+            i.promise("addr1".into(), p("r1", "o1", 50_000)),
+            Ok((50_000, 1))
+        );
+        assert_eq!(
+            i.promise("addr1".into(), p("r1", "o1", 50_000)),
+            Ok((50_000, 1)),
+            "the same request is counted once"
+        );
+        assert_eq!(
+            i.promise("addr1".into(), p("r2", "o2", 50_000)),
+            Ok((100_000, 2)),
+            "a second seller sees twice what the deposit holds"
+        );
+        assert_eq!(
+            i.promise("addr2".into(), p("r3", "o3", 50_000)),
+            Ok((50_000, 1))
+        );
+        // No offer gathers more promises than it could ever need.
+        for n in 0..MAX_PROMISES_AN_OFFER {
+            assert!(
+                i.promise(format!("a{n}"), p(&format!("x{n}"), "o9", 10_000))
+                    .is_ok()
+            );
+        }
+        assert!(i.promise("z".into(), p("y", "o9", 10_000)).is_err());
+        assert!(
+            !i.promises.contains_key("z"),
+            "a refused promise leaves nothing behind"
+        );
+        // Promises run out by themselves (a swap that never paid frees the deposit).
+        Board::expire(&mut i, T + board::PROMISE_SECS + 1);
+        assert!(i.promises.is_empty());
+    }
+
+    #[test]
+    fn every_deposit_has_its_turn() {
+        let mut i = Inner::default();
+        for n in 0..7 {
+            let o = offer(&format!("b{n}"), Side::BuyGnr);
+            assert_eq!(i.list(o, None, at(&format!("addr{n}")), T), Ok(()));
+        }
+        let ids = |v: Vec<(String, String, u64)>| v.into_iter().map(|x| x.0).collect::<Vec<_>>();
+        assert_eq!(ids(i.next_deposits(3)), ["b0", "b1", "b2"]);
+        assert_eq!(ids(i.next_deposits(3)), ["b3", "b4", "b5"]);
+        assert_eq!(ids(i.next_deposits(3)), ["b6", "b0", "b1"]);
+        assert_eq!(ids(i.next_deposits(3)), ["b2", "b3", "b4"]);
+        // Few enough: all of them every time, with the address and the amount to find.
+        let all = i.next_deposits(60);
+        assert_eq!(all.len(), 7);
+        assert_eq!(all[2], ("b2".to_string(), "addr2".to_string(), 50_000));
+        // Swaps in progress are not looked up.
+        i.start("b0", T);
+        assert_eq!(i.next_deposits(60).len(), 6);
+        assert!(Inner::default().next_deposits(60).is_empty());
+    }
+
+    #[test]
+    fn bitcoin_on_its_way_does_not_count() {
+        assert!(!covered(&[], 1));
+        assert!(!covered(&[coin(50_000, None)], 50_000));
+        assert!(covered(&[coin(50_000, Some(100))], 50_000));
+        assert!(!covered(&[coin(49_999, Some(100))], 50_000));
+        assert!(!covered(
+            &[coin(30_000, Some(100)), coin(30_000, None)],
+            50_000
+        ));
+        assert!(covered(
+            &[coin(30_000, Some(100)), coin(20_000, Some(101))],
+            50_000
+        ));
+        // Amounts no chain holds do not wrap around.
+        assert!(covered(
+            &[coin(u64::MAX, Some(1)), coin(u64::MAX, Some(1))],
+            u64::MAX
+        ));
+    }
+
+    #[test]
+    fn deposit_lookups_are_rationed() {
+        let ip = |n: u8| Some(IpAddr::from([10, 0, 0, n]));
+        let mut i = Inner::default();
+        for _ in 0..DEPOSIT_LOOKUPS_A_MINUTE_EACH {
+            assert!(i.deposit_lookup_allowed(ip(1), T));
+        }
+        assert!(
+            !i.deposit_lookup_allowed(ip(1), T + 30),
+            "one client's share"
+        );
+        assert!(i.deposit_lookup_allowed(ip(2), T + 30), "another is served");
+        assert!(
+            i.deposit_lookup_allowed(ip(1), T + 60),
+            "and the first again next minute"
+        );
+        let mut i = Inner::default();
+        for n in 0..DEPOSIT_LOOKUPS_A_MINUTE {
+            assert!(i.deposit_lookup_allowed(ip(n as u8), T));
+        }
+        assert!(
+            !i.deposit_lookup_allowed(ip(200), T + 59),
+            "the board's share"
+        );
+        assert!(!i.deposit_lookup_allowed(None, T + 59));
+        assert!(i.deposit_lookup_allowed(ip(200), T + 60));
+    }
+
+    /// What wallets before 1.0.56 send is still read: a sell offer with the choice the
+    /// board no longer keeps, and a buy offer without a deposit (refused by `list`).
+    #[test]
+    fn a_post_from_an_older_wallet_is_still_read() {
+        let mut v = serde_json::to_value(offer("a", Side::SellGnr)).unwrap();
+        v["prepaid"] = json!(false);
+        v["reserve"] = json!("00");
+        let p: OfferPost = serde_json::from_value(v).unwrap();
+        assert!(p.reserve.is_some() && p.funding.is_none() && p.auto.is_none());
+        let p: OfferPost =
+            serde_json::from_value(serde_json::to_value(offer("b", Side::BuyGnr)).unwrap())
+                .unwrap();
+        assert!(p.funding.is_none());
+        assert_eq!(
+            Inner::default().list(p.offer, None, None, T),
+            Err(board::FUNDING_MISSING)
+        );
+    }
+
+    /// A board file from 1.0.55, when a buy offer could be listed without bitcoin. Its
+    /// covered offers stay; the buy offer nothing stands behind goes; swaps in progress
+    /// and mailboxes are not touched. This happens once.
+    #[test]
+    fn a_board_from_before_buy_offers_had_deposits_keeps_what_is_covered() {
+        let dir = std::env::temp_dir().join(format!("gk-board3-{}-{}", std::process::id(), now()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let t = now();
+        let o = |id: &str, side: Side| {
+            let mut o = offer(id, side);
+            o.expires = t + 3600;
+            o
+        };
+        let b = |n: &str| json!({"nullifiers": [n, format!("d{n}")], "anchor": "root"});
+        let old = json!({
+            "offers": [o("a", Side::SellGnr), o("b", Side::BuyGnr), o("c", Side::BuyGnr), o("s", Side::SellGnr)],
+            "coin_offers": [],
+            "pending": [[o("d", Side::BuyGnr), t], [o("p", Side::SellGnr), t]],
+            "inbox": [["ff".repeat(32), [[t, "sealed"]]]],
+            "rules": 2,
+            "backing": [["a", b("n1")], ["s", b("n2")], ["p", b("n3")]],
+            "deposits": [["b", "addr1"]],
+            "prepaid": ["a"],
+            "funded": ["d"],
+        });
+        let file = dir.join("swap-board.json");
+        std::fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
+        let open = || {
+            let b = Board::default();
+            b.set_path(dir.join("swap-trades.json"));
+            let mut i = Inner::default();
+            b.load(&mut i);
+            (b, i)
+        };
+        let (b, i) = open();
+        let mut ids: Vec<_> = i.offers.keys().cloned().collect();
+        ids.sort();
+        assert_eq!(
+            ids,
+            ["a", "b", "s"],
+            "the buy offer without bitcoin is gone"
+        );
+        assert!(!i.seen.contains_key("c") && !i.deposits.contains_key("c"));
+        let mut running: Vec<_> = i.pending.keys().cloned().collect();
+        running.sort();
+        assert_eq!(running, ["d", "p"], "swaps in progress go on");
+        assert!(i.funded.contains("d"));
+        assert_eq!(i.messages, 1);
+        assert_eq!(i.backing.len(), 3);
+        assert_eq!(i.deposits.len(), 1);
+        b.write_board_now(&i);
+        let saved: Saved = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(
+            (saved.rules, saved.offers.len(), saved.pending.len()),
+            (RULES, 3, 2)
+        );
+        let (_, mut i) = open();
+        assert_eq!(i.offers.len(), 3);
+        // The deposit that was there is still spoken for, the dropped offer's id is free.
+        assert_eq!(
+            i.list(o("e", Side::BuyGnr), None, at("addr1"), t),
+            Err(DEPOSIT_TAKEN)
+        );
+        assert_eq!(i.list(o("c", Side::BuyGnr), None, at("addr2"), t), Ok(()));
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -2388,16 +2866,16 @@ mod tests {
         let twice = Err("this GNR already backs another offer on the board");
         let mut i = Inner::default();
         assert_eq!(
-            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), T),
+            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), None, T),
             Ok(())
         );
         // The same note behind a second offer, as either of the proof's two inputs.
         assert_eq!(
-            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), T),
+            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), None, T),
             twice
         );
         assert_eq!(
-            i.list(offer("b", Side::SellGnr), backing("d2", "n1"), T),
+            i.list(offer("b", Side::SellGnr), backing("d2", "n1"), None, T),
             twice
         );
         assert!(!i.offers.contains_key("b") && !i.backing.contains_key("b"));
@@ -2409,24 +2887,24 @@ mod tests {
         Board::expire(&mut i, T + 60);
         assert!(i.backing.contains_key("a"));
         assert_eq!(
-            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), T),
+            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), None, T),
             twice
         );
         // The same id cannot be used again either while the swap runs.
         assert!(
-            i.list(offer("a", Side::SellGnr), backing("n9", "d9"), T)
+            i.list(offer("a", Side::SellGnr), backing("n9", "d9"), None, T)
                 .is_err()
         );
         // The swap is over (its maker takes the entry down): the coins are free again.
         i.take_down("a");
         assert!(i.backing.is_empty() && i.pending.is_empty());
         assert_eq!(
-            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), T),
+            i.list(offer("b", Side::SellGnr), backing("n1", "d2"), None, T),
             Ok(())
         );
         // Other coins are another matter.
         assert_eq!(
-            i.list(offer("c", Side::SellGnr), backing("n2", "d3"), T),
+            i.list(offer("c", Side::SellGnr), backing("n2", "d3"), None, T),
             Ok(())
         );
         assert_eq!(i.backing.len(), 2);
@@ -2436,11 +2914,11 @@ mod tests {
     fn coins_are_free_again_when_their_entry_runs_out() {
         let mut i = Inner::default();
         assert_eq!(
-            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), T),
+            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), None, T),
             Ok(())
         );
         assert_eq!(
-            i.list(offer("b", Side::SellGnr), backing("n2", "d2"), T),
+            i.list(offer("b", Side::SellGnr), backing("n2", "d2"), None, T),
             Ok(())
         );
         i.start("b", T);
@@ -2452,7 +2930,7 @@ mod tests {
         Board::expire(&mut i, T + 3600 + PENDING_IDLE_SECS + 1);
         assert!(i.pending.is_empty() && i.backing.is_empty());
         assert_eq!(
-            i.list(offer("c", Side::SellGnr), backing("n2", "d9"), T),
+            i.list(offer("c", Side::SellGnr), backing("n2", "d9"), None, T),
             Ok(())
         );
     }
@@ -2500,16 +2978,16 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("gk-board-{}-{}", std::process::id(), now()));
         std::fs::create_dir_all(&dir).unwrap();
         let t = now();
-        let at = |id: &str, side: Side| {
+        let made = |id: &str, side: Side| {
             let mut o = offer(id, side);
             o.expires = t + 3600;
             o
         };
         // What 1.0.39 wrote: no rules, no backing.
         let old = json!({
-            "offers": [at("a", Side::SellGnr), at("b", Side::BuyGnr)],
+            "offers": [made("a", Side::SellGnr), made("b", Side::BuyGnr)],
             "coin_offers": [],
-            "pending": [[at("c", Side::SellGnr), t], [at("d", Side::BuyGnr), t]],
+            "pending": [[made("c", Side::SellGnr), t], [made("d", Side::BuyGnr), t]],
             "inbox": [["ff".repeat(32), [[t, "sealed"]]]],
         });
         let file = dir.join("swap-board.json");
@@ -2530,11 +3008,11 @@ mod tests {
         assert_eq!((saved.rules, saved.offers.len()), (RULES, 0));
         // Listed under the new rules, taken, and the node starts again.
         assert_eq!(
-            i.list(at("e", Side::SellGnr), backing("n1", "d1"), t),
+            i.list(made("e", Side::SellGnr), backing("n1", "d1"), None, t),
             Ok(())
         );
         assert_eq!(
-            i.list(at("f", Side::SellGnr), backing("n2", "d2"), t),
+            i.list(made("f", Side::SellGnr), backing("n2", "d2"), None, t),
             Ok(())
         );
         i.start("f", t);
@@ -2545,7 +3023,7 @@ mod tests {
         assert_eq!(i.backing.len(), 2);
         // The coins of the swap in progress are still spoken for after the restart.
         assert!(
-            i.list(at("g", Side::SellGnr), backing("n2", "d3"), t)
+            i.list(made("g", Side::SellGnr), backing("n2", "d3"), None, t)
                 .is_err()
         );
         std::fs::remove_dir_all(&dir).ok();
@@ -2555,10 +3033,13 @@ mod tests {
     fn taking_an_offer_down_leaves_others_alone() {
         let mut i = Inner::default();
         assert_eq!(
-            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), T),
+            i.list(offer("a", Side::SellGnr), backing("n1", "d1"), None, T),
             Ok(())
         );
-        assert_eq!(i.list(offer("b", Side::BuyGnr), None, T), Ok(()));
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, at("addr1"), T),
+            Ok(())
+        );
         i.take_down("a");
         assert!(i.offers.contains_key("b") && i.seen.contains_key("b"));
         assert!(!i.offers.contains_key("a") && !i.seen.contains_key("a"));

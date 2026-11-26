@@ -215,11 +215,13 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
     .into_response()
 }
 
+/// A swap by codes that buys GNR. It is paid from the wallet's Bitcoin balance: the
+/// request names the balance, so the seller's wallet can see the bitcoin before it locks
+/// anything, and refunds come back to the balance.
 #[derive(Deserialize)]
 pub struct RequestReq {
     gnr: String,
     btc: String,
-    address: String,
     #[serde(default)]
     password: String,
 }
@@ -239,7 +241,7 @@ pub async fn request(
         let sats = Amount::from_str_in(r.btc.trim(), Denomination::Bitcoin)
             .map_err(|e| anyhow!("invalid BTC amount: {e}"))?
             .to_sat();
-        run(&a, |e| e.request(gnr, sats, &r.address))
+        run(&a, |e| crate::board::request_from_balance(e, gnr, sats))
     })
     .await
     {
@@ -327,7 +329,9 @@ pub async fn accept(
     match blocking(move || {
         crate::confirm_password(&a, &r.password)?;
         let addr = r.address.clone().unwrap_or_default();
-        run(&a, |e| e.accept(&r.code, &addr))
+        // GNR is locked only for a buyer whose bitcoin this wallet has seen on the
+        // Bitcoin chain, at the address the request names.
+        run(&a, |e| crate::board::accept_shown(e, &r.code, &addr))
     })
     .await
     {

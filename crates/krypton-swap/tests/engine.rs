@@ -1904,3 +1904,136 @@ fn a_waiting_deposit_is_explained_and_can_be_sped_up() {
     let _ = btc.pay_waiting(&addr, 9_000, 141, 141, true);
     assert_eq!(e.bump_plan(BALANCE).unwrap(), Err(engine::BUMP_COSTLY));
 }
+
+/// A wallet sells only to a buyer whose bitcoin it can see. A request that names no
+/// bitcoin, names bitcoin that is not there or not in a block yet, or was changed after it
+/// was signed, is refused before anything is accepted: no GNR is locked on a promise.
+#[test]
+fn a_seller_locks_only_for_bitcoin_it_can_see() {
+    use krypton_swap::deposit::BALANCE;
+    use krypton_swap::engine::Msg;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    btc.mine();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let payout = btc_addr(1).to_string();
+
+    // Paying by hand: the request names no bitcoin.
+    let by_hand = b
+        .engine(&src, &btc, &chain)
+        .request(GNR, SATS, &btc_addr(2).to_string())
+        .unwrap();
+    let e = a
+        .engine(&src, &btc, &chain)
+        .accept_seen(by_hand.code.as_ref().unwrap(), &payout, None)
+        .unwrap_err();
+    assert_eq!(e.to_string(), engine::NOT_SHOWN);
+
+    // From the balance, but the balance is empty.
+    let own = b.engine(&src, &btc, &chain).deposit_address(BALANCE);
+    let req = b
+        .engine(&src, &btc, &chain)
+        .request_from(GNR, SATS, &own.to_string(), Some(BALANCE))
+        .unwrap();
+    let code = req.code.clone().unwrap();
+    let e = a
+        .engine(&src, &btc, &chain)
+        .accept_seen(&code, &payout, None)
+        .unwrap_err();
+    assert!(e.to_string().contains("is not there"), "{e}");
+
+    // Bitcoin on its way does not count; too little does not count.
+    btc.pay(&own, SATS);
+    assert!(
+        a.engine(&src, &btc, &chain)
+            .accept_seen(&code, &payout, None)
+            .is_err(),
+        "not in a block yet"
+    );
+    btc.mine();
+
+    // A request changed after it was signed: more GNR for the same bitcoin, another
+    // amount of bitcoin, another swap. The proof fits none of them.
+    for (field, value) in [
+        ("gnr", serde_json::Value::from(GNR * 10)),
+        ("sats", (SATS - 1).into()),
+        ("id", "33".repeat(16).into()),
+    ] {
+        let mut forged: serde_json::Value =
+            serde_json::to_value(Msg::decode(&code).unwrap()).unwrap();
+        forged[field] = value;
+        let forged: Msg = serde_json::from_value(forged).unwrap();
+        assert!(
+            a.engine(&src, &btc, &chain)
+                .accept_seen(&forged.encode(), &payout, None)
+                .is_err(),
+            "{field}"
+        );
+    }
+    // A proof lifted from one request does not carry another.
+    let other = b
+        .engine(&src, &btc, &chain)
+        .request(GNR, SATS, &own.to_string())
+        .unwrap();
+    let mut lifted: serde_json::Value =
+        serde_json::to_value(Msg::decode(other.code.as_ref().unwrap()).unwrap()).unwrap();
+    lifted["prepaid"] =
+        serde_json::to_value(Msg::decode(&code).unwrap()).unwrap()["prepaid"].clone();
+    let lifted: Msg = serde_json::from_value(lifted).unwrap();
+    assert!(
+        a.engine(&src, &btc, &chain)
+            .accept_seen(&lifted.encode(), &payout, None)
+            .is_err()
+    );
+    assert!(load(&a.wallet).is_empty(), "nothing was accepted so far");
+    assert!(a.wallet.locks().is_empty(), "and nothing locked");
+
+    // The bitcoin is there, confirmed: accepted, and marked as seen.
+    let s = a
+        .engine(&src, &btc, &chain)
+        .accept_seen(&code, &payout, None)
+        .unwrap();
+    assert!(s.prepaid);
+    assert_eq!(s.stage, Stage::Accepted);
+
+    // Once that bitcoin has moved, the same balance carries no further request.
+    let req2 = b
+        .engine(&src, &btc, &chain)
+        .request_from(GNR, SATS, &own.to_string(), Some(BALANCE))
+        .unwrap();
+    let away = btc_addr(9).to_string();
+    b.engine(&src, &btc, &chain)
+        .sweep_deposit(BALANCE, &away)
+        .unwrap()
+        .expect("swept");
+    btc.mine();
+    let e = a
+        .engine(&src, &btc, &chain)
+        .accept_seen(req2.code.as_ref().unwrap(), &payout, None)
+        .unwrap_err();
+    assert!(e.to_string().contains("is not there"), "{e}");
+
+    // A Bitcoin server that does not answer is no proof either.
+    let blocks = |h: u64| -> Result<Vec<GnrTx>> { Ok(chain.block_at(h)?.context("block")?.txs) };
+    let e = Engine {
+        wallet: &mut a.wallet,
+        gnr: &src,
+        btc: &Down,
+        btc_network: BtcNet::Regtest,
+        timing: Timing::TEST,
+        block_txs: &blocks,
+    }
+    .accept_seen(req2.code.as_ref().unwrap(), &payout, None)
+    .unwrap_err();
+    assert!(format!("{e:#}").contains("did not answer"), "{e:#}");
+    assert_eq!(
+        load(&a.wallet).len(),
+        1,
+        "only the one swap whose bitcoin was seen"
+    );
+}

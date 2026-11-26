@@ -248,7 +248,7 @@ fn follow_market(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
             continue;
         };
         let secret: [u8; 32] = rand::random();
-        let mut next = Offer {
+        let next = Offer {
             id: hex::encode(rand::random::<[u8; 16]>()),
             gnr,
             sats,
@@ -256,15 +256,13 @@ fn follow_market(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
             nonce: 0,
             ..m.offer.clone()
         };
-        let down = json!({"id": m.offer.id, "secret": m.cancel_secret});
+        // An offer from before 1.0.56 with nothing behind it has no place on a board
+        // any more: it is not listed again (the round that asks the board ends it).
         if m.reserve.is_none() && m.fund.is_none() {
-            // Nothing stands behind it but its maker's word: the new one first.
-            next.seal_pow();
-            if post(base, "/v1/swap/offers", &next).is_err() {
-                continue;
-            }
-            let _ = post(base, "/v1/swap/offers/cancel", &down);
-        } else if post(base, "/v1/swap/offers/cancel", &down).is_err() {
+            continue;
+        }
+        let down = json!({"id": m.offer.id, "secret": m.cancel_secret});
+        if post(base, "/v1/swap/offers/cancel", &down).is_err() {
             continue;
         }
         let moving = "Following the market: publishing at the new price.";
@@ -300,10 +298,12 @@ fn follow_market(e: &mut Engine<'_, Multi>, base: &str, st: &mut State) {
     }
 }
 
-/// The bitcoin behind a buy offer. Publishing shows an address of this wallet's own
-/// (`krypton_swap::deposit`). Once the bitcoin is there and confirmed the offer is listed;
-/// a seller's take is paid from it without the buyer doing anything; and what is at the
-/// address when the offer ends goes back to the buyer's own Bitcoin address.
+/// The bitcoin behind a buy offer, at an address of this wallet's own made for the offer
+/// (`krypton_swap::deposit`). Publishing pays it there from the wallet's Bitcoin balance.
+/// Once it is confirmed the offer is listed; a seller's take is paid from it without the
+/// buyer doing anything; and what is at the address when the offer ends goes back to the
+/// balance. (Before 1.0.56 the buyer could also send it there by hand; such deposits are
+/// carried through as they were.)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct Fund {
     /// The number of the deposit address, and the address.
@@ -341,12 +341,18 @@ struct Fund {
     /// The transactions that sent bitcoin back.
     #[serde(default)]
     returned: Vec<String>,
+    /// Paid by this wallet from its Bitcoin balance (every deposit from 1.0.56): nobody
+    /// is asked to send anything to its address.
+    #[serde(default)]
+    from_balance: bool,
 }
 
-/// How a buy offer pays: by hand when a seller takes it, from bitcoin deposited now, or
-/// from the deposit of the offer it replaces.
+/// What stands behind a new offer on the Bitcoin side. A sell offer pays nothing. A buy
+/// offer always has its bitcoin first: at a deposit made for it now (paid from the
+/// wallet's Bitcoin balance), or at the deposit of the offer it replaces. There is no
+/// buy offer that pays later.
 enum Pay {
-    Later,
+    Selling,
     Deposit,
     Reuse(Fund),
 }
@@ -1240,11 +1246,14 @@ fn publish_offer(
     btc_address: &str,
     secs: u64,
     pay: Pay,
-    prepaid_only: bool,
     follow: Option<Follow>,
     auto: Option<AutoCfg>,
 ) -> Result<Offer> {
     engine::btc_address(btc_address, e.btc_network)?;
+    ensure!(
+        side == Side::SellGnr || !matches!(pay, Pay::Selling),
+        "a buy offer needs its bitcoin first: add bitcoin to your balance"
+    );
     let secs = secs.clamp(15 * 60, board::MAX_OFFER_SECS);
     ensure!(sats >= 10_000, "offer at least 10,000 sat");
     ensure!(
@@ -1281,8 +1290,8 @@ fn publish_offer(
         reserve: None,
         funded_sent: false,
         fund: None,
-        // A Quick Swap sell offer locks GNR only for buyers whose bitcoin is there.
-        prepaid_only: (prepaid_only || auto.is_some()) && side == Side::SellGnr,
+        // GNR is locked only for a buyer whose bitcoin this wallet can see.
+        prepaid_only: side == Side::SellGnr,
         follow,
         was: Vec::new(),
         auto: auto.clone(),
@@ -1297,7 +1306,7 @@ fn publish_offer(
     }
     let fund = match pay {
         _ if side == Side::SellGnr => None,
-        Pay::Later => None,
+        Pay::Selling => None,
         Pay::Reuse(f) => Some(f),
         Pay::Deposit => {
             // What is set aside for the fee of the payment follows today's fees.
@@ -1309,14 +1318,10 @@ fn publish_offer(
                 .checked_add(deposit::fee_reserve(rate))
                 .context("amount overflow")?;
             let d = next_deposit(e, &mut st);
-            let address = e.deposit_address(d).to_string();
             Some(Fund {
                 d,
-                status: format!(
-                    "Waiting for your bitcoin: send {} BTC to {address}. The offer is published by itself once it has one confirmation.",
-                    btc_text(need)
-                ),
-                address,
+                status: "Paying the offer's bitcoin from your Bitcoin balance.".into(),
+                address: e.deposit_address(d).to_string(),
                 need,
                 since: now(),
                 ..Default::default()
@@ -1333,19 +1338,12 @@ fn publish_offer(
         // Listed right away when a note of the right amount was already there.
         advance(e, base, &mut mine);
         offer = mine.offer.clone();
-    } else if fund.is_some() {
+    } else {
         // Listed once the bitcoin is at the deposit address: at once if it already is.
-        mine.fund = fund;
+        // A buy offer with nothing behind it is never posted.
+        mine.fund = Some(fund.context("a buy offer needs its bitcoin first")?);
         advance_buy(e, base, &mut mine);
         offer = mine.offer.clone();
-    } else {
-        ensure!(
-            auto.is_none(),
-            "a Quick Swap buy offer needs its bitcoin first"
-        );
-        offer.seal_pow();
-        post(base, "/v1/swap/offers", &offer)?;
-        mine.offer = offer.clone();
     }
     st.offers.push(mine);
     save(e.wallet, &st)?;
@@ -1519,8 +1517,7 @@ fn publish_lots(
                 s,
                 btc_address,
                 secs,
-                Pay::Later,
-                true,
+                Pay::Selling,
                 follow.clone(),
                 Some(auto.clone()),
             )?;
@@ -1577,6 +1574,7 @@ fn publish_lots(
                     address: e.deposit_address(d).to_string(),
                     need: s + reserve,
                     since: now(),
+                    from_balance: true,
                     status: "Paid from your Bitcoin balance; the lot is published once that has one confirmation (about ten minutes).".into(),
                     ..Default::default()
                 });
@@ -1747,9 +1745,9 @@ fn advance(e: &mut Engine<'_, Multi>, base: &str, m: &mut MyOffer) {
         }
         let mut body = serde_json::to_value(&m.offer)?;
         body["reserve"] = json!(hex::encode(tx.to_bytes()));
-        if m.prepaid_only {
-            body["prepaid"] = json!(true);
-        }
+        // A board before 1.0.56 shows this to its wallets, which then pay from a deposit;
+        // a newer board says it of every sell offer by itself.
+        body["prepaid"] = json!(true);
         if let Some(a) = auto_json(m.auto.as_ref()) {
             body["auto"] = a;
         }
@@ -1850,20 +1848,15 @@ fn fund_step(
     let enough = offer.sats + f.need.saturating_sub(offer.sats) / 2;
     if f.confirmed < enough {
         f.status = if f.seen >= enough {
-            "Your bitcoin arrived. The offer is published by itself after its first confirmation (about ten minutes).".into()
+            "The offer's bitcoin is on its way to its address. The offer is published by itself after its first confirmation (about ten minutes).".into()
         } else if f.seen > 0 {
             format!(
-                "{} BTC arrived; send {} BTC more to {}.",
+                "{} BTC of the offer's {} BTC is at its address. The offer is published once all of it is there and confirmed.",
                 btc_text(f.seen),
-                btc_text(f.need - f.seen),
-                f.address
+                btc_text(f.need)
             )
         } else {
-            format!(
-                "Waiting for your bitcoin: send {} BTC to {}. The offer is published by itself once it has one confirmation.",
-                btc_text(f.need),
-                f.address
-            )
+            "Waiting for the offer's bitcoin at its address. The offer is published by itself once it is there with one confirmation.".into()
         };
         return Ok(false);
     }
@@ -2095,44 +2088,38 @@ fn key_of(w: &Wallet, n: u32) -> krypton_crypto::kem::SecretKey {
     offer_key(w.swap_seed(), 1_000_000u32.wrapping_add(n))
 }
 
-/// How a purchase pays: by hand once the seller's GNR is locked, from a deposit address
-/// made for it (paid by the buyer first), or from the wallet's Bitcoin balance at once.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum TakePay {
-    Later,
-    Deposit,
-    Balance,
+/// What the wallet says when its Bitcoin balance cannot pay `sats` and the network fee.
+/// Bitcoin counts once it is in a block and not promised to another purchase.
+fn short_of(e: &Engine<'_, Multi>, st: &State, sats: u64) -> Result<Option<String>> {
+    let b = quick::balance(e, st)?;
+    let free = b.confirmed.saturating_sub(b.committed);
+    let need = sats.saturating_add(quick::btc_fee(e));
+    Ok((free < need).then(|| {
+        let waiting = b.total.saturating_sub(b.confirmed);
+        format!(
+            "your Bitcoin balance has {} BTC free and confirmed; this needs {} BTC with the network fee, so {} BTC more. Add bitcoin to your balance first (it counts after one confirmation){}",
+            btc_text(free),
+            btc_text(need),
+            btc_text(need - free),
+            if waiting > 0 {
+                format!("; {} BTC there is still waiting for its first block", btc_text(waiting))
+            } else {
+                String::new()
+            }
+        )
+    }))
 }
 
+/// Takes offer `id`. Buying GNR pays from the wallet's Bitcoin balance and from nowhere
+/// else: the request names the balance, the seller's wallet finds the bitcoin there
+/// before it locks anything, and this wallet pays the contract from it by itself (what
+/// running purchases will still pay is kept aside). Selling GNR is paid to `payout`, or
+/// into the balance when that is empty.
 fn take_offer(
     e: &mut Engine<'_, Multi>,
     base: &str,
     id: &str,
-    btc_address: &str,
-    deposit: bool,
-) -> Result<(String, Option<Fund>)> {
-    let raw = get(base, "/v1/swap/offers")?["offers"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .find(|o| o["id"].as_str() == Some(id))
-        .context("this offer is no longer on the board")?;
-    let pay = if deposit {
-        TakePay::Deposit
-    } else {
-        TakePay::Later
-    };
-    take_listed(e, base, &raw, btc_address, pay, None, None)
-}
-
-/// Takes offer `id` with the wallet's Bitcoin balance, as a Quick Swap part does: buying
-/// GNR pays the contract from the balance once the seller's GNR is locked (what running
-/// purchases will still pay is kept aside), selling GNR is paid into the balance.
-fn take_with_balance(
-    e: &mut Engine<'_, Multi>,
-    base: &str,
-    id: &str,
+    payout: &str,
 ) -> Result<(String, Option<Fund>)> {
     let raw = get(base, "/v1/swap/offers")?["offers"]
         .as_array()
@@ -2142,30 +2129,45 @@ fn take_with_balance(
         .find(|o| o["id"].as_str() == Some(id))
         .context("this offer is no longer on the board")?;
     let offer: Offer = serde_json::from_value(raw.clone())?;
-    let to = e.deposit_address(deposit::BALANCE).to_string();
-    if offer.side == Side::SellGnr {
-        let st = load(e.wallet);
-        let b = quick::balance(e, &st)?;
-        let free = b.confirmed.saturating_sub(b.committed);
-        ensure!(
-            free >= offer.sats.saturating_add(quick::btc_fee(e)),
-            "your Bitcoin balance has {} BTC free and confirmed; this offer needs {} BTC and the network fee. Add bitcoin to your balance first (it needs one confirmation)",
-            btc_text(free),
-            btc_text(offer.sats)
-        );
-        take_listed(e, base, &raw, &to, TakePay::Balance, None, None)
+    let own = e.deposit_address(deposit::BALANCE).to_string();
+    if offer.side == Side::SellGnr || payout.trim().is_empty() {
+        take_listed(e, base, &raw, &own, None, None)
     } else {
-        take_listed(e, base, &raw, &to, TakePay::Later, None, None)
+        take_listed(e, base, &raw, payout, None, None)
     }
 }
 
+/// Starts a swap by codes that buys `gnr` for `sats`, paid from the wallet's Bitcoin
+/// balance: the request names the balance, so the seller's wallet can see the bitcoin
+/// before it locks its GNR. Refunds and change come back to the balance.
+pub fn request_from_balance(
+    e: &mut Engine<'_, Multi>,
+    gnr: u64,
+    sats: u64,
+) -> Result<engine::Swap> {
+    if let Some(why) = short_of(e, &load(e.wallet), sats)? {
+        bail!(why);
+    }
+    let own = e.deposit_address(deposit::BALANCE).to_string();
+    e.request_from(gnr, sats, &own, Some(deposit::BALANCE))
+}
+
+/// Accepts a request made by codes, selling GNR for it, only when this wallet sees the
+/// buyer's bitcoin itself: the request must name an address of the buyer's wallet (signed
+/// by that address's key), and the Bitcoin chain must show the swap's amount there,
+/// confirmed and unspent. Otherwise nothing is locked.
+pub fn accept_shown(e: &mut Engine<'_, Multi>, code: &str, payout: &str) -> Result<engine::Swap> {
+    e.accept_seen(code, payout, None)
+}
+
 /// Takes the offer the board listed as `raw`, or the part `part` (GNR, sat) of it.
+/// `btc_address`: buying, the wallet's Bitcoin balance (which pays, and gets change and
+/// any refund); selling, where the bitcoin is to be paid.
 fn take_listed(
     e: &mut Engine<'_, Multi>,
     base: &str,
     raw: &Value,
     btc_address: &str,
-    pay: TakePay,
     part: Option<(u64, u64)>,
     quick: Option<String>,
 ) -> Result<(String, Option<Fund>)> {
@@ -2175,7 +2177,7 @@ fn take_listed(
         "the maker of this offer is offline right now, so the swap could not start at once; pick an online offer"
     );
     let proven = raw["backed"].as_bool().unwrap_or(false);
-    let prepaid_only = raw["prepaid"].as_bool().unwrap_or(false);
+    let deposited = raw["deposited"].as_bool().unwrap_or(false);
     let auto: Option<board::Auto> = serde_json::from_value(raw["auto"].clone()).ok();
     let offer: Offer = serde_json::from_value(raw.clone())?;
     let id = offer.id.clone();
@@ -2183,6 +2185,10 @@ fn take_listed(
     ensure!(
         offer.side != Side::SellGnr || proven,
         "this offer does not prove that its GNR is there (the board it is on runs older software), so it cannot be taken"
+    );
+    ensure!(
+        offer.side != Side::BuyGnr || deposited,
+        "this offer does not show that its bitcoin is there (the board it is on runs older software, or cannot read the Bitcoin chain), so it cannot be taken"
     );
     ensure!(
         offer.btc_network == e.btc_network.to_core_arg(),
@@ -2195,10 +2201,6 @@ fn take_listed(
     let (gnr, sats) = part.unwrap_or((offer.gnr, offer.sats));
     let part = part.filter(|p| *p != (offer.gnr, offer.sats));
     let mut st = load(e.wallet);
-    ensure!(
-        offer.side != Side::SellGnr || !prepaid_only || pay != TakePay::Later,
-        "this seller sells only to buyers whose bitcoin is deposited first: choose \"Pay the bitcoin now\""
-    );
     ensure!(
         !st.offers.iter().any(|m| m.offer.id == id),
         "this is your own offer"
@@ -2225,35 +2227,20 @@ fn take_listed(
         promise: None,
     };
     match offer.side {
-        // The maker sells GNR and we pay in advance: the bitcoin goes to an address of
-        // this wallet first. The request is sent once it is there (`advance_takes`), so
-        // the seller's GNR is locked only for a buyer whose bitcoin is ready.
-        Side::SellGnr if pay == TakePay::Deposit => {
-            let rate = e
-                .btc
-                .fee_rate()
-                .context("the Bitcoin server did not answer; try again in a moment")?;
-            let need = sats
-                .checked_add(deposit::fee_reserve(rate))
-                .context("amount overflow")?;
-            let d = next_deposit(e, &mut st);
-            let address = e.deposit_address(d).to_string();
-            take.fund = Some(Fund {
-                d,
-                status: format!(
-                    "Waiting for your bitcoin: send {} BTC to {address}. The swap starts by itself once it has one confirmation.",
-                    btc_text(need)
-                ),
-                address,
-                need,
-                since: now(),
-                ..Default::default()
-            });
-        }
-        // The bitcoin is in this wallet's balance already: the request goes out at once
-        // and says so, and the wallet pays the contract from the balance by itself.
-        // Change and any refund come back to the balance.
-        Side::SellGnr if pay == TakePay::Balance => {
+        // The maker sells GNR: we buy, so we start the swap with a request. The bitcoin
+        // is in this wallet's balance already: the request says so, the seller's wallet
+        // looks it up, and this wallet pays the contract from the balance by itself.
+        // Change and any refund come back to the balance. There is no other way to buy:
+        // a request that shows no bitcoin would only have the seller's GNR locked for
+        // someone who may never pay.
+        Side::SellGnr => {
+            ensure!(
+                btc_address.trim() == e.deposit_address(deposit::BALANCE).to_string(),
+                "buying pays from the wallet's Bitcoin balance"
+            );
+            if let Some(why) = short_of(e, &st, sats)? {
+                bail!(why);
+            }
             let s = e.request_from(gnr, sats, btc_address, Some(deposit::BALANCE))?;
             let code = s.code.clone().context("request code")?;
             send_note(
@@ -2273,29 +2260,6 @@ fn take_listed(
                 posted: true,
                 ..Default::default()
             });
-            take.swap_id = Some(s.id.clone());
-            st.links.push(Link {
-                swap_id: s.id,
-                offer: offer.id.clone(),
-                n,
-                peer: offer.key.clone(),
-                sent: vec![hash(&code)],
-                gone_sent: false,
-            });
-        }
-        // The maker sells GNR: we buy, so we start the swap with a request.
-        Side::SellGnr => {
-            let s = e.request(gnr, sats, btc_address)?;
-            let code = s.code.clone().context("request code")?;
-            send_note(
-                base,
-                &offer.key,
-                &key,
-                &Note::Code {
-                    offer: offer.id.clone(),
-                    code: code.clone(),
-                },
-            )?;
             take.swap_id = Some(s.id.clone());
             st.links.push(Link {
                 swap_id: s.id,
@@ -2552,11 +2516,9 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             }
         } else if m.reserve.is_some() {
             // Over: free its GNR.
-            give_up(
-                e.wallet,
-                m,
-                "The board removed this offer. Its GNR is free again.".into(),
-            );
+            let why = "The board took this offer down: its GNR was no longer there, or it could not be proven again. The offer has ended; its GNR is free again.";
+            give_up(e.wallet, m, why.into());
+            m.stopped = Some(why.into());
         } else if let Some(f) = m
             .fund
             .as_mut()
@@ -2568,12 +2530,16 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             f.last_check = 0;
             f.status = "The board no longer lists this offer; publishing it again.".into();
         } else {
-            close_fund(
-                m,
-                true,
-                "The board removed this offer. Your bitcoin is sent back to you.",
-            );
+            // A buy offer the board will not list again: its bitcoin was not found at
+            // its address any more, or (an offer from before 1.0.56) it never had any.
+            let why = if m.fund.is_some() {
+                "The board took this offer down: it no longer found the offer's bitcoin at its address. The offer has ended; what is at the address is sent back to you."
+            } else {
+                "The board took this offer down: since 1.0.56 a buy offer is listed only with its bitcoin deposited, and this one had none. The offer has ended; nothing was locked or paid. To buy, add bitcoin to your balance and publish the offer again."
+            };
+            close_fund(m, true, why);
             m.cancelled = true;
+            m.stopped = Some(why.into());
         }
     }
     // Sell offers that ran their time: what was listed stays committed for its week.
@@ -2922,7 +2888,9 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
                 status: "Publishing the offer again with the bitcoin you deposited.".into(),
                 ..Default::default()
             }),
-            _ => Pay::Later,
+            _ if m.offer.side == Side::SellGnr => Pay::Selling,
+            // A buy offer from before 1.0.56 with no bitcoin behind it: not listed again.
+            _ => continue,
         };
         let handed = matches!(pay, Pay::Reuse(_));
         let r = publish_offer(
@@ -2934,7 +2902,6 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             &m.btc_address,
             m.offer.expires.saturating_sub(now()),
             pay,
-            m.prepaid_only,
             m.follow.clone(),
             m.auto.clone(),
         );
@@ -3039,26 +3006,19 @@ fn handle(
                             &mo.offer.id,
                             Some(mo.cancel_secret.as_str()),
                         );
-                        let refuse = if mo.prepaid_only && !shown {
-                            Some(
-                                "a request for an offer that is only for buyers whose bitcoin is deposited first",
-                            )
-                        } else if !shown && unpaid_locks(e.wallet) >= engine::MAX_UNPAID_LOCKS {
-                            Some(
-                                "a request while GNR is already locked for buyers who have not paid",
-                            )
-                        } else {
-                            None
-                        };
-                        if let Some(why) = refuse {
+                        // GNR is locked only for a buyer whose bitcoin this wallet has
+                        // seen: there is no buying on a promise to pay later (1.0.56).
+                        if !shown {
                             release_promise(base, promise.as_ref());
                             let _ = send_note(base, from, key, &Note::Gone { offer });
-                            bail!(why);
+                            bail!(
+                                "a request whose bitcoin this wallet could not see at an address of the buyer's wallet"
+                            );
                         }
                         // The lock spends the note set aside for this offer, nothing
                         // else (a part leaves the rest of it as change). The offer counts
                         // as taken only once the swap exists.
-                        match e.accept_from(&code, &mo.btc_address, note, shown) {
+                        match e.accept_seen(&code, &mo.btc_address, note) {
                             Ok(s) => {
                                 mo.promise = promise;
                                 s
@@ -3109,9 +3069,9 @@ fn handle(
                 }
                 let addr = tk.btc_address.clone();
                 let (shown, promise) = deposit_promised(e, base, &code, sats, &offer, None);
-                // A Quick Swap sells only to a buyer whose bitcoin is there, and not
-                // promised to others already.
-                if tk.quick.is_some() && !shown {
+                // GNR is sold only to a buyer whose bitcoin is there, and not promised to
+                // others already.
+                if !shown {
                     release_promise(base, promise.as_ref());
                     tk.gone = true;
                     tk.ended = now();
@@ -3119,9 +3079,9 @@ fn handle(
                         "The buyer's bitcoin was not where its wallet said, so nothing was locked."
                             .into();
                     let _ = send_note(base, from, key, &Note::Gone { offer });
-                    bail!("a Quick Swap buyer whose bitcoin is not there");
+                    bail!("a buyer whose bitcoin is not there");
                 }
-                let s = match e.accept_from(&code, &addr, None, shown) {
+                let s = match e.accept_seen(&code, &addr, None) {
                     Ok(s) => s,
                     Err(x) => {
                         release_promise(base, promise.as_ref());
@@ -3349,17 +3309,6 @@ fn release_promise(base: &str, p: Option<&(String, String)>) {
     }
 }
 
-/// GNR locks this wallet holds, or is about to make, for buyers whose bitcoin it has not
-/// seen and who have not paid.
-fn unpaid_locks(w: &Wallet) -> usize {
-    engine::load(w)
-        .iter()
-        .filter(|s| {
-            s.role == Role::GnrSeller && !s.stage.finished() && s.deposit.is_none() && !s.prepaid
-        })
-        .count()
-}
-
 /// Swaps whose codes travel through the board.
 pub fn linked_ids(w: &Wallet) -> std::collections::HashSet<String> {
     load(w).links.into_iter().map(|l| l.swap_id).collect()
@@ -3457,6 +3406,13 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
             .as_array()
             .into_iter()
             .flatten()
+            // Only offers with their coins behind them, whatever board this is: GNR the
+            // board has proven, bitcoin it has found. Nothing else can be taken.
+            .filter(|o| {
+                o[if o["side"] == "sell_gnr" { "backed" } else { "deposited" }]
+                    .as_bool()
+                    .unwrap_or(false)
+            })
             .filter_map(|o| serde_json::from_value::<Offer>(o.clone()).ok())
             .filter(|o| swap_id_ok(&o.id))
             .collect();
@@ -3470,14 +3426,6 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                     o["online"].as_bool().unwrap_or(true),
                 ))
             })
-            .collect();
-        // Sell offers only for buyers whose bitcoin is deposited first (1.0.43).
-        let prepaid: std::collections::HashSet<String> = raw["offers"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|o| o["prepaid"].as_bool().unwrap_or(false))
-            .filter_map(|o| o["id"].as_str().map(String::from))
             .collect();
         // Buy offers whose bitcoin the board has found at its deposit address (1.0.41).
         let deposited: std::collections::HashSet<String> = raw["offers"]
@@ -3548,7 +3496,6 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "online": mine.contains(&&o.id) || online.get(&o.id).copied().unwrap_or(false),
                 "backed": proven.contains(&o.id),
                 "deposited": deposited.contains(&o.id),
-                "prepaid": prepaid.contains(&o.id),
                 "auto": autos.get(&o.id).map(|m| json!({"min": m, "min_text": format_amount(*m)})),
             })
         };
@@ -3569,9 +3516,6 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
             "in_progress": in_progress,
             "my_offers": st.offers.iter().rev().take(200).map(|m| {
                 let mut v = view(&m.offer);
-                if m.prepaid_only {
-                    v["prepaid"] = json!(true);
-                }
                 if let Some(f) = &m.follow {
                     v["follow"] = json!({"limit": f.limit, "moves": f.moves, "at": f.at, "margin": f.margin * 100.0, "trigger": f.trigger});
                 }
@@ -3599,7 +3543,7 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                     v["fund"] = json!({
                         "address": f.address, "need": f.need, "need_text": btc_text(f.need),
                         "seen": f.seen, "seen_text": btc_text(f.seen), "confirmed": f.confirmed,
-                        "posted": f.posted, "marked": f.marked,
+                        "posted": f.posted, "marked": f.marked, "from_balance": f.from_balance,
                         "closed": f.closed.is_some(), "handed": f.handed, "returned": f.returned,
                         // Ended lately: still shown, so that what became of the bitcoin is seen.
                         "recent": f.closed.is_some_and(|at| at + 24 * 3600 > t),
@@ -3644,6 +3588,10 @@ pub async fn list(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 }))
             }).take(20).collect::<Vec<_>>(),
             "quick": quick_list,
+            // What is on offer in all, as this board counts it (boards from 1.0.56).
+            "for_sale_gnr": raw["for_sale_gnr"].as_u64(),
+            "wanted_sats": raw["wanted_sats"].as_u64(),
+            "issued": raw["issued"].as_u64(),
             "hold_secs": COMMIT_SECS,
             "follow": {"every_secs": FOLLOW_EVERY_SECS, "min_move": FOLLOW_MIN_MOVE, "max_step": FOLLOW_MAX_STEP, "min_swaps": FOLLOW_MIN_SWAPS},
             "market": market,
@@ -3668,14 +3616,6 @@ pub struct PublishReq {
     /// Confirms with the wallet's password (a sell offer commits GNR).
     #[serde(default)]
     password: String,
-    /// A buy offer: pay the bitcoin now to an address of this wallet, so a seller's take
-    /// is paid by itself (the default). `false`: pay by hand when a seller takes it.
-    #[serde(default)]
-    deposit: Option<bool>,
-    /// A sell offer: lock the GNR only for a buyer whose bitcoin is already deposited
-    /// (the default), so that nobody can take the offer and leave the GNR locked unpaid.
-    #[serde(default)]
-    prepaid_only: Option<bool>,
     /// The offer follows the market price (1.0.44). A sell offer then names its GNR and
     /// a buy offer its bitcoin; the other amount comes from the market price. `limit` is
     /// the price in sat per GNR the offer never goes below (sell) or above (buy).
@@ -3695,9 +3635,9 @@ pub struct PublishReq {
     auto: Option<bool>,
     #[serde(default)]
     min: Option<String>,
-    /// The wallet's Bitcoin balance (1.0.52): a sell offer is paid into it, a buy offer is
-    /// paid from it at once, and what comes back from a buy offer returns to it. `address`
-    /// is not used then.
+    /// A sell offer: the bitcoin is paid into the wallet's Bitcoin balance (`address` is
+    /// not used then). A buy offer is always paid from the balance at once, and what
+    /// comes back from it returns there: there is no other way to publish one (1.0.56).
     #[serde(default)]
     balance: bool,
 }
@@ -3716,9 +3656,8 @@ fn fund_from_balance(e: &mut Engine<'_, Multi>, id: &str) -> Result<()> {
         .fund
         .clone()
         .context("the offer has no deposit")?;
-    let b = quick::balance(e, &st)?;
-    let free = b.confirmed.saturating_sub(b.committed);
-    let ok = free >= f.need.saturating_add(quick::btc_fee(e));
+    let short = short_of(e, &st, f.need);
+    let ok = matches!(short, Ok(None));
     let to = e.deposit_address(f.d);
     let paid = ok
         .then(|| e.pay_from(deposit::BALANCE, &[(to, f.need)], deposit::BALANCE))
@@ -3726,15 +3665,13 @@ fn fund_from_balance(e: &mut Engine<'_, Multi>, id: &str) -> Result<()> {
     if !ok || paid.is_err() {
         st.offers.remove(i);
         save(e.wallet, &st)?;
-        ensure!(
-            ok,
-            "your Bitcoin balance has {} BTC free and confirmed; this offer needs {} BTC and the network fee. Add bitcoin to your balance first (it needs one confirmation)",
-            btc_text(free),
-            btc_text(f.need)
-        );
+        if let Some(why) = short? {
+            bail!(why);
+        }
         paid?;
     }
     if let Some(fund) = st.offers[i].fund.as_mut() {
+        fund.from_balance = true;
         fund.status = "Paid from your Bitcoin balance; the offer is published once that has one confirmation (about ten minutes).".into();
     }
     save(e.wallet, &st)
@@ -3817,7 +3754,7 @@ pub async fn publish(
                 None => None,
             };
             let ids = with_engine(&a, false, |e, base| {
-                let to = if r.balance {
+                let to = if r.balance || r.side == Side::BuyGnr {
                     e.deposit_address(deposit::BALANCE).to_string()
                 } else {
                     r.address.clone()
@@ -3827,11 +3764,16 @@ pub async fn publish(
             return Ok(json!({"id": ids[0], "ids": ids, "lots": ids.len(), "listed": false, "fund": null, "auto": true}));
         }
         with_engine(&a, false, |e, base| {
-            let to = if r.balance {
+            let buying = r.side == Side::BuyGnr;
+            let to = if r.balance || buying {
                 e.deposit_address(deposit::BALANCE).to_string()
             } else {
                 r.address.trim().to_string()
             };
+            // A buy offer exists only with its bitcoin: said before anything is made.
+            if buying && let Some(why) = short_of(e, &load(e.wallet), sats)? {
+                bail!(why);
+            }
             let o = publish_offer(
                 e,
                 base,
@@ -3840,16 +3782,11 @@ pub async fn publish(
                 sats,
                 &to,
                 secs,
-                if r.side == Side::BuyGnr && (r.balance || r.deposit.unwrap_or(true)) {
-                    Pay::Deposit
-                } else {
-                    Pay::Later
-                },
-                r.prepaid_only.unwrap_or(true),
+                if buying { Pay::Deposit } else { Pay::Selling },
                 follow,
                 None,
             )?;
-            if r.balance && r.side == Side::BuyGnr {
+            if buying {
                 fund_from_balance(e, &o.id)?;
                 return Ok(json!({"id": o.id, "listed": false, "fund": null, "from_balance": true}));
             }
@@ -3949,13 +3886,9 @@ pub struct TakeReq {
     address: String,
     #[serde(default)]
     password: String,
-    /// Buying: pay the bitcoin now to an address of this wallet; the swap then starts
-    /// and completes by itself. Otherwise the wallet shows where to pay once the seller's
-    /// GNR is locked.
-    #[serde(default)]
-    deposit: bool,
-    /// The wallet's Bitcoin balance (1.0.52): buying pays from it at once, selling is paid
-    /// into it, and change and any refund go back to it. `address` is not used then.
+    /// Selling: the bitcoin is paid into the wallet's Bitcoin balance (`address` is not
+    /// used then). Buying always pays from the balance, and change and any refund go
+    /// back to it: there is no other way to buy (1.0.56).
     #[serde(default)]
     balance: bool,
 }
@@ -4011,19 +3944,13 @@ pub async fn take(axum::extract::State(app): S, h: HeaderMap, Json(r): Json<Take
     match blocking(move || {
         crate::confirm_password(&a, &r.password)?;
         with_engine(&a, true, |e, base| {
-            if r.balance {
-                take_with_balance(e, base, &r.id)
-            } else {
-                take_offer(e, base, &r.id, &r.address, r.deposit)
-            }
+            take_offer(e, base, &r.id, if r.balance { "" } else { &r.address })
         })
     })
     .await
     {
-        Ok((id, fund)) => Json(json!({"id": id, "fund": fund.map(|f| json!({
-            "address": f.address, "need": f.need, "need_text": btc_text(f.need), "take": true,
-        }))}))
-        .into_response(),
+        // Nothing to send: buying is paid from the balance, selling is paid to the seller.
+        Ok((id, _)) => Json(json!({"id": id, "fund": null})).into_response(),
         Err(e) => err(e),
     }
 }
