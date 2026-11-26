@@ -26,6 +26,7 @@
  "6377a06e81": "Oui, exactement comme GNR : le jeton, le montant, l'expéditeur et le destinataire seront cachés par une preuve à divulgation nulle de connaissance. Seules la création et la destruction de jetons seront publiques.",
  "377ed0c796": "Non. Aucun émetteur ne pourra prendre de jetons, voir les soldes ou geler un détenteur en particulier ; tout ce qu'un émetteur pourra faire sera déclaré avant que le jeton n'existe.",
  "c914a0c430": "Non. Gardez votre portefeuille à jour ; son onglet Jetons s'activera de lui-même lorsque les jetons seront activés.",
+ "4662007ace": "Genoryn Krypton 1.0.53 : des portefeuilles légers qui vérifient chaque bloc, un prix du marché plus robuste, l'historique des échanges et Tor",
  "84457cacbc": "Genoryn Krypton 1.0.52 : un audit de sécurité complet, et l'échange directement depuis votre solde bitcoin",
  "b3483934d1": "Genoryn Krypton 1.0.51: Échange et Marché, chacun avec son onglet et sa page",
  "6bdb2f2817": "Genoryn Krypton 1.0.50: Les échanges terminés ailleurs se ferment, et chaque portefeuille affiche son propre solde Bitcoin et son mineur",

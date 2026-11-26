@@ -4,6 +4,30 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.53](https://github.com/genoryn/genoryn/releases/tag/v1.0.53) · 2026-11-26: Light wallets that check every block, a sturdier market price, trade history and Tor
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- Trade history in the wallet: every completed swap of the board, newest first, with charts, your own trades and a CSV export. It loads in parts, so it stays quick with millions of swaps; genoryn.io/trades shows the whole history.
+- A sturdier market price (method 2): the shortest window with enough verified swaps, swaps far from the rest left out, limits per swap and per six hours, and a confidence from 0 to 100 with a status. The market page shows the depth of the board, and anyone can recompute the price with verifymarketprice in the wallet's console.
+- Confirmations before every payment and swap: a bitcoin payment is checked first and shows the fee, the total and what stays; taking an offer or a Quick Swap shows what goes and what comes, the price against the market, the fees, the confirmations the seller waits for and what happens if the swap does not complete.
+- Connect through Tor: an optional SOCKS5 proxy for all of the wallet's own connections, in Network, Connection mode.
+- Research: what a transaction still shows on chain, measured on mainnet, and why Sietch-style dummy outputs are not needed here: every transaction already has two inputs and two outputs.
+
+### Changed
+
+- Swaps: the seller takes the bitcoin only with ten blocks of its lock left, and a claim waiting in a busy Bitcoin network is sent again every block with more fee. A seller whose buyer never claims the GNR gets it back when the lock ends.
+- Nodes keep the whole trade history on disk and answer /v1/swap/history in pages.
+
+### Security
+
+- A new review of the whole system: the swaps with bitcoin, the node and its network, the desktop wallet, cryptography and the light client. Every finding it lists is fixed in this release; what was checked and what was fixed is at genoryn.io/audits.
+- Light wallets check every block above the release checkpoint as a full node does: its proof of work, the difficulty the rule sets and its time. A node you add can no longer show your wallet blocks nobody worked for.
+- Adding a wallet next to yours, switching between light and full mode and letting other nodes connect need the wallet's password.
+- Nodes check their peers' transactions outside their message loop and share their attention fairly, so one peer can no longer slow a node down for the others.
+
 ## [1.0.52](https://github.com/genoryn/genoryn/releases/tag/v1.0.52) · 2026-11-26: A full security audit, and trading straight from your Bitcoin balance
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
