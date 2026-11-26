@@ -21,7 +21,7 @@ import updates
 ROOT = pathlib.Path(__file__).resolve().parent
 DESIGN = ROOT.parent / "design"
 DIST = ROOT / "dist"
-JS_FILES = [ROOT / "site.js", ROOT / "explorer.js", ROOT / "market.js", ROOT / "miner-check.js",
+JS_FILES = [ROOT / "site.js", ROOT / "explorer.js", ROOT / "market.js", ROOT / "trades.js", ROOT / "miner-check.js",
             DESIGN / "assets" / "value.js", DESIGN / "assets" / "charts.js"]
 _TR = {}
 RELEASE = "https://github.com/genoryn/genoryn/releases/download/v{v}/{f}"
@@ -196,7 +196,7 @@ def main():
         if f.is_file() and "dist" not in f.parts:
             h.update(f.read_bytes())
     ver = h.hexdigest()[:10]
-    asset_ref = re.compile(r'((?:href|src)="|srcset="|, )(/(?:assets/[^"\s,?]+|site\.css|site\.js|explorer\.js|market\.js|miner-check\.js))')
+    asset_ref = re.compile(r'((?:href|src)="|srcset="|, )(/(?:assets/[^"\s,?]+|site\.css|site\.js|explorer\.js|market\.js|trades\.js|miner-check\.js))')
     langs = built_langs()
     by_file = {p["file"]: k for k, p in seo.PAGES.items()}
     en_js = i18n.js_strings(JS_FILES)
@@ -221,7 +221,7 @@ def main():
     if report:
         missing = sum(1 for r in report if r[3] == "missing")
         print(f"translations: {missing} missing, {len(report) - missing} refused (English shown); details: python website/i18n_check.py")
-    for f in ["site.css", "site.js", "explorer.js", "market.js", "miner-check.js"]:
+    for f in ["site.css", "site.js", "explorer.js", "market.js", "trades.js", "miner-check.js"]:
         shutil.copy(ROOT / f, DIST / f)
     # The project's signed list of verified Krypton coins (wallets check the signature).
     for f in ["verified-assets.json", "verified-assets.json.sig"]:
