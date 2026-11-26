@@ -531,6 +531,8 @@ header{padding:14px 30px}
 .mk-run{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:12px 16px;margin-bottom:18px;border:1px solid var(--line-strong);border-radius:14px;background:var(--bg-inset);font-size:13.5px}
 .mk-run .btn{margin-left:auto;height:32px;padding:0 14px;font-size:12.5px}
 .sw-totals{gap:0;padding:0;overflow:hidden}
+.mk-depthc{margin-bottom:18px}.mk-depthc .gk-card-head{flex-wrap:wrap;gap:8px}.mk-depthc .gk-card-head span{font-size:12px}
+.dp-bid{fill:var(--text-primary);fill-opacity:.12;stroke:var(--text-primary);stroke-width:1.5}.dp-ask{fill:var(--text-secondary);fill-opacity:.06;stroke:var(--text-secondary);stroke-width:1.5;stroke-dasharray:5 3}.dp-ref{stroke:var(--line-strong);stroke-dasharray:2 3}
 .th-charts .bd-head,.th-mine .bd-head,.th-all .bd-head{flex-wrap:wrap;margin-bottom:14px}.th-charts,.th-mine,.th-all{margin-bottom:18px}
 .th-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.th-grid .th-wide{grid-column:1/-1}
 .th-c{padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-inset);min-width:0}
@@ -1009,7 +1011,7 @@ header{padding:14px 30px}
           <span class="eyebrow-s"><span class="mk-pair"><svg class="coin coin-gnr" aria-hidden="true"><use href="#c-gnr"/></svg><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg></span><span class="mk-dot"></span>GNR price</span>
           <b id="bdUsd">-</b>
           <span class="mk-sub"><span id="bdPrice">-</span> <span class="muted" id="bdPriceL"></span></span>
-          <div class="mk-conf" id="bdConfBox" title="How much GNR the market price rests on (time-weighted): thin, moderate or deep."><span>Market depth <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
+          <div class="mk-conf" id="bdConfBox" title="How far the market price can be trusted: the bitcoin, the number of swaps and their agreement behind it, and how fresh they are (0 to 100)."><span>Price confidence <b id="bdDepth">-</b></span><i><s id="bdConf" style="width:0"></s></i><span class="muted" id="bdIdx"></span></div>
           <button type="button" class="btn mk-go" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Swap in one click</button>
         </div>
         <div class="mk-stat"><span>Best sell offer <em id="bdAskN"></em></span><b id="bdAsk">-</b></div>
@@ -1025,6 +1027,7 @@ header{padding:14px 30px}
         <div class="swt"><span class="swt-k"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Completed</span><b id="swtDone">-</b><em id="swtDoneN">swaps on record</em></div>
         <p class="swt-depth" id="swtDepth"></p>
       </section>
+      <section class="glass card mk-depthc"><div class="gk-card-head"><h3>Market depth · offers online</h3><span class="muted">buy offers (solid) · sell offers (dashed) · the line is the market price</span></div><div id="bdDepthChart"></div></section>
       <div class="bd-layout">
         <section class="glass card bd-book">
           <div class="bd-head">
@@ -2342,6 +2345,22 @@ const btcUsd=()=>Number((BD.market&&BD.market.btc_usd)||(S.market&&S.market.btc_
 const satUsd=p=>{ const u=btcUsd(); return p!=null&&u>0?' · '+GKValue.usd(p*u/1e8):''; };
 const bdAgo=s=>s>=365*86400?T("1 year"):s>=60*86400?(n=>Tn(n, "{n} months", "{n} months", {n}))(Math.floor(s/(30.44*86400))):s>=172800?(n=>Tn(n, "{n} days", "{n} days", {n}))(Math.floor(s/86400)):s>=3600?T("{n} h", {n: Math.floor(s/3600)}):T("{n} min", {n: Math.max(1,Math.floor(s/60))});
 const bdMkt=()=>((BD.market&&BD.market.market)||{});
+/* The state of the market as the board names it (pricing v2, 1.0.53). */
+const mkStatus=s=>({reliable:T("reliable market data"), moderate:T("moderate confidence"), low_liquidity:T("low liquidity"), low_confidence:T("low confidence"), stale:T("stale price"), insufficient:T("not enough trading data"), unavailable:T("price unavailable")})[s]||s;
+/* Cumulative GNR on offer by price, both sides, around the market price (online offers). */
+function depthChart(host, offers, mp){ if(!host) return;
+  const side=(s,asc)=>offers.filter(o=>o.side===s&&o.online!==false&&o.gnr>0).map(o=>[o.sats/(o.gnr/1e8),o.gnr/1e8]).sort((a,b)=>asc?a[0]-b[0]:b[0]-a[0]);
+  const asks=side('sell_gnr',true), bids=side('buy_gnr',false);
+  if(!asks.length&&!bids.length){ host.innerHTML='<p class="muted">'+TE("No offer is online right now.")+'</p>'; return; }
+  const ref=mp||(asks[0]&&bids[0]?(asks[0][0]+bids[0][0])/2:(asks[0]||bids[0])[0]);
+  const cum=l=>{ let a=0; return l.filter(x=>x[0]>=ref/3&&x[0]<=ref*3).map(x=>[x[0],a+=x[1]]); };
+  const A=cum(asks), B=cum(bids), all=A.concat(B);
+  if(!all.length){ host.innerHTML='<p class="muted">'+TE("No offer is online near the market price.")+'</p>'; return; }
+  const ps=all.map(x=>x[0]).concat([ref]), pmin=Math.min(...ps), pmax=Math.max(...ps), vmax=Math.max(...all.map(x=>x[1]));
+  const W=Math.max(280,host.clientWidth), H=180, pl=6, pr=6, pt=10, pb=24;
+  const X=p=>{ const r=Math.log(pmax)-Math.log(pmin); return pl+(r>0?(Math.log(p)-Math.log(pmin))/r:.5)*(W-pl-pr); }, Y=v=>pt+(1-v/vmax)*(H-pt-pb);
+  const path=(l,end)=>{ if(!l.length) return ''; let d=`M${X(l[0][0]).toFixed(1)},${Y(0).toFixed(1)}`, prev=0; l.forEach(([p,v])=>{ d+=`L${X(p).toFixed(1)},${Y(prev).toFixed(1)}L${X(p).toFixed(1)},${Y(v).toFixed(1)}`; prev=v; }); return d+`L${end},${Y(prev).toFixed(1)}L${end},${Y(0).toFixed(1)}Z`; };
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${TE("Market depth")}"><path class="dp-bid" d="${path(B,pl)}"/><path class="dp-ask" d="${path(A,W-pr)}"/><line class="dp-ref" x1="${X(ref).toFixed(1)}" x2="${X(ref).toFixed(1)}" y1="${pt}" y2="${H-pb}"/><text class="gk-axis" x="${pl}" y="${H-6}">${esc(fmtPx(pmin))}</text>${X(ref)-pl>110&&W-pr-X(ref)>110?`<text class="gk-axis" x="${X(ref).toFixed(1)}" y="${H-6}" text-anchor="middle">${esc(fmtPx(ref))}</text>`:''}<text class="gk-axis" x="${W-pr}" y="${H-6}" text-anchor="end">${esc(fmtPx(pmax))}</text></svg>`; }
 async function loadBoard(){
   try{ BD=await api('/api/board'); }catch(e){ return; }
   const m=bdMkt();
@@ -2352,9 +2371,10 @@ async function loadBoard(){
   $('bdPriceL').textContent=m.price!=null?(m.source==='verified swaps'?'· '+Tn(Number(m.priced)||0, "volume-weighted median of {n} swaps found on both chains", "volume-weighted median of {n} swaps found on both chains", {n: Number(m.priced)||0}):'· '+Tn(Number(m.priced)||0, "average of {n} completed swap", "average of {n} completed swaps", {n: Number(m.priced)||0})+(m.verified!=null?' ('+T("{n} found on the Bitcoin chain so far", {n: Number(m.verified)})+')':'')):'· '+T("after the first completed swap");
   const conf=m.confidence!=null?Number(m.confidence):(m.price!=null?1:0);
   $('bdConfBox').classList.toggle('hidden', m.price==null);
-  $('bdDepth').textContent=(TR(m.depth)||(conf>=.8?T("deep"):conf>=.4?T("moderate"):T("thin")))+' · '+Math.round(conf*100)+' %';
+  $('bdDepth').textContent=m.market_status?mkStatus(m.market_status)+(m.reference_price!=null?' · '+Number(m.confidence_score||0)+'/100':''):(TR(m.depth)||(conf>=.8?T("deep"):conf>=.4?T("moderate"):T("thin")))+' · '+Math.round(conf*100)+' %';
   $('bdConf').style.width=Math.max(2,Math.round(conf*100))+'%';
-  $('bdIdx').textContent=m.last_price!=null?T("Last swap {price}", {price: fmtPx(m.last_price)})+(m.trades?' · '+T("{n} in 24 h", {n: m.trades}):''):T("No swap yet: the price comes from the offers.");
+  $('bdIdx').textContent=m.last_price!=null?T("Last swap {price}", {price: fmtPx(m.last_price)})+(m.trades?' · '+T("{n} in 24 h", {n: m.trades}):'')+(m.change_24h!=null?' · '+T("24 h: {pct} %", {pct: (m.change_24h>0?'+':'')+GKI18N.num(m.change_24h,{maximumFractionDigits:1})}):'')+(m.freshness_secs!=null?' · '+T("newest verified swap {t} ago", {t: bdAgo(m.freshness_secs)}):''):T("No swap yet: the price comes from the offers.");
+  depthChart($('bdDepthChart'), BD.offers||[], m.price);
   $('bdAsk').textContent=fmtPx(m.best_ask); $('bdAskN').textContent=m.asks?'('+m.asks+')':'';
   $('bdBid').textContent=fmtPx(m.best_bid); $('bdBidN').textContent=m.bids?'('+m.bids+')':'';
   $('bdSpread').textContent=m.best_ask&&m.best_bid?((m.best_ask/m.best_bid-1)*100).toFixed(1)+'%':'-';

@@ -1217,3 +1217,8 @@ a.pg-card:hover .pg-go svg { transform: translateX(4px); }
 .th-table td small { font-size: 11.5px; }
 .th-table .mk-ok { font-style: normal; font-size: 11.5px; white-space: nowrap; }
 @media (max-width: 720px) { .th-totals .mkt b { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; } }
+/* Market depth (1.0.53) */
+.mk-depthc { margin: 0 0 34px; }
+.dp-bid { fill: var(--text-primary); fill-opacity: .12; stroke: var(--text-primary); stroke-width: 1.5; }
+.dp-ask { fill: var(--text-secondary); fill-opacity: .06; stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.dp-ref { stroke: var(--line-strong); stroke-dasharray: 2 3; }

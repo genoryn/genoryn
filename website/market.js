@@ -71,7 +71,10 @@
     if (!$("mkSell")) return;
     var m = data.market || {}, np = Number(m.priced) || 0;
     var how = m.status === "verified" ? Tn(np, "median of {n} verified swap", "median of {n} verified swaps") : m.status === "forming" ? T("forming") + ": " + Tn(np, "average of {n} swap", "average of {n} swaps") : Tn(np, "average of {n} swap", "average of {n} swaps");
-    $("mkPriceL").textContent = m.price != null ? how + (m.volatile ? " · " + T("catching up with recent swaps") : "") : T("after the first completed swap");
+    var extra = (m.change_24h != null ? " · " + T("24 h: {pct} %", { pct: (m.change_24h > 0 ? "+" : "") + GKI18N.num(m.change_24h, { maximumFractionDigits: 1 }) }) : "") +
+      (m.freshness_secs != null ? " · " + T("newest verified swap {t} ago", { t: ago(m.freshness_secs) }) : "");
+    $("mkPriceL").textContent = m.price != null ? how + (m.volatile ? " · " + T("catching up with recent swaps") : "") + extra : T("after the first completed swap");
+    if ($("mkDepthChart")) gk.depthChart($("mkDepthChart"), data.offers, mprice(), sat);
     $("mkAsk").textContent = m.best_ask != null ? sat(m.best_ask) : "—"; $("mkAskU").textContent = m.best_ask != null ? usd(m.best_ask) : "";
     $("mkAskN").textContent = m.asks ? "(" + m.asks + ")" : "";
     $("mkBid").textContent = m.best_bid != null ? sat(m.best_bid) : "—"; $("mkBidU").textContent = m.best_bid != null ? usd(m.best_bid) : "";

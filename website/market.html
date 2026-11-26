@@ -27,7 +27,7 @@
       <span><em>Best sell offer <i id="mkAskN"></i></em><b id="mkAsk">—</b><small id="mkAskU"></small></span>
       <span><em>Best buy offer <i id="mkBidN"></i></em><b id="mkBid">—</b><small id="mkBidU"></small></span>
       <span><em>Last 24 hours</em><b id="mkVol">—</b><small id="mkVolU"></small></span>
-      <span><em>Market depth</em><b data-ix-conf>—</b></span>
+      <span><em>Price confidence</em><b data-ix-conf>—</b></span>
     </span>
     <span class="hp-bar" aria-hidden="true"><s data-ix-bar></s></span>
   </a>
@@ -39,6 +39,11 @@
     <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-market"/></svg>In progress</span><b id="mktProg">—</b><em id="mktProgN">swaps running</em></div>
     <div class="mkt"><span class="mkt-k"><svg class="ni" aria-hidden="true"><use href="#n-coin"/></svg>Completed</span><b id="mktDone">—</b><em id="mktDoneN">swaps on record</em></div>
     <p class="mk-depth" id="mktDepth"></p>
+  </section>
+
+  <section class="glass card chart-card mk-depthc" aria-labelledby="depth-h">
+    <div class="gk-card-head"><h3 id="depth-h">Market depth · offers online</h3><span class="muted mk-fine">buy offers (solid) · sell offers (dashed) · the line is the market price</span></div>
+    <div id="mkDepthChart"></div>
   </section>
 
   <section class="mk-hist" id="history" aria-labelledby="hist-h">

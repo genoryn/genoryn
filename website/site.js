@@ -155,6 +155,45 @@
     }
   })();
 
+  // The state of the market as the board names it (pricing v2, 1.0.53).
+  gk.marketStatus = function (s) {
+    return ({ reliable: T("reliable market data"), moderate: T("moderate confidence"), low_liquidity: T("low liquidity"),
+      low_confidence: T("low confidence"), stale: T("stale price"), insufficient: T("not enough trading data"), unavailable: T("price unavailable") })[s] || s;
+  };
+  // Cumulative GNR on offer by price, both sides, around the market price: an SVG (shared by
+  // the market page).
+  gk.depthChart = function (host, offers, mp, fmt) {
+    if (!host) return;
+    var side = function (s, asc) {
+      return offers.filter(function (o) { return o.side === s && o.online !== false && o.gnr > 0; })
+        .map(function (o) { return [o.sats / (o.gnr / 1e8), o.gnr / 1e8]; })
+        .sort(function (a, b) { return asc ? a[0] - b[0] : b[0] - a[0]; });
+    };
+    var asks = side("sell_gnr", true), bids = side("buy_gnr", false);
+    if (!asks.length && !bids.length) { host.innerHTML = "<p class=\"muted\">" + gk.esc(T("No offer is online right now.")) + "</p>"; return; }
+    var ref = mp || (asks[0] && bids[0] ? (asks[0][0] + bids[0][0]) / 2 : (asks[0] || bids[0])[0]);
+    var cum = function (l) { var a = 0; return l.filter(function (x) { return x[0] >= ref / 3 && x[0] <= ref * 3; }).map(function (x) { a += x[1]; return [x[0], a]; }); };
+    var A = cum(asks), B = cum(bids), all = A.concat(B);
+    if (!all.length) { host.innerHTML = "<p class=\"muted\">" + gk.esc(T("No offer is online near the market price.")) + "</p>"; return; }
+    var ps = all.map(function (x) { return x[0]; }).concat([ref]);
+    var pmin = Math.min.apply(null, ps), pmax = Math.max.apply(null, ps), vmax = Math.max.apply(null, all.map(function (x) { return x[1]; }));
+    var W = Math.max(280, host.clientWidth), H = 190, pl = 6, pr = 6, pt = 10, pb = 24;
+    var X = function (p) { var r = Math.log(pmax) - Math.log(pmin); return pl + (r > 0 ? (Math.log(p) - Math.log(pmin)) / r : 0.5) * (W - pl - pr); };
+    var Y = function (v) { return pt + (1 - v / vmax) * (H - pt - pb); };
+    var path = function (l, end) {
+      if (!l.length) return "";
+      var d = "M" + X(l[0][0]).toFixed(1) + "," + Y(0).toFixed(1), prev = 0;
+      l.forEach(function (x) { d += "L" + X(x[0]).toFixed(1) + "," + Y(prev).toFixed(1) + "L" + X(x[0]).toFixed(1) + "," + Y(x[1]).toFixed(1); prev = x[1]; });
+      return d + "L" + end + "," + Y(prev).toFixed(1) + "L" + end + "," + Y(0).toFixed(1) + "Z";
+    };
+    host.innerHTML = "<svg viewBox=\"0 0 " + W + " " + H + "\" width=\"100%\" height=\"" + H + "\" role=\"img\" aria-label=\"" + gk.esc(T("Market depth")) + "\">" +
+      "<path class=\"dp-bid\" d=\"" + path(B, pl) + "\"/><path class=\"dp-ask\" d=\"" + path(A, W - pr) + "\"/>" +
+      "<line class=\"dp-ref\" x1=\"" + X(ref).toFixed(1) + "\" x2=\"" + X(ref).toFixed(1) + "\" y1=\"" + pt + "\" y2=\"" + (H - pb) + "\"/>" +
+      "<text class=\"gk-axis\" x=\"" + pl + "\" y=\"" + (H - 6) + "\">" + gk.esc(fmt(pmin)) + "</text>" +
+      (X(ref) - pl > 110 && W - pr - X(ref) > 110 ? "<text class=\"gk-axis\" x=\"" + X(ref).toFixed(1) + "\" y=\"" + (H - 6) + "\" text-anchor=\"middle\">" + gk.esc(fmt(ref)) + "</text>" : "") +
+      "<text class=\"gk-axis\" x=\"" + (W - pr) + "\" y=\"" + (H - 6) + "\" text-anchor=\"end\">" + gk.esc(fmt(pmax)) + "</text></svg>";
+  };
+
   // The GNR price: the offer board's market price, nothing else.
   gk.value = function (info) {
     if (!window.GKValue) return;
@@ -175,7 +214,9 @@
     var conf = Number(mk.confidence) || 0;
     var depth = { deep: T("deep"), moderate: T("moderate"), thin: T("thin") };
     var dk = mk.depth || (conf >= 0.8 ? "deep" : conf >= 0.4 ? "moderate" : "thin");
-    put("[data-ix-conf]", mk.price ? (depth[dk] || dk) + " · " + Math.round(conf * 100) + " %" : "—");
+    // From 1.0.53 the board names the state of the market and scores the price 0–100.
+    put("[data-ix-conf]", mk.market_status ? gk.marketStatus(mk.market_status) + (mk.reference_price != null ? " · " + Number(mk.confidence_score || 0) + "/100" : "")
+      : mk.price ? (depth[dk] || dk) + " · " + Math.round(conf * 100) + " %" : "—");
     document.querySelectorAll("[data-ix-bar]").forEach(function (el) { el.style.width = Math.max(2, Math.round(conf * 100)) + "%"; });
     put("[data-main]", usd != null ? GKValue.usd(usd) : mk.price ? sat(mk.price) : "—");
     put("[data-vlabel]", T("GNR price"));
