@@ -539,6 +539,7 @@ header{padding:14px 30px}
 #thChMine{margin-bottom:12px}.th-side{font-size:12px;padding:2px 9px;border:1px solid var(--line-strong);border-radius:99px;white-space:nowrap}
 .th-ok{margin-left:8px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap}.th-ver{margin:0;align-self:center;font-size:13px}
 @media (max-width:900px){.th-grid{grid-template-columns:1fr}.th-kp{grid-template-columns:1fr 1fr}}
+@media (max-width:760px){.th-kpis .swt b,.th-kp b{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}}
 .sw-totals .swt{padding:16px 20px;border-radius:0}
 .sw-totals .swt+.swt{border-left:1px solid var(--line)}
 .sw-totals .swt b{font-size:clamp(18px,1.6vw,23px)}
@@ -1127,9 +1128,9 @@ header{padding:14px 30px}
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Trade history</h2><div class="seg" id="thRng" role="group" aria-label="Period"><button type="button" data-r="7">7 days</button><button type="button" data-r="30" class="on">30 days</button><button type="button" data-r="90">90 days</button><button type="button" data-r="0">All</button></div></div>
         <div class="th-grid">
           <div class="th-c th-wide"><div class="gk-card-head"><h3>Price per GNR · every swap</h3><b id="thLast">-</b></div><div id="thChPrice"></div></div>
-          <div class="th-c"><div class="gk-card-head"><h3>Median price per day</h3><b id="thMedR">-</b></div><div id="thChMed"></div></div>
-          <div class="th-c"><div class="gk-card-head"><h3>GNR traded per day</h3><b id="thVolR">-</b></div><div id="thChVol"></div></div>
-          <div class="th-c th-wide"><div class="gk-card-head"><h3>Swaps per day</h3><b id="thCntR">-</b></div><div id="thChCnt"></div></div>
+          <div class="th-c"><div class="gk-card-head"><h3 id="thMedH">Median price per day</h3><b id="thMedR">-</b></div><div id="thChMed"></div></div>
+          <div class="th-c"><div class="gk-card-head"><h3 id="thVolH">GNR traded per day</h3><b id="thVolR">-</b></div><div id="thChVol"></div></div>
+          <div class="th-c th-wide"><div class="gk-card-head"><h3 id="thCntH">Swaps per day</h3><b id="thCntR">-</b></div><div id="thChCnt"></div></div>
         </div>
         <p class="hero-note" id="thNote"></p>
       </section>
@@ -1138,6 +1139,7 @@ header{padding:14px 30px}
         <div class="th-kp" id="thMineK"></div>
         <div id="thChMine" class="hidden"></div>
         <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>When</th><th>Side</th><th>Price per GNR</th><th class="r">GNR</th><th class="r">BTC</th></tr></thead><tbody id="thMineRows"></tbody></table></div>
+        <button type="button" class="btn hidden" id="thMineMore" onclick="TRD.mineN+=50; thMineRows()">Show more</button>
       </section>
       <section class="glass card th-all">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>All swaps <em class="muted" id="thAllN"></em></h2>
@@ -2226,7 +2228,11 @@ async function swapCode(){
 /* Trade history (1.0.53): every completed swap the board has recorded, its figures, and this
    wallet's own trades. A board before 1.0.53 shows only its last 50 swaps; the figures are
    then worked out here from those. */
-const TRD={range:30, page:0, sum:null, swaps:[], fallback:false, ch:{}, seq:0};
+const TRD={range:30, page:0, sum:null, swaps:[], fallback:false, ch:{}, seq:0, mine:[], mineN:50};
+/* The wallet never loads the whole history (it may hold millions of swaps): the table comes a
+   page at a time, the per-swap chart shows the newest 200 swaps of the period, and every other
+   figure comes from the board's day-by-day summary. */
+const TH_CHART_SWAPS=200;
 const thChart=(k,host,data,o)=>{ if(!window.GKCharts||!host) return; if(TRD.ch[k]) TRD.ch[k].update(data,o); else TRD.ch[k]=GKCharts.chart(host,data,o); };
 const thPx=p=>p==null||!isFinite(p)?'-':fmtPx(p);
 const thUsd=p=>{ const u=btcUsd(); return p!=null&&isFinite(p)&&u>0?GKValue.usd(p*u/1e8):''; };
@@ -2248,12 +2254,14 @@ function thLocal(l){ const by={}, now=Date.now()/1000;
   return {all, day:thFig(l.filter(x=>x.at>now-86400)), days:Object.keys(by).map(Number).sort((a,b)=>a-b).map(d=>Object.assign(thFig(by[d]),{day:d}))}; }
 async function loadTrades(){
   const seq=++TRD.seq, now=Math.floor(Date.now()/1000), since=TRD.range?now-TRD.range*86400:0;
-  if(!BD.market) loadBoard();
+  // The bitcoin price (for the dollar values) comes with the board's market.
+  const board=BD.market?null:loadBoard();
   let sum=null; try{ sum=await api('/api/trades/summary'); }catch(e){}
-  // The swaps of the period for the per-swap chart: the newest 1,000 at most.
-  let list=[], off=0, fb=false;
-  try{ for(let i=0;i<5;i++){ const r=await api('/api/trades?limit=200&offset='+off+(since?'&since='+since:'')); fb=!!r.fallback; list=list.concat(r.swaps||[]); off+=(r.swaps||[]).length; if(!r.more||fb) break; } }catch(e){}
+  let list=[], fb=false;
+  try{ const r=await api('/api/trades?limit='+TH_CHART_SWAPS+(since?'&since='+since:'')); fb=!!r.fallback; list=r.swaps||[]; TRD.ptotal=Number(r.total)||list.length; }catch(e){}
+  // A board before 1.0.53 has no summary: the figures come from the swaps it shows (its last 50).
   if(!sum||sum.fallback){ let all=list; if(since){ try{ all=(await api('/api/trades?limit=200')).swaps||[]; }catch(e){} } sum=thLocal(all); fb=true; }
+  if(board) await board;
   if(seq!==TRD.seq) return;
   TRD.sum=sum; TRD.swaps=list; TRD.fallback=fb;
   thRender(); tradesPage(TRD.page); loadMyTrades();
@@ -2267,19 +2275,32 @@ function thRender(){
   $('thAvg').textContent=thMain(a.vwap); $('thAvgN').textContent=(a.vwap!=null&&u?thPx(a.vwap)+' · ':'')+T("weighed by the bitcoin moved");
   $('thMed').textContent=thMain(a.median); $('thRange').textContent=a.low!=null?T("low {low} · high {high}", {low: thMain(a.low), high: thMain(a.high)}):nb;
   const now=Date.now()/1000, since=TRD.range?now-TRD.range*86400:0;
-  const days=(s.days||[]).filter(x=>x.day+86400>since), at=x=>(x.claim&&x.claim.time)||x.at;
+  const daily=(s.days||[]).filter(x=>x.day+86400>since), at=x=>(x.claim&&x.claim.time)||x.at;
+  // Many days (the whole history) are shown week by week.
+  const weekly=daily.length>180, days=weekly?thWeeks(daily):daily;
+  $('thMedH').textContent=weekly?T("Median price per week"):T("Median price per day");
+  $('thVolH').textContent=weekly?T("GNR traded per week"):T("GNR traded per day");
+  $('thCntH').textContent=weekly?T("Swaps per week"):T("Swaps per day");
   const sw=TRD.swaps.slice().sort((x,y)=>at(x)-at(y));
   thChart('price', $('thChPrice'), sw.map(x=>({t:at(x), v:Number(x.price), h:x.claim?x.claim.height:null})), {kind:'area', straight:true, points:sw.length<=200, zero:false, fmt:thSatAxis, label:T("Price per GNR of every completed swap"), height:230});
-  thChart('med', $('thChMed'), days.filter(x=>x.median!=null).map(x=>({t:x.day+43200, v:x.median})), {kind:'line', straight:true, points:true, zero:false, fmt:thSatAxis, label:T("Median price per day"), height:190});
-  thChart('vol', $('thChVol'), days.map(x=>({t:x.day+43200, v:x.gnr/1e8})), {kind:'bars', fmt:(v,axis)=>axis?GKCharts.fmtNum(v):gnrShort(v*1e8)+' GNR', label:T("GNR traded per day"), height:190});
-  thChart('cnt', $('thChCnt'), days.map(x=>({t:x.day+43200, v:x.swaps})), {kind:'bars', integer:true, fmt:(v,axis)=>axis?String(Math.round(v)):Tn(Math.round(v), "{n} swap", "{n} swaps", {n: Math.round(v)}), label:T("Swaps per day"), height:170});
-  const r=thFig(sw), last=sw[sw.length-1], dsum=(k)=>days.reduce((x,o)=>x+Number(o[k]||0),0);
-  $('thLast').textContent=last?T("last {price}", {price: thPx(last.price)}):'-';
-  $('thMedR').textContent=thPx(r.median); $('thVolR').textContent=days.length?thG(dsum('gnr'))+' GNR':'-';
-  $('thCntR').textContent=days.length?Tn(dsum('swaps'), "{n} swap", "{n} swaps", {n: GKI18N.num(dsum('swaps'))}):'-';
+  const mid=weekly?3.5*86400:43200;
+  thChart('med', $('thChMed'), days.filter(x=>x.median!=null).map(x=>({t:x.day+mid, v:x.median})), {kind:'line', straight:true, points:days.length<=120, zero:false, fmt:thSatAxis, label:$('thMedH').textContent, height:190});
+  thChart('vol', $('thChVol'), days.map(x=>({t:x.day+mid, v:x.gnr/1e8})), {kind:'bars', fmt:(v,axis)=>axis?GKCharts.fmtNum(v):gnrShort(v*1e8)+' GNR', label:$('thVolH').textContent, height:190});
+  thChart('cnt', $('thChCnt'), days.map(x=>({t:x.day+mid, v:x.swaps})), {kind:'bars', integer:true, fmt:(v,axis)=>axis?String(Math.round(v)):Tn(Math.round(v), "{n} swap", "{n} swaps", {n: Math.round(v)}), label:$('thCntH').textContent, height:170});
+  const r=thFig(sw), last=sw[sw.length-1], dsum=(k)=>daily.reduce((x,o)=>x+Number(o[k]||0),0);
+  $('thLast').textContent=last?(TRD.ptotal>sw.length?T("newest {n} of {m}", {n: GKI18N.num(sw.length), m: GKI18N.num(TRD.ptotal)})+' · ':'')+T("last {price}", {price: thPx(last.price)}):'-';
+  $('thMedR').textContent=thPx(r.median); $('thVolR').textContent=daily.length?thG(dsum('gnr'))+' GNR':'-';
+  $('thCntR').textContent=daily.length?Tn(dsum('swaps'), "{n} swap", "{n} swaps", {n: GKI18N.num(dsum('swaps'))}):'-';
   $('thNote').textContent=TRD.fallback?T("This board shows only its last 50 swaps; the whole history appears once it runs version 1.0.53 or newer."):T("Every point is one completed swap, at the price its two wallets agreed on. Move over a chart to read a swap or a day.");
   document.querySelectorAll('#thRng button').forEach(b=>b.classList.toggle('on', Number(b.dataset.r)===TRD.range));
 }
+/* Days grouped into weeks (from Monday): totals add up; the week's median is the median of its
+   days' medians weighted by their swaps, an estimate shown as such. */
+function thWeeks(days){ const by=new Map();
+  days.forEach(d=>{ const wk=d.day-((Math.floor(d.day/86400)+3)%7)*86400; if(!by.has(wk)) by.set(wk,[]); by.get(wk).push(d); });
+  return [...by.entries()].sort((a,b)=>a[0]-b[0]).map(([wk,l])=>{ const ms=l.filter(x=>x.median!=null).map(x=>[Number(x.median),Number(x.swaps)||1]).sort((a,b)=>a[0]-b[0]);
+    const half=ms.reduce((a,x)=>a+x[1],0)/2; let acc=0, med=null; for(const [m,w] of ms){ acc+=w; if(acc>=half){ med=m; break; } }
+    return {day:wk, swaps:l.reduce((a,x)=>a+Number(x.swaps||0),0), gnr:l.reduce((a,x)=>a+Number(x.gnr||0),0), sats:l.reduce((a,x)=>a+Number(x.sats||0),0), median:med}; }); }
 function thRow(x){ const c=x.claim, t=(c&&c.time)||x.at;
   return `<tr><td>${esc(thWhen(t))}</td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td><td class="r">${c?`<button type="button" class="linkbtn" onclick="openLink('tx',${jsq(c.txid)})">${TE("Block #{h}", {h: GKI18N.num(Number(c.height))})} ↗</button>`:''}${x.verified?`<span class="th-ok" title="${TE("The board found this swap's bitcoin on the Bitcoin chain")}">BTC ✓</span>`:''}</td></tr>`; }
 async function tradesPage(p){
@@ -2292,7 +2313,7 @@ async function tradesPage(p){
   $('thPager').innerHTML=pages>1?`<span>${TE("Page {n} of {m}", {n: GKI18N.num(p+1), m: GKI18N.num(pages)})}</span><span class="pg"><button type="button" aria-label="${TE("Previous page")}" ${p?'':'disabled'} onclick="tradesPage(${p-1})">‹</button><button type="button" aria-label="${TE("Next page")}" ${p<pages-1?'':'disabled'} onclick="tradesPage(${p+1})">›</button></span>`:'';
 }
 async function loadMyTrades(){
-  let r; try{ r=await api('/api/trades/mine'); }catch(e){ $('thMineK').innerHTML=`<p class="muted">${TE("Unlock the wallet to see your own trades.")}</p>`; $('thMineRows').innerHTML=''; hide('thChMine'); $('thCsv').disabled=true; return; }
+  let r; try{ r=await api('/api/trades/mine'); }catch(e){ $('thMineK').innerHTML=`<p class="muted">${TE("Unlock the wallet to see your own trades.")}</p>`; $('thMineRows').innerHTML=''; hide('thChMine'); hide('thMineMore'); $('thCsv').disabled=true; return; }
   const l=r.trades||[], buys=l.filter(x=>x.side==='buy'), sells=l.filter(x=>x.side==='sell');
   const sum=(a,k)=>a.reduce((x,o)=>x+Number(o[k]||0),0), avg=a=>{ const g=sum(a,'gnr'); return g>0?sum(a,'sats')/(g/1e8):null; };
   const k=(label,main,sub)=>`<div><span>${label}</span><b>${main}</b><em>${sub||'&nbsp;'}</em></div>`;
@@ -2302,8 +2323,12 @@ async function loadMyTrades(){
     k(TE("Average buy price"), esc(thPx(avg(buys))), esc(thUsd(avg(buys))))+k(TE("Average sell price"), esc(thPx(avg(sells))), esc(thUsd(avg(sells))))
     :`<p class="muted">${TE("This wallet has not completed a swap yet. Take an offer on the board, or publish your own.")}</p>`;
   const mp=bdMkt().price;
-  if(l.length){ show('thChMine'); thChart('mine', $('thChMine'), l.slice().reverse().map(x=>({t:x.at, v:Number(x.price)})), {kind:'line', straight:true, points:true, zero:false, fmt:thSatAxis, target:mp!=null?Number(mp):undefined, targetLabel:T("market price now"), label:T("The price of each of your swaps"), height:170}); } else hide('thChMine');
-  $('thMineRows').innerHTML=l.slice(0,200).map(x=>`<tr><td>${esc(thWhen(x.at))}</td><td><span class="th-side">${x.side==='buy'?TE("Bought GNR"):TE("Sold GNR")}</span></td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td></tr>`).join('');
+  if(l.length){ show('thChMine'); thChart('mine', $('thChMine'), l.slice(0,500).reverse().map(x=>({t:x.at, v:Number(x.price)})), {kind:'line', straight:true, points:l.length<=120, zero:false, fmt:thSatAxis, target:mp!=null?Number(mp):undefined, targetLabel:T("market price now"), label:T("The price of each of your swaps"), height:170}); } else hide('thChMine');
+  TRD.mine=l; TRD.mineN=50; thMineRows();
+}
+function thMineRows(){ const l=TRD.mine||[];
+  $('thMineMore').classList.toggle('hidden', l.length<=TRD.mineN);
+  $('thMineRows').innerHTML=l.slice(0,TRD.mineN).map(x=>`<tr><td>${esc(thWhen(x.at))}</td><td><span class="th-side">${x.side==='buy'?TE("Bought GNR"):TE("Sold GNR")}</span></td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td></tr>`).join('');
 }
 async function tradesCsv(){ try{ const r=await api('/api/trades/export',{}); toast(T("Saved to {path}", {path: r.path})); }catch(e){ toast(e.message,true); } }
 document.querySelectorAll('#thRng button').forEach(b=>b.addEventListener('click',()=>{ TRD.range=Number(b.dataset.r)||0; loadTrades(); }));
