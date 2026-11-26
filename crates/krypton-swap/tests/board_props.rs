@@ -193,9 +193,10 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
     /// A sealed message opens for its key with the sender and body unchanged; any changed
-    /// byte, or another key, and it does not open.
+    /// byte, or another key, and it does not open. A message has at least one byte: the
+    /// wallets send notes, never nothing (see `a_message_with_nothing_in_it_does_not_open`).
     #[test]
-    fn sealed_messages_open_only_intact(body in prop::collection::vec(any::<u8>(), 0..2000),
+    fn sealed_messages_open_only_intact(body in prop::collection::vec(any::<u8>(), 1..2000),
                                         flip in any::<prop::sample::Index>(), bit in 0u8..8) {
         let a = kem::SecretKey::from_seed(&[1; 96]);
         let b = kem::SecretKey::from_seed(&[2; 96]);
@@ -209,6 +210,18 @@ proptest! {
         raw[i] ^= 1 << bit;
         prop_assert!(board::open(&b, &hex::encode(raw)).is_err());
     }
+}
+
+/// `open` asks for at least one byte after the sender's key, so a message sealed around
+/// nothing is refused like any other message that is too short. No wallet sends one.
+#[test]
+fn a_message_with_nothing_in_it_does_not_open() {
+    let a = kem::SecretKey::from_seed(&[1; 96]);
+    let b = kem::SecretKey::from_seed(&[2; 96]);
+    let e = board::seal(b.public(), &a, &[]).unwrap();
+    assert!(board::open(&b, &e.data).is_err());
+    let e = board::seal(b.public(), &a, &[0]).unwrap();
+    assert_eq!(board::open(&b, &e.data).unwrap().1, vec![0]);
 }
 
 fn swaps(max: usize) -> impl Strategy<Value = Vec<Swap>> {

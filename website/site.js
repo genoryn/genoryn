@@ -303,14 +303,19 @@
     var at = function (x) { return (x.claim && x.claim.time) || x.at || 0; };
     var all = (gk.mkRecent || []).slice().sort(function (a, b) { return at(b) - at(a); });
     var done = all.filter(function (x) { return x.claim; });
-    var g = 0, s = 0;
+    var g = 0, s = 0, count = done.length;
     done.forEach(function (x) { g += Number(x.gnr) || 0; s += Number(x.sats) || 0; });
+    // The same figures as the trade history: the whole history, and of it the swaps whose
+    // bitcoin was found on the Bitcoin chain where the board tells them apart (1.0.55).
+    var tot = gk.swapAll, vf = tot && tot.verified_figures;
+    if (tot && vf && Number(tot.verified) > 0) { count = Number(tot.verified); g = Number(vf.gnr) || 0; s = Number(vf.sats) || 0; }
+    else if (tot && Number(tot.swaps) > 0) { count = Number(tot.swaps); g = Number(tot.gnr) || 0; s = Number(tot.sats) || 0; }
     var gnr = function (v) { return GKI18N.num(v / 1e8, { maximumFractionDigits: v >= 1e10 ? 0 : 2 }); };
     var btc = function (v) { return GKI18N.num(v / 1e8, { minimumFractionDigits: 4, maximumFractionDigits: 8 }); };
     var ago = function (sec) { return sec >= 86400 ? Tn(Math.floor(sec / 86400), "{n} day", "{n} days") : sec >= 3600 ? T("{n} h", { n: Math.floor(sec / 3600) }) : T("{n} min", { n: Math.max(1, Math.floor(sec / 60)) }); };
-    put("hsDone", GKI18N.num(done.length));
-    put("hsGnr", done.length ? gnr(g) + " GNR" : "—");
-    put("hsBtc", done.length ? btc(s) + " BTC" : "—");
+    put("hsDone", GKI18N.num(count));
+    put("hsGnr", count ? gnr(g) + " GNR" : "—");
+    put("hsBtc", count ? btc(s) + " BTC" : "—");
     put("hsLast", all.length ? T("{t} ago", { t: ago(Math.max(0, now - at(all[0]))) }) : "—");
     put("hsRun", T("Swaps, 24 h") + ": " + T("{done} done · {running} in progress", { done: GKI18N.num(mk.trades || 0), running: GKI18N.num(mk.pending || 0) }));
     var explorer = GKI18N.path("/explorer");
@@ -332,7 +337,8 @@
       var info = gk.api("/v1/info").catch(function () { return null; });
       var mk = gk.api("/v1/swap/market").then(function (m) { gk.mk = m.market; gk.mkRecent = m.recent || []; }).catch(function () {});
       var btc = gk.api("/v1/btc-price").then(function (p) { gk.btcUsd = p.USD; }).catch(function () {});
-      Promise.all([info, mk, btc]).then(function (r) { gk.value(r[0]); gk.priceChart(); gk.swapFeed(); });
+      var hist = document.getElementById("homeSwaps") ? gk.api("/v1/swap/history/summary").then(function (h) { gk.swapAll = h && h.all; }).catch(function () {}) : null;
+      Promise.all([info, mk, btc, hist]).then(function (r) { gk.value(r[0]); gk.priceChart(); gk.swapFeed(); });
     };
     loadMarket();
     setInterval(function () { if (!document.hidden) loadMarket(); }, 60000);

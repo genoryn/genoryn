@@ -766,6 +766,8 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 .wl-btc-n,.tb-c b,.mn-kpi b,.swt b{font-family:var(--font-display);letter-spacing:-.03em}
 .mn-kpi{border-radius:var(--radius-lg)}
 .mn-ring{transform:none;box-shadow:none}
+/* Two cards side by side on a phone: a smaller ring, so the share itself is never cut. */
+@media (max-width:560px){.mn-ringrow{gap:10px}.mn-ring{width:34px;height:34px}.mn-ring i{width:24px;height:24px}.mn-kpi b{font-size:21px}}
 .tbar{border-radius:var(--radius-lg)}
 .tb-gnr b{text-shadow:none}.tb-gnr>.coin,.wl-bal .bal-main .coin,.big .coin{filter:none}
 .mk-price b{letter-spacing:-.04em}

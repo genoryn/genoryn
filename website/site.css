@@ -617,11 +617,13 @@ table.data tbody tr:hover { background: var(--bg-inset); }
 .mk-totals { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin: 0 0 34px; }
 .mkt { padding: 22px 24px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .mkt-k { display: flex; align-items: center; gap: 9px; font: 600 12px/1 var(--font-sans); letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-tertiary); }
-.mkt-k .coin, .mkt-k .ni { width: 17px; height: 17px; margin: 0; color: var(--text-primary); opacity: 1; }
+.mkt-k .coin, .mkt-k .ni { width: 17px; height: 17px; margin: 0; flex: none; color: var(--text-primary); opacity: 1; }
+/* A long word in a narrow card (Durchschnittspreis) breaks instead of leaving the card. */
+.mkt-k { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; hyphens: auto; }
 .mkt b { font: 700 clamp(22px, 2.1vw, 32px)/1.1 var(--font-display); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .mkt em { font-style: normal; font-size: 13.5px; line-height: 1.45; color: var(--text-secondary); }
 @media (max-width: 1280px) { .mk-totals { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 720px) { .mk-totals { grid-template-columns: 1fr 1fr; gap: 12px; } .mkt { padding: 16px; } }
+@media (max-width: 720px) { .mk-totals { grid-template-columns: 1fr 1fr; gap: 12px; } .mkt { padding: 16px; } .mkt-k { font-size: 11px; letter-spacing: .7px; gap: 7px; } }
 .mk-ok { font-style: normal; display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 6px; border-radius: 50%; font-size: 9.5px; font-weight: 700; background: var(--text-primary); color: var(--bg-solid, #000); vertical-align: 1px; cursor: help; }
 .mk-rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 34px; }
 .mk-rules > div { padding: 26px 28px; border-radius: var(--radius-lg); }
@@ -669,6 +671,9 @@ table.data tbody tr:hover { background: var(--bg-inset); }
 .ob-pill .ic { width: 14px; height: 14px; transition: transform .25s var(--ease); }
 .ob-pill:hover .ic { transform: translateX(3px); }
 .ob-hero .display { margin-top: 26px; max-width: 1180px; font-size: clamp(42px, 7.4vw, 96px); }
+/* Japanese has no spaces to break at: keep its phrases whole where the browser can tell them
+   apart, and do not leave one syllable alone on a line. */
+:lang(ja) .display, :lang(ja) .section-head h2, :lang(ja) .ob-author h2 { word-break: auto-phrase; text-wrap: balance; }
 .display .nb { white-space: nowrap; }
 .ob-hero .manifesto { justify-content: center; margin-top: 20px; }
 .ob-hero .lead { margin: 22px auto 0; max-width: 720px; text-wrap: pretty; }
@@ -1178,6 +1183,8 @@ a.pg-card:hover .pg-go svg { transform: translateX(4px); }
 
 /* Home: swaps, live (1.0.52) */
 .hs-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+/* These amounts carry their unit and grow with the market: sized so that 123,456 GNR and 12.3456 BTC still fit their card. */
+.lp .hs-kpis .stat b { font-size: clamp(19px, 2.05vw, 30px); overflow: hidden; text-overflow: ellipsis; }
 .hs-feed { padding: 8px 8px 14px; border-radius: var(--radius-lg); overflow: hidden; }
 .hs-head, .hs-row { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.3fr) minmax(0, .8fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px 16px; }
 .hs-head { font: 600 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary, var(--text-secondary)); padding-top: 14px; }
