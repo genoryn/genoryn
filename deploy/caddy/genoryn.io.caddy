@@ -123,9 +123,11 @@
 	}
 }
 
-# Behind Cloudflare in "Full" mode: Cloudflare terminates the public certificate.
+# Behind Cloudflare in "Full (strict)" mode: Cloudflare terminates the public certificate
+# and checks this origin's Cloudflare Origin CA certificate. Its key was made on the server
+# and never leaves it.
 https://genoryn.io, https://www.genoryn.io {
-	tls internal
+	tls /etc/caddy/origin/origin.pem /etc/caddy/origin/origin.key
 	import site
 }
 
