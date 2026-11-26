@@ -7,7 +7,7 @@ import re
 
 SITE = "https://genoryn.io"
 NAME = "Genoryn Krypton"
-VERSION = "1.0.53"
+VERSION = "1.0.54"
 OG = SITE + "/assets/og.png"
 TODAY = datetime.date.today().isoformat()
 KEYWORDS = ("Genoryn Krypton, GNR, quantum-resistant cryptocurrency, post-quantum cryptocurrency, quantum-safe Bitcoin alternative, "

@@ -26,6 +26,7 @@
  "6377a06e81": "Sí, exactamente igual que GNR: el token, el importe, el remitente y el destinatario quedarán ocultos mediante una prueba de conocimiento cero. Solo la creación y la destrucción de tokens serán públicas.",
  "377ed0c796": "No. Ningún emisor podrá quitar tokens, ver saldos ni congelar a un solo titular; todo lo que un emisor pueda hacer se declarará antes de que exista el token.",
  "c914a0c430": "No. Mantén tu billetera actualizada; su pestaña Tokens se activa sola cuando se activan los tokens.",
+ "3fa8d0b2f5": "Genoryn Krypton 1.0.54: reembolsos de intercambio que no se atascan, y el bitcoin pagado dos veces vuelve",
  "4662007ace": "Genoryn Krypton 1.0.53: billeteras ligeras que comprueban cada bloque, un precio de mercado más robusto, historial de intercambios y Tor",
  "84457cacbc": "Genoryn Krypton 1.0.52: una auditoría de seguridad completa, e intercambiar directamente desde tu saldo de bitcoin",
  "b3483934d1": "Genoryn Krypton 1.0.51: Intercambio y Mercado, cada uno con su propia pestaña y su propia página",
@@ -43,6 +44,5 @@
  "4fdc50bcd4": "Genoryn Krypton 1.0.39: el saldo en krypton, totales en dinero, un historial más ordenado",
  "d66cacd757": "Genoryn Krypton 1.0.38: un nuevo diseño de la billetera, un libro de órdenes de dos lados, el krypton",
  "feeb690ede": "Genoryn Krypton 1.0.37: las monedas cuánticas pasan a una versión futura",
- "1c40d47eef": "Genoryn Krypton 1.0.36: una pestaña Coins reconstruida y un diseño más limpio",
- "db188fe582": "Genoryn Krypton 1.0.35: anunciadas las monedas cuánticas"
+ "1c40d47eef": "Genoryn Krypton 1.0.36: una pestaña Coins reconstruida y un diseño más limpio"
 }

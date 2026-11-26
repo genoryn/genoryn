@@ -100,6 +100,20 @@ other nodes. Every finding below is fixed in 1.0.53.
 | S-18 | Low | A Bitcoin server whose block heights ran ahead of its tip could make the confirmation count wrap. | Counted as none. |
 | S-19 | Low | A code from a linked peer was accepted for any swap. | Only for its own. |
 
+## Fixed in 1.0.54
+
+Lower-severity findings of this review, fixed in 1.0.54:
+
+| ID | Severity | What was wrong | Fix |
+|---|---|---|---|
+| S-20 | Medium | A buyer's bitcoin refund that waited in a busy mempool was sent again only when dropped, never with more fee. | Signed again with more fee as the blocks go by (twice from three blocks, up to four times). Regression test: `a_refund_waiting_in_a_busy_mempool_gets_more_fee`. |
+| S-21 | Medium | Bitcoin paid into a contract besides the swap's own payment (a second payment, or one short of the amount) had no way back. | Sent back to the buyer once the bitcoin lock ends, also after the swap completed. Regression test: `extra_bitcoin_left_in_the_contract_comes_back`. |
+| N-8 | Medium | The address directory was limited per client and per minute, but not for everyone together by the day. | 20,000 new entries a day in all. |
+| W-14 | Low | Answers from the offer board and to the miner were read without a size limit. | 64 MiB and 4 MiB. |
+| W-15 | Low | The command-line wallet printed memos, which the sender writes, with their control characters. | Removed before printing. |
+| W-16 | Low | A few sums of amounts from the board could wrap around. | Saturating. |
+| N-9 | Low | History pages at any depth were found by walking from the newest swap. | Deeper than 2,000,000 swaps, `since` is asked for. |
+
 ## What was checked and found correct
 
 * **Consensus:** unchanged in 1.0.53. Decoders bound every length and reject trailing bytes; the

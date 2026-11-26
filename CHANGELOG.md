@@ -4,6 +4,23 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.54](https://github.com/genoryn/genoryn/releases/tag/v1.0.54) · 2026-11-26: Swap refunds that do not get stuck, and bitcoin paid twice comes back
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+
+### Added
+
+- Bitcoin paid into a swap contract a second time, or short of the amount, comes back to the buyer by itself once the contract's lock ends, also after the swap completed.
+
+### Changed
+
+- Swaps: a buyer's bitcoin refund that waits for a block is sent again with more fee as the blocks go by, so it is in a block in time.
+- The documentation says what the board's sealed swap messages are: relayed from wallet to wallet by the nodes. No e-mail is involved.
+
+### Security
+
+- Answers from the offer board and to the miner are read only up to a limit, the node caps how many new addresses its directory takes a day, and the command-line wallet prints memos without control characters.
+
 ## [1.0.53](https://github.com/genoryn/genoryn/releases/tag/v1.0.53) · 2026-11-26: Light wallets that check every block, a sturdier market price, trade history and Tor
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.

@@ -26,6 +26,7 @@
  "6377a06e81": "Oui, exactement comme GNR : le jeton, le montant, l'expéditeur et le destinataire seront cachés par une preuve à divulgation nulle de connaissance. Seules la création et la destruction de jetons seront publiques.",
  "377ed0c796": "Non. Aucun émetteur ne pourra prendre de jetons, voir les soldes ou geler un détenteur en particulier ; tout ce qu'un émetteur pourra faire sera déclaré avant que le jeton n'existe.",
  "c914a0c430": "Non. Gardez votre portefeuille à jour ; son onglet Jetons s'activera de lui-même lorsque les jetons seront activés.",
+ "3fa8d0b2f5": "Genoryn Krypton 1.0.54 : des remboursements d'échange qui ne restent pas bloqués, et le bitcoin payé deux fois revient",
  "4662007ace": "Genoryn Krypton 1.0.53 : des portefeuilles légers qui vérifient chaque bloc, un prix du marché plus robuste, l'historique des échanges et Tor",
  "84457cacbc": "Genoryn Krypton 1.0.52 : un audit de sécurité complet, et l'échange directement depuis votre solde bitcoin",
  "b3483934d1": "Genoryn Krypton 1.0.51: Échange et Marché, chacun avec son onglet et sa page",
@@ -43,6 +44,5 @@
  "4fdc50bcd4": "Genoryn Krypton 1.0.39 : le solde en krypton, les totaux en monnaie, un historique plus clair",
  "d66cacd757": "Genoryn Krypton 1.0.38 : un nouveau design du portefeuille, un carnet d'ordres à deux côtés, le krypton",
  "feeb690ede": "Genoryn Krypton 1.0.37 : les pièces quantiques sont reportées à une future version",
- "1c40d47eef": "Genoryn Krypton 1.0.36 : un onglet Pièces reconstruit et un design plus épuré",
- "db188fe582": "Genoryn Krypton 1.0.35 : annonce des pièces quantiques"
+ "1c40d47eef": "Genoryn Krypton 1.0.36 : un onglet Pièces reconstruit et un design plus épuré"
 }
