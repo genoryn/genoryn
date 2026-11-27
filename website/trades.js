@@ -129,14 +129,61 @@
     $("thNote").textContent = T("Every point is one completed swap, at the price its two wallets agreed on. Move over a chart to read a swap or a day.");
     document.querySelectorAll("#thRng button").forEach(function (b) { var on = Number(b.dataset.r) === st.range; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
   }
+  /* A swap's proof: what both chains hold of it, so anyone can see that it happened. The GNR
+     claim carries the swap's secret; the Bitcoin transaction that took the payment out of
+     the contract carries the same secret; and the SHA-256 of that secret is the hash lock
+     both coins were locked with (worked out here, in this page). Opened row by row. */
+  var shown = {}, open = {};
+  var HEX = /^[0-9a-f]{64}$/;
+  var mid = function (h) { h = String(h || ""); return h.length > 26 ? h.slice(0, 14) + "…" + h.slice(-10) : h; };
+  function proofHtml(x) {
+    var c = x.claim, b = x.btc;
+    var copy = function (v) { return "<button type=\"button\" class=\"btn\" data-copy=\"" + e(v) + "\">" + e(T("Copy")) + "</button>"; };
+    var btx = function (id) { return HEX.test(id) ? "<a class=\"btn\" href=\"https://mempool.space/tx/" + id + "\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"" + e(T("See this transaction on mempool.space, a public Bitcoin explorer")) + "\">" + e(T("View ↗")) + "</a>" : ""; };
+    var line = function (k, v, acts, note) { return "<div class=\"thp-r\"><span class=\"thp-k\">" + e(k) + "</span><span class=\"mono thp-v\" title=\"" + e(v) + "\">" + e(mid(v)) + "</span><span class=\"thp-x\">" + acts + "</span>" + (note ? "<em class=\"thp-n\">" + note + "</em>" : "") + "</div>"; };
+    var gnrSide = c && HEX.test(c.txid) ? line(T("Claim of the GNR"), c.txid, copy(c.txid) + "<a class=\"btn\" href=\"" + explorer + "#/tx/" + c.txid + "\">" + e(T("View ↗")) + "</a>", e(T("block {height} · {time}", { height: GKI18N.num(Number(c.height)), time: when(c.time) })))
+      : "<p class=\"thp-none\">" + e(T("The claim of the GNR is not in a block yet.")) + "</p>";
+    var lock = line(T("Hash lock"), x.hash, copy(x.hash)) + (c && HEX.test(c.secret || "") ? line(T("Secret"), c.secret, copy(c.secret), "<span class=\"thp-chk\" data-hash=\"" + e(x.hash) + "\" data-secret=\"" + e(c.secret) + "\">" + e(T("checking…")) + "</span>") : "");
+    var fund = b ? String(b.funding || "").split(":") : [];
+    var btcSide = b && HEX.test(fund[0]) && HEX.test(b.claim)
+      ? line(T("Bitcoin paid into the swap's contract"), fund[0], copy(fund[0]) + btx(fund[0]), e(T("output {n} · Bitcoin block {height}", { n: Number(fund[1]) || 0, height: GKI18N.num(Number(b.funded_height)) }))) +
+        line(T("Bitcoin taken with the secret"), b.claim, copy(b.claim) + btx(b.claim))
+      : "<p class=\"thp-none\">" + e(x.verified ? T("The board found this swap's bitcoin on the Bitcoin chain. It writes the two Bitcoin transactions down from version 1.0.58 on; this swap is older.") : T("The board has not found this swap's bitcoin on the Bitcoin chain: it is a report, and counts as unverified.")) + "</p>";
+    return "<div class=\"thp\"><div class=\"thp-g\"><h4>" + e(T("On the GNR chain")) + "</h4>" + gnrSide + "</div><div class=\"thp-g\"><h4>" + e(T("The lock both coins shared")) + "</h4>" + lock + "</div><div class=\"thp-g\"><h4>" + e(T("On the Bitcoin chain")) + "</h4>" + btcSide + "</div>" +
+      "<p class=\"thp-how\">" + e(T("How to check it yourself: the claim on the GNR chain shows the secret; the Bitcoin transaction that took the payment carries the same secret in its witness; and the SHA-256 of that secret is the hash lock. Only a swap that really happened leaves all three. Amounts on the GNR side stay hidden: the price is what the two wallets reported, and for a verified swap the bitcoin is what the Bitcoin chain shows.")) + "</p></div>";
+  }
+  function proofOpen(btn) {
+    var x = shown[btn.getAttribute("data-proof")], tr = btn.closest("tr");
+    if (!x || !tr) return;
+    var row = document.createElement("tr");
+    row.className = "thp-row";
+    row.innerHTML = "<td colspan=\"5\">" + proofHtml(x) + "</td>";
+    tr.parentNode.insertBefore(row, tr.nextSibling);
+    btn.setAttribute("aria-expanded", "true");
+    var chk = row.querySelector(".thp-chk");
+    if (!chk) return;
+    var done = function (ok) {
+      chk.textContent = ok === true ? T("✓ SHA-256 of this secret is the hash lock (checked in this window)") : ok === false ? T("✗ This secret does not open the hash lock") : T("(this window cannot work out SHA-256; check it with any tool)");
+      chk.classList.add(ok === true ? "yes" : ok === false ? "no" : "na");
+    };
+    try {
+      var bytes = new Uint8Array(chk.getAttribute("data-secret").match(/../g).map(function (h) { return parseInt(h, 16); }));
+      crypto.subtle.digest("SHA-256", bytes).then(function (d) {
+        var hex = Array.prototype.map.call(new Uint8Array(d), function (v) { return ("0" + v.toString(16)).slice(-2); }).join("");
+        done(hex === chk.getAttribute("data-hash"));
+      }, function () { done(null); });
+    } catch (err) { done(null); }
+  }
   function row(x) {
-    var c = x.claim, h = c ? GKI18N.num(Number(c.height)) : "";
+    var c = x.claim, h = c ? GKI18N.num(Number(c.height)) : "", id = HEX.test(x.hash || "") ? x.hash : "";
+    if (id) shown[id] = x;
     return "<tr><td>" + e(when(at(x))) + "</td>" +
       "<td><b class=\"mono\">" + e(sat(x.price)) + "</b>" + (usd(x.price) ? "<br><small class=\"muted\">≈ " + e(usd(x.price)) + "</small>" : "") + "</td>" +
       "<td class=\"num\">" + e(gnr(x.gnr)) + "</td>" +
       "<td class=\"num\">" + e(btc(x.sats)) + (dollars(x.sats) ? "<br><small class=\"muted\">≈ " + e(dollars(x.sats)) + "</small>" : "") + "</td>" +
-      "<td class=\"num\">" + (c ? "<a href=\"" + explorer + "#/tx/" + e(c.txid) + "\">" + e(T("Block #{h}", { h: h })) + " ↗</a>" : e(T("waiting"))) +
-      (x.verified ? " <i class=\"mk-ok\" title=\"" + e(T("The board found this swap's bitcoin on the Bitcoin chain")) + "\">BTC ✓</i>" : "") + "</td></tr>";
+      "<td class=\"num th-px\">" + (c ? "<a href=\"" + explorer + "#/tx/" + e(c.txid) + "\">" + e(T("Block #{h}", { h: h })) + " ↗</a>" : e(T("waiting"))) +
+      (x.verified ? " <i class=\"mk-ok\" title=\"" + e(T("The board found this swap's bitcoin on the Bitcoin chain")) + "\">BTC ✓</i>" : "") +
+      (id ? " <button type=\"button\" class=\"btn th-pb\" data-proof=\"" + id + "\" aria-expanded=\"false\">" + e(T("Proof")) + "</button>" : "") + "</td></tr>";
   }
   function table(p) {
     var per = Number($("thPer").value) || 50, ver = mode() === "verified";
@@ -145,7 +192,10 @@
       if (p > 0 && p >= pages) return table(pages - 1);
       st.page = p;
       $("thAllN").textContent = total ? "· " + GKI18N.num(total) : "";
+      shown = {};
       $("thRows").innerHTML = (r.swaps || []).length ? r.swaps.map(row).join("") : "<tr><td colspan=\"5\" class=\"muted mk-empty\">" + e(T("No completed swaps yet.")) + "</td></tr>";
+      // A proof that was open stays open when the page of swaps is read again.
+      Array.prototype.forEach.call($("thRows").querySelectorAll("[data-proof]"), function (b) { if (open[b.getAttribute("data-proof")]) proofOpen(b); });
       $("thPager").innerHTML = pages > 1
         ? "<button class=\"btn\" data-pg=\"0\"" + (p ? "" : " disabled") + " aria-label=\"" + e(T("First page")) + "\">«</button>" +
           "<button class=\"btn\" data-pg=\"" + (p - 1) + "\"" + (p ? "" : " disabled") + " aria-label=\"" + e(T("Previous page")) + "\">‹</button>" +
@@ -190,6 +240,18 @@
     });
   }
   document.addEventListener("click", function (ev) {
+    var p = ev.target.closest ? ev.target.closest("[data-proof], [data-copy]") : null;
+    if (p && p.hasAttribute("data-copy")) {
+      var text = p.getAttribute("data-copy");
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { var was = p.textContent; p.textContent = T("Copied"); setTimeout(function () { p.textContent = was; }, 1400); }, function () {});
+      return;
+    }
+    if (p) {
+      var id = p.getAttribute("data-proof"), next = p.closest("tr").nextElementSibling;
+      if (next && next.classList.contains("thp-row")) { next.parentNode.removeChild(next); p.setAttribute("aria-expanded", "false"); delete open[id]; }
+      else { open[id] = true; proofOpen(p); }
+      return;
+    }
     var b = ev.target.closest ? ev.target.closest("#thRng button, #thMode button, [data-pg]") : null;
     if (!b || b.disabled) return;
     if (b.dataset.r != null) { st.range = Number(b.dataset.r) || 0; load(); }

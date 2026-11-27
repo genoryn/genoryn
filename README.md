@@ -205,7 +205,7 @@ The wallet's updater performs exactly this check before it installs anything.
 2. **Create a wallet**: choose a strong password and write the 24 words with their numbers on
    paper. Nobody, the project included, can restore a wallet without them.
 3. **Get GNR**: mine in the **Mining** tab, buy with bitcoin in the **Swap** tab, or share your
-   short address (`gnrs1…`) to receive.
+   address from **Receive** to be paid.
 4. **Send privately**: address, amount, optional memo; the proof is built on your computer in
    about half a second.
 
@@ -235,9 +235,9 @@ in its own window. Keys, scanning and proving never leave your computer.
 
 | Tab | What it does |
 |---|---|
-| **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it (a deposit on its way says why it waits, with a bar until its first block and a way to speed it up), **Receive** (QR code, short form, full address, *Publish short form*), **Send privately** (full or short address, amount or **Max**, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
+| **Wallet** | Balance (spendable, on its way out, change coming back, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it (its address, the deposit addresses of open buy offers; a deposit on its way says why it waits, with a bar until its first block and a way to speed it up), **Receive** (the full address first with its QR code, the short form by choice, *Publish short form*; after Copy the wallet reads the clipboard back), **Send privately** (full or short address checked as you type, amount or **Max**, memo, market fee; a payment that merges notes first counts down its steps, and a sent one is listed at once as on its way with its proof), the **latest five transactions**, several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, a **Proof** button for every send, and **View ↗** / **Block ↗** to open a payment's transaction or block on the genoryn.io explorer. A table in a wide window, a list in a narrow one |
-| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: buy, sell, in progress, yours), **Publish an offer** (1 hour to 1 year), **Your swaps** with their progress, and **Trade history** (every completed swap, in figures and charts: verified swaps first, the ones whose bitcoin the board found on the Bitcoin chain, with every other report one switch away). Buying is paid from the wallet's own Bitcoin balance and selling can be paid into it, so trading needs no transfer each time and nothing is paid by hand |
+| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: buy, sell, in progress, yours), **Publish an offer** (1 hour to 1 year), **Your swaps** with their progress, and **Trade history** (every completed swap, in figures and charts: verified swaps first, the ones whose bitcoin the board found on the Bitcoin chain, with every other report one switch away; each swap opens to its proof: the GNR claim, the hash lock, the secret and the two Bitcoin transactions, with the secret checked against the lock in the window). Buying is paid from the wallet's own Bitcoin balance and selling can be paid into it, so trading needs no transfer each time and nothing is paid by hand |
 | **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
@@ -300,7 +300,10 @@ words (`1.`, `2.` …) and commas may stay. Coins of Mainnet 1.0 are not on this
 X25519 key and a 128-bit checksum, so a typo or tampering is always detected. Its short form
 (`gnrs1…`) is a content hash: press *Publish short form* once (it goes to genoryn.io, your
 configured nodes and your own node), share it, and every sender's wallet checks that what a
-node resolves hashes back to it, so a node can never substitute another recipient.
+node resolves hashes back to it, so a node can never substitute another recipient. **Receive**
+shows the full address first, with its QR code: it works always, straight from wallet to
+wallet, while the short form needs a node that knows it. After *Copy* the wallet reads the
+clipboard back and says whether it holds exactly your address.
 
 **Several wallets.** Any number, each with its own 24 words and password. The selector switches
 between them; *Show all wallets* lists them with search, filters, sorting and one total.

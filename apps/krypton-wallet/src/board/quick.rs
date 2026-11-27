@@ -1274,8 +1274,36 @@ pub async fn btc_info(axum::extract::State(app): S, h: HeaderMap) -> Response {
             let waiting = waiting_note(e, &b);
             // The Bitcoin server's first sight of it where it tells, else this program's.
             let since = waiting["since"].as_u64().or(b.pending_since);
+            // The deposits of buy offers that are open or still hold bitcoin: each at an
+            // address of this wallet's own, made for that offer.
+            let deposits: Vec<Value> = st
+                .offers
+                .iter()
+                .filter_map(|m| m.fund.as_ref().map(|f| (m, f)))
+                .filter(|(_, f)| !f.handed && (f.closed.is_none() || f.seen > 0))
+                .map(|(m, f)| {
+                    json!({
+                        "address": f.address, "offer": m.offer.id, "sats": f.seen,
+                        "confirmed": f.confirmed, "need": f.need, "open": f.closed.is_none(),
+                        "gnr_text": krypton_core::emission::format_amount(m.offer.gnr),
+                    })
+                })
+                .collect();
+            // What a payment from the balance costs now, and what a buy offer sets aside
+            // for its own payment: the page takes them off when it fills in "Max".
+            let rate = e.btc.fee_rate().ok();
+            let pay_fee = rate
+                .and_then(|r| r.fee_vb(deposit::PAY_VSIZE))
+                .map(|a| a.to_sat())
+                .unwrap_or(deposit::MIN_FEE_RESERVE)
+                .max(500);
+            let offer_reserve = rate
+                .map(deposit::fee_reserve)
+                .unwrap_or(deposit::MIN_FEE_RESERVE);
             Ok(json!({
                 "address": address,
+                "deposits": deposits,
+                "pay_fee": pay_fee, "offer_reserve": offer_reserve,
                 "confirmed": b.confirmed, "total": b.total, "committed": b.committed,
                 "pending": b.total.saturating_sub(b.confirmed),
                 // Of `pending`: change of the wallet's own payments, on its way back.

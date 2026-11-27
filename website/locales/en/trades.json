@@ -15,6 +15,7 @@
  "7dafec0b8c": "Bitcoin traded per day",
  "b724078e81": "Swaps per day",
  "0c46823f72": "All swaps",
+ "5b921f95fd": "Proof on chain",
  "2fc39780ad": "Where these figures come from",
  "0531012067": "<0>Every swap the offer board has recorded</0>, once its GNR claim is on the GNR chain. A swap is an atomic swap between two wallets: no exchange took part, and nobody held anyone's coins.",
  "834f9a1a7d": "<0>Amounts are private on chain.</0> The GNR and bitcoin shown were reported by the swap's own wallets. <1>BTC ✓</1> means the board also found the swap's bitcoin on the Bitcoin chain, paid into the swap's contract and taken out with its secret: such a swap is <2>verified</2>.",

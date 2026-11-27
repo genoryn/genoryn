@@ -36,6 +36,19 @@ fn swap_view(t: &Value) -> Option<Value> {
             "txid": c.get("txid")?.as_str().filter(|x| hex64(x))?.to_ascii_lowercase(),
             "height": c.get("height")?.as_u64()?,
             "time": c.get("time")?.as_u64()?,
+            // The swap's secret, as its claim on the GNR chain shows it: its SHA-256 is
+            // the hash lock (the page checks that itself).
+            "secret": c.get("secret").and_then(|s| s.as_str()).filter(|x| hex64(x)).map(str::to_ascii_lowercase),
+        }))
+    });
+    // The swap's two transactions on the Bitcoin chain, where the board kept them (1.0.58).
+    let btc = t["btc"].as_object().and_then(|b| {
+        let (txid, vout) = b.get("funding")?.as_str()?.split_once(':')?;
+        let vout: u32 = vout.parse().ok()?;
+        Some(json!({
+            "funding": format!("{}:{vout}", Some(txid).filter(|x| hex64(x))?.to_ascii_lowercase()),
+            "funded_height": u32::try_from(b.get("funded_height")?.as_u64()?).ok()?,
+            "claim": b.get("claim")?.as_str().filter(|x| hex64(x))?.to_ascii_lowercase(),
         }))
     });
     Some(json!({
@@ -46,6 +59,7 @@ fn swap_view(t: &Value) -> Option<Value> {
         "hash": hash.to_ascii_lowercase(),
         "verified": t["verified"].as_bool().unwrap_or(false),
         "claim": claim,
+        "btc": btc,
         "confirmations": t["confirmations"].as_u64(),
     }))
 }
@@ -325,6 +339,8 @@ mod tests {
         assert_eq!(v["price"], 1000.0);
         assert_eq!(v["claim"]["txid"], "cd".repeat(32));
         assert!(v.get("note").is_none() && v["claim"].get("extra").is_none());
+        // A swap the board kept no Bitcoin transactions of (before 1.0.58) has none here.
+        assert!(v["btc"].is_null() && v["claim"]["secret"].is_null());
         for bad in [
             json!({"at": 5, "gnr": 0, "sats": 2, "hash": "ab".repeat(32)}),
             json!({"at": 5, "gnr": 1, "sats": 2, "hash": "<img>"}),
@@ -336,6 +352,52 @@ mod tests {
         let csv = csv(&[
             json!({"at": 0, "side": "buy", "gnr": 150_000_000u64, "sats": 1_500, "price": 1000.0, "hash": "ab"}),
         ]);
+        // The proof of a swap: its secret and its two Bitcoin transactions, each a
+        // transaction ID and nothing else.
+        let with = |btc: Value, secret: &str| {
+            json!({"at": 5, "gnr": 200_000_000u64, "sats": 2_000, "hash": "ab".repeat(32), "verified": true,
+                "claim": {"txid": "cd".repeat(32), "height": 9, "time": 7, "secret": secret},
+                "btc": btc})
+        };
+        let v = swap_view(&with(
+            json!({"funding": format!("{}:1", "EF".repeat(32)), "funded_height": 977_771, "claim": "0A".repeat(32), "x": "<i>"}),
+            &"1B".repeat(32),
+        ))
+        .unwrap();
+        assert_eq!(v["claim"]["secret"], "1b".repeat(32));
+        assert_eq!(v["btc"]["funding"], format!("{}:1", "ef".repeat(32)));
+        assert_eq!(v["btc"]["funded_height"], 977_771);
+        assert_eq!(v["btc"]["claim"], "0a".repeat(32));
+        assert!(v["btc"].get("x").is_none());
+        // Anything that is not one is left out, and the swap itself still shows.
+        for (btc, secret) in [
+            (
+                json!({"funding": "<img src=x>:0", "funded_height": 1, "claim": "0a".repeat(32)}),
+                "javascript:alert(1)".to_string(),
+            ),
+            (
+                json!({"funding": "ef".repeat(32), "funded_height": 1, "claim": "0a".repeat(32)}),
+                "1b".repeat(31),
+            ),
+            (
+                json!({"funding": format!("{}:-1", "ef".repeat(32)), "funded_height": 1, "claim": "0a".repeat(32)}),
+                String::new(),
+            ),
+            (
+                json!({"funding": format!("{}:0", "ef".repeat(32)), "funded_height": u64::MAX, "claim": "0a".repeat(32)}),
+                String::new(),
+            ),
+            (
+                json!({"funding": format!("{}:0", "ef".repeat(32)), "funded_height": 1, "claim": "https://evil.example/"}),
+                String::new(),
+            ),
+            (json!("text"), String::new()),
+        ] {
+            let v = swap_view(&with(btc.clone(), &secret)).unwrap();
+            assert!(v["btc"].is_null(), "{btc}");
+            assert!(v["claim"]["secret"].is_null(), "{secret}");
+            assert_eq!(v["claim"]["txid"], "cd".repeat(32));
+        }
         assert!(
             csv.ends_with("1970-01-01 00:00:00,buy,1.50000000,0.00001500,0.00001000,1000.00,ab\n"),
             "{csv}"

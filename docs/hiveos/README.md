@@ -8,7 +8,8 @@ Mining Genoryn Krypton (GNR) on Hive OS with the official custom miner package.
 
 ## Quick start
 
-1. In the Genoryn wallet, copy your short address (`gnrs1...`) from Receive.
+1. In the Genoryn wallet, open Receive, choose **Short address**, press **Publish short form**
+   if it is not published yet, and copy it (`gnrs1...`).
 2. In Hive OS, add a wallet for coin `GNR` with that address.
 3. Create a Flight Sheet:
    - Miner: Custom.

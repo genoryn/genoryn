@@ -928,6 +928,158 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
   .tb-c b{font-size:19px;white-space:normal;overflow-wrap:anywhere}
   .cx-head,.cx-tools{flex-wrap:wrap}.cx-tools input{width:auto;flex:1;min-width:0}
 }
+/* ---- 1.0.58: Receive, the recipient's address, a payment's progress, the latest five ---- */
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px}
+.card-h h2{margin:0}
+.lbl-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lbl-h label{margin-bottom:0}
+.info-btn{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--line-strong);background:var(--bg-inset);color:var(--text-secondary);font:600 12px/1 var(--font-display);font-style:italic;cursor:pointer;display:inline-grid;place-items:center;padding:0;transition:color .15s,border-color .15s}
+.info-btn:hover,.info-btn:focus-visible{color:var(--text-primary);border-color:var(--text-secondary)}
+/* Receive */
+.recv-seg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;margin:0 0 14px}
+.recv-seg button{white-space:normal;min-width:0}
+button.recv-qr{appearance:none;border:0;cursor:zoom-in;font:inherit;color:#000;transition:box-shadow .15s,transform .15s}
+button.recv-qr:hover{box-shadow:0 0 0 1px var(--line-strong),0 8px 24px -12px rgba(0,0,0,.6)}
+button.recv-qr:active{transform:scale(.985)}
+.recv-qr.dense{padding:6px}
+.recv-qr svg{display:block;shape-rendering:crispEdges}
+.recv-addr{margin:0;font-size:12.5px;line-height:1.5}
+.recv-addr.long{max-height:112px}
+.recv-acts{margin-top:10px;flex-wrap:wrap}
+.recv-risk{margin:14px 0 0;padding:11px 13px;border:1px dashed var(--status-warning-line);border-radius:var(--radius-sm);background:var(--bg-inset);font-size:12.5px;line-height:1.55;color:var(--text-secondary)}
+.recv-risk b{color:var(--text-primary);font-weight:600}
+.addr-check{display:flex;flex-direction:column;gap:5px;margin-top:8px;min-height:0}
+.addr-check:empty{display:none}
+.ac{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.45;color:var(--text-secondary)}
+.ac i{flex:none;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;font:700 10.5px/1 var(--font-sans);font-style:normal;margin-top:1px;border:1px solid var(--line-strong);color:var(--text-primary)}
+.ac.ok i{border-color:var(--status-success-line);color:var(--status-success)}
+.ac.ok{color:var(--text-primary)}
+.ac.bad i{border-color:var(--status-error);color:var(--status-error)}
+.ac.bad{color:var(--text-primary)}
+.ac.wait i{animation:acWait 1.2s ease-in-out infinite}
+@keyframes acWait{50%{opacity:.35}}
+.wl-send #toCheck{margin:6px 0 10px}
+.modal-card:has(.qr-big){width:min(420px,100%)}
+.modal-card:has(.qr-big.dense){width:min(660px,100%)}
+@media (max-width:560px){.modal-card:has(.qr-big.dense){padding-left:10px;padding-right:10px}.qr-big.dense{padding:6px;margin-left:0;margin-right:0}}
+.qr-big{background:#fff;border-radius:var(--radius);padding:14px;display:grid;place-items:center;margin:6px 0 10px;min-height:220px;color:#000}
+.qr-big.dense{padding:10px}
+.qr-big svg{display:block;width:100%;height:auto;shape-rendering:crispEdges}
+/* A payment that merges notes first: a countdown, a bar, three steps. */
+.pp{margin-top:12px;padding:14px 14px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--bg-inset);position:relative;overflow:hidden}
+.pp::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,var(--text-primary),transparent);opacity:.35;animation:ppSweep 2.6s linear infinite}
+@keyframes ppSweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.pp-top{display:flex;align-items:center;gap:14px}
+.pp-ring{position:relative;flex:none;width:58px;height:58px}
+.pp-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.pp-ring circle{fill:none;stroke-width:3}
+.pp-ring .t{stroke:var(--line-strong)}
+.pp-ring .v{stroke:var(--text-primary);stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)}
+.pp-ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 19px/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:var(--text-primary)}
+.pp-ring b.ok{color:var(--status-success)}
+.pp-h{min-width:0;display:flex;flex-direction:column;gap:3px}
+.pp-h b{font:600 15px/1.25 var(--font-display);color:var(--text-primary)}
+.pp-h span{font-size:12.5px;color:var(--text-secondary);line-height:1.4}
+.pp-bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:12px 0 10px}
+.pp-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--text-primary);transition:width .6s cubic-bezier(.2,.7,.2,1);position:relative;overflow:hidden}
+.pp-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bg-inset) 55%,transparent),transparent);animation:ppSweep 1.4s linear infinite}
+.pp-steps{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;padding:0}
+.pp-steps li{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-tertiary);min-width:0}
+.pp-steps li::before{content:"";flex:none;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line-strong);box-sizing:border-box}
+.pp-steps li.on{color:var(--text-secondary)}
+.pp-steps li.on::before{background:var(--text-primary);border-color:var(--text-primary)}
+.pp-steps li.now{color:var(--text-primary);font-weight:600}
+.pp-steps li.now::before{border-color:var(--text-primary);animation:ppNow 1.3s ease-in-out infinite}
+@keyframes ppNow{50%{box-shadow:0 0 0 4px var(--neon-soft)}}
+.pp-note{margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--text-tertiary)}
+/* On its way */
+.way-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--status-warning);margin-right:7px;vertical-align:1px;animation:wayPulse 1.4s ease-out infinite}
+@keyframes wayPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--status-warning) 55%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+.way-b{font-family:var(--font-sans)!important;font-size:13px!important}
+.sent-acts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.sent-acts .btn{flex:1 1 160px;justify-content:center}
+#bSendRow b{color:var(--text-secondary)}
+.amt-back{color:var(--text-tertiary);text-decoration:line-through}
+.way-l{display:inline-flex;align-items:center;white-space:nowrap}
+.ty.returned{border-style:dashed}
+/* The latest five */
+.wl-recent{margin-bottom:18px}
+.rc-list{display:flex;flex-direction:column}
+.rc{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:6px 14px;align-items:center;padding:11px 0;border-top:1px solid var(--line);position:relative}
+.rc:first-child{border-top:0;padding-top:2px}
+.rc-ic{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--bg-inset);display:grid;place-items:center;color:var(--text-secondary)}
+.rc-ic .ic{width:15px;height:15px}
+.rc.way .rc-ic{border-color:var(--status-warning-line);color:var(--text-primary)}
+.rc.returned .rc-ic{border-style:dashed}
+.rc-m{min-width:0;display:flex;flex-direction:column;gap:2px}
+.rc-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.rc-h b{font:600 14px/1.3 var(--font-sans);color:var(--text-primary)}
+.rc-to{font-size:12px;color:var(--text-secondary)}
+.rc-h em{font-style:normal;font-size:12.5px;color:var(--text-secondary);overflow-wrap:anywhere;min-width:0}
+.rc-w{font-size:12px;color:var(--text-tertiary);line-height:1.4}
+.rc.way .rc-w{color:var(--text-secondary)}
+.rc-a{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-a b{font:600 14.5px var(--font-mono);color:var(--text-primary)}
+.rc-a.out b{color:var(--text-secondary)}
+.rc-a.back b{color:var(--text-tertiary);text-decoration:line-through}
+.rc-x{display:flex;gap:6px;justify-content:flex-end}
+.rc-x .btn{min-height:30px;padding:4px 10px;font-size:12.5px;white-space:nowrap}
+.rc.way::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--status-warning),transparent) no-repeat;background-size:38% 100%;opacity:.6;animation:waySweep 2.4s linear infinite}
+@keyframes waySweep{from{background-position:-65% 0}to{background-position:165% 0}}
+.rc-none{margin:4px 0 0}
+@media (max-width:760px){
+  .rc{grid-template-columns:34px minmax(0,1fr) auto}
+  .rc-x{grid-column:2/-1;justify-content:flex-start;flex-wrap:wrap}
+}
+@media (max-width:420px){
+  .rc{grid-template-columns:34px minmax(0,1fr)}
+  .rc-a{grid-column:2;justify-content:flex-start;white-space:normal}.rc-a b{overflow-wrap:anywhere}
+  .rc-x{grid-column:2}.rc-x .btn{flex:1 1 auto;justify-content:center}
+  .pp-steps{grid-template-columns:1fr}.pp-top{align-items:flex-start}
+}
+/* The wallet's own Bitcoin addresses */
+.btca{margin:2px 0 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg-inset);padding:2px 10px}
+.btca-r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:8px 0}
+.btca-r+.btca-r,.btca-more .btca-r{border-top:1px solid var(--line)}
+.btca-l{grid-column:1/-1;font-size:11.5px;color:var(--text-tertiary);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.btca-l em{font-style:normal;color:var(--text-secondary)}
+.btca-v{font-size:12.5px;color:var(--text-primary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btca-x{display:flex;gap:6px}
+.btca .btn,.wl-btc .btca .btn{flex:none;min-height:28px;padding:3px 10px;font-size:12px}
+.btca-more{border-top:1px solid var(--line)}
+.btca-more summary{cursor:pointer;padding:8px 0;font-size:12.5px;color:var(--text-secondary);list-style-position:inside}
+.btca-n{margin:0;padding:8px 0;font-size:12px;line-height:1.5;color:var(--text-tertiary);border-top:1px solid var(--line)}
+.qs-btc .btca{margin:10px 0 2px}
+/* A swap's proof in the trade history */
+.th-px{white-space:nowrap}
+.th-pb{min-height:28px;padding:3px 10px;font-size:12.5px}
+.th-pb .caret{margin-left:6px;display:inline-block;transition:transform .15s}
+.th-pb[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.thp-row>td{padding:0 0 14px!important;border-top:0!important;white-space:normal!important}
+.th-wrap{container-type:inline-size}
+.thp{position:sticky;left:0;width:100cqw;box-sizing:border-box;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--bg-inset);padding:14px 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px;text-align:left}
+.thp-g{min-width:0}
+.thp-g h4{margin:0 0 8px;font:600 12px/1.2 var(--font-sans);letter-spacing:.3px;color:var(--text-secondary);display:flex;align-items:center;gap:6px}
+.thp-r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.thp-k{grid-column:1/-1;font-size:11.5px;color:var(--text-tertiary)}
+.thp-v{font-size:12.5px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.thp-x{display:flex;gap:6px}
+.thp-x .btn{min-height:26px;padding:2px 9px;font-size:12px}
+.thp-n{grid-column:1/-1;font-style:normal;font-size:11.5px;color:var(--text-secondary);line-height:1.45}
+.thp-chk.yes{color:var(--status-success)}.thp-chk.no{color:var(--status-error)}
+[data-theme="light"] .thp-chk.yes{color:#0b7a4b}[data-theme="light"] .thp-chk.no{color:#b3261e}
+.thp-none{margin:0;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--text-secondary)}
+.thp-how{grid-column:1/-1;margin:0;padding-top:10px;border-top:1px solid var(--line);font-size:12px;line-height:1.55;color:var(--text-tertiary)}
+@media (max-width:1100px){.thp{grid-template-columns:minmax(0,1fr)}}
+/* The fee choice in a narrow card: four labels side by side, in every language */
+.fee-seg button{min-width:0}
+@media (max-width:480px){.fee-seg button{padding:7px 2px;font-size:11.5px;letter-spacing:-.1px}}
+/* Max inside an amount field */
+.unit-in .unit-max{flex:none;padding:0 10px;margin:0;font-size:12.5px;align-self:stretch;display:inline-flex;align-items:center}
+.unit-in .unit-max.hidden{display:none}
+.bd-filters #bdMaxBtc{min-width:0}
+@media (prefers-reduced-motion:reduce){.pp::before,.pp-bar i::after,.rc.way::after,.way-dot,.pp-steps li.now::before,.ac.wait i{animation:none}}
+[data-fx="low"] .pp::before,[data-fx="low"] .pp-bar i::after,[data-fx="low"] .rc.way::after,[data-fx="low"] .way-dot,[data-fx="low"] .pp-steps li.now::before{animation:none}
 </style>
 </head>
 <body>
@@ -1088,7 +1240,8 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
         <div class="kr-line" id="balKRow" title="The krypton is the smallest unit of GNR: 1 GNR = 100,000,000 krypton, as a satoshi is to a bitcoin."><b id="balK" class="num">0</b> krypton</div>
         <div class="val-line hidden" id="bValRow"><b id="bVal">-</b> <span id="bValL">at the market price</span></div>
         <div class="row">Spendable<b id="bSpend">0</b></div>
-        <div class="row">Pending<b id="bPend">0</b></div>
+        <div class="row hidden" id="bSendRow" title="Payments you sent that are not in a block yet, with their fees. They have left your balance already. If one never gets into a block, its amount comes back.">On its way out, not in a block yet<b id="bSend">0</b></div>
+        <div class="row hidden" id="bChgRow" title="What is left of the coins your payments spend. It comes back to you in the same block as the payment, and can be spent after that.">Your change, back with the next block<b id="bChg">0</b></div>
         <div class="row">Maturing mining rewards<b id="bImm">0</b></div>
         <div class="row hidden" id="bLockRow">Locked in swaps<b id="bLock">0</b></div>
         <div class="row hidden" id="bResRow" title="Set aside in notes of their own and proven to the board, so whoever takes your sell offers finds the GNR at once. It cannot be sent while the offers are open.">Set aside for your sell offers<b id="bRes">0</b></div>
@@ -1100,27 +1253,32 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
         <h2><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Bitcoin balance</h2>
         <b class="wl-btc-n" data-tb="btc">-</b><em class="wl-btc-u" data-tb="btcu">&nbsp;</em>
         <div class="btcp hidden" data-btcp="full" role="status"></div>
+        <div class="btca hidden" data-btca data-nocoin></div>
         <p class="muted">For Swap and Market: buy GNR in one click, and receive the bitcoin of what you sell. An address of this wallet's own, from your 24 words.</p>
         <div class="row-flex"><button class="btn btn-primary" type="button" onclick="btcAdd()">Add bitcoin</button><button class="btn" type="button" onclick="goTab('swap')"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Trade</button></div>
       </div>
     </div>
     <div class="wl-io">
       <div class="glass card wl-recv">
-        <h2><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Receive</h2>
+        <div class="card-h"><h2><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Receive</h2><button type="button" class="info-btn" onclick="addrInfo()" aria-label="About full and short addresses" title="Full and short addresses: what they are">i</button></div>
+        <div class="seg recv-seg" id="recvKind" role="group" aria-label="Which address"><button type="button" data-k="full" class="on">Full address</button><button type="button" data-k="short">Short address</button></div>
         <div class="recv-wrap">
-          <div class="recv-qr" id="recvQr" aria-label="QR code of your short address"></div>
+          <button type="button" class="recv-qr" id="recvQr" onclick="recvZoom()" aria-label="QR code of the address shown. Press to enlarge." title="Press to enlarge"></button>
           <div class="recv-t">
-            <p class="muted">Short address (resolvable on published nodes):</p>
-            <div class="mono addr inset" id="short"></div>
-            <div class="row-flex" style="margin-top:10px"><button class="btn" onclick="copy('short')">Copy short</button><button class="btn" onclick="copy('full')">Copy full address</button><button class="btn" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
-            <div id="pubStatus" class="pub-status" aria-live="polite"></div>
+            <p class="muted" id="recvLead">Your full address. It works always, straight from wallet to wallet.</p>
+            <div class="mono addr inset recv-addr" id="recvAddr" tabindex="0"></div>
+            <div class="row-flex recv-acts"><button class="btn btn-primary" type="button" onclick="recvCopy()">Copy address</button><button class="btn hidden" type="button" id="pubBtn" onclick="publish()" title="Let genoryn.io and other nodes resolve your short address">Publish short form</button></div>
+            <div id="recvCheck" class="addr-check" aria-live="polite"></div>
+            <div id="pubStatus" class="pub-status hidden" aria-live="polite"></div>
           </div>
         </div>
-        <details class="mk-how recv-full"><summary>Full post-quantum address</summary><div class="mono addr inset" id="full"></div></details>
+        <p class="recv-risk hidden" id="recvRisk"><b>A short address needs a node.</b> The sender's wallet asks a node for your full address and checks that it belongs to the short one, so nobody can put another address in its place. But if no node that knows it answers, nobody can pay to it until one does. Publish it first, and give the full address when it matters.</p>
+        <span class="hidden" id="short"></span><span class="hidden" id="full"></span>
       </div>
       <div class="glass card wl-send">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send privately</h2>
-        <label for="to">To (address or short address)</label><textarea id="to" style="min-height:64px"></textarea>
+        <div class="lbl-h"><label for="to">To (address or short address)</label><button type="button" class="info-btn" onclick="addrInfo()" aria-label="About full and short addresses" title="Full and short addresses: what they are">i</button></div><textarea id="to" style="min-height:64px" spellcheck="false" autocomplete="off"></textarea>
+        <div id="toCheck" class="addr-check" aria-live="polite"></div>
         <label for="amount">Amount (GNR)</label><div class="amt-in"><input id="amount" placeholder="0.0" inputmode="decimal"><button type="button" class="btn" id="amtMax" onclick="sendMax()" title="Everything this wallet can send in one payment, less the network fees">Max</button></div>
         <label for="memo">Private memo (only the recipient can read it)</label><input id="memo" maxlength="120">
         <label>Network fee</label>
@@ -1128,10 +1286,15 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
         <input id="feeCustom" class="hidden" placeholder="Fee in GNR, e.g. 0.00002" inputmode="decimal" aria-label="Custom fee in GNR" style="margin-top:8px">
         <button id="sendBtn" class="btn btn-primary" onclick="send()" style="margin-top:10px"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Send</button>
         <div class="send-busy hidden" id="sendBusy" role="status"><span class="mk-dot"></span><span id="sendBusyT"></span></div>
+        <div class="pp hidden" id="sendProg" role="status" aria-live="polite"></div>
         <p class="hero-note">The smallest unit of GNR is the <b>krypton</b>: 1 GNR = 100,000,000 krypton.</p>
         <p class="hero-note" id="feeNote">Fees follow the network: when blocks have room the lowest fee confirms just as fast. They go to miners. Amounts, sender and recipient are hidden on chain by a zk-STARK proof.</p>
       </div>
     </div>
+    <section class="glass card wl-recent" aria-label="Latest transactions">
+      <div class="card-h"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Latest transactions</h2><button type="button" class="linkbtn" onclick="goTab('history')">All history</button></div>
+      <div id="recent" class="rc-list"></div>
+    </section>
     <section id="overview" class="ov" aria-label="Network and mining overview">
       <div class="ov-head">
         <h2 class="ov-title"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>Overview</h2>
@@ -1203,7 +1366,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
           <div class="seg qs-seg" id="qsSide" role="group" aria-label="Buy or sell"><button type="button" data-s="buy" class="on">Buy GNR</button><button type="button" data-s="sell">Sell GNR</button></div>
           <div class="qs-box">
             <div class="qs-row"><label for="qsAmt" id="qsInL">You pay</label><div class="seg qs-unit" id="qsUnit" role="group" aria-label="Unit"><button type="button" data-u="usd">USD</button><button type="button" data-u="btc" class="on">BTC</button><button type="button" data-u="gnr">GNR</button></div></div>
-            <div class="qs-in"><span class="qs-cur" id="qsCur"></span><input id="qsAmt" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="qsQuote"><button type="button" class="linkbtn qs-max" id="qsMax">Max</button></div>
+            <div class="qs-in"><span class="qs-cur" id="qsCur"></span><input id="qsAmt" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="qsQuote"><button type="button" class="linkbtn qs-max" id="qsMax" title="The most your balance can swap now">Max</button></div>
           </div>
           <button type="button" class="qs-flip" id="qsFlip" title="Switch between buying and selling" aria-label="Switch between buying and selling"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg></button>
           <div class="qs-box qs-recv">
@@ -1219,6 +1382,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
             <div class="qs-head"><span class="eyebrow-s"><svg class="coin coin-btc" aria-hidden="true"><use href="#c-btc"/></svg>Your Bitcoin for Quick Swap</span><span class="pill" id="btcNet"></span></div>
             <b class="qs-bal" id="btcBal"><span class="qs-skel"></span></b>
             <span class="qs-balsub" id="btcBalSub">&nbsp;</span>
+            <div class="btca hidden" data-btca data-nocoin></div>
             <div class="qs-btcacts"><button class="btn btn-primary" type="button" onclick="btcAdd()">Add bitcoin</button><button class="btn" type="button" onclick="btcSend()">Send out</button></div>
             <p class="qs-note">An address of this wallet's own, from your 24 words. Buying pays from it at once; selling is paid into it. Only this wallet has its key.</p>
           </section>
@@ -1243,7 +1407,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
           <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Buy GNR with bitcoin</h2>
             <p class="muted">Paid from your Bitcoin balance. The seller's wallet checks that the bitcoin is there, then locks the GNR for you; your wallet pays only once that lock is on chain. Either both of you get paid, or both get your own coins back.</p>
             <label for="swGnr">GNR you receive</label><input id="swGnr" inputmode="decimal" placeholder="100" autocomplete="off">
-            <label for="swBtc">Bitcoin you pay (BTC)</label><input id="swBtc" inputmode="decimal" placeholder="0.001" autocomplete="off">
+            <label for="swBtc">Bitcoin you pay (BTC)</label><div class="amt-in"><input id="swBtc" inputmode="decimal" placeholder="0.001" autocomplete="off"><button type="button" class="btn" onclick="swBtcMax()" title="Everything in your Bitcoin balance that is free, less the network fee">Max</button></div>
             <button class="btn btn-primary swbtn" onclick="swapRequest()">Create request code</button>
           </div>
           <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Paste a swap code</h2>
@@ -1312,6 +1476,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
               <select id="bdSort" aria-label="Sort"><option value="price">Best price</option><option value="big">Largest</option><option value="small">Smallest</option><option value="soon">Expiring soon</option></select>
               <input id="bdMin" inputmode="decimal" placeholder="Min GNR" aria-label="Minimum GNR">
               <input id="bdMax" inputmode="decimal" placeholder="Max GNR" aria-label="Maximum GNR">
+              <input id="bdMaxBtc" inputmode="decimal" placeholder="Max BTC" aria-label="Maximum BTC">
               <select id="bdPerPage" aria-label="Offers per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
             </div>
           </div>
@@ -1343,11 +1508,11 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
         <div class="pub-side">
           <section class="glass card bd-trade">
             <h2><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>Publish an offer</h2>
-            <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="sell_gnr" class="on">Sell GNR</button><button type="button" data-s="buy_gnr">Buy GNR</button></div>
+            <div class="seg bd-sideseg" id="bdSide" role="group" aria-label="Side"><button type="button" data-s="buy_gnr" class="on">Buy GNR</button><button type="button" data-s="sell_gnr">Sell GNR</button></div>
             <label for="bdGnr" id="bdGnrL">Amount</label>
-            <div class="unit-in" id="bdGnrBox"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
+            <div class="unit-in" id="bdGnrBox"><input id="bdGnr" inputmode="decimal" placeholder="0.00" autocomplete="off"><button type="button" class="linkbtn unit-max hidden" id="bdGnrMax" onclick="bdMaxFill()" title="All the GNR this wallet can put up for sale now">Max</button><span><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</span></div>
             <label for="bdBtc" id="bdBtcL">For</label>
-            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
+            <div class="unit-in"><input id="bdBtc" inputmode="decimal" placeholder="0.000" autocomplete="off"><button type="button" class="linkbtn unit-max" id="bdBtcMax" onclick="bdMaxFill()" title="All the bitcoin in your balance that is free, less the network fee">Max</button><span><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</span></div>
             <button type="button" class="linkbtn" id="bdUseMkt" onclick="bdUseMarket()">Use the market price</button>
             <label class="mcheck"><input type="checkbox" id="bdFol" onchange="bdFolSet(true)"> <span id="bdFolT">Follow the market price: the offer's price moves with the market by itself</span></label>
             <div class="bd-fol hidden" id="bdFolBox">
@@ -1422,7 +1587,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
       <section class="glass card th-all">
         <div class="bd-head"><h2><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>All swaps <em class="muted" id="thAllN"></em></h2>
           <div class="bd-filters"><select id="thPer" aria-label="Swaps per page" onchange="tradesPage(0)"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div></div>
-        <div class="bd-tablewrap"><table class="bd-table"><thead><tr><th>When</th><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">Proof</th></tr></thead><tbody id="thRows"></tbody></table></div>
+        <div class="bd-tablewrap th-wrap"><table class="bd-table"><thead><tr><th>When</th><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">Proof</th></tr></thead><tbody id="thRows"></tbody></table></div>
         <div class="pager" id="thPager"></div>
         <details class="mk-how"><summary>Where these figures come from</summary><p class="hero-note">Every completed swap the board has recorded, newest first. A swap counts once its GNR claim is on the GNR chain; the amounts are private on chain, so the ones shown were reported by the two wallets of the swap. <b>BTC ✓</b> means the board also found the swap's bitcoin on the Bitcoin chain: such a swap is verified. The figures and charts show verified swaps first, because anyone can report a swap at any price, but nobody can make up a payment on the Bitcoin chain. The average price weighs each swap by the bitcoin it moved; the median is the price half of the swaps were below. Swaps whose two wallets disagree are left out of the figures. The proof link opens the GNR claim in the explorer.</p></details>
       </section>
@@ -2153,8 +2318,137 @@ async function sendOnce(){
   body.password=takePass();
   if(!ok) return;
   const b=$('sendBtn'); b.disabled=true; window.fxBusy=true;
-  try{ const r = await api('/api/send',body); toast(T("Sent: {txid}", {txid: r.txid.slice(0,16)+'…'})); $('amount').value=''; $('memo').value=''; SEND_MAX=false; }catch(e){ toast(e.message,true) }
-  window.fxBusy=false; b.disabled=false; refresh(); }
+  SP.on=true; SP.own=true; spPoll();
+  let sent=null;
+  try{ sent = await api('/api/send',body); $('amount').value=''; $('memo').value=''; SEND_MAX=false; }catch(e){ toast(e.message,true) }
+  SP.on=false; SP.own=false; sendProgress(null, '');
+  window.fxBusy=false; b.disabled=false; await refresh();
+  if(sent) sentDialog({txid: sent.txid, amount: Math.round(amt*1e8), fee: feeG, who, memo: body.memo}); }
+/* A payment from many small notes first merges them, two at a time, round after round. The
+   wallet tells how far it is in numbers (SendProgress): they are drawn as a countdown of
+   transactions, a bar and three steps. Asked for every 700 ms while a payment runs, so the
+   count moves with every transaction. */
+const SP={on:false, own:false, t:null, built:false, n:null};
+async function spPoll(){ clearTimeout(SP.t); if(!SP.on) return;
+  try{ const r=await api('/api/send-progress'); if(SP.on){ sendProgress(r.progress, r.busy); if(!SP.own&&!r.progress&&!r.busy){ SP.on=false; return; } } }catch(e){}
+  if(SP.on) SP.t=setTimeout(spPoll, 700); }
+function sendProgress(p, busy){ const box=$('sendProg'), line=$('sendBusy');
+  $('sendBusyT').textContent=TR(busy)||''; line.classList.toggle('hidden', !busy||!!p);
+  if(!p){ if(SP.built){ box.classList.add('hidden'); box.innerHTML=''; SP.built=false; SP.n=null; } return; }
+  const total=Number(p.total)||0, done=Number(p.done)||0, rtx=Number(p.round_txs)||0, sent=Number(p.round_sent)||0, rdone=Number(p.round_done)||0, st=p.stage;
+  // Every merge counts twice on the bar: when it is sent, and when it is in a block.
+  const before=done-(st==='waiting'?rdone:0), sentAll=st==='sending'?total:before+(st==='merging'?sent:rtx), units=2*total+1;
+  const pct=Math.max(2, Math.min(100, (st==='sending'?2*total+0.5:sentAll+done)/units*100));
+  const left=st==='merging'?rtx-sent:st==='waiting'?rtx-rdone:0;
+  const step=Number(p.rounds)>1&&st!=='sending'?' · '+T("round {a} of {b}", {a: p.round, b: p.rounds}):'';
+  const title=st==='merging'?T("Merging your coins"):st==='waiting'?T("Waiting for the next block"):T("Sending your payment");
+  const sub=st==='merging'?Tn(left, "{n} transaction left to send", "{n} transactions left to send")+step
+    :st==='waiting'?Tn(left, "{n} transaction left to confirm", "{n} transactions left to confirm")+step
+    :T("The coins are merged. Proving the payment takes a few seconds.");
+  if(!SP.built){ SP.built=true; const C=(2*Math.PI*19).toFixed(2);
+    box.innerHTML=`<div class="pp-top"><div class="pp-ring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="t" cx="22" cy="22" r="19"/><circle class="v" cx="22" cy="22" r="19" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-c="${C}"/></svg><b data-sp="n"></b></div><div class="pp-h"><b data-sp="t"></b><span data-sp="s"></span></div></div>
+      <div class="pp-bar"><i data-sp="b"></i></div>
+      <ol class="pp-steps"><li data-sp="1">${TE("Merge")}</li><li data-sp="2">${TE("Next block")}</li><li data-sp="3">${TE("Send")}</li></ol>
+      <p class="pp-note">${TE("Your coins are in many small notes, and one payment can spend two. The wallet merges them first and then sends the payment by itself. Keep the wallet open.")}</p>`; }
+  box.classList.remove('hidden');
+  const q=k=>box.querySelector('[data-sp="'+k+'"]'), put=(k,v)=>{ const e=q(k); if(e.textContent!==v) e.textContent=v; };
+  put('t', title); put('s', sub);
+  const n=st==='sending'?'✓':String(left), nb=q('n');
+  if(SP.n!==n){ SP.n=n; nb.textContent=n; nb.classList.toggle('ok', st==='sending');
+    if(nb.animate&&document.documentElement.dataset.fx!=='low'&&!matchMedia('(prefers-reduced-motion:reduce)').matches) nb.animate([{transform:'translateY(-38%)',opacity:.15},{transform:'none',opacity:1}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'}); }
+  q('b').style.width=pct.toFixed(1)+'%';
+  const ring=box.querySelector('.pp-ring .v'), C=Number(ring.dataset.c); ring.style.strokeDashoffset=(C*(1-pct/100)).toFixed(2);
+  const at=st==='merging'?1:st==='waiting'?2:3; [1,2,3].forEach(i=>{ const e=q(String(i)); e.classList.toggle('on', i<at); e.classList.toggle('now', i===at); });
+  box.dataset.stage=st; }
+/* Sent: the payment is on its way, and its proof is at hand without a walk through History. */
+function sentDialog(p){ const own=p.who&&p.who.own, to=own?TE("to your wallet “{name}”", {name: p.who.own}):TE("to {address}").replace('{address}', ()=>'<span class="mono">'+esc(midAddr((p.who||{}).short||'',16,8))+'</span>');
+  ask({title:T("Payment sent"), icon:'send', ok:T("Done"), hideCancel:true,
+    body:`<div class="sum"><div class="sum-amt"><b>${esc(gnrShort(p.amount))} GNR</b><span>${to}</span></div>
+      <div class="row">${TE("Status")}<b class="way-b"><i class="way-dot" aria-hidden="true"></i>${TE("On its way: in a block within about a minute")}</b></div>
+      <div class="row">${TE("Network fee")}<b>${esc(gnrShort(p.fee))} GNR</b></div>
+      <div class="row">${TE("Transaction")}<b class="mono">${esc(p.txid.slice(0,16))}…</b></div></div>
+      <div class="sent-acts">${own?'':`<button type="button" class="btn btn-primary" onclick="copyProof(${jsq(p.txid)})">${TE("Copy payment proof")}</button>`}<button type="button" class="btn" onclick="openLink('tx',${jsq(p.txid)})">${TE("View ↗")}</button></div>
+      ${own?'':'<p class="mnote">'+TE("A payment proof shows whoever you give it to that you made this payment: its amount, its recipient and its memo, and nothing else of your wallet. It works now and stays valid. You find it again under Latest transactions.")+'</p>'}`}); }
+async function copyProof(txid){ try{ const r=await api('/api/proof',{txid}); const held=await clipHolds(r.proof); toast(held===false?T("The clipboard holds something else than the proof. Copy it again."):held===undefined?T("Could not copy the proof"):T("Payment proof copied"), held===false||held===undefined); }catch(e){ toast(e.message,true) } }
+/* Copies `text`, then reads the clipboard back where the window allows it (the wallet's own
+   window does; a browser only if it was allowed before, so nobody is asked a question).
+   true: it holds the text. false: it holds something else, as after a program that swaps a
+   copied address for its own. null: it cannot be read. undefined: the copy itself failed. */
+async function clipHolds(text){ try{ await navigator.clipboard.writeText(text); }catch(e){ return undefined; }
+  let can=!!(window.chrome&&window.chrome.webview);
+  if(!can){ try{ can=(await navigator.permissions.query({name:'clipboard-read'})).state==='granted'; }catch(e){ can=false; } }
+  if(!can) return null;
+  try{ return (await navigator.clipboard.readText())===text; }catch(e){ return null; } }
+/* The latest five on the Wallet page: what is coming in, what is on its way, what came back,
+   then what is in blocks. Each with its proof (a payment of yours) or its ID (anything else). */
+let RC_KEY=null;
+function rcRow(h){ const back=h.kind==='returned', way=h.height==null&&!back, id=/^[0-9a-f]{64}$/i.test(h.txid||'')&&h.kind!=='merge';
+  const name=back?TE("Not sent"):h.incoming?TE("Receiving"):way&&h.kind==='out'?TE("Sending"):way&&h.kind==='merge'?TE("Merging notes"):KIND[h.kind]||'';
+  const when=back?TE("it did not get into a block in time: the amount is back in your balance")
+    :h.incoming?TE("on its way to you · counts once it is in a block")
+    :way?TE("on its way · in a block within about a minute")
+    :esc(fmtTime(h.time))+' · '+TE("block {height}", {height: fmtN(h.height)});
+  const amt=back?gnr(Math.abs(h.amount)):(h.amount<0?'−':'+')+gnr(Math.abs(h.amount));
+  const ic={out:'send', in:'download', mining:'mining', merge:'history', returned:'history'}[h.kind]||'history';
+  const acts=(h.provable?`<button class="btn" type="button" onclick="copyProof(${jsq(h.txid)})" title="${TE("Copy a proof of this payment: it shows the amount, the recipient and the memo, and nothing else")}">${TE("Copy proof")}</button>`
+    :id&&!back?`<button class="btn" type="button" data-c="${esc(h.txid)}" onclick="copyText(this.dataset.c)" title="${TE("Copy the ID of this transaction")}">${TE("Copy ID")}</button>`:'')+(back?'':histLink(h));
+  return `<div class="rc ${h.kind}${way?' way':''}"><span class="rc-ic" aria-hidden="true"><svg class="ic"><use href="#i-${ic}"/></svg></span>
+    <div class="rc-m"><div class="rc-h"><b>${name}</b>${h.to?`<span class="mono rc-to" title="${esc(h.to)}">${esc(midAddr(h.to,11,6))}</span>`:''}${h.kind==='merge'?`<em>${esc(Tn(Number(h.count)||1, "{n} transaction", "{n} transactions"))}</em>`:h.memo&&h.kind!=='mining'?`<em>${esc(h.memo)}</em>`:''}</div><span class="rc-w">${way?'<i class="way-dot" aria-hidden="true"></i>':''}${when}</span></div>
+    <div class="rc-a ${back?'back':h.amount<0?'out':'in'}">${coin('gnr','coin-sm')}<b>${amt}</b></div><div class="rc-x">${acts}</div></div>`; }
+function renderRecent(){ const box=$('recent'); if(!box) return; const list=S.recent||[];
+  const key=GKI18N.lang+'|'+list.map(h=>[h.txid,h.height,h.kind,h.amount,h.count,h.incoming?1:0].join(':')).join(',');
+  if(key===RC_KEY) return; RC_KEY=key;
+  box.innerHTML=list.length?list.map(rcRow).join(''):`<p class="muted rc-none">${TE("Nothing yet. What you receive, mine or send shows here, the latest five.")}</p>`; }
+/* Receive: the full address first (it works always, with nobody in between); the short one
+   by choice, with what it depends on. The code follows the address shown. */
+const RECV={kind:'full', shown:''};
+try{ if(localStorage.getItem('gk-recv')==='short') RECV.kind='short'; }catch(e){}
+function recvSet(){ const full=RECV.kind==='full', a=full?S.address:S.short; if(!a) return;
+  const key=RECV.kind+'|'+a; if(key===RECV.shown) return; RECV.shown=key;
+  document.querySelectorAll('#recvKind button').forEach(x=>{ const on=x.dataset.k===RECV.kind; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on?'true':'false'); });
+  $('recvAddr').textContent=a; $('recvAddr').classList.toggle('long', full);
+  $('recvLead').textContent=full?T("Your full address. It works always, straight from wallet to wallet."):T("Your short address. Easier to pass on; the sender's wallet looks the full address up on a node.");
+  $('recvRisk').classList.toggle('hidden', full); $('pubBtn').classList.toggle('hidden', full); $('pubStatus').classList.toggle('hidden', full);
+  $('recvCheck').innerHTML=''; $('recvQr').classList.toggle('dense', full); recvQr(a); }
+document.querySelectorAll('#recvKind button').forEach(b=>b.onclick=()=>{ RECV.kind=b.dataset.k; try{ localStorage.setItem('gk-recv', RECV.kind); }catch(e){} recvSet(); });
+const acLine=(k,t)=>`<span class="ac ${k}"><i aria-hidden="true">${k==='ok'?'✓':k==='wait'?'…':'!'}</i><span>${esc(t)}</span></span>`;
+/* Copying your address says two things: that the clipboard holds exactly it, and that it is
+   a valid address of this wallet (its checksum and its network, checked by the wallet). */
+async function recvCopy(){ const full=RECV.kind==='full', a=full?S.address:S.short, box=$('recvCheck'); if(!a) return;
+  const held=await clipHolds(a);
+  if(held===undefined) return toast(T("Could not copy: select the address and copy it by hand"), true);
+  let v=null; try{ v=await api('/api/address/check',{text:a}); }catch(e){}
+  const lines=[held===false?acLine('bad', T("The clipboard holds something else than this address. Another program may have changed it: do not paste it. Copy again and compare the first and the last characters."))
+    :acLine('ok', held===true?T("Copied. The clipboard holds exactly this address."):T("Copied."))];
+  if(v&&v.valid&&v.own) lines.push(acLine('ok', full?T("A valid {network} address of this wallet: {n} characters, checksum correct.", {network: v.network, n: fmtN(v.chars)}):T("A valid {network} short address of this wallet.", {network: v.network})));
+  else if(v) lines.push(acLine('bad', T("This address did not pass the wallet's own check. Do not use it: restart the wallet and look again.")));
+  box.innerHTML=lines.join('');
+  toast(held===false?T("Not copied safely: read the note under the address"):T("Copied"), held===false); }
+async function recvZoom(){ const full=RECV.kind==='full', a=full?S.address:S.short; if(!a) return;
+  ask({title:full?T("Your full address"):T("Your short address"), icon:'download', ok:T("Done"), hideCancel:true,
+    body:`<div class="qr-big${full?' dense':''}" id="qrBig"><span class="muted">${TE("QR code…")}</span></div><p class="mtext">${full?TE("A full address is long, so its code is fine. Let the code fill the camera's picture and hold still. If it does not scan, copy the address instead."):TE("Scan it with a camera, or copy the address.")}</p>`});
+  try{ const r=await fetch('/api/qr?d='+encodeURIComponent(a),{headers:{'x-token':token}}); if(r.ok){ const q=$('qrBig'); if(q) q.innerHTML=await r.text(); } }catch(e){} }
+function addrInfo(){ ask({title:T("Full and short addresses"), icon:'about', ok:T("OK"), hideCancel:true,
+  body:'<p class="mtext">'+TH("**The full address** is your wallet's public keys themselves. It has about 2,650 characters, because keys that a quantum computer cannot break are large. Whoever has it can pay you at once, with nobody in between. It ends in a checksum: an address that was cut or mistyped is refused, never paid.")+'</p>'
+    +'<p class="mtext">'+TH("**The short address** is a fingerprint of the full one, under 60 characters. It is easy to read out or to print. To pay it, the sender's wallet asks a node for the full address and checks it against the fingerprint, so a node cannot hand out someone else's address. It works once you have published it, and only while a node that knows it answers.")+'</p>'
+    +'<p class="mtext">'+TH("**Which one?** The full address whenever you can paste or scan it. The short one where the long one does not fit. Both lead to the same wallet, and neither shows your balance or your payments to anyone.")+'</p>'}); }
+/* The recipient's address, as it is typed or pasted: valid or not, and why. */
+let TO_T=null, TO_SEQ=0;
+function toCheck(){ clearTimeout(TO_T); const v=$('to').value.trim(), box=$('toCheck'); if(!v){ TO_SEQ++; box.innerHTML=''; return; } TO_T=setTimeout(()=>toCheckNow(v), 350); }
+async function toCheckNow(v){ const my=++TO_SEQ, box=$('toCheck'); let r;
+  const put=(k,t)=>{ if(my===TO_SEQ) box.innerHTML=acLine(k,t); };
+  try{ r=await api('/api/address/check',{text:v}); }catch(e){ return; }
+  if(my!==TO_SEQ) return;
+  if(!r.valid) return put('bad', r.why==='network'?T("This address is for {network}, not for {here}.", {network: r.network, here: S.network||''})
+    :r.kind==='short'?T("Not a valid short address. Check that it was copied whole.")
+    :T("Not a valid address. Check that it was copied whole: a full address has about 2,650 characters and ends in a checksum."));
+  if(r.kind==='full') return put('ok', r.own?T("Valid full address: your own wallet “{name}”.", {name: r.own}):T("Valid full address: checksum correct."));
+  if(r.found===true) return put('ok', r.own?T("Valid short address: your own wallet “{name}”.", {name: r.own}):T("Valid short address."));
+  put('wait', T("Valid short address. Asking the nodes for the full address behind it…"));
+  try{ r=await api('/api/address/check',{text:v, lookup:true}); }catch(e){ return; }
+  if(my!==TO_SEQ) return;
+  put(r.found?'ok':'bad', r.found?T("Valid short address: the nodes know the full address behind it."):T("No node knows the full address behind this short address yet. Ask the recipient to publish it, or to give you the full address.")); }
+$('to').addEventListener('input', toCheck);
 let pubFor=null;
 function renderPub(nodes){
   const onSite=nodes.some(n=>n.ok&&n.node==='genoryn.io'), all=nodes.length&&nodes.every(n=>n.ok);
@@ -2244,7 +2538,7 @@ const H={kind:'all', q:'', page:0, per:15, key:null, stale:true, seq:0};
 /* An address by its two ends: gnrs1k7q2m9x4…y0u1i2 (the middle says nothing to the eye). */
 const midAddr=(a,head=13,tail=6)=>{ a=String(a||''); return a.length>head+tail+1?a.slice(0,head)+'…'+a.slice(-tail):a; };
 const fmtTime=t=>t?new Date(t*1000).toLocaleString(GKI18N.lang, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}):'-';
-const KIND={in:TE("Received"), out:TE("Sent"), mining:TE("Mining reward"), merge:TE("Notes merged")};
+const KIND={in:TE("Received"), out:TE("Sent"), mining:TE("Mining reward"), merge:TE("Notes merged"), returned:TE("Not sent · came back")};
 /* A payment's place on the explorer: its transaction when the wallet knows the id (what it
    sent, and what is still pending), else the block that holds it. */
 function histLink(h){ const tx=/^[0-9a-f]{64}$/i.test(h.txid||'')&&h.kind!=='merge';
@@ -2260,7 +2554,7 @@ async function loadHistory(){
   const s=r.sums||{};
   $('hsIn').textContent='+'+gnr(s.received); $('hsMine').textContent='+'+gnr(s.mining); $('hsOut').textContent=(Number(s.sent)<0?'−':'')+gnr(Math.abs(Number(s.sent||0)));
   $('hsFees').textContent=Number(s.fees)?T("fees {amount}", {amount: gnr(s.fees)}):''; $('hsCount').textContent=fmtN(r.all); fitAll($('hSums'));
-  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}" class="h-blk${h.height!=null?'':' pend'}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:'<span class=warn>'+TE("pending")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}" class="h-ty"><span class="ty ${h.kind}">${h.incoming?TE("Incoming · pending"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}" class="h-memo">${esc(h.memo)}</td><td data-label="${TE("To")}" class="h-to mono">${h.to?`<span class="h-addr" title="${esc(h.to)}">${esc(midAddr(h.to))}</span>`:''}</td><td data-label="${TE("Proof")}" class="h-act"><span class="hx">${h.provable?`<button class="btn" onclick="makeProof(${jsq(h.txid)})" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${histLink(h)}</span></td></tr>`).join('')
+  $('hist').innerHTML = r.items.map(h=>`<tr><td data-label="${TE("Block")}" class="h-blk${h.height!=null?'':' pend'}">${h.height!=null?`<button type="button" class="hlink" title="${TE("See block {height} on genoryn.io", {height: fmtN(h.height)})}" onclick="openLink('block',${Number(h.height)})">${fmtN(h.height)}</button>`:h.kind==='returned'?'<span class="muted" title="'+TE("It did not get into a block in time. The amount is back in your balance.")+'">'+TE("none")+'</span>':'<span class="warn way-l"><i class="way-dot" aria-hidden="true"></i>'+TE("on its way")+'</span>'}</td><td data-label="${TE("Time")}" class="t">${fmtTime(h.time)}</td><td data-label="${TE("Type")}" class="h-ty"><span class="ty ${h.kind}">${h.incoming?TE("Receiving · on its way"):h.height==null&&h.kind==='out'?TE("Sending · on its way"):KIND[h.kind]}</span></td><td data-label="${TE("Amount")}" class="amt"><span class="${h.kind==='returned'?'amt-back':h.amount<0?'amt-out':'amt-in'}">${coin('gnr','coin-sm')}${h.kind==='returned'?'':h.amount<0?'−':'+'}${gnr(Math.abs(h.amount))}</span></td><td data-label="${TE("Memo")}" class="h-memo">${esc(h.memo)}</td><td data-label="${TE("To")}" class="h-to mono">${h.to?`<span class="h-addr" title="${esc(h.to)}">${esc(midAddr(h.to))}</span>`:''}</td><td data-label="${TE("Proof")}" class="h-act"><span class="hx">${h.kind==='returned'?'':h.provable?`<button class="btn" onclick="makeProof(${jsq(h.txid)})" title="${h.height==null?TE("Works now; it shows as pending until the next block"):TE("Prove this payment")}">${TE("Proof")}</button>`:''}${h.kind==='returned'?'':histLink(h)}</span></td></tr>`).join('')
     || `<tr><td colspan=7 class="muted h-none">${r.all?TE("Nothing matches this filter."):TE("No transactions yet")}</td></tr>`;
   pager($('hPager'), H.page, pages, r.total, H.per, p=>{ H.page=p; loadHistory(); }, Tn(r.total, "entry", "entries"));
 }
@@ -2406,7 +2700,7 @@ function weakWarn(r, name){ if(!r||!r.weak_password) return;
   ask({title:T("Use a stronger password"), icon:'security', ok:T("Change it now"), cancel:T("Later"),
     body:`<p class="mtext">${TE("The password of {name} is easy to guess for a computer. Anyone who copies the wallet file could try passwords offline. A long passphrase of several random words makes that impossible.", {name: name||T("this wallet")})}</p>`}).then(go=>{ if(go){ goTab('security'); $('cpOld').focus(); } }); }
 async function quitApp(){ if(!await ask({title:T("Quit Genoryn Krypton?"), icon:'power', ok:T("Quit"), danger:true, body:'<p class="mtext">'+TE("The miner and your own node stop too. To keep mining, just close the window instead.")+'</p>'})) return; try{ await api('/api/quit',{}); }catch(e){} document.querySelector('main').innerHTML='<div class="center glass card"><h2>'+TE("Closed")+'</h2><p class="muted">'+TE("Genoryn Krypton has stopped. You can close this tab and start it again from the desktop icon.")+'</p></div>'; }
-function copy(id){ navigator.clipboard.writeText(id==='full'?S.address:S.short); toast(T("Copied")); }
+function copy(id){ copyText(id==='full'?S.address:S.short); }
 const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'); };
 const TRADE=['swap','market','publish','swaps'];
 const TABS=['wallet','history','swap','market','publish','swaps','trades','coins','mining','network','settings','console','security','about'];
@@ -2685,15 +2979,44 @@ function thWeeks(days){ const by=new Map();
   return [...by.entries()].sort((a,b)=>a[0]-b[0]).map(([wk,l])=>{ const ms=l.filter(x=>x.median!=null).map(x=>[Number(x.median),Number(x.swaps)||1]).sort((a,b)=>a[0]-b[0]);
     const half=ms.reduce((a,x)=>a+x[1],0)/2; let acc=0, med=null; for(const [m,w] of ms){ acc+=w; if(acc>=half){ med=m; break; } }
     return {day:wk, swaps:l.reduce((a,x)=>a+Number(x.swaps||0),0), gnr:l.reduce((a,x)=>a+Number(x.gnr||0),0), sats:l.reduce((a,x)=>a+Number(x.sats||0),0), median:med}; }); }
-function thRow(x){ const c=x.claim, t=(c&&c.time)||x.at;
-  return `<tr><td>${esc(thWhen(t))}</td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td><td class="r">${c?`<button type="button" class="linkbtn" onclick="openLink('tx',${jsq(c.txid)})">${TE("Block #{h}", {h: GKI18N.num(Number(c.height))})} ↗</button>`:''}${x.verified?`<span class="th-ok" title="${TE("The board found this swap's bitcoin on the Bitcoin chain")}">BTC ✓</span>`:''}</td></tr>`; }
+/* A swap's proof: what both chains hold of it, so anyone can see that it happened. The GNR
+   claim carries the swap's secret; the Bitcoin transaction that took the payment out of the
+   contract carries the same secret; and the SHA-256 of that secret is the hash lock both
+   coins were locked with (worked out here, in this window). Opened row by row. */
+const TH_ROWS=new Map(), TH_OPEN=new Set();
+const thMid=h=>{ h=String(h||''); return h.length>26?h.slice(0,14)+'…'+h.slice(-10):h; };
+function thRow(x){ const c=x.claim, t=(c&&c.time)||x.at; TH_ROWS.set(x.hash, x);
+  return `<tr><td>${esc(thWhen(t))}</td><td class="p"><b>${esc(thPx(x.price))}</b><span>${esc(thUsd(x.price))||'&nbsp;'}</span></td><td class="r">${esc(gnrShort(x.gnr))}</td><td class="r p"><b>${esc(btcFmt(x.sats/1e8))}</b><span>${esc(thSatsUsd(x.sats))||'&nbsp;'}</span></td><td class="r th-px"><button type="button" class="btn th-pb" aria-expanded="false" onclick="thProof(this,${jsq(x.hash)})">${TE("Proof")}<span class="caret" aria-hidden="true">▾</span></button>${x.verified?`<span class="th-ok" title="${TE("The board found this swap's bitcoin on the Bitcoin chain")}">BTC ✓</span>`:''}</td></tr>`; }
+function thProofHtml(x){ const c=x.claim, b=x.btc, main=S.network==='mainnet';
+  const cp=v=>`<button type="button" class="btn" data-c="${esc(v)}" onclick="copyText(this.dataset.c)">${TE("Copy")}</button>`;
+  const btx=id=>main?`<button type="button" class="btn" onclick="openLink('btctx',${jsq(id)})" title="${TE("See this transaction on mempool.space, a public Bitcoin explorer")}">${TE("View ↗")}</button>`:'';
+  const line=(k,v,acts,note)=>`<div class="thp-r"><span class="thp-k">${k}</span><span class="mono thp-v" title="${esc(v)}">${esc(thMid(v))}</span><span class="thp-x">${acts}</span>${note?`<em class="thp-n">${note}</em>`:''}</div>`;
+  const gnrSide=c?line(TE("Claim of the GNR"), c.txid, cp(c.txid)+`<button type="button" class="btn" onclick="openLink('tx',${jsq(c.txid)})">${TE("View ↗")}</button>`, TE("block {height} · {time}", {height: fmtN(c.height), time: fmtTime(c.time)}))
+    :`<p class="thp-none">${TE("The claim of the GNR is not in a block yet.")}</p>`;
+  const lock=line(TE("Hash lock"), x.hash, cp(x.hash))+(c&&c.secret?line(TE("Secret"), c.secret, cp(c.secret), `<span class="thp-chk" data-hash="${esc(x.hash)}" data-secret="${esc(c.secret)}">${TE("checking…")}</span>`):'');
+  const btcSide=b?line(TE("Bitcoin paid into the swap's contract"), b.funding.split(':')[0], cp(b.funding.split(':')[0])+btx(b.funding.split(':')[0]), TE("output {n} · Bitcoin block {height}", {n: b.funding.split(':')[1], height: fmtN(b.funded_height)}))
+      +line(TE("Bitcoin taken with the secret"), b.claim, cp(b.claim)+btx(b.claim))
+    :`<p class="thp-none">${x.verified?TE("The board found this swap's bitcoin on the Bitcoin chain. It writes the two Bitcoin transactions down from version 1.0.58 on; this swap is older."):TE("The board has not found this swap's bitcoin on the Bitcoin chain: it is a report, and counts as unverified.")}</p>`;
+  return `<div class="thp"><div class="thp-g"><h4>${coin('gnr','coin-sm')}${TE("On the GNR chain")}</h4>${gnrSide}</div><div class="thp-g"><h4>${TE("The lock both coins shared")}</h4>${lock}</div><div class="thp-g"><h4>${coin('btc','coin-sm')}${TE("On the Bitcoin chain")}</h4>${btcSide}</div>
+    <p class="thp-how">${TE("How to check it yourself: the claim on the GNR chain shows the secret; the Bitcoin transaction that took the payment carries the same secret in its witness; and the SHA-256 of that secret is the hash lock. Only a swap that really happened leaves all three. Amounts on the GNR side stay hidden: the price is what the two wallets reported, and for a verified swap the bitcoin is what the Bitcoin chain shows.")}</p></div>`; }
+async function thProof(btn, hash){ const tr=btn.closest('tr'), next=tr.nextElementSibling;
+  if(next&&next.classList.contains('thp-row')){ next.remove(); btn.setAttribute('aria-expanded','false'); TH_OPEN.delete(hash); return; }
+  const x=TH_ROWS.get(hash); if(!x) return; TH_OPEN.add(hash);
+  const row=document.createElement('tr'); row.className='thp-row'; row.innerHTML=`<td colspan="5">${thProofHtml(x)}</td>`; tr.after(row); btn.setAttribute('aria-expanded','true');
+  const chk=row.querySelector('.thp-chk'); if(!chk) return;
+  // SHA-256 of the secret, worked out here: it is the hash lock, or the proof is wrong.
+  let ok=null; try{ const bytes=new Uint8Array(chk.dataset.secret.match(/../g).map(h=>parseInt(h,16))); const d=new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); ok=[...d].map(v=>v.toString(16).padStart(2,'0')).join('')===chk.dataset.hash; }catch(e){}
+  chk.textContent=ok===true?T("✓ SHA-256 of this secret is the hash lock (checked in this window)"):ok===false?T("✗ This secret does not open the hash lock"):T("(this window cannot work out SHA-256; check it with any tool)");
+  chk.classList.add(ok===true?'yes':ok===false?'no':'na'); }
 async function tradesPage(p){
   const per=Number($('thPer').value)||50, ver=thMode()==='verified';
   let r; try{ r=await api('/api/trades?offset='+(p*per)+'&limit='+per+(ver?'&verified=true':'')); }catch(e){ $('thRows').innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`; return; }
   const total=Number(r.total)||0, pages=Math.max(1,Math.ceil(total/per));
   if(p>0&&p>=pages) return tradesPage(pages-1);
-  TRD.page=p; $('thAllN').textContent=total?'· '+GKI18N.num(total):'';
+  TRD.page=p; $('thAllN').textContent=total?'· '+GKI18N.num(total):''; TH_ROWS.clear();
   $('thRows').innerHTML=(r.swaps||[]).length?r.swaps.map(thRow).join(''):`<tr><td colspan="5" class="muted">${TE("No completed swaps yet.")}</td></tr>`;
+  // A proof that was open stays open when the page of swaps is read again.
+  for(const h of [...TH_OPEN]){ const x=TH_ROWS.get(h), b=x&&[...document.querySelectorAll('#thRows .th-pb')].find(e=>e.getAttribute('onclick').includes(h)); if(b){ TH_OPEN.delete(h); thProof(b, h); } else TH_OPEN.delete(h); }
   $('thPager').innerHTML=pages>1?`<span>${TE("Page {n} of {m}", {n: GKI18N.num(p+1), m: GKI18N.num(pages)})}</span><span class="pg"><button type="button" aria-label="${TE("Previous page")}" ${p?'':'disabled'} onclick="tradesPage(${p-1})">‹</button><button type="button" aria-label="${TE("Next page")}" ${p<pages-1?'':'disabled'} onclick="tradesPage(${p+1})">›</button></span>`:'';
 }
 async function loadMyTrades(){
@@ -2718,8 +3041,8 @@ async function tradesCsv(){ try{ const r=await api('/api/trades/export',{}); toa
 document.querySelectorAll('#thRng button').forEach(b=>b.addEventListener('click',()=>{ TRD.range=Number(b.dataset.r)||0; loadTrades(); }));
 document.querySelectorAll('#thMode button').forEach(b=>b.addEventListener('click',()=>{ if(b.disabled) return; TRD.mode=b.dataset.m; TRD.page=0; loadTrades(); }));
 /* Offer board: an order book that stays usable with thousands of offers. */
-let BD={}, bdSide='sell_gnr';
-const BDV={tab:'book', sort:'price', min:'', max:'', per:10, page:0};
+let BD={}, bdSide='buy_gnr';
+const BDV={tab:'book', sort:'price', min:'', max:'', maxBtc:'', per:10, page:0};
 /* Prices per GNR in bitcoin (the board stores satoshis): 0.000097 BTC, 1 BTC, 1,250.5 BTC. */
 const btcFmt=v=>!isFinite(v)?'-':v===0?'0':v<1e-8?'< 0.00000001':v>=1?GKI18N.num(v,{maximumFractionDigits:4}):v.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
 const fmtPx=p=>p==null?'-':btcFmt(p/1e8)+' BTC';
@@ -2804,13 +3127,14 @@ function bdList(){
   const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
   const down=mine.filter(o=>o.stopped&&o.cancelled&&!o.taken&&!o.expired).slice(0,3);
   let v = BDV.tab==='mine' ? mine.filter(o=>(!o.cancelled&&!o.expired&&!o.taken)||(o.fund&&o.fund.closed&&o.fund.recent&&!o.fund.handed)||down.includes(o)) : BDV.tab==='pending' ? (BD.in_progress||[]).map(o=>Object.assign({}, o, {pending:true, expires_in:0})) : all.filter(o=>o.side===(BDV.tab==='sell'?'sell_gnr':'buy_gnr')&&(o.online!==false||o.mine));
-  v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max; });
+  const maxB=Number(BDV.maxBtc)||Infinity;
+  v=v.filter(o=>{ const g=o.gnr/1e8; return g>=min && g<=max && o.sats/1e8<=maxB; });
   const best = BDV.tab==='buy' ? (a,b)=>b.price-a.price : (a,b)=>a.price-b.price;
   const cmp={price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best;
   return v.slice().sort(cmp);
 }
-function bdOffers(side){ const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity;
-  const v=(BD.offers||[]).filter(o=>o.side===side&&(o.online!==false||o.mine)).filter(o=>{ const g=o.gnr/1e8; return g>=min&&g<=max; });
+function bdOffers(side){ const min=Number(BDV.min)||0, max=Number(BDV.max)||Infinity, maxB=Number(BDV.maxBtc)||Infinity;
+  const v=(BD.offers||[]).filter(o=>o.side===side&&(o.online!==false||o.mine)).filter(o=>{ const g=o.gnr/1e8; return g>=min&&g<=max&&o.sats/1e8<=maxB; });
   const best=side==='buy_gnr'?(a,b)=>b.price-a.price:(a,b)=>a.price-b.price;
   return v.slice().sort({price:best, big:(a,b)=>b.gnr-a.gnr, small:(a,b)=>a.gnr-b.gnr, soon:(a,b)=>a.expires_in-b.expires_in}[BDV.sort]||best); }
 function renderBook(){
@@ -2867,14 +3191,23 @@ const durText=h=>h>=8760?T("1 year"):h>=720?T("1 month"):h>=168?T("1 week"):h>=4
 $('bdDur').onchange=e=>{ $('bdPubBtn').textContent=T("Publish for {time}", {time: durText(Number(e.target.value))}); };
 $('bdMin').oninput=e=>{ BDV.min=e.target.value; BDV.page=0; renderBook(); };
 $('bdMax').oninput=e=>{ BDV.max=e.target.value; BDV.page=0; renderBook(); };
+$('bdMaxBtc').oninput=e=>{ BDV.maxBtc=String(e.target.value).replace(',','.'); BDV.page=0; renderBook(); };
 document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.dataset.s; document.querySelectorAll('#bdSide button').forEach(x=>x.classList.toggle('on',x===b)); bdFolSet(true); bdAutoSet(); bdBalSet(); bdPer(); });
 /* The Bitcoin balance on the offer form. A sell offer is paid into it, or at another address
    of the seller's. A buy offer is always paid from it (1.0.56): the offer exists only with
    its bitcoin, so the form says what the balance has free and offers to add more. */
 const bdBal=()=>$('bdBal').checked;
+/* Max on the offer form: selling, all the GNR this wallet can put up now; buying, all the
+   bitcoin in the balance that is free (the offer's deposit and its fees come out of it). */
+async function bdMaxFill(){ const sell=bdSide==='sell_gnr';
+  if(sell){ const g=await gnrMax(); if(!(g>0)) return toast(T("There is no GNR to sell: what is spendable does not cover the network fees"), true); $('bdGnr').value=btcIn(g/1e8); }
+  else { if(!QS.bal) await btcLoad(true); const f=btcMax(1, true, true); if(!(f>0)) return toast(T("There is no free bitcoin in your balance: add bitcoin first"), true);
+    $('bdBtc').value=btcIn(f/1e8); const mp=bdMkt().price; if(mp&&!bdFol()&&!(Number($('bdGnr').value)>0)) $('bdGnr').value=btcIn(Math.floor(f/mp*1e8)/1e8); }
+  bdFolFill(); bdPer(); }
 function bdBalSet(quiet){ const sell=bdSide==='sell_gnr', b=QS.bal, chg=btcChg(b), free=b?Math.max(0,(b.confirmed||0)+chg-(b.committed||0)):null;
   // (A buy offer's deposit is paid by the wallet to itself, so its own change counts already.)
   if(!sell) $('bdBal').checked=true; $('bdBal').disabled=!sell; $('bdBalRow').classList.toggle('fixed', !sell);
+  $('bdGnrMax').classList.toggle('hidden', !sell); $('bdBtcMax').classList.toggle('hidden', sell);
   const need=Math.round(Number($('bdBtc').value)*1e8)||0, short=!sell&&free!=null&&need>0&&free<need+1000, wait=b?Math.max(0,(b.total||0)-(b.confirmed||0)-chg):0;
   $('bdBalT').textContent=sell?T("Receive the bitcoin into my Bitcoin balance"):T("Paid from my Bitcoin balance");
   $('bdBalN').textContent=sell?T("Ready for your next purchase at once; or turn this off to name another address."):free==null?T("Loading your Bitcoin balance…")
@@ -3100,15 +3433,25 @@ function qsLabels(){ const w=qsWant();
   $('qsCur').innerHTML=w.inC==='usd'?'<b style="font:600 20px var(--font-mono)">$</b>':coin(w.inC)+(w.inC==='btc'?'BTC':'GNR');
   $('qsOutCur').innerHTML=coin(w.outC); $('qsCard').classList.toggle('sell', QS.side==='sell');
   $('qsGoT').textContent=QS.side==='buy'?T("Buy GNR"):T("Sell GNR");
-  $('qsMax').classList.toggle('hidden', !(QS.side==='sell'&&QS.unit==='gnr')&&!(QS.side==='buy'&&QS.unit==='btc')); }
+  }
 document.querySelectorAll('#qsSide button').forEach(b=>b.onclick=()=>{ QS.side=b.dataset.s; document.querySelectorAll('#qsSide button').forEach(x=>x.classList.toggle('on',x===b));
   if(QS.side==='sell'&&QS.unit==='btc') qsUnit('gnr'); else { qsLabels(); qsAsk(); } });
 $('qsFlip').onclick=()=>{ const o=document.querySelector('#qsSide [data-s="'+(QS.side==='buy'?'sell':'buy')+'"]'); if(o) o.click(); };
 function qsUnit(u){ QS.unit=u; document.querySelectorAll('#qsUnit button').forEach(x=>x.classList.toggle('on',x.dataset.u===u)); qsLabels(); qsAsk(); }
 document.querySelectorAll('#qsUnit button').forEach(b=>b.onclick=()=>qsUnit(b.dataset.u));
 $('qsAmt').oninput=()=>qsAsk();
-$('qsMax').onclick=()=>{ if(QS.side==='buy'){ const b=QS.bal; if(!b) return; const free=Math.max(0,(b.confirmed||0)-(b.committed||0)-3000*3); $('qsAmt').value=free>0?btcIn(free/1e8):''; }
-  else { const f=Number(((typeof W!=='undefined'&&W.total)||{}).spendable||0)-3*100000; $('qsAmt').value=f>0?btcIn(f/1e8):''; } qsAsk(); };
+/* Max: buying, all the bitcoin that is free (three parts each pay their fee); selling, all the
+   GNR that can be sold. In the unit the form is in: for the other coin's unit the board is
+   asked what that amount swaps for now, and a little is left for the price to move. */
+$('qsMax').onclick=async()=>{ const u=btcUsd(), set=v=>{ $('qsAmt').value=v>0?btcIn(v):''; qsAsk(); };
+  if(QS.side==='buy'){ if(!QS.bal) await btcLoad(true); const free=btcMax(3, false);
+    if(!(free>0)) return toast(btcChg(QS.bal)>0?T("Your bitcoin is change that is not in a block yet: Max is there after its block, usually within about ten minutes"):T("There is no free bitcoin in your balance: add bitcoin first"), true);
+    if(QS.unit==='btc') return set(free/1e8);
+    if(QS.unit==='usd') return u?set(Math.floor(free/1e8*u*100)/100):toast(T("The bitcoin price is not known yet; choose BTC"), true);
+    try{ const q=await api('/api/quick/quote',{side:'buy', amount:btcIn(free/1e8), unit:'btc'}); set(Math.floor(Number(q.gnr||0)*0.995)/1e8); }catch(e){ toast(e.message,true); } return; }
+  const g=await gnrMax(); if(!(g>0)) return toast(T("There is no GNR to sell: what is spendable does not cover the network fees"), true);
+  if(QS.unit==='gnr') return set(g/1e8);
+  try{ const q=await api('/api/quick/quote',{side:'sell', amount:btcIn(g/1e8), unit:'gnr'}); const s=Number(q.sats||0)*0.995; if(QS.unit==='usd'&&!u) return toast(T("The bitcoin price is not known yet; choose GNR"), true); set(QS.unit==='usd'?Math.floor(s/1e8*u*100)/100:Math.floor(s)/1e8); }catch(e){ toast(e.message,true); } };
 /* Asks for a quote a moment after the last key press; older answers are dropped. */
 function qsAsk(){ clearTimeout(QS.t); const v=$('qsAmt').value.trim();
   if(!v||!(Number(v.replace(/,/g,''))>0)){ QS.q=null; $('qsOut').textContent='0'; $('qsOutSub').textContent=''; $('qsOutBox').classList.remove('wait'); $('qsGo').disabled=true;
@@ -3192,7 +3535,28 @@ async function btcLoad(force){ if(!force&&Date.now()-QS.balAt<15000) return; QS.
   $('btcNet').textContent=b.network==='main'?'Bitcoin':b.network;
   $('btcBal').textContent=btcFmt(b.total/1e8)+' BTC';
   $('btcBalSub').textContent=[u?'≈ '+GKValue.usd(b.total/1e8*u):'', b.pending?btcPendText(b):'', b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?(btcReady(b)?T("ready to buy"):''):T("add bitcoin to buy in one click")].filter(Boolean).join(' · ');
-  if(QS.q) qsShow(); renderTradeBars(); btcProgress(); if(tabOn('publish')) bdBalSet(); }
+  if(QS.q) qsShow(); renderTradeBars(); btcProgress(); btcAddrs(); if(tabOn('publish')) bdBalSet(); }
+/* The wallet's own Bitcoin addresses: the balance's, and one for each buy offer that holds
+   bitcoin. All of them come from the 24 words. */
+let BTCA_KEY=null;
+function btcAddrs(){ const b=QS.bal, boxes=document.querySelectorAll('[data-btca]'); if(!boxes.length) return;
+  if(!b||!b.address){ boxes.forEach(x=>x.classList.add('hidden')); return; }
+  const deps=b.deposits||[], key=GKI18N.lang+'|'+b.address+'|'+deps.map(d=>[d.address,d.sats,d.open?1:0].join(':')).join(',');
+  if(key===BTCA_KEY) return; BTCA_KEY=key;
+  const cp=a=>`<button type="button" class="btn" data-c="${esc(a)}" onclick="copyText(this.dataset.c)">${TE("Copy")}</button>`;
+  const short=v=>String(v||'').replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'');
+  const html=`<div class="btca-r"><span class="btca-l">${TE("Your Bitcoin address")}</span><span class="mono btca-v" title="${esc(b.address)}">${esc(midAddr(b.address,12,8))}</span><span class="btca-x">${cp(b.address)}<button type="button" class="btn" onclick="btcAdd()" title="${TE("Show its QR code")}">QR</button></span></div>`
+    +(deps.length?`<details class="btca-more"><summary>${esc(Tn(deps.length, "{n} address of a buy offer", "{n} addresses of buy offers"))}</summary>${deps.map(d=>`<div class="btca-r"><span class="btca-l">${TE("Buy offer for {amount} GNR", {amount: short(d.gnr_text)})}<em>${esc(btcFmt(d.sats/1e8))} BTC${d.open?'':' · '+TE("ended: going back to the balance")}</em></span><span class="mono btca-v" title="${esc(d.address)}">${esc(midAddr(d.address,12,8))}</span><span class="btca-x">${cp(d.address)}</span></div>`).join('')}<p class="btca-n">${TE("A buy offer keeps its bitcoin at an address of its own, also from your 24 words. Send nothing there: add bitcoin to the balance above.")}</p></details>`:'');
+  boxes.forEach(x=>{ x.innerHTML=html; x.classList.remove('hidden'); }); }
+/* The most bitcoin the balance can give now, less what its payments cost (`parts`: how many
+   payments). `change`: count the wallet's own change too (a buy offer's deposit may be paid
+   from it; a purchase waits for its block). */
+function btcMax(parts, change, reserve){ const b=QS.bal; if(!b) return 0; const fee=Number(b.pay_fee)||1000;
+  return Math.max(0, Number(b.confirmed||0)+(change?btcChg(b):0)-Number(b.committed||0)-parts*fee-(reserve?Number(b.offer_reserve)||1000:0)-200); }
+/* The most GNR this wallet can put up for sale: what one transfer can carry once its notes are
+   merged, less the fees an offer sets aside. */
+async function gnrMax(){ let r; try{ r=await api('/api/send-plan?max=1&fee=2560'); }catch(e){ return 0; } return Math.max(0, Number(r.max||0)-3*2560); }
+async function swBtcMax(){ if(!QS.bal) await btcLoad(true); const f=btcMax(1, false); if(!(f>0)) return toast(T("There is no free bitcoin in your balance: add bitcoin first"), true); $('swBtc').value=btcIn(f/1e8); }
 /* The balances at the top of every Trade page and on the Wallet tab: GNR that can be traded
    (spendable) and the Bitcoin balance, each with its coin and its dollar value. */
 function renderTradeBars(){ const u=btcUsd(), b=QS.bal, sp=Number((S.balance||{}).spendable||0), set=(k,v)=>document.querySelectorAll('[data-tb="'+k+'"]').forEach(e=>{ if(e.textContent!==v) e.textContent=v; });
@@ -3445,7 +3809,7 @@ document.addEventListener('DOMContentLoaded',()=>{ if(!window.GKCmd) return; $('
     text:{title:T("Search"),placeholder:T("Go to a tab or run a command"),empty:T("Nothing found"),move:T("to move"),open:T("to open"),close:T("to close")},
     groups:()=>[{title:T("Go to"),items:[...document.querySelectorAll('nav.tabs button[data-tab]')].map(b=>{ const pg=PG[b.dataset.tab]||[b.textContent.trim(),'']; return {label:pg[0],hint:pg[1],icon:b.querySelector('use').getAttribute('href'),words:b.dataset.tab,run:()=>goTab(b.dataset.tab)}; })},
       {title:T("Actions"),items:[{label:T("Lock this wallet"),icon:'#i-lock',run:()=>lockNow()},{label:T("Light or dark theme"),icon:'#i-theme',run:()=>fxToggleTheme()},{label:T("Open the block explorer"),icon:'#i-explorer',run:()=>openLink('explorer')}]}] }); });
-function copyText(t){ navigator.clipboard.writeText(t); toast(T("Copied")); }
+async function copyText(t){ const held=await clipHolds(t); toast(held===false?T("The clipboard holds something else than what was copied. Another program may have changed it: do not paste it."):held===undefined?T("Could not copy"):T("Copied"), held===false||held===undefined); }
 async function makeProof(txid){ try{ const r=await api('/api/proof',{txid}); $('proofOut').textContent=r.proof; show('proofOut'); show('proofBtns'); copyText(r.proof); }catch(e){ toast(e.message,true) } }
 async function verifyProof(){ const box=$('proofRes'); try{ const r=await api('/api/verify-proof',{proof:$('proofIn').value}); const head=r.pending?'<p class="warn"><b>'+TE("Payment pending")+'</b> · '+TE("sent and waiting in the mempool, not in a block yet. Check again after the next block (about a minute); only then is it final.")+'</p>'
       :r.recipient_confirmed||r.recipient_verified?'<p class="ok"><b>'+TE("Valid payment proof")+'</b></p>':'<p class="warn"><b>'+TE("Real payment, recipient not verified")+'</b> · '+TE("the sender wrote the recipient below; ask them to publish their short address, or check it in the recipient's wallet")+'</p>';
@@ -3554,7 +3918,7 @@ async function refresh(){
     $('netBadgeText').textContent=hr+(df&&window.GKCharts?' · '+T("difficulty {d}", {d: GKCharts.fmtNum(df)}):''); show('netBadge'); }
   if(S.update){ $('updTitle').textContent=T("Genoryn Krypton {version} is available", {version: S.update.version}); $('updText').textContent=TR(S.update_status)||(S.update.can_install?T("Checked against the project's post-quantum release signature before it installs. A running miner resumes automatically."):T("Open the release page to download it.")); $('updBtn').textContent=S.update.can_install?T("Install update"):T("Download"); show('updateBar'); } else hide('updateBar');
   if(S.version){ $('aVer').textContent=S.version; $('aNet').textContent=S.network; $('aGen').textContent=S.genesis.slice(0,16)+'…'+S.genesis.slice(-8); $('aGen').title=S.genesis; }
-  $('sendBusyT').textContent=TR(S.busy)||''; $('sendBusy').classList.toggle('hidden', !S.busy);
+  if(!SP.on){ sendProgress(S.progress, S.busy); if(S.progress){ SP.on=true; spPoll(); } }
   if(S.working){ $('busy').textContent = TR(S.busy) || T("working…"); return; }
   const act=S.active||{}; const nw=S.wallet_count||0;
   if(S.exists && !adding){ $('wChipName').textContent=act.name||T("Wallet"); $('wChipCount').textContent=nw>1?'· '+nw:''; $('wChip').title=(S.unlocked&&act.held?T("Unlocked · stays open until its swap is done"):S.unlocked&&act.locks_in!=null?T("Unlocked · locks itself in {time}", {time: dur(act.locks_in)}):T("Locked"))+' · '+T("click to manage your wallets"); show('wChip'); } else hide('wChip');
@@ -3574,14 +3938,16 @@ async function refresh(){
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
   if(OV.blocks.length && S.owner!==OV.owner){ OV.owner=S.owner; renderOvBlocks(); }
-  const b=S.balance||{}; animNum($('bal'), b.total||0); $('balK').textContent=GKI18N.num(Number(b.total||0)); $('bSpend').textContent=gnr(b.spendable); $('bPend').textContent=gnr(b.pending); $('bImm').textContent=gnr(b.immature);
+  const b=S.balance||{}; animNum($('bal'), b.total||0); $('balK').textContent=GKI18N.num(Number(b.total||0)); $('bSpend').textContent=gnr(b.spendable); $('bImm').textContent=gnr(b.immature);
+  { const snd=Number(b.sending||0), chg=Math.max(0, Number(b.pending||0)-snd); $('bSend').textContent='−'+gnr(snd); $('bSendRow').classList.toggle('hidden', !snd); $('bChg').textContent=gnr(chg); $('bChgRow').classList.toggle('hidden', !chg); }
+  renderRecent();
   if(++refreshN%3===0) loadWallets();
   $('bLock').textContent=gnr(S.swap_locked); $('bLockRow').classList.toggle('hidden', !S.swap_locked);
   $('bRes').textContent=gnr(S.reserved); $('bResRow').classList.toggle('hidden', !Number(S.reserved));
   const cool=S.cooling||[]; $('bCoolRow').classList.toggle('hidden', !cool.length);
   if(cool.length) $('bCool').textContent=gnr(cool.reduce((a,c)=>a+Number(c.value||0),0))+' · '+T("free {time}", {time: fmtTime(cool[0].until)});
   $('swBadge').textContent=S.swaps_open||''; $('swBadge').classList.toggle('hidden', !S.swaps_open); renderTradeBars();
-  $('busy').textContent = TR(S.busy) || TR(S.error) || ''; $('short').textContent=S.short; recvQr(S.short); $('full').textContent=S.address; $('mat').textContent=S.maturity;
+  $('busy').textContent = TR(S.busy) || TR(S.error) || ''; $('short').textContent=S.short; $('full').textContent=S.address; recvSet(); $('mat').textContent=S.maturity;
   const tip=S.tip; const v=S.synced_height;
   if(tip){ const ok = v!=null && v>=tip.height-1; $('sync').innerHTML = ok ? `<span class="dot"></span> ${TE("verified · block {height}", {height: v})}` : `<span class="dot live"></span> ${TE("syncing {done}/{total}", {done: v??0, total: tip.height})}`; $('sync').className='badge '+(ok?'ok':'warn');
     $('cH').textContent=tip.height; $('cP').textContent=tip.peers; $('cR').textContent=rate(tip.hashrate); $('cS').textContent=gnr(tip.supply)+' GNR'; } else { $('sync').textContent=T("no node reachable"); $('sync').className='badge warn'; }

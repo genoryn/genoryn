@@ -120,7 +120,11 @@ def text_of(n):
 
 def no_translate(n):
     t = n.raw
-    return bool(re.search(r'''translate\s*=\s*["']no["']''', t) or re.search(r'''class\s*=\s*["'][^"']*\b(mono|num|notranslate)\b''', t))
+    if re.search(r'''translate\s*=\s*["']no["']''', t):
+        return True
+    # The heading of a column of numbers is words: class="num" only aligns it.
+    marks = "mono|notranslate" if getattr(n, "tag", None) == "th" else "mono|num|notranslate"
+    return bool(re.search(r'''class\s*=\s*["'][^"']*\b(''' + marks + r''')\b''', t))
 
 
 def opaque(n):

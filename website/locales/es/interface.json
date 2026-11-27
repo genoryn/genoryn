@@ -6,7 +6,7 @@
  "3df54afb81": "Para todos",
  "07b050dba1": "La billetera de escritorio",
  "9a24a1799d": "La billetera es un pequeño programa que funciona por completo en tu ordenador y se muestra en su propia ventana. Las claves se crean ahí y nunca salen; las pruebas se generan ahí; lo que le dicen los nodos se comprueba ahí.",
- "c9e0a9336f": "<0>Wallet.</0> Tantas billeteras como quieras, cada una con sus propias 24 palabras y su contraseña. Saldo, pagos privados con una nota opcional, una dirección corta y un código QR para recibir pagos.",
+ "34022fd7c5": "<0>Billetera.</0> Tantas billeteras como quieras, cada una con sus propias 24 palabras y contraseña. Saldo, pagos privados con un memo opcional, tu dirección y su código QR para que te paguen, completa o en forma corta.",
  "c48fcafaa1": "<0>History.</0> Cada pago, con búsqueda y filtros, un botón <1>Proof</1> para demostrar un pago a alguien y un enlace que abre su transacción o su bloque en el explorador.",
  "58cb78cbe5": "<0>Swap.</0> Compra o vende GNR por bitcoin, de billetera a billetera, sin exchange y sin custodia. Las ofertas pueden seguir el precio de mercado por sí solas, dentro de un límite que tú fijas.",
  "bb5afe18a2": "<0>Mining.</0> Elige una tarjeta gráfica o el procesador y pulsa Start. Muestra tu parte de la red y lo que gana.",

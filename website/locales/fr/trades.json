@@ -16,6 +16,7 @@
  "7dafec0b8c": "Bitcoins négociés par jour",
  "b724078e81": "Échanges par jour",
  "0c46823f72": "Tous les échanges",
+ "5b921f95fd": "Preuve sur la chaîne",
  "2fc39780ad": "D'où viennent ces chiffres",
  "0531012067": "<0>Chaque échange enregistré par le tableau des offres</0>, une fois sa réclamation de GNR inscrite sur la chaîne GNR. Un échange est un échange atomique entre deux portefeuilles : aucune plateforme d'échange n'y a pris part, et personne n'a détenu les pièces de qui que ce soit.",
  "834f9a1a7d": "<0>Les montants sont privés sur la chaîne.</0> Les GNR et les bitcoins affichés ont été déclarés par les portefeuilles de l’échange eux-mêmes. <1>BTC ✓</1> signifie que le tableau a aussi trouvé les bitcoins de l’échange sur la chaîne Bitcoin, payés dans le contrat de l’échange et retirés avec son secret : un tel échange est <2>vérifié</2>.",

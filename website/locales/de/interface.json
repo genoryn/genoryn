@@ -6,7 +6,7 @@
  "3df54afb81": "Für alle",
  "07b050dba1": "Die Desktop-Wallet",
  "9a24a1799d": "Die Wallet ist ein kleines Programm, das vollständig auf deinem Computer läuft und sich in einem eigenen Fenster zeigt. Schlüssel werden dort erzeugt und verlassen ihn nie; Beweise werden dort erstellt; was Nodes ihr mitteilen, wird dort geprüft.",
- "c9e0a9336f": "<0>Wallet.</0> Beliebig viele Wallets, jede mit eigenen 24 Wörtern und eigenem Passwort. Guthaben, private Zahlungen mit optionalem Memo, eine Kurzadresse und ein QR-Code, über den du bezahlt werden kannst.",
+ "34022fd7c5": "<0>Wallet.</0> Beliebig viele Wallets, jede mit eigenen 24 Wörtern und eigenem Passwort. Guthaben, private Zahlungen mit optionalem Memo, deine Adresse und ihr QR-Code, um bezahlt zu werden, vollständig oder in einer Kurzform.",
  "c48fcafaa1": "<0>Verlauf.</0> Jede Zahlung, mit Suche und Filtern, einem <1>Nachweis</1>-Button, um jemandem eine Zahlung nachzuweisen, und einem Link, der die zugehörige Transaktion oder den Block im Explorer öffnet.",
  "58cb78cbe5": "<0>Swap.</0> Kaufe oder verkaufe GNR gegen Bitcoin, von Wallet zu Wallet, ohne Börse und ohne Verwahrung. Angebote können dem Marktpreis von selbst folgen, innerhalb einer Grenze, die du festlegst.",
  "bb5afe18a2": "<0>Mining.</0> Wähle eine Grafikkarte oder den Prozessor und drück auf Start. Es zeigt deinen Anteil am Netzwerk und was er einbringt.",

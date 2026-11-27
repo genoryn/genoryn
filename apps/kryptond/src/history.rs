@@ -16,6 +16,10 @@ const BY_HASH: TableDefinition<&[u8], u64> = TableDefinition::new("by_hash");
 const DAYS: TableDefinition<u64, &[u8]> = TableDefinition::new("days");
 /// What this file was written with: "figures" -> the version of the days' figures.
 const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
+/// hash -> what the Bitcoin chain holds of the swap ([`BtcRec`], 1.0.58). A table of its
+/// own: the swaps' records in `trades` stay as every version reads them, and a node of an
+/// older version that opens this file does not look at it.
+const BTC: TableDefinition<&[u8], &[u8]> = TableDefinition::new("btc");
 /// 2 (1.0.55): each day also carries the figures of its verified swaps alone.
 const FIGURES_VERSION: u64 = 2;
 
@@ -30,6 +34,43 @@ pub struct ClaimRec {
     pub refund_height: u64,
     pub txid: [u8; 32],
     pub secret: [u8; 32],
+}
+
+/// What the Bitcoin chain holds of a completed swap, as the board found it when it checked
+/// the swap's report: the payment into the swap's contract (transaction, output and block)
+/// and the transaction that took the bitcoin out of the contract with the swap's secret.
+/// Anyone can look both up on the Bitcoin chain. Transaction ids as they are written (hex).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BtcRec {
+    pub funding: [u8; 32],
+    pub vout: u32,
+    pub funded_height: u32,
+    pub claim: [u8; 32],
+}
+
+const BTC_LEN: usize = 32 + 4 + 4 + 32;
+
+impl BtcRec {
+    fn encode(&self) -> [u8; BTC_LEN] {
+        let mut v = [0u8; BTC_LEN];
+        v[..32].copy_from_slice(&self.funding);
+        v[32..36].copy_from_slice(&self.vout.to_le_bytes());
+        v[36..40].copy_from_slice(&self.funded_height.to_le_bytes());
+        v[40..].copy_from_slice(&self.claim);
+        v
+    }
+
+    fn decode(v: &[u8]) -> Option<BtcRec> {
+        if v.len() != BTC_LEN {
+            return None;
+        }
+        Some(BtcRec {
+            funding: v[..32].try_into().ok()?,
+            vout: u32::from_le_bytes(v[32..36].try_into().ok()?),
+            funded_height: u32::from_le_bytes(v[36..40].try_into().ok()?),
+            claim: v[40..].try_into().ok()?,
+        })
+    }
 }
 
 /// A completed swap as the history keeps it.
@@ -214,6 +255,7 @@ impl History {
         {
             let trades = w.open_table(TRADES)?;
             w.open_table(BY_HASH)?;
+            w.open_table(BTC)?;
             let mut days = w.open_table(DAYS)?;
             let mut meta = w.open_table(META)?;
             // Days written by an older version lack the newer figures: every day is worked
@@ -329,6 +371,39 @@ impl History {
         }
         w.commit()?;
         Ok(())
+    }
+
+    /// Writes down what the Bitcoin chain holds of swaps, by hash lock. What is written
+    /// stays: the first record of a swap is the one its report was checked with.
+    pub fn put_btc(&self, items: &[([u8; 32], BtcRec)]) -> Result<()> {
+        if items.is_empty() {
+            return Ok(());
+        }
+        let w = self.db.begin_write()?;
+        {
+            let mut btc = w.open_table(BTC)?;
+            for (hash, rec) in items {
+                if btc.get(hash.as_slice())?.is_none() {
+                    btc.insert(hash.as_slice(), rec.encode().as_slice())?;
+                }
+            }
+        }
+        w.commit()?;
+        Ok(())
+    }
+
+    /// What the Bitcoin chain holds of each of `hashes`, where it was written down.
+    pub fn btc_of(&self, hashes: &[[u8; 32]]) -> Result<Vec<Option<BtcRec>>> {
+        let r = self.db.begin_read()?;
+        let btc = r.open_table(BTC)?;
+        hashes
+            .iter()
+            .map(|h| {
+                Ok(btc
+                    .get(h.as_slice())?
+                    .and_then(|v| BtcRec::decode(v.value())))
+            })
+            .collect()
     }
 
     /// Swaps newest first: those recorded at or after `since`, only verified ones if asked,
@@ -464,6 +539,67 @@ mod tests {
             disputed: false,
             claim: None,
         }
+    }
+
+    /// What the Bitcoin chain holds of a swap is kept beside the swap, in a table of its
+    /// own: written once, read by hash lock, there after the file is opened again, and the
+    /// swaps' own records are not touched by it (an older node reads them as before).
+    #[test]
+    fn the_bitcoin_transactions_of_a_swap_are_kept_beside_it() {
+        let d = tempfile::tempdir().unwrap();
+        let path = d.path().join("h.redb");
+        let h = History::open(&path).unwrap();
+        let t0 = 100 * DAY;
+        h.write(
+            &[
+                rec(t0, 1, 1e8 as u64, 1_000),
+                rec(t0 + 60, 2, 1e8 as u64, 1_100),
+            ],
+            &[],
+        )
+        .unwrap();
+        let before = h.page(0, 10, 0, false).unwrap();
+        let b1 = BtcRec {
+            funding: [0xaa; 32],
+            vout: 1,
+            funded_height: 977_771,
+            claim: [0xbb; 32],
+        };
+        assert_eq!(BtcRec::decode(&b1.encode()), Some(b1.clone()));
+        assert_eq!(
+            BtcRec::decode(&b1.encode()[1..]),
+            None,
+            "another length is not a record"
+        );
+        assert_eq!(h.btc_of(&[[1; 32], [2; 32]]).unwrap(), vec![None, None]);
+        h.put_btc(&[([1; 32], b1.clone())]).unwrap();
+        // The first record stands: the one the report was checked with.
+        let other = BtcRec {
+            funding: [0xcc; 32],
+            ..b1.clone()
+        };
+        h.put_btc(&[([1; 32], other.clone()), ([7; 32], other.clone())])
+            .unwrap();
+        assert_eq!(
+            h.btc_of(&[[2; 32], [1; 32], [7; 32]]).unwrap(),
+            vec![None, Some(b1.clone()), Some(other.clone())]
+        );
+        // The swaps are what they were, record for record.
+        assert_eq!(h.page(0, 10, 0, false).unwrap(), before);
+        assert_eq!(h.count().unwrap(), 2);
+        {
+            let r = h.db.begin_read().unwrap();
+            let t = r.open_table(TRADES).unwrap();
+            assert!(
+                t.iter()
+                    .unwrap()
+                    .all(|e| e.unwrap().1.value().len() == REC_LEN)
+            );
+        }
+        drop(h);
+        let h = History::open(&path).unwrap();
+        assert_eq!(h.btc_of(&[[1; 32]]).unwrap(), vec![Some(b1)]);
+        assert_eq!(h.page(0, 10, 0, false).unwrap(), before);
     }
 
     #[test]

@@ -16,6 +16,7 @@
  "7dafec0b8c": "Bitcoin negociado por dia",
  "b724078e81": "Trocas por dia",
  "0c46823f72": "Todas as trocas",
+ "5b921f95fd": "Prova na blockchain",
  "2fc39780ad": "De onde vêm estes números",
  "0531012067": "<0>Cada troca que o quadro de ofertas registrou</0>, assim que o resgate de GNR dela está na blockchain do GNR. Uma troca é uma troca atômica entre duas carteiras: nenhuma corretora participou, e ninguém guardou as moedas de ninguém.",
  "834f9a1a7d": "<0>Os valores são privados na blockchain.</0> Os GNR e o bitcoin mostrados foram informados pelas próprias carteiras da troca. <1>BTC ✓</1> significa que o quadro também encontrou o bitcoin da troca na blockchain do Bitcoin, pago no contrato da troca e retirado com o segredo dela: uma troca assim é <2>verificada</2>.",

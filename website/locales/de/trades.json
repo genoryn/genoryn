@@ -16,6 +16,7 @@
  "7dafec0b8c": "Gehandelte Bitcoin pro Tag",
  "b724078e81": "Swaps pro Tag",
  "0c46823f72": "Alle Swaps",
+ "5b921f95fd": "Nachweis auf der Chain",
  "2fc39780ad": "Woher diese Zahlen kommen",
  "0531012067": "<0>Jeder Swap, den die Angebotstafel erfasst hat</0>, sobald seine GNR-Einforderung auf der GNR-Chain ist. Ein Swap ist ein Atomic Swap zwischen zwei Wallets: Keine Börse war beteiligt, und niemand hat die Coins eines anderen verwahrt.",
  "834f9a1a7d": "<0>Beträge sind on-chain privat.</0> Die angezeigten GNR und Bitcoin wurden von den eigenen Wallets des Swaps gemeldet. <1>BTC ✓</1> bedeutet, dass die Angebotstafel die Bitcoin des Swaps auch auf der Bitcoin-Chain gefunden hat, in den Vertrag des Swaps eingezahlt und mit dessen Geheimnis entnommen: Ein solcher Swap ist <2>verifiziert</2>.",

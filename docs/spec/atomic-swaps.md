@@ -678,6 +678,44 @@ address: change. Change waits for a block like any other payment.
   seller's side counts nothing else, and that did not change. When a block is all that is
   missing, the buyer's wallet says so instead of asking for more bitcoin.
 
+## A swap's proof on both chains (from 1.0.58)
+
+A completed swap leaves three things that anyone can check, and only a swap that happened
+leaves all three:
+
+1. **The claim on the GNR chain.** The transaction that took the locked GNR shows the
+   swap's secret in the clear (`claim.txid`, `claim.height`, `claim.secret`).
+2. **The hash lock.** `hash` is the SHA-256 of that secret. Both coins were locked with it.
+3. **The two Bitcoin transactions.** The payment into the swap's contract (`btc.funding`,
+   `txid:vout`, in Bitcoin block `btc.funded_height`) and the transaction that took it out
+   (`btc.claim`). That transaction spends the contract's output alone, by the contract's
+   script, and carries the same secret in its witness.
+
+- **What the board writes down.** A wallet's report of a swap names the contract and its
+  payment (`board::Paid`). The board looks on the Bitcoin chain itself
+  (`btc::claim_of`): the transaction that spends the payment has one input, its witness
+  ends with the contract's script and holds the secret that the GNR claim shows. Only then
+  is the swap verified, and from 1.0.58 the board keeps what it saw: the payment's
+  outpoint and block, and the ID of the transaction that took it.
+- **Where it is kept.** In the trade history's database, in a table of its own (`btc`,
+  hash lock to 72 bytes: funding txid, output, block, claim txid). The records of the
+  swaps themselves are not touched, so a node that goes back to an older version reads
+  its history as before and ignores the table. The first record of a swap stands.
+- **What the API shows.** `GET /v1/swap/history` and the swaps of `GET /v1/market` have
+  `btc: {funding, funded_height, claim}` for a verified swap that a node on 1.0.58 or later
+  recorded, and `null` otherwise. Swaps verified before 1.0.58 keep `verified: true` and
+  `paid_sats`; their Bitcoin transactions were not written down and are not looked up
+  again.
+- **What the pages do with it.** The wallet's Trade history and genoryn.io/trades open a
+  swap to these fields. Each value is shown only if it is a transaction ID (64 hex
+  digits); nothing a board sends becomes markup or a link by itself. The page computes
+  SHA-256 of `claim.secret` and compares it with `hash`, so that check does not rest on
+  the board. The Bitcoin transactions link to a public Bitcoin explorer (mempool.space);
+  in the wallet that link opens the browser, and only on mainnet.
+- **What it does not show.** Amounts on the GNR chain are hidden, so the GNR amount and
+  the price are what the two wallets reported. The bitcoin of a verified swap is what the
+  Bitcoin chain shows.
+
 ## A deposit that waits (from 1.0.56)
 
 Bitcoin sent to the wallet's balance counts once it is in a block. A payment whose sender

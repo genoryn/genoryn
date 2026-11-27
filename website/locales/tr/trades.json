@@ -16,6 +16,7 @@
  "7dafec0b8c": "Günlük işlem gören bitcoin",
  "b724078e81": "Günlük takas sayısı",
  "0c46823f72": "Tüm takaslar",
+ "5b921f95fd": "Zincirdeki kanıt",
  "2fc39780ad": "Bu rakamlar nereden geliyor",
  "0531012067": "<0>Teklif panosunun kaydettiği her takas</0>, GNR talebi GNR zincirine girdiği anda. Bir takas, iki cüzdan arasında bir atomik takastır: hiçbir borsa yer almadı ve kimse kimsenin coinlerini tutmadı.",
  "834f9a1a7d": "<0>Tutarlar zincir üzerinde gizlidir.</0> Gösterilen GNR ve bitcoin, takasın kendi cüzdanları tarafından bildirildi. <1>BTC ✓</1>, panonun ayrıca takasın bitcoinini Bitcoin zincirinde, takasın sözleşmesine ödenmiş ve sırrıyla alınmış olarak bulduğu anlamına gelir: böyle bir takas <2>doğrulanmış</2> sayılır.",

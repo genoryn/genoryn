@@ -271,12 +271,38 @@ pub struct Incoming {
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct Balance {
     pub spendable: u64,
+    /// Notes that transactions of this wallet are spending, not in a block yet: what those
+    /// transactions send away (`sending`) and the change that comes back with their block.
     pub pending: u64,
     pub immature: u64,
+    /// What the wallet holds: its notes, less what is being sent (1.0.58). A payment
+    /// leaves the total when it is sent, not a block later; if it never gets into a
+    /// block, the amount is back ([`Wallet::returned_sends`]).
     pub total: u64,
+    /// What this wallet's transactions that are not in a block yet send away, fees
+    /// included: payments on their way, coins going into a swap's lock, fees of merges.
+    pub sending: u64,
     /// Set aside (see [`Hold`]): part of `total`, not of `spendable`.
     pub held: u64,
 }
+
+/// A payment that never got into a block ([`Wallet::returned_sends`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReturnedSend {
+    pub txid: String,
+    /// What it would have taken from the wallet: the amount and the fee.
+    pub amount: u64,
+    pub fee: u64,
+    pub memo: String,
+    pub to: Option<String>,
+    /// When it was sent, and when the wallet saw that its time had run out (unix seconds).
+    pub time: u64,
+    pub returned: u64,
+}
+
+const RETURNED_KEY: &str = "sends_returned";
+const RETURNED_KEEP_SECS: u64 = 30 * 86_400;
+const RETURNED_MAX: usize = 20;
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct SyncReport {
@@ -578,7 +604,35 @@ impl Wallet {
                 b.spendable += n.value;
             }
         }
+        // (A coin's entry counts in the coin; only its fee is GNR.)
+        let sending = self
+            .state
+            .history
+            .iter()
+            .filter(|h| h.height.is_none())
+            .map(|h| match h.coin {
+                Some(_) => h.fee,
+                None => u64::try_from(-h.amount).unwrap_or(0),
+            })
+            .fold(0u64, u64::saturating_add);
+        // Never more than the notes being spent hold.
+        b.sending = sending.min(b.pending);
+        b.total -= b.sending;
         b
+    }
+
+    /// Payments of this wallet that never got into a block, newest first: their time ran
+    /// out, the notes they would have spent are spendable again, and the amount is back in
+    /// the total. Kept for a month, so the wallet can say what became of them.
+    pub fn returned_sends(&self) -> Vec<ReturnedSend> {
+        let mut v: Vec<ReturnedSend> = self
+            .state
+            .app
+            .get(RETURNED_KEY)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
+        v.sort_by_key(|r| std::cmp::Reverse(r.returned));
+        v
     }
 
     /// Notes set aside, with holds that have run out or whose note is spent left out.
@@ -957,6 +1011,30 @@ impl Wallet {
             .collect();
         if expired.is_empty() {
             return;
+        }
+        // What a person sent is written down as it comes back (merges of notes and
+        // transfers to oneself are the wallet's own business).
+        let now = krypton_core::now();
+        let mut back = self.returned_sends();
+        back.retain(|r| r.returned + RETURNED_KEEP_SECS > now);
+        for h in self.state.history.iter().filter(|h| dead(h)) {
+            if h.amount < 0 && h.coin.is_none() && h.memo != "consolidate" && h.disclosure.is_some()
+            {
+                back.push(ReturnedSend {
+                    txid: h.txid.clone(),
+                    amount: u64::try_from(-h.amount).unwrap_or(0),
+                    fee: h.fee,
+                    memo: h.memo.clone(),
+                    to: h.to.clone(),
+                    time: h.time,
+                    returned: now,
+                });
+            }
+        }
+        back.sort_by_key(|r| std::cmp::Reverse(r.returned));
+        back.truncate(RETURNED_MAX);
+        if let Ok(v) = serde_json::to_value(&back) {
+            self.state.app.insert(RETURNED_KEY.into(), v);
         }
         self.state.history.retain(|h| !dead(h));
         for n in self.state.notes.iter_mut() {
@@ -1614,6 +1692,17 @@ impl Wallet {
         fee: u64,
         max_txs: usize,
     ) -> Result<Vec<Hash32>> {
+        self.consolidate_each(src, fee, max_txs, |_, _| {})
+    }
+
+    /// [`Self::consolidate`], telling `each(sent, of)` after every transaction it sends.
+    fn consolidate_each(
+        &mut self,
+        src: &impl ChainSource,
+        fee: u64,
+        max_txs: usize,
+        mut each: impl FnMut(usize, usize),
+    ) -> Result<Vec<Hash32>> {
         let now = krypton_core::now();
         let mut notes: Vec<OwnedNote> = self
             .state
@@ -1632,7 +1721,9 @@ impl Wallet {
         notes.sort_by_key(|n| std::cmp::Reverse(n.value));
         ensure!(notes.len() >= 2, "nothing to consolidate");
         let me = self.address();
+        let of = (notes.len() / 2).min(max_txs);
         let mut ids = Vec::new();
+        each(0, of);
         for pair in notes.chunks(2).take(max_txs) {
             if pair.len() < 2 {
                 break;
@@ -1648,8 +1739,55 @@ impl Wallet {
                 )?
                 .txid,
             );
+            each(ids.len(), of);
         }
         Ok(ids)
+    }
+
+    /// The merging a payment of `amount` at `fee` takes before it can be sent, by the
+    /// notes of now: how many transactions each round makes. The same steps as
+    /// [`Self::send_auto`] takes (the largest notes first, [`MERGE_TXS`] a round); empty
+    /// when the payment can be sent at once, or cannot be made at all.
+    pub fn merge_plan(&self, amount: u64, fee: u64) -> Vec<usize> {
+        let now = krypton_core::now();
+        let mut v: Vec<u64> = self
+            .state
+            .notes
+            .iter()
+            .filter(|n| {
+                n.position.is_some()
+                    && n.spent_height.is_none()
+                    && n.pending_spend.is_none()
+                    && n.coin.is_none()
+                    && !self.held_at(&n.cm, now)
+            })
+            .map(|n| n.value)
+            .collect();
+        v.sort_unstable_by(|a, b| b.cmp(a));
+        let need = amount.saturating_add(fee);
+        let mut plan = Vec::new();
+        for _ in 1..MERGE_ROUNDS {
+            let total = v.iter().fold(0u64, |a, x| a.saturating_add(*x));
+            let two = v.iter().take(2).fold(0u64, |a, x| a.saturating_add(*x));
+            if total < need || two >= need {
+                break;
+            }
+            // Notes not worth a fee are left where they are (`consolidate`).
+            let worth = v.iter().take_while(|x| **x > fee).count();
+            let pairs = (worth / 2).min(MERGE_TXS);
+            if pairs == 0 {
+                break;
+            }
+            let mut next: Vec<u64> = v[..2 * pairs]
+                .chunks(2)
+                .map(|p| p[0].saturating_add(p[1]).saturating_sub(fee))
+                .collect();
+            next.extend_from_slice(&v[2 * pairs..]);
+            next.sort_unstable_by(|a, b| b.cmp(a));
+            v = next;
+            plan.push(pairs);
+        }
+        plan
     }
 
     /// Sends, first merging notes in parallel rounds when the payment needs more than
@@ -1662,22 +1800,64 @@ impl Wallet {
         amount: u64,
         fee: u64,
         memo: &str,
-        mut status: impl FnMut(&str),
+        mut status: impl FnMut(&SendProgress),
     ) -> Result<Hash32> {
+        // Merge transactions of earlier rounds, all in blocks by now.
+        let mut done = 0usize;
         for round in 1..=MERGE_ROUNDS {
             self.sync(src, |_, _| {})?;
             if !self.needs_consolidation(amount, fee) {
+                if round > 1 {
+                    status(&SendProgress {
+                        stage: SendProgress::SENDING,
+                        round: round - 1,
+                        rounds: round - 1,
+                        total: done,
+                        done,
+                        ..Default::default()
+                    });
+                }
                 return self.send(src, to, amount, fee, memo);
             }
-            let ids = self.consolidate(src, fee, MERGE_TXS)?;
-            status(&format!(
-                "Preparing the payment, step {round}: the coins are in many small notes, so they are merged first ({} transactions), then the next block is awaited. The payment follows by itself; keep the wallet open.",
-                ids.len()
-            ));
+            // What is still to come, by the notes as they are now (this round included).
+            let plan = self.merge_plan(amount, fee);
+            let ahead: usize = plan.iter().sum();
+            let mut p = SendProgress {
+                stage: SendProgress::MERGING,
+                round,
+                rounds: (round - 1 + plan.len()).max(round),
+                total: done + ahead,
+                done,
+                round_txs: plan.first().copied().unwrap_or(0),
+                ..Default::default()
+            };
+            let ids = self.consolidate_each(src, fee, MERGE_TXS, |sent, of| {
+                p.round_txs = of;
+                p.total = p.total.max(done + of);
+                p.round_sent = sent;
+                status(&p);
+            })?;
+            p.stage = SendProgress::WAITING;
+            p.round_txs = ids.len();
+            p.round_sent = ids.len();
+            p.total = p.total.max(done + ids.len());
+            status(&p);
+            let sent: Vec<String> = ids.iter().map(hex::encode).collect();
             let start = std::time::Instant::now();
             loop {
-                std::thread::sleep(std::time::Duration::from_secs(3));
+                std::thread::sleep(MERGE_POLL);
                 self.sync(src, |_, _| {})?;
+                let in_blocks = self
+                    .state
+                    .history
+                    .iter()
+                    .filter(|h| h.height.is_some() && sent.contains(&h.txid))
+                    .count();
+                if in_blocks != p.round_done {
+                    p.round_done = in_blocks;
+                    p.done = done + in_blocks;
+                    status(&p);
+                }
                 if self.balance().pending == 0 {
                     break;
                 }
@@ -1685,6 +1865,7 @@ impl Wallet {
                     bail!("consolidation did not confirm within 30 minutes");
                 }
             }
+            done += ids.len();
         }
         bail!("too many consolidation rounds")
     }
@@ -1783,6 +1964,62 @@ pub const DEFAULT_FEE: u64 = 2 * MIN_FEE;
 
 /// A fee above this (0.1 GNR) is refused as a likely typo.
 pub const MAX_FEE: u64 = 10_000_000;
+
+/// How far a payment that merges notes first has come ([`Wallet::send_auto`] tells as it
+/// goes). A transfer spends two notes, so a payment from many small notes (every mining
+/// payout is one) first merges them, two at a time, round after round.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct SendProgress {
+    /// What happens now: [`Self::MERGING`], [`Self::WAITING`] or [`Self::SENDING`].
+    pub stage: &'static str,
+    /// The round of merging (from 1), and how many rounds the payment takes by the notes
+    /// of now.
+    pub round: usize,
+    pub rounds: usize,
+    /// Merge transactions of the whole payment: how many it takes, and how many are in a
+    /// block.
+    pub total: usize,
+    pub done: usize,
+    /// This round: its transactions, how many were sent, how many are in a block.
+    pub round_txs: usize,
+    pub round_sent: usize,
+    pub round_done: usize,
+}
+
+impl SendProgress {
+    /// Merge transactions are proven and sent, one after another.
+    pub const MERGING: &'static str = "merging";
+    /// They are sent and wait for their block.
+    pub const WAITING: &'static str = "waiting";
+    /// Everything is merged: the payment itself is proven and sent.
+    pub const SENDING: &'static str = "sending";
+
+    /// Merge transactions that are not in a block yet.
+    pub fn left(&self) -> usize {
+        self.total.saturating_sub(self.done)
+    }
+
+    /// The same in one sentence (the command-line wallet prints it).
+    pub fn text(&self) -> String {
+        match self.stage {
+            Self::MERGING => format!(
+                "Preparing the payment, step {} of {}: the coins are in many small notes, so they are merged first ({} of {} transactions sent). The payment follows by itself; keep the wallet open.",
+                self.round, self.rounds, self.round_sent, self.round_txs
+            ),
+            Self::WAITING => format!(
+                "Preparing the payment, step {} of {}: {} merge transactions wait for the next block ({} of them are in a block). The payment follows by itself; keep the wallet open.",
+                self.round, self.rounds, self.round_txs, self.round_done
+            ),
+            _ => "The coins are merged: proving and sending the payment itself.".into(),
+        }
+    }
+}
+
+/// How often [`Wallet::send_auto`] looks whether its merges are in a block.
+#[cfg(not(test))]
+const MERGE_POLL: std::time::Duration = std::time::Duration::from_secs(3);
+#[cfg(test)]
+const MERGE_POLL: std::time::Duration = std::time::Duration::from_millis(20);
 
 /// Merges one round of [`Wallet::send_auto`] makes at most (each its own transaction).
 const MERGE_TXS: usize = 64;

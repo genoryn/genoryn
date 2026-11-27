@@ -132,6 +132,10 @@ struct Inner {
     /// hash lock, the sat taken out of the swap's contract with its secret, and the key
     /// of the contract that proved the report. Kept on disk with the trades.
     paid: HashMap<String, (u64, String)>,
+    /// What the Bitcoin chain holds of those swaps (1.0.58): the payment into the swap's
+    /// contract and the transaction that took it out with the secret, as the board found
+    /// them when it checked the report. Shown with the swap, so anyone can look them up.
+    btc: HashMap<String, BtcSeen>,
     /// Swaps whose two wallets reported different amounts: they do not count.
     disputed: HashSet<String>,
     /// When payments were last looked up on the Bitcoin chain, to keep the lookups few:
@@ -157,6 +161,38 @@ struct Inner {
     /// Swaps, and swaps whose status changed, not yet written to the history.
     hist_new: Vec<(Trade, u64)>,
     hist_touch: HashSet<String>,
+    /// Swaps whose Bitcoin transactions are not yet written to the history.
+    hist_btc: HashSet<String>,
+}
+
+/// What the Bitcoin chain holds of a completed swap: the payment into its contract
+/// (`txid:vout`, and the block that holds it) and the transaction that took the bitcoin
+/// out with the swap's secret.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, Deserialize)]
+struct BtcSeen {
+    funding: String,
+    funded_height: u32,
+    claim: String,
+}
+
+impl BtcSeen {
+    fn rec(&self) -> Option<crate::history::BtcRec> {
+        let (txid, vout) = self.funding.split_once(':')?;
+        Some(crate::history::BtcRec {
+            funding: hash32(txid)?,
+            vout: vout.parse().ok()?,
+            funded_height: self.funded_height,
+            claim: hash32(&self.claim)?,
+        })
+    }
+
+    fn of(r: &crate::history::BtcRec) -> BtcSeen {
+        BtcSeen {
+            funding: format!("{}:{}", hex::encode(r.funding), r.vout),
+            funded_height: r.funded_height,
+            claim: hex::encode(r.claim),
+        }
+    }
 }
 
 /// Kept on disk with the board: a restart must not let one deposit be promised again.
@@ -196,6 +232,9 @@ const DEPOSIT_TAKEN: &str = "this bitcoin deposit already stands behind another 
 struct SavedPaid {
     paid: Vec<(String, u64, String)>,
     disputed: Vec<String>,
+    /// The Bitcoin transactions of those swaps (1.0.58).
+    #[serde(default)]
+    btc: Vec<(String, BtcSeen)>,
     /// The GNR claims of the completed swaps (1.0.53), so their proofs stay in the history.
     #[serde(default)]
     claims: Vec<(String, Claim)>,
@@ -608,6 +647,11 @@ impl Board {
             let kept: HashSet<&str> = i.trades.iter().map(|(x, _)| x.hash.as_str()).collect();
             i.paid.retain(|h, _| kept.contains(h.as_str()));
             i.disputed.retain(|h| kept.contains(h.as_str()));
+            // (What is not written to the history yet stays until it is.)
+            let waiting = std::mem::take(&mut i.hist_btc);
+            i.btc
+                .retain(|h, _| kept.contains(h.as_str()) || waiting.contains(h));
+            i.hist_btc = waiting;
         }
     }
 
@@ -630,6 +674,7 @@ impl Board {
         if let Some(v) = read_json::<SavedPaid>(&p.with_file_name("swap-trades-paid.json")) {
             i.paid = v.paid.into_iter().map(|(h, s, k)| (h, (s, k))).collect();
             i.disputed = v.disputed.into_iter().collect();
+            i.btc = v.btc.into_iter().collect();
             i.claims = v.claims.into_iter().collect();
         }
         // Offers and sealed messages survive restarts too (a node update must not drop
@@ -754,6 +799,21 @@ impl Board {
         };
         let (new, touch, recs, updates) = {
             let mut i = self.inner.lock();
+            // What the Bitcoin chain holds of swaps: a table of its own, written first
+            // (a record by hash lock, whether or not the swap's own record is there yet).
+            if !i.hist_btc.is_empty() {
+                let items: Vec<([u8; 32], crate::history::BtcRec)> = i
+                    .hist_btc
+                    .iter()
+                    .filter_map(|hash| Some((hash32(hash)?, i.btc.get(hash)?.rec()?)))
+                    .collect();
+                match h.put_btc(&items) {
+                    Ok(()) => i.hist_btc.clear(),
+                    Err(e) => {
+                        tracing::error!("writing the trade history failed (tried again): {e}")
+                    }
+                }
+            }
             if i.hist_new.is_empty() && i.hist_touch.is_empty() {
                 return;
             }
@@ -851,6 +911,7 @@ impl Board {
                 .map(|(h, (s, k))| (h.clone(), *s, k.clone()))
                 .collect(),
             disputed: i.disputed.iter().cloned().collect(),
+            btc: i.btc.iter().map(|(h, b)| (h.clone(), b.clone())).collect(),
             claims: i
                 .trades
                 .iter()
@@ -1779,12 +1840,31 @@ pub struct TradePost {
     paid: Option<board::Paid>,
 }
 
-/// What the Bitcoin chain shows was taken out of the contract `p` names with `secret`.
-fn paid_on_chain(api: &str, t: &Trade, p: &board::Paid, secret: &str) -> anyhow::Result<u64> {
+/// What the Bitcoin chain shows was taken out of the contract `p` names with `secret`
+/// (sat), and the transactions it shows: the payment into the contract and the one that
+/// took it out. 0 and nothing when the bitcoin was not taken out that way (yet).
+fn paid_on_chain(
+    api: &str,
+    t: &Trade,
+    p: &board::Paid,
+    secret: &str,
+) -> anyhow::Result<(u64, Option<BtcSeen>)> {
     let (htlc, funding) = board::check_paid(t, p)?;
     let secret: [u8; 32] = hash32(secret).ok_or_else(|| anyhow::anyhow!("no secret"))?;
     let btc = krypton_swap::btc::connect(api)?;
-    krypton_swap::btc::claimed_from(btc.as_ref(), &htlc, &funding, p.funded_height, &secret)
+    let claim =
+        krypton_swap::btc::claim_of(btc.as_ref(), &htlc, &funding, p.funded_height, &secret)?;
+    Ok(match claim {
+        Some((txid, sats)) => (
+            sats,
+            Some(BtcSeen {
+                funding: funding.to_string(),
+                funded_height: p.funded_height,
+                claim: txid.to_string(),
+            }),
+        ),
+        None => (0, None),
+    })
 }
 
 pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
@@ -1811,6 +1891,7 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
         // A report with a proof: the board looks on the Bitcoin chain for itself, off
         // its lock. One look per report, and none for a wallet that has proven already.
         let mut found: Option<(u64, String)> = None;
+        let mut seen: Option<BtcSeen> = None;
         if let (Some(p), Some(api)) = (paid.as_ref(), btc_api()) {
             board::check_paid(&t, p).map_err(|e| e.to_string())?;
             let key = p.key.to_ascii_lowercase();
@@ -1822,7 +1903,7 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                     );
                 }
                 // What went wrong stays in the node's log: it can name the Bitcoin server.
-                let sats = paid_on_chain(&api, &t, p, &secret).map_err(|e| {
+                let (sats, txs) = paid_on_chain(&api, &t, p, &secret).map_err(|e| {
                     tracing::warn!("looking up the bitcoin of swap {}: {e}", t.hash);
                     "the bitcoin of this swap could not be looked up right now; the report is sent again by itself".to_string()
                 })?;
@@ -1834,6 +1915,7 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                     );
                 }
                 found = Some((sats, key));
+                seen = txs;
             }
         }
         let on_disk = n.board.in_history(&t.hash);
@@ -1860,10 +1942,18 @@ pub async fn post_trade(State(node): S, Json(p): Json<TradePost>) -> Response {
                     }
                     i.paid.insert(t.hash.clone(), f);
                     i.hist_touch.insert(t.hash.clone());
+                    if let Some(b) = seen.take() {
+                        i.btc.insert(t.hash.clone(), b);
+                        i.hist_btc.insert(t.hash.clone());
+                    }
                 }
             }
             (Some(f), None) => {
                 i.paid.insert(t.hash.clone(), f);
+                if let Some(b) = seen.take() {
+                    i.btc.insert(t.hash.clone(), b);
+                    i.hist_btc.insert(t.hash.clone());
+                }
                 added = true;
             }
             (None, None) => added = true,
@@ -2014,6 +2104,8 @@ fn trade_json(i: &Inner, x: &Trade, at: u64, tip: u64) -> Value {
         // how much of it (what the price weighs the swap by).
         "verified": i.paid.contains_key(&x.hash) && !i.disputed.contains(&x.hash),
         "paid_sats": i.paid.get(&x.hash).filter(|_| !i.disputed.contains(&x.hash)).map_or(0, |p| p.0),
+        // The swap's two transactions on the Bitcoin chain, where the board found them.
+        "btc": i.btc.get(&x.hash),
         "claim": c,
         "confirmations": c.map(|c| (tip + 1).saturating_sub(c.height)),
     })
@@ -2067,7 +2159,13 @@ pub async fn history(State(node): S, Query(q): Query<HistoryQuery>) -> Response 
         if let Some(h) = node.board.history.get() {
             return match h.page(q.offset, limit, since, q.verified) {
                 Ok((recs, total)) => {
-                    let page: Vec<Value> = recs.iter().map(|r| rec_json(r, tip)).collect();
+                    let hashes: Vec<[u8; 32]> = recs.iter().map(|r| r.hash).collect();
+                    let btc = h.btc_of(&hashes).unwrap_or_default();
+                    let page: Vec<Value> = recs
+                        .iter()
+                        .enumerate()
+                        .map(|(k, r)| rec_json(r, tip, btc.get(k).and_then(|b| b.as_ref())))
+                        .collect();
                     let more = (q.offset.saturating_add(page.len()) as u64) < total;
                     Json(json!({"swaps": page, "offset": q.offset, "more": more, "total": total, "now": now()}))
                         .into_response()
@@ -2151,7 +2249,7 @@ fn summary_body(node: &Arc<Node>) -> Vec<u8> {
 }
 
 /// One swap of the history on disk as the history API shows it.
-fn rec_json(r: &crate::history::Rec, tip: u64) -> Value {
+fn rec_json(r: &crate::history::Rec, tip: u64, btc: Option<&crate::history::BtcRec>) -> Value {
     let c = r.claim.as_ref().map(|c| {
         json!({
             "height": c.height, "time": c.time, "txid": hex::encode(c.txid),
@@ -2162,6 +2260,7 @@ fn rec_json(r: &crate::history::Rec, tip: u64) -> Value {
         "at": r.at, "gnr": r.gnr, "sats": r.sats, "price": r.price(), "hash": hex::encode(r.hash),
         "verified": r.verified && !r.disputed,
         "paid_sats": if r.disputed { 0 } else { r.paid },
+        "btc": btc.map(BtcSeen::of),
         "claim": c,
         "confirmations": r.claim.as_ref().map(|c| (tip + 1).saturating_sub(c.height)),
     })
@@ -2571,6 +2670,93 @@ mod tests {
             value: Amount::from_sat(sats),
             height,
         }
+    }
+
+    /// A completed swap is shown with its two transactions on the Bitcoin chain, as the
+    /// board found them: on the market while the swap is in memory, in the history as it
+    /// is written to disk and read back. A file from before has none, and reads as it did.
+    #[test]
+    fn a_swap_is_shown_with_its_bitcoin_transactions() {
+        let hash = "ab".repeat(32);
+        let seen = BtcSeen {
+            funding: format!("{}:1", "11".repeat(32)),
+            funded_height: 977_771,
+            claim: "22".repeat(32),
+        };
+        // To the history's record and back, with nothing lost.
+        let rec = seen.rec().expect("a record");
+        assert_eq!(
+            (rec.funding, rec.vout, rec.claim),
+            ([0x11; 32], 1, [0x22; 32])
+        );
+        assert_eq!(BtcSeen::of(&rec), seen);
+        // What is not a transaction and an output is not written down.
+        for bad in [
+            "",
+            "11:1",
+            "zz:0",
+            &format!("{}:x", "11".repeat(32)),
+            &"11".repeat(32),
+        ] {
+            let b = BtcSeen {
+                funding: bad.to_string(),
+                ..seen.clone()
+            };
+            assert!(b.rec().is_none(), "{bad}");
+        }
+        let t = Trade {
+            network: "devnet".into(),
+            hash: hash.clone(),
+            gnr: 100_000_000,
+            sats: 12_000,
+            nonce: 0,
+        };
+        let mut i = Inner::default();
+        i.trades.push((t.clone(), T));
+        let plain = trade_json(&i, &t, T, 10);
+        assert!(plain["btc"].is_null() && plain["verified"] == false);
+        i.paid.insert(hash.clone(), (11_800, "key".into()));
+        i.btc.insert(hash.clone(), seen.clone());
+        let v = trade_json(&i, &t, T, 10);
+        assert_eq!(v["verified"], true);
+        assert_eq!(v["btc"]["funding"], seen.funding);
+        assert_eq!(v["btc"]["funded_height"], 977_771);
+        assert_eq!(v["btc"]["claim"], seen.claim);
+        // Kept on disk with the swaps whose bitcoin was found, and read back.
+        let saved = serde_json::to_string(&Board::saved_paid(&i)).unwrap();
+        let back: SavedPaid = serde_json::from_str(&saved).unwrap();
+        assert_eq!(back.btc, vec![(hash.clone(), seen.clone())]);
+        // A file written before 1.0.58 has no such list.
+        let old: SavedPaid =
+            serde_json::from_str(r#"{"paid":[["ab",5,"k"]],"disputed":[]}"#).unwrap();
+        assert!(old.btc.is_empty() && old.paid.len() == 1);
+        // The history's own record of the swap, with and without them.
+        let r = crate::history::Rec {
+            at: T,
+            hash: [0xab; 32],
+            gnr: t.gnr,
+            sats: t.sats,
+            verified: true,
+            paid: 11_800,
+            disputed: false,
+            claim: None,
+        };
+        assert!(rec_json(&r, 10, None)["btc"].is_null());
+        let v = rec_json(&r, 10, Some(&rec));
+        assert_eq!(v["btc"]["funding"], seen.funding);
+        assert_eq!(v["btc"]["claim"], seen.claim);
+        // When memory lets a swap go, its transactions go with it, unless they are still
+        // to be written to the history.
+        let mut i2 = Inner::default();
+        i2.btc.insert(hash.clone(), seen.clone());
+        i2.paid.insert(hash.clone(), (1, "k".into()));
+        i2.hist_btc.insert(hash.clone());
+        Board::expire(&mut i2, T);
+        assert!(i2.btc.contains_key(&hash) && i2.hist_btc.contains(&hash));
+        i2.hist_btc.clear();
+        i2.paid.insert(hash.clone(), (1, "k".into()));
+        Board::expire(&mut i2, T);
+        assert!(i2.btc.is_empty());
     }
 
     /// The one way onto the board: a sell offer with its proven GNR, a buy offer with its

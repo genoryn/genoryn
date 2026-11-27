@@ -5,7 +5,7 @@
  "3df54afb81": "For everyone",
  "07b050dba1": "The desktop wallet",
  "9a24a1799d": "The wallet is a small program that runs entirely on your computer and shows itself in its own window. Keys are made there and never leave; proofs are built there; what nodes tell it is checked there.",
- "c9e0a9336f": "<0>Wallet.</0> Any number of wallets, each with its own 24 words and password. Balance, private payments with an optional memo, a short address and a QR code to be paid with.",
+ "34022fd7c5": "<0>Wallet.</0> Any number of wallets, each with its own 24 words and password. Balance, private payments with an optional memo, your address and its QR code to be paid with, in full or in a short form.",
  "c48fcafaa1": "<0>History.</0> Every payment, with search and filters, a <1>Proof</1> button to prove a payment to someone, and a link that opens its transaction or block on the explorer.",
  "58cb78cbe5": "<0>Swap.</0> Buy or sell GNR for bitcoin, wallet to wallet, with no exchange and no custody. Offers can follow the market price by themselves, within a limit you set.",
  "bb5afe18a2": "<0>Mining.</0> Choose a graphics card or the processor and press Start. It shows your share of the network and what it earns.",

@@ -335,12 +335,7 @@ fn main() -> Result<()> {
             let mut w = Wallet::open(&path, &password("Wallet password: ")?)?;
             cross_check(&clients)?;
             w.sync(src, |_, _| {})?;
-            let to_full = if to.contains("s1") && to.len() < 120 {
-                src.resolve_short(&to)?
-            } else {
-                to
-            };
-            let addr = Address::decode(&to_full)?;
+            let addr = resolve_to(src, to)?;
             let amount = parse_amount(&amount).context("invalid amount")?;
             let fee = fee
                 .map(|f| parse_amount(&f).context("invalid fee"))
@@ -352,8 +347,14 @@ fn main() -> Result<()> {
                 addr.short(),
                 format_amount(fee)
             );
-            let id = w.send_auto(&Multi(&clients), &addr, amount, fee, &memo, |s| {
-                eprintln!("{s}")
+            // One line when a step begins and whenever more of its merges are in a block.
+            let mut told = (String::new(), 0, 0);
+            let id = w.send_auto(&Multi(&clients), &addr, amount, fee, &memo, |p| {
+                let now = (p.stage.to_string(), p.round, p.round_done);
+                if now != told {
+                    eprintln!("{}", p.text());
+                    told = now;
+                }
             })?;
             println!("sent: {}", hex::encode(id));
         }
@@ -517,7 +518,15 @@ impl ChainSource for Multi<'_> {
     }
 }
 
+/// The address a payment goes to, as it was typed or pasted: without the spaces and line
+/// breaks of a paste and in lower case (the same address; its checksum still decides
+/// whether it is one). A short address is looked up on the node.
 fn resolve_to(src: &NodeClient, to: String) -> Result<Address> {
+    let to: String = to
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>()
+        .to_ascii_lowercase();
     let full = if to.contains("s1") && to.len() < 120 {
         src.resolve_short(&to)?
     } else {

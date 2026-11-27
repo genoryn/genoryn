@@ -142,6 +142,9 @@ struct App {
     settings: Mutex<Settings>,
     wallet: Mutex<Option<Wallet>>,
     busy: Mutex<String>,
+    /// How far a payment that merges notes first has come, while it runs (the page draws
+    /// it; `busy` says the same in a sentence).
+    progress: Mutex<Option<krypton_wallet_core::SendProgress>>,
     node: Mutex<Option<Child>>,
     miner: Mutex<Option<Child>>,
     /// The miner the user asked for (address, device, CPU cap) until they press Stop: the
@@ -421,10 +424,17 @@ async fn qr(
     if let Err(x) = check(&app, &h) {
         return x;
     }
-    if q.d.len() > 512 {
+    // A full address is about 2,650 characters: it fits a code at the lowest level of
+    // error correction (version 38 of 40), which a screen does not need more of.
+    if q.d.len() > 2_900 {
         return err("too long for a QR code");
     }
-    match qrcode::QrCode::with_error_correction_level(q.d.as_bytes(), qrcode::EcLevel::M) {
+    let level = if q.d.len() > 512 {
+        qrcode::EcLevel::L
+    } else {
+        qrcode::EcLevel::M
+    };
+    match qrcode::QrCode::with_error_correction_level(q.d.as_bytes(), level) {
         Ok(c) => {
             let svg = c
                 .render::<qrcode::render::svg::Color>()
@@ -593,6 +603,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "market": board::cached_market(),
             "synced_height": wv["synced_height"],
             "history": wv["history"],
+            "recent": wv["recent"],
             "settings": s,
             "proxy_active": proxy::active(),
             "tip": info,
@@ -601,6 +612,7 @@ async fn state(State(app): S, h: HeaderMap) -> Response {
             "rewards": a.account.lock().clone(),
             "payout_interval": a.network.params().payout_interval,
             "busy": a.busy.lock().clone(),
+            "progress": a.progress.lock().clone(),
             "error": a.last_error.lock().clone(),
             "maturity": a.network.params().coinbase_maturity,
             "version": env!("CARGO_PKG_VERSION"),
@@ -644,6 +656,8 @@ fn wallet_view(w: &Wallet) -> Value {
         "cooling": board::held(w).1.into_iter().map(|(value, until)| json!({"value": value, "until": until})).collect::<Vec<_>>(),
         "synced_height": w.synced_height(),
         "history": history,
+        // The latest five, with their states, for the Wallet page.
+        "recent": hist_latest(w, 5),
     })
 }
 
@@ -908,7 +922,7 @@ async fn resolve(
     }
     let a = app.clone();
     let r = blocking(move || {
-        let to: String = q.to.split_whitespace().collect();
+        let to = address_text(&q.to);
         let full = if to.contains("s1") && to.len() < 120 {
             resolve_short_any(&a, &to)?
         } else {
@@ -933,6 +947,99 @@ async fn resolve(
     })
     .await;
     match r {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(e),
+    }
+}
+
+/// An address as a person gave it: without the spaces and line breaks a copy may carry,
+/// and in lower case (addresses are written in lower case; one typed or scanned in
+/// capitals is the same address).
+fn address_text(s: &str) -> String {
+    s.split_whitespace()
+        .collect::<String>()
+        .to_ascii_lowercase()
+}
+
+#[derive(Deserialize)]
+struct AddressCheckReq {
+    text: String,
+    /// Also ask the nodes whether they know a short address (they are asked nothing about
+    /// a full one).
+    #[serde(default)]
+    lookup: bool,
+}
+
+/// What a text is as an address, without sending anything: a full address (its checksum
+/// and its network), or a short one (its form, and with `lookup` whether this app or a
+/// node knows the full address behind it). The page shows it under the recipient's field
+/// and after copying one's own address.
+fn address_check(a: &App, text: &str, lookup: bool) -> Value {
+    let t = address_text(text);
+    if t.is_empty() {
+        return json!({"empty": true, "valid": false});
+    }
+    let own_name = |full: &str| {
+        a.vault
+            .reg
+            .lock()
+            .wallets
+            .iter()
+            .find(|e| e.addr == full)
+            .map(|e| e.name.clone())
+    };
+    if t.contains("s1") && t.len() < 120 {
+        let (net, id) = match Address::parse_short(&t) {
+            Ok(x) => x,
+            Err(_) => return json!({"valid": false, "kind": "short", "why": "form"}),
+        };
+        if net != a.network {
+            return json!({"valid": false, "kind": "short", "why": "network", "network": net.as_str()});
+        }
+        let mine = vault::own_address(a, id.as_slice());
+        let own = mine.as_deref().and_then(own_name);
+        // Known here, or (when asked to look) by a node that publishes it.
+        let found = if mine.is_some() {
+            Some(true)
+        } else if lookup {
+            Some(a.publish_targets().iter().any(|u| {
+                NodeClient::new(u)
+                    .and_then(|c| c.resolve_short(&t))
+                    .is_ok_and(|full| {
+                        Address::decode(&full)
+                            .is_ok_and(|x| x.short_id().as_slice() == id.as_slice())
+                    })
+            }))
+        } else {
+            None
+        };
+        return json!({"valid": true, "kind": "short", "network": net.as_str(), "short": t, "own": own, "found": found});
+    }
+    match Address::decode(&t) {
+        Ok(addr) if addr.network != a.network => {
+            json!({"valid": false, "kind": "full", "why": "network", "network": addr.network.as_str()})
+        }
+        Ok(addr) => json!({
+            "valid": true, "kind": "full", "network": addr.network.as_str(),
+            "short": addr.short(), "own": own_name(&t), "chars": t.len(),
+        }),
+        Err(e) => json!({"valid": false, "kind": "full", "why": "form", "error": e.to_string()}),
+    }
+}
+
+async fn address_check_api(
+    State(app): S,
+    h: HeaderMap,
+    Json(r): Json<AddressCheckReq>,
+) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    if r.text.len() > 8_000 {
+        return Json(json!({"valid": false, "kind": "full", "why": "form"})).into_response();
+    }
+    let a = app.clone();
+    match blocking(move || Ok(address_check(&a, &r.text, r.lookup))).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => err(e),
     }
@@ -985,7 +1092,7 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
         confirm_password(&a, &r.password)?;
         let src = Multi(a.sources()?);
         src.cross_check()?;
-        let to: String = r.to.split_whitespace().collect();
+        let to = address_text(&r.to);
         anyhow::ensure!(!to.is_empty(), "enter the recipient's address");
         let full = if to.contains("s1") && to.len() < 120 {
             resolve_short_any(&a, &to)?
@@ -1017,16 +1124,20 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
             krypton_core::emission::format_amount(board::available(w).saturating_sub(fee))
         );
         *a.busy.lock() = "Proving a zero-knowledge transfer...".into();
-        let busy = &a.busy;
+        let (busy, progress) = (&a.busy, &a.progress);
         let res = w.send_auto(
             &src,
             &addr,
             amount,
             fee,
             r.memo.as_deref().unwrap_or(""),
-            |s| *busy.lock() = s.to_string(),
+            |p| {
+                *busy.lock() = p.text();
+                *progress.lock() = Some(p.clone());
+            },
         );
         *a.busy.lock() = String::new();
+        *a.progress.lock() = None;
         Ok(hex::encode(res?))
     })
     .await
@@ -1034,6 +1145,17 @@ async fn send(State(app): S, h: HeaderMap, Json(r): Json<SendReq>) -> Response {
         Ok(id) => Json(json!({"txid": id})).into_response(),
         Err(e) => err(e),
     }
+}
+
+/// How far the payment being sent is: the numbers of
+/// [`krypton_wallet_core::SendProgress`] and the same in a sentence. The page asks often
+/// while a payment runs, so this takes no lock of the wallet.
+async fn send_progress(State(app): S, h: HeaderMap) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    Json(json!({"busy": app.busy.lock().clone(), "progress": app.progress.lock().clone()}))
+        .into_response()
 }
 
 #[derive(Deserialize)]
@@ -1129,6 +1251,101 @@ struct HistQ {
     q: Option<String>,
 }
 
+fn hist_mining(e: &krypton_wallet_core::HistoryEntry) -> bool {
+    e.txid.starts_with("payout:")
+}
+
+/// Zero-amount records of a transfer to oneself say nothing; the fee row does.
+fn hist_internal(e: &krypton_wallet_core::HistoryEntry) -> bool {
+    e.txid.starts_with("self:")
+}
+
+fn hist_newest_first(v: &mut Vec<&krypton_wallet_core::HistoryEntry>) {
+    v.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
+}
+
+/// The entries of a history as the page shows them. Merging notes before a payment takes
+/// many transactions: they are one row per block.
+fn hist_rows(list: Vec<&krypton_wallet_core::HistoryEntry>) -> Vec<Value> {
+    let merge = |e: &krypton_wallet_core::HistoryEntry| {
+        e.memo == "consolidate" && e.amount <= 0 && e.to.is_some()
+    };
+    let mut out: Vec<Value> = Vec::new();
+    let mut groups: std::collections::HashMap<Option<u64>, usize> = Default::default();
+    for e in list {
+        if merge(e) {
+            if let Some(&i) = groups.get(&e.height) {
+                let r = &mut out[i];
+                let n = r["count"].as_u64().unwrap_or(1) + 1;
+                r["count"] = json!(n);
+                r["amount"] = json!(r["amount"].as_i64().unwrap_or(0) + e.amount as i64);
+                r["fee"] = json!(r["fee"].as_u64().unwrap_or(0) + e.fee);
+                r["time"] = json!(r["time"].as_u64().unwrap_or(0).max(e.time));
+                r["memo"] = json!(format!("Notes merged before a payment ({n} transactions)"));
+            } else {
+                groups.insert(e.height, out.len());
+                out.push(json!({
+                    "txid": e.txid, "height": e.height, "amount": e.amount as i64, "fee": e.fee,
+                    "memo": "Notes merged before a payment (1 transaction)", "to": null,
+                    "time": e.time, "provable": false, "kind": "merge", "count": 1,
+                }));
+            }
+            continue;
+        }
+        out.push(json!({
+            "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
+            "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
+            "kind": if hist_mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
+        }));
+    }
+    out
+}
+
+/// A payment to this wallet that is still in the mempool.
+fn hist_incoming(i: &krypton_wallet_core::Incoming) -> Value {
+    json!({
+        "txid": i.txid, "height": null, "amount": i.value, "fee": 0, "memo": i.memo,
+        "to": null, "time": i.seen, "provable": false, "kind": "in", "incoming": true,
+    })
+}
+
+/// Payments of this wallet that never got into a block and came back, of the last week.
+fn hist_returned(w: &Wallet) -> Vec<Value> {
+    let now = krypton_core::now();
+    w.returned_sends()
+        .into_iter()
+        .filter(|r| r.returned + 7 * 86_400 > now)
+        .map(|r| {
+            json!({
+                "txid": r.txid, "height": null, "amount": r.amount, "fee": r.fee, "memo": r.memo,
+                "to": r.to, "time": r.returned, "sent_at": r.time, "provable": false, "kind": "returned",
+            })
+        })
+        .collect()
+}
+
+/// The latest `n` rows of the history, as [`history_page`] orders them: payments coming
+/// in, payments on their way, payments that came back, then what is in blocks.
+fn hist_latest(w: &Wallet, n: usize) -> Vec<Value> {
+    let mut own: Vec<_> = w
+        .history()
+        .iter()
+        .filter(|e| e.coin.is_none() && !hist_internal(e))
+        .collect();
+    hist_newest_first(&mut own);
+    let waiting = own.iter().take_while(|e| e.height.is_none()).count();
+    let confirmed: Vec<_> = own.split_off(waiting).into_iter().take(n).collect();
+    w.incoming()
+        .iter()
+        .filter(|i| i.coin.is_none())
+        .map(hist_incoming)
+        .chain(hist_rows(own))
+        .chain(hist_returned(w))
+        .chain(hist_rows(confirmed))
+        .take(n)
+        .collect()
+}
+
 /// One page of the active wallet's history, newest first, with filters and totals.
 async fn history_page(
     State(app): S,
@@ -1147,7 +1364,7 @@ async fn history_page(
         let w = g.as_ref().context("unlock the wallet first")?;
         let kind = q.kind.as_deref().unwrap_or("all");
         let needle = q.q.as_deref().unwrap_or("").trim().to_lowercase();
-        let mining = |e: &krypton_wallet_core::HistoryEntry| e.txid.starts_with("payout:");
+        let (mining, internal, rows) = (hist_mining, hist_internal, hist_rows);
         let (mut received, mut sent, mut mined, mut fees) = (0i128, 0i128, 0i128, 0u64);
         for e in w.history() {
             // Coin amounts are not GNR (the Coins tab shows them); their fees are.
@@ -1164,46 +1381,7 @@ async fn history_page(
                 received += e.amount;
             }
         }
-        // Zero-amount records of a transfer to oneself say nothing; the fee row does.
-        let internal = |e: &krypton_wallet_core::HistoryEntry| e.txid.starts_with("self:");
-        // Merging notes before a payment takes many transactions: one row per block.
-        let merge = |e: &krypton_wallet_core::HistoryEntry| {
-            e.memo == "consolidate" && e.amount <= 0 && e.to.is_some()
-        };
-        let rows = |list: Vec<&krypton_wallet_core::HistoryEntry>| -> Vec<Value> {
-            let mut out: Vec<Value> = Vec::new();
-            let mut groups: std::collections::HashMap<Option<u64>, usize> = Default::default();
-            for e in list {
-                if merge(e) {
-                    if let Some(&i) = groups.get(&e.height) {
-                        let r = &mut out[i];
-                        let n = r["count"].as_u64().unwrap_or(1) + 1;
-                        r["count"] = json!(n);
-                        r["amount"] = json!(r["amount"].as_i64().unwrap_or(0) + e.amount as i64);
-                        r["fee"] = json!(r["fee"].as_u64().unwrap_or(0) + e.fee);
-                        r["time"] = json!(r["time"].as_u64().unwrap_or(0).max(e.time));
-                        r["memo"] = json!(format!("Notes merged before a payment ({n} transactions)"));
-                    } else {
-                        groups.insert(e.height, out.len());
-                        out.push(json!({
-                            "txid": e.txid, "height": e.height, "amount": e.amount as i64, "fee": e.fee,
-                            "memo": "Notes merged before a payment (1 transaction)", "to": null,
-                            "time": e.time, "provable": false, "kind": "merge", "count": 1,
-                        }));
-                    }
-                    continue;
-                }
-                out.push(json!({
-                    "txid": e.txid, "height": e.height, "amount": e.amount, "fee": e.fee,
-                    "memo": e.memo, "to": e.to, "time": e.time, "provable": e.disclosure.is_some(),
-                    "kind": if mining(e) { "mining" } else if e.amount < 0 { "out" } else { "in" },
-                }));
-            }
-            out
-        };
-        let newest_first = |v: &mut Vec<&krypton_wallet_core::HistoryEntry>| {
-            v.sort_by_key(|e| std::cmp::Reverse((e.height.unwrap_or(u64::MAX), e.time)));
-        };
+        let newest_first = hist_newest_first;
         let mut everything: Vec<_> = w
             .history()
             .iter()
@@ -1245,18 +1423,31 @@ async fn history_page(
                     || i.memo.to_lowercase().contains(&needle)
                     || i.txid.contains(&needle)
             })
-            .map(|i| {
-                json!({
-                    "txid": i.txid, "height": null, "amount": i.value, "fee": 0, "memo": i.memo,
-                    "to": null, "time": i.seen, "provable": false, "kind": "in", "incoming": true,
-                })
+            .map(hist_incoming)
+            .collect();
+        // Payments of ours that never got into a block: their time ran out and the amount
+        // is back. Told for a week, after what is still on its way and before the rest.
+        let returned: Vec<Value> = hist_returned(w)
+            .into_iter()
+            .filter(|_| matches!(kind, "all" | "out"))
+            .filter(|r| {
+                let has = |k: &str| {
+                    r[k].as_str()
+                        .is_some_and(|t| t.to_lowercase().contains(&needle))
+                };
+                needle.is_empty() || has("memo") || has("txid") || has("to")
             })
             .collect();
-        let total = incoming.len() + items.len();
+        let waiting = items.iter().take_while(|x| x["height"].is_null()).count();
+        let mut items = items;
+        let confirmed = items.split_off(waiting);
+        let total = incoming.len() + items.len() + returned.len() + confirmed.len();
         let limit = q.limit.unwrap_or(15).clamp(1, 100);
         let page: Vec<Value> = incoming
             .into_iter()
             .chain(items)
+            .chain(returned)
+            .chain(confirmed)
             .skip(q.offset.unwrap_or(0))
             .take(limit)
             .collect();
@@ -2013,6 +2204,16 @@ async fn open_link(State(app): S, h: HeaderMap, Json(b): Json<Value>) -> Respons
             own = format!("https://genoryn.io/explorer#/block/{id}");
             own.as_str()
         }
+        // A Bitcoin transaction of a completed swap, on a public Bitcoin explorer (the
+        // trade history shows them so anyone can look them up). Mainnet only.
+        "btctx"
+            if app.network == Network::Mainnet
+                && id.len() == 64
+                && id.bytes().all(|c| c.is_ascii_hexdigit()) =>
+        {
+            own = format!("https://mempool.space/tx/{}", id.to_ascii_lowercase());
+            own.as_str()
+        }
         "address" => {
             let Some(short) = app
                 .wallet
@@ -2138,6 +2339,7 @@ async fn serve(
         settings: Mutex::new(settings),
         wallet: Mutex::new(None),
         busy: Mutex::new(String::new()),
+        progress: Mutex::new(None),
         node: Mutex::new(None),
         miner: Mutex::new(None),
         miner_want: Mutex::new(None),
@@ -2320,6 +2522,7 @@ async fn serve(
         .route("/api/reveal", post(reveal))
         .route("/api/send", post(send))
         .route("/api/send-plan", get(send_plan))
+        .route("/api/send-progress", get(send_progress))
         .route("/api/publish", post(publish))
         .route("/api/settings", post(save_settings))
         .route("/api/node/start", post(node_start))
@@ -2337,6 +2540,7 @@ async fn serve(
         .route("/api/history", get(history_page))
         .route("/api/fees", get(fees))
         .route("/api/resolve", get(resolve))
+        .route("/api/address/check", post(address_check_api))
         .route("/api/qr", get(qr))
         .route("/api/update/check", post(check_update))
         .route("/api/update/auto", post(auto_update))
@@ -2517,6 +2721,9 @@ mod window {
             .with_url(url)
             .with_background_color((0, 0, 0, 255))
             .with_devtools(false)
+            // The page reads the clipboard back after copying an address, to say that it
+            // holds exactly that address (it has no other use for it).
+            .with_clipboard(true)
             .with_navigation_handler(move |to| {
                 if to.starts_with(&origin) || to.starts_with("about:") {
                     return true;

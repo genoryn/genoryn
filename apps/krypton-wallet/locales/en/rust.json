@@ -497,6 +497,7 @@
  "77ebe2c9e4": "nothing to consolidate",
  "e8ea067872": "consolidation did not confirm within 30 minutes",
  "249fa2568e": "too many consolidation rounds",
+ "cf7a09b84e": "The coins are merged: proving and sending the payment itself.",
  "529172f7ea": "Use at least 12 characters, or four or more unrelated words.",
  "ee125c39f8": "Too easy to guess: make it longer, or mix in digits and symbols.",
  "0ebaca5770": "not a payment proof",

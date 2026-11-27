@@ -17,6 +17,24 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.58", "date": "2026-11-27", "title": "Payments you can follow, addresses that are checked, and swaps you can prove on both chains",
+     "tags": ["Wallet", "Swap", "Market"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets, offers and swaps in progress carry over.",
+         ("Added", "A payment that merges coins first shows what it is doing. When your coins are in many small notes, the wallet merges them before it can pay. Instead of a line of text there is now a count of the transactions that are left, a bar, and the three steps: merge, next block, send. The payment follows by itself; keep the wallet open until it is sent."),
+         ("Added", "A payment is in the list at once. As soon as it is sent it stands there as on its way, and as confirmed once it is in a block. A window shows the amount and the recipient, with Copy payment proof and a link to the explorer, so the proof is at hand without a walk through History."),
+         ("Changed", "The balance says what is moving instead of one figure called pending: what is on its way out, the change that comes back with the next block, and what is coming in. A payment to you counts in the balance once it is in a block. If a payment of yours does not get into a block in time, the wallet says so and that the amount is back in your balance."),
+         ("Added", "The latest five transactions on the Wallet page, below Send and Receive and above the charts. A payment of yours has Copy proof, every other row its transaction ID or its block, and each opens in the explorer."),
+         ("Changed", "Receive shows your full address first, with its QR code. A full address works always, straight from wallet to wallet. The short address is one press away and has its own QR code, with a note on what it depends on: a node has to know it. A small (i) in Receive and in Send explains the two."),
+         ("Security", "An address is checked where you use it. After Copy the wallet reads the clipboard back and says whether it holds exactly your address, so a program that swaps addresses in the clipboard is noticed. In Send, the recipient is checked as you type or paste: a valid full address, a short address the nodes know, an address of another network, or not an address at all."),
+         ("Added", "Your Bitcoin addresses are in the Bitcoin card, on the Wallet tab and on the Swap tab: the address of the balance, and the deposit address of each buy offer that is open, each with Copy and a QR code."),
+         ("Added", "A completed swap can be checked on both chains. In the trade history, in the wallet and on genoryn.io/trades, a swap opens to its proof: the claim of the GNR and its block, the hash lock, the secret, the Bitcoin payment into the swap's contract and the Bitcoin transaction that took it with the secret, with links to public explorers. The page works out SHA-256 of the secret itself and shows that it is the hash lock. Nodes on 1.0.58 write the two Bitcoin transactions down for every swap whose bitcoin they find; older swaps show the GNR side, the secret and the mark that the bitcoin was found."),
+         ("Changed", "/v1/swap/history and the swaps of /v1/market have a new field btc for a verified swap: funding (transaction and output), funded_height and claim. Fields that were there stay as they are."),
+         ("Changed", "Buy GNR comes first, in Publish an offer and in Quick Swap, and is what the form opens with. Max is on both sides: on the GNR you can sell and on the bitcoin you can spend, less the fees, in every unit. The market's filter takes a ceiling in bitcoin as well as in GNR."),
+         ("Fixed", "The command-line wallet accepts an address that was pasted with line breaks or in capitals, as the wallet window does, and reports a merge with its steps."),
+         ("Fixed", "With a Bitcoin Core node as the wallet's Bitcoin server, a look at the balance that met another look failed at once, because Bitcoin Core scans for one caller at a time. The wallet now waits a few seconds for its turn."),
+         ("Fixed", "On genoryn.io the headings of number columns are translated in every language, and on the market page the total of the swaps in progress has room on a phone."),
+     ]},
     {"v": "1.0.57", "date": "2026-11-27", "title": "A swap your wallet pays never asks you to pay, change is shown as change, and a Refresh button",
      "tags": ["Swap", "Security", "Wallet"],
      "items": [

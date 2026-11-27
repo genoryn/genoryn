@@ -6,7 +6,7 @@
  "3df54afb81": "Pour tout le monde",
  "07b050dba1": "Le portefeuille de bureau",
  "9a24a1799d": "Le portefeuille est un petit programme qui s'exécute entièrement sur votre ordinateur et s'affiche dans sa propre fenêtre. Les clés y sont créées et n'en sortent jamais ; les preuves y sont construites ; ce que lui disent les nœuds y est vérifié.",
- "c9e0a9336f": "<0>Portefeuille.</0> Autant de portefeuilles que vous le souhaitez, chacun avec ses propres 24 mots et son mot de passe. Solde, paiements privés avec mémo facultatif, une adresse courte et un QR code pour vous faire payer.",
+ "34022fd7c5": "<0>Portefeuille.</0> Autant de portefeuilles que vous le souhaitez, chacun avec ses propres 24 mots et son mot de passe. Solde, paiements privés avec mémo facultatif, votre adresse et son code QR pour être payé, sous forme complète ou courte.",
  "c48fcafaa1": "<0>Historique.</0> Chaque paiement, avec recherche et filtres, un bouton <1>Preuve</1> pour prouver un paiement à quelqu'un, et un lien qui ouvre sa transaction ou son bloc dans l'explorateur.",
  "58cb78cbe5": "<0>Échange.</0> Achetez ou vendez des GNR contre des bitcoins, de portefeuille à portefeuille, sans plateforme d'échange ni dépositaire. Les offres peuvent suivre automatiquement le prix du marché, dans une limite que vous fixez.",
  "bb5afe18a2": "<0>Minage.</0> Choisissez une carte graphique ou le processeur et appuyez sur Démarrer. L'onglet affiche votre part du réseau et ce qu'elle rapporte.",

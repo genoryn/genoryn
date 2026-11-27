@@ -104,6 +104,18 @@ pub fn claimed_from(
     funded_height: u32,
     secret: &[u8; 32],
 ) -> Result<u64> {
+    Ok(claim_of(chain, htlc, funding, funded_height, secret)?.map_or(0, |c| c.1))
+}
+
+/// [`claimed_from`] with the transaction that did it: its id and what it pays out (sat).
+/// `None` when no transaction took the bitcoin out of the contract with the secret (yet).
+pub fn claim_of(
+    chain: &(impl BtcChain + ?Sized),
+    htlc: &crate::Htlc,
+    funding: &OutPoint,
+    funded_height: u32,
+    secret: &[u8; 32],
+) -> Result<Option<(Txid, u64)>> {
     let tip = chain.tip()?;
     anyhow::ensure!(
         funded_height > 0
@@ -112,20 +124,21 @@ pub fn claimed_from(
         "the payment of this swap is not in a recent Bitcoin block"
     );
     let Some(tx) = chain.spender(funding, funded_height)? else {
-        return Ok(0);
+        return Ok(None);
     };
     let script = htlc.script();
     let by_contract = tx.input.len() == 1
         && tx.input[0].previous_output == *funding
         && tx.input[0].witness.last() == Some(script.as_bytes())
         && tx.input[0].witness.iter().any(|w| w == secret);
-    Ok(if by_contract {
-        tx.output
-            .iter()
-            .fold(0u64, |a, o| a.saturating_add(o.value.to_sat()))
-    } else {
-        0
-    })
+    Ok(by_contract.then(|| {
+        (
+            tx.compute_txid(),
+            tx.output
+                .iter()
+                .fold(0u64, |a, o| a.saturating_add(o.value.to_sat())),
+        )
+    }))
 }
 
 /// The unspent outputs of `address`, from its outputs and one look at each.
@@ -415,6 +428,12 @@ impl BtcChain for Esplora {
     }
 }
 
+/// What Bitcoin Core answers to a `scantxoutset` while another one runs, and how long a
+/// look waits for its turn (5 seconds in all).
+const SCAN_BUSY: &str = "Scan already in progress";
+const SCAN_TRIES: u32 = 20;
+const SCAN_WAIT: Duration = Duration::from_millis(250);
+
 /// Bitcoin Core over JSON-RPC (`http://user:password@127.0.0.1:8332`).
 pub struct CoreRpc {
     url: reqwest::Url,
@@ -468,10 +487,23 @@ impl BtcChain for CoreRpc {
             .context("height")? as u32)
     }
     fn outputs(&self, address: &Address) -> Result<Vec<Utxo>> {
-        let r = self.call(
-            "scantxoutset",
-            json!(["start", [format!("addr({address})")]]),
-        )?;
+        // Bitcoin Core runs one scan at a time, for all its callers: a look that meets
+        // another one (this wallet's own, or another program's) asks again for a few
+        // seconds before it gives up.
+        let mut tries = 0;
+        let r = loop {
+            let r = self.call(
+                "scantxoutset",
+                json!(["start", [format!("addr({address})")]]),
+            );
+            match r {
+                Err(e) if tries < SCAN_TRIES && e.to_string().contains(SCAN_BUSY) => {
+                    tries += 1;
+                    std::thread::sleep(SCAN_WAIT);
+                }
+                r => break r?,
+            }
+        };
         r["unspents"]
             .as_array()
             .context("unexpected scantxoutset reply")?

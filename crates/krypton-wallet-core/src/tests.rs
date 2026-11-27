@@ -760,11 +760,20 @@ fn expired_sends_release_their_notes() {
         mine(&src, &a.address());
     }
     a.sync(&src, |_, _| {}).unwrap();
-    let spendable = a.balance().spendable;
+    let before = a.balance();
+    let spendable = before.spendable;
     assert!(spendable > 0);
+    assert_eq!(before.sending, 0);
     a.send(&src, &to, 1_000, DEFAULT_FEE, "never mined")
         .unwrap();
-    assert!(a.balance().pending > 0);
+    // On its way: it has left the total already, fee included; the rest of the notes it
+    // spends is change that comes back with its block.
+    let on_way = a.balance();
+    assert!(on_way.pending > 0);
+    assert_eq!(on_way.sending, 1_000 + DEFAULT_FEE);
+    assert_eq!(on_way.total, before.total - 1_000 - DEFAULT_FEE);
+    assert!(on_way.pending >= on_way.sending);
+    assert!(a.returned_sends().is_empty());
     // The transaction is lost (never relayed): it can never be mined after its expiry.
     let lost = src.pool.borrow_mut().pop().unwrap();
     let expiry = lost.expiry_height;
@@ -774,6 +783,20 @@ fn expired_sends_release_their_notes() {
     a.sync(&src, |_, _| {}).unwrap();
     assert_eq!(a.balance().pending, 0, "expired spend released");
     assert!(a.balance().spendable >= spendable);
+    // The amount is back, and the wallet can say what became of the payment.
+    assert_eq!(a.balance().sending, 0);
+    let back = a.returned_sends();
+    assert_eq!(back.len(), 1, "{back:?}");
+    assert_eq!(back[0].txid, hex::encode(lost.txid()));
+    assert_eq!(
+        (back[0].amount, back[0].fee, back[0].memo.as_str()),
+        (1_000 + DEFAULT_FEE, DEFAULT_FEE, "never mined")
+    );
+    assert_eq!(back[0].to.as_deref(), Some(to.short().as_str()));
+    // It is written down once, and stays over the next sync and a reopened wallet.
+    mine(&src, &a.address());
+    a.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(a.returned_sends(), back);
     assert!(
         a.history()
             .iter()
@@ -785,6 +808,127 @@ fn expired_sends_release_their_notes() {
     mine(&src, &a.address());
     a.sync(&src, |_, _| {}).unwrap();
     assert_eq!(a.balance().pending, 0);
+}
+
+/// A payment from many small notes says how far it is, in numbers: the rounds and merge
+/// transactions it takes are known before the first one is sent, they count up as they are
+/// sent and as they get into blocks, and they add up to what was planned.
+#[test]
+fn a_payment_that_merges_first_counts_its_steps() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::open(&dir.path().join("chain"), Network::Devnet).unwrap();
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let mut a = new_wallet(dir.path(), "a.wallet", &keys::new_mnemonic());
+    let mut b = new_wallet(dir.path(), "b.wallet", &keys::new_mnemonic());
+    let miner = new_wallet(dir.path(), "m.wallet", &keys::new_mnemonic()).address();
+    let (from, to) = (a.address(), b.address());
+    for _ in 0..28 {
+        mine(&src, &from);
+    }
+    for _ in 0..12 {
+        mine(&src, &miner);
+    }
+    a.sync(&src, |_, _| {}).unwrap();
+    let notes = a
+        .state
+        .notes
+        .iter()
+        .filter(|n| n.spent_height.is_none())
+        .count();
+    assert!(notes >= 5, "the payouts are {notes} notes");
+    let fee = DEFAULT_FEE;
+    // A payment the two largest notes cover is sent at once: no plan, nothing told.
+    let small = a.state.notes.iter().map(|n| n.value).max().unwrap() / 2;
+    assert!(a.merge_plan(small, fee).is_empty());
+    // A payment nobody can make has no plan either.
+    assert!(a.merge_plan(a.balance().total, fee).is_empty());
+
+    // Everything the wallet can send: all but two notes are merged away.
+    let max = a.max_send(fee);
+    let plan = a.merge_plan(max, fee);
+    let total: usize = plan.iter().sum();
+    assert_eq!(total, notes - 2, "{plan:?}");
+    assert!(plan.len() >= 2, "more than one round: {plan:?}");
+    let mut seen: Vec<SendProgress> = Vec::new();
+    let id = a
+        .send_auto(&src, &to, max, fee, "everything", |p| {
+            // The round's merges are sent: their block comes (once for each round).
+            if p.stage == SendProgress::WAITING && p.round_done == 0 {
+                mine(&src, &miner);
+            }
+            seen.push(p.clone());
+        })
+        .unwrap();
+    assert!(seen.len() > 2 * total, "{}", seen.len());
+    // Known from the first word on, and the same to the end.
+    assert!(seen.iter().all(|p| p.total == total), "{seen:?}");
+    assert!(
+        seen.iter()
+            .filter(|p| p.stage != SendProgress::SENDING)
+            .all(|p| p.rounds == plan.len()),
+        "{seen:?}"
+    );
+    let first = &seen[0];
+    assert_eq!(
+        (first.stage, first.round, first.done, first.round_sent),
+        (SendProgress::MERGING, 1, 0, 0)
+    );
+    assert_eq!(first.round_txs, plan[0]);
+    assert_eq!(first.left(), total);
+    // Nothing ever goes backwards.
+    let step = |p: &SendProgress| (p.round, p.done, p.round_sent, p.round_done);
+    assert!(seen.windows(2).all(|w| w[1].done >= w[0].done));
+    let merging: Vec<&SendProgress> = seen
+        .iter()
+        .filter(|p| p.stage != SendProgress::SENDING)
+        .collect();
+    assert!(merging.windows(2).all(|w| {
+        let (x, y) = (step(w[0]), step(w[1]));
+        y.0 >= x.0 && (y.0 > x.0 || (y.2 >= x.2 && y.3 >= x.3))
+    }));
+    // Each round: every merge is counted as it is sent, then all of them in their block.
+    for (i, txs) in plan.iter().enumerate() {
+        let round: Vec<&SendProgress> = seen
+            .iter()
+            .filter(|p| p.round == i + 1 && p.stage != SendProgress::SENDING)
+            .collect();
+        let sent: Vec<usize> = round
+            .iter()
+            .filter(|p| p.stage == SendProgress::MERGING)
+            .map(|p| p.round_sent)
+            .collect();
+        assert_eq!(sent, (0..=*txs).collect::<Vec<_>>(), "round {}", i + 1);
+        let last = round.last().unwrap();
+        assert_eq!(
+            (last.stage, last.round_txs, last.round_done),
+            (SendProgress::WAITING, *txs, *txs),
+            "round {}",
+            i + 1
+        );
+        assert!(
+            last.text()
+                .contains(&format!("step {} of {}", i + 1, plan.len()))
+        );
+    }
+    let end = seen.last().unwrap();
+    assert_eq!(
+        (end.stage, end.done, end.left()),
+        (SendProgress::SENDING, total, 0)
+    );
+    // And the payment arrived.
+    mine(&src, &miner);
+    a.sync(&src, |_, _| {}).unwrap();
+    b.sync(&src, |_, _| {}).unwrap();
+    assert_eq!(b.balance().total, max);
+    assert!(
+        a.history()
+            .iter()
+            .any(|h| h.txid == hex::encode(id) && h.height.is_some())
+    );
+    assert_eq!(a.balance().total, 0);
 }
 
 /// "Max" in the wallet: `max_send` names what `send_auto` can deliver. Merging the notes

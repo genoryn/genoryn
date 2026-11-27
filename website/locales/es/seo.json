@@ -26,6 +26,7 @@
  "6377a06e81": "Sí, exactamente igual que GNR: el token, el importe, el remitente y el destinatario quedarán ocultos mediante una prueba de conocimiento cero. Solo la creación y la destrucción de tokens serán públicas.",
  "377ed0c796": "No. Ningún emisor podrá quitar tokens, ver saldos ni congelar a un solo titular; todo lo que un emisor pueda hacer se declarará antes de que exista el token.",
  "c914a0c430": "No. Mantén tu billetera actualizada; su pestaña Tokens se activa sola cuando se activan los tokens.",
+ "d7b709b04d": "Genoryn Krypton 1.0.58: pagos que puedes seguir, direcciones que se comprueban e intercambios que puedes demostrar en ambas cadenas",
  "980f47eb5d": "Genoryn Krypton 1.0.57: un intercambio que paga tu billetera nunca te pide que pagues, el cambio se muestra como cambio, y un botón Actualizar",
  "bb46f586f7": "Genoryn Krypton 1.0.56: un mercado estricto: cada oferta tiene detrás sus monedas, y nadie compra con una promesa",
  "6b654526e0": "Genoryn Krypton 1.0.55: un nuevo diseño, un historial de intercambios que muestra primero los intercambios verificados y un nuevo Genoryn Talks",

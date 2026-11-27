@@ -6,7 +6,7 @@
  "3df54afb81": "Herkes için",
  "07b050dba1": "Masaüstü cüzdan",
  "9a24a1799d": "Cüzdan, tamamen bilgisayarınızda çalışan ve kendi penceresinde açılan küçük bir programdır. Anahtarlar orada oluşturulur ve oradan asla çıkmaz; kanıtlar orada oluşturulur; düğümlerin ona söyledikleri orada kontrol edilir.",
- "c9e0a9336f": "<0>Cüzdan.</0> Her biri kendi 24 kelimesine ve parolasına sahip, istediğiniz sayıda cüzdan. Bakiye, isteğe bağlı bir açıklamayla gizli ödemeler, ödeme almak için kısa bir adres ve bir QR kodu.",
+ "34022fd7c5": "<0>Cüzdan.</0> Her birinin kendi 24 kelimesi ve parolası olan, istediğiniz sayıda cüzdan. Bakiye, isteğe bağlı bir not içeren gizli ödemeler, ödeme almak için tam veya kısa biçimde adresiniz ve QR kodu.",
  "c48fcafaa1": "<0>Geçmiş.</0> Arama ve filtrelerle her ödeme, bir ödemeyi birine kanıtlamak için <1>Kanıt</1> düğmesi ve ödemenin işlemini veya bloğunu blok gezgininde açan bir bağlantı.",
  "58cb78cbe5": "<0>Takas.</0> Borsa ve emanet olmadan, cüzdandan cüzdana bitcoin karşılığında GNR alım satımı yapın. Teklifler, belirlediğiniz bir sınır dahilinde piyasa fiyatını kendiliğinden takip edebilir.",
  "bb5afe18a2": "<0>Madencilik.</0> Bir ekran kartı veya işlemciyi seçin ve Başlat'a basın. Ağdaki payınızı ve bunun ne kazandırdığını gösterir.",
