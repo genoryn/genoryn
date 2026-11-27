@@ -166,6 +166,15 @@
   window.gk = {
     api: function (p) { return fetch(p, { headers: { accept: "application/json" } }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); },
     gnr: function (v, d) { return GKI18N.num(Number(v || 0) / 1e8, { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 8 : d }); },
+    // The blocks of /v1/stats?range=1h, one by one: [{h, t, miners, shares}], where miners is
+    // how many different payout addresses the block credits. The node gives one point per
+    // block while the hour holds no more than 240 blocks; if it ever holds more, the points
+    // are groups of blocks and this returns nothing rather than a figure that is not per block.
+    perBlock: function (stats) {
+      var pts = ((stats || {}).points || []).filter(function (p) { return p && isFinite(p.h) && isFinite(p.miners); });
+      for (var i = 1; i < pts.length; i++) if (Number(pts[i].h) - Number(pts[i - 1].h) !== 1) return [];
+      return pts.map(function (p) { return { h: Number(p.h), t: Number(p.t), miners: Number(p.miners), shares: Math.round(Number(p.shares) || 0) }; });
+    },
     rate: function (r) { r = Number(r || 0); return r >= 1e15 ? (r / 1e15).toFixed(2) + " PH/s" : r >= 1e12 ? (r / 1e12).toFixed(2) + " TH/s" : r >= 1e9 ? (r / 1e9).toFixed(2) + " GH/s" : r >= 1e6 ? (r / 1e6).toFixed(2) + " MH/s" : r >= 1e3 ? (r / 1e3).toFixed(1) + " kH/s" : r.toFixed(0) + " H/s"; },
     esc: function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); },
     ago: function (t) {
@@ -367,6 +376,38 @@
     };
     loadCalc();
     setInterval(function () { if (!document.hidden) loadCalc(); }, 60000);
+  }
+  // Mining page: how many addresses have shares in each block, live.
+  var mnAvg = document.getElementById("mnAvg");
+  if (mnAvg) {
+    var mnSet = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+    var mnChart = null;
+    var mnFmt = function (v, axis) { return axis ? GKI18N.num(v) : Tn(Math.round(v), "{n} address", "{n} addresses"); };
+    var loadMiners = function () {
+      gk.api("/v1/stats?range=1h").then(function (s) {
+        var sm = s.summary || {}, bl = gk.perBlock(s);
+        mnSet("mnHour", GKI18N.num(Number(sm.miners_last_hour) || 0));
+        mnSet("mnDay", GKI18N.num(Number(sm.miners_24h) || 0));
+        if (!bl.length) { mnSet("mnAvg", "—"); mnSet("mnAvgN", T("no figure per block right now")); mnSet("mnLast", "—"); mnSet("mnLastN", "\u00a0"); mnSet("mnRange", "—"); return; }
+        var sum = 0, lo = Infinity, hi = 0;
+        bl.forEach(function (b) { sum += b.miners; lo = Math.min(lo, b.miners); hi = Math.max(hi, b.miners); });
+        var avg = sum / bl.length, last = bl[bl.length - 1];
+        var one = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+        mnSet("mnAvg", GKI18N.num(avg, one));
+        mnSet("mnAvgN", Tn(bl.length, "over the last {n} block · between {lo} and {hi}", "over the last {n} blocks · between {lo} and {hi}", { lo: GKI18N.num(lo), hi: GKI18N.num(hi) }));
+        mnSet("mnLast", GKI18N.num(last.miners));
+        mnSet("mnLastN", Tn(last.shares, "block {h} · {n} share", "block {h} · {n} shares", { h: GKI18N.num(last.h) }));
+        mnSet("mnRange", T("blocks {a} to {b}", { a: GKI18N.num(bl[0].h), b: GKI18N.num(last.h) }));
+        var host = document.getElementById("mnChart");
+        if (host && window.GKCharts) {
+          var series = bl.map(function (b) { return { t: b.t, v: b.miners, h: b.h, note: Tn(b.shares, "{n} share", "{n} shares") }; });
+          var opts = { kind: "bars", ordinal: true, clock: true, integer: true, fmt: mnFmt, height: 190, barMax: 12, target: avg, targetLabel: T("average {n}", { n: GKI18N.num(avg, one) }), label: T("Addresses with shares in each block of the last hour") };
+          if (mnChart) mnChart.update(series, opts); else mnChart = GKCharts.chart(host, series, opts);
+        }
+      }).catch(function () {});
+    };
+    loadMiners();
+    setInterval(function () { if (!document.hidden) loadMiners(); }, 30000);
   }
   var homeNet = document.getElementById("homeNet");
   if (homeNet && window.GKCharts) {

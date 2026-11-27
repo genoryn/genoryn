@@ -15,7 +15,7 @@
   var L = {
     height: T("Height"), hash: T("Hash"), age: T("Age"), shares: T("Shares"), txs: T("Transactions"), reward: T("Reward"), size: T("Size"),
     txid: T("Txid"), kind: T("Kind"), fee: T("Fee"), proof: T("Proof"), share: T("Share"), minedOn: T("Mined on block"), miner: T("Miner"),
-    paid: T("Paid"), block: T("Block"), amount: T("Amount"), spendable: T("Spendable")
+    paid: T("Paid"), block: T("Block"), amount: T("Amount"), spendable: T("Spendable"), addresses: T("Addresses")
   };
   Object.keys(L).forEach(function (k) { L[k] = gk.esc(L[k]); });
 
@@ -47,16 +47,32 @@
     GKCharts.tilt(".tilt-card");
   }
 
+  // How many different addresses each recent block credits, by height (from the last
+  // hour's statistics, asked for at most once a minute).
+  var credited = { at: 0, by: {} };
+  function creditedBy() {
+    if (Date.now() - credited.at < 55000) return Promise.resolve(credited.by);
+    return gk.api("/v1/stats?range=1h").then(function (s) {
+      var by = {};
+      gk.perBlock(s).forEach(function (b) { by[b.h] = b.miners; });
+      credited = { at: Date.now(), by: by };
+      return by;
+    }).catch(function () { return credited.by; });
+  }
+
   function home() {
-    gk.api("/v1/blocks?count=25").then(function (bs) {
+    Promise.all([gk.api("/v1/blocks?count=25"), creditedBy()]).then(function (got) {
+      var bs = got[0], by = got[1] || {};
       var rows = bs.map(function (b) {
+        var who = by[nm(b.height)];
         return '<tr><td data-label="' + L.height + '"><a href="#/block/' + nm(b.height) + '">' + nm(b.height) + '</a></td><td data-label="' + L.hash + '" class="mono"><a href="#/block/' + hx(b.hash) + '">' + short(b.hash) +
-          '</a></td><td data-label="' + L.age + '">' + gk.ago(b.timestamp) + '</td><td data-label="' + L.shares + '" class="num">' + nm(b.shares) + '</td><td data-label="' + L.txs + '" class="num">' + nm(b.txs) +
+          '</a></td><td data-label="' + L.age + '">' + gk.ago(b.timestamp) + '</td><td data-label="' + L.shares + '" class="num">' + nm(b.shares) + '</td><td data-label="' + L.addresses + '" class="num">' + (who != null ? nm(who) : "—") + '</td><td data-label="' + L.txs + '" class="num">' + nm(b.txs) +
           '</td><td data-label="' + L.reward + '" class="num">' + gk.gnr((b.subsidy || 0) + (b.fees || 0)) +
           '</td><td data-label="' + L.size + '" class="num">' + kb(b.size) + "</td></tr>";
       }).join("");
-      view.innerHTML = h2(T("Latest blocks"), true) + card('<table class="data"><thead><tr><th>' + L.height + "</th><th>" + L.hash + "</th><th>" + L.age + '</th><th class="num">' + L.shares + '</th><th class="num">' + gk.esc(T("Txs")) + '</th><th class="num">' + gk.esc(T("Reward GNR")) + '</th><th class="num">' + L.size + "</th></tr></thead><tbody>" + rows + "</tbody></table>") +
-        '<p class="muted" style="margin-top:12px;font-size:13.5px">' + gk.esc(T("Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.")) + "</p>";
+      view.innerHTML = h2(T("Latest blocks"), true) + card('<table class="data"><thead><tr><th>' + L.height + "</th><th>" + L.hash + "</th><th>" + L.age + '</th><th class="num">' + L.shares + '</th><th class="num" title="' + gk.esc(T("Different addresses the block credits: the one that found it and those of its shares")) + '">' + L.addresses + '</th><th class="num">' + gk.esc(T("Txs")) + '</th><th class="num">' + gk.esc(T("Reward GNR")) + '</th><th class="num">' + L.size + "</th></tr></thead><tbody>" + rows + "</tbody></table>") +
+        '<p class="muted" style="margin-top:12px;font-size:13.5px">' + gk.esc(T("Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.")) + " " +
+        gk.esc(T("Addresses is how many different payout addresses a block credits; the average of the last hour is on the Mining page.")) + "</p>";
     }).catch(function () { err(T("The node API is not reachable right now.")); });
   }
 
@@ -84,12 +100,15 @@
         return '<tr><td data-label="' + L.miner + '" class="mono">' + short(p.owner) + '</td><td data-label="' + L.paid + '" class="num">' + gk.gnr(p.value) + " GNR</td></tr>";
       }).join("");
       var e = gk.esc;
+      // The different addresses this block credits: the one that found it and its shares'.
+      var owners = {};
+      if (nm(h.height) > 0) { owners[hx(b.miner)] = 1; (b.shares || []).forEach(function (s) { owners[hx(s.miner)] = 1; }); }
       view.innerHTML = h2(T("Block {h}", { h: nm(h.height) }), true) + card(kv([
         [L.hash, '<span class="mono">' + hx(b.hash) + "</span>"], [e(T("Previous")), '<a class="mono" href="#/block/' + hx(h.prev) + '">' + hx(h.prev) + "</a>"],
         [e(T("Time")), e(utc(h.timestamp))], [e(T("Confirmations")), nm(b.confirmations)],
         [e(T("Difficulty")), GKI18N.num(h.difficulty)], [e(T("Nonce")), gk.esc(h.nonce)],
         [e(T("Reward to the pool")), gk.gnr((b.subsidy || 0) + (b.fees || 0)) + " GNR"], [e(T("Found by")), '<span class="mono">' + short(b.miner) + "</span>"],
-        [e(T("Shares credited")), (b.shares || []).length + 1], [e(T("Payouts made")), (b.payouts || []).length],
+        [e(T("Shares credited")), (b.shares || []).length + 1], [e(T("Addresses credited")), Object.keys(owners).length], [e(T("Payouts made")), (b.payouts || []).length],
         [e(T("Note tree root")), '<span class="mono">' + hx(h.note_root) + "</span>"], [e(T("MMR root (light clients)")), '<span class="mono">' + hx(h.mmr_root) + "</span>"], [L.size, e(kb(b.size))]
       ])) +
         (payouts ? h2(T("Payouts")) + card('<table class="data"><thead><tr><th>' + L.miner + '</th><th class="num">' + L.paid + "</th></tr></thead><tbody>" + payouts + "</tbody></table>") : "") +
@@ -119,16 +138,24 @@
 
   function post(p, body) {
     return fetch(p, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
+      .then(function (r) {
+        // An answer that is not the node's (a gateway's error page) is said in words.
+        return r.json().catch(function () { return null; }).then(function (j) {
+          if (j == null) throw new Error(T("the node did not answer (HTTP {status}); try again in a moment", { status: r.status }));
+          if (!r.ok) throw new Error(j.error || r.status);
+          return j;
+        });
+      });
   }
 
   function proofForm(prefillAddress) {
     var e = gk.esc;
     return card('<div style="padding:18px"><h3 class="xh">' + e(T("Verify a payment proof")) + "</h3>" +
       '<p class="muted" style="margin:6px 0 12px">' + e(T("Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.")) + "</p>" +
-      '<label for="pf" class="sr-only">' + e(T("Payment proof")) + '</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
-      '<label for="pfa" class="sr-only">' + e(T("Recipient address (optional)")) + '</label><input id="pfa" placeholder="' + e(T("Recipient full address (optional, confirms the recipient)")) + '" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
-      '<button class="btn btn-primary" type="button" data-act="proof" style="margin-top:10px">' + e(T("Verify")) + '</button><div id="pfr" style="margin-top:14px"></div></div>');
+      '<label for="pf" class="pf-l">' + e(T("Payment proof")) + '</label><textarea id="pf" rows="3" placeholder="gnrpay1…" spellcheck="false"></textarea>' +
+      '<label for="pfa" class="pf-l">' + e(T("Recipient full address (optional, confirms the recipient)")) + '</label><input id="pfa" placeholder="gnr1…" value="' + gk.esc(prefillAddress || "") + '" spellcheck="false">' +
+      '<button class="btn btn-primary" type="button" data-act="proof" style="margin-top:12px">' + e(T("Verify")) + '</button><div id="pfr" style="margin-top:14px"></div>' +
+      '<p class="muted pf-note">' + e(T("A proof is not on the blockchain. The sender's wallet makes it, and it shows this one payment to whoever has the text, so give it only to those who should see it. This page sends it to the node to be checked; it is not kept and not published.")) + "</p></div>");
   }
 
   window.exProof = function () {

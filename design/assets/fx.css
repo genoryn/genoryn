@@ -200,6 +200,8 @@ html[data-fx="low"] .drift { animation: none !important; }
 .gk-bar:hover { opacity: 1; }
 .gk-bar.none { opacity: .18; }
 .gk-target { stroke: var(--text-tertiary); stroke-dasharray: 4 5; }
+/* The target's name, over the series: a rim in the card's colour keeps it readable on a bar. */
+.gk-target-label { fill: var(--text-secondary); paint-order: stroke; stroke: var(--chart-bg, var(--bg-solid)); stroke-width: 4px; stroke-linejoin: round; }
 .gk-cross { stroke: var(--line-strong); }
 .gk-dot, .gk-last, .gk-pt { fill: var(--bg-solid); stroke: var(--text-primary); stroke-width: 1.75; }
 /* A value far outside the scale: drawn at the edge, hollow and dashed, with its real figure in the tip. */

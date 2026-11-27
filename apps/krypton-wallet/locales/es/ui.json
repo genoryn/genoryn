@@ -328,7 +328,7 @@
  "817ad0ce24": "El archivo está cifrado con tu contraseña: <0>sin ella, nadie puede abrirlo</0>, ni en este equipo ni en ningún otro, ni siquiera teniendo el archivo. No hay puerta trasera ni servicio de recuperación.",
  "2e84622030": "Clave a partir de la contraseña<0>Argon2id · 256 MiB · 3 pasadas</0>",
  "027761e584": "Cifrado<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Manipulación<0>detectada, archivo rechazado</0>",
+ "31f206f0e0": "Si alguien modifica el archivo<0>la billetera lo nota y lo rechaza</0>",
  "30e74cc317": "El único ataque contra un archivo robado es adivinar la contraseña, y cada intento cuesta un cuarto de gigabyte de memoria y alrededor de un segundo. Una contraseña fuerte (el medidor bajo una contraseña nueva lo indica) la pone fuera del alcance de cualquier computadora, incluidas las cuánticas. Tus 24 palabras restauran la billetera sin el archivo.",
  "3f9c991f63": "Cambiar contraseña",
  "9719a019b7": "Para «<0>esta billetera</0>». El archivo se vuelve a cifrar al instante con una clave nueva.",

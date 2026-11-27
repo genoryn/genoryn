@@ -17,6 +17,15 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"date": "2026-11-27", "title": "How many addresses mine in each block, and room at the end of every page",
+     "tags": ["Site", "Mining"],
+     "items": [
+         ("Added", "The Mining page shows, live from the blockchain, how many payout addresses have shares in each block: the average over the last hour's blocks, the latest block, a bar for every block, and how many different addresses mined in the last 60 and 1,440 blocks. An address is where rewards are paid, not a person or a machine."),
+         ("Added", "The explorer says the same for every block: the list of latest blocks has a column Addresses, and a block's page says how many addresses it credits."),
+         ("Changed", "The payment proof page says what becomes of a proof: it is not on the blockchain, it shows one payment to whoever has the text, and the page sends it to the node only to be checked. Its two fields have their labels above them."),
+         ("Fixed", "Every page ends with the same room above the footer. The explorer's pages of a proof, a block, a transaction and an address ended in a card that touched the footer, and several other pages left only a few pixels."),
+         ("Fixed", "On a touch screen the figure of a chart's point stays after a tap, until the next tap elsewhere; it used to vanish as the finger lifted."),
+     ]},
     {"v": "1.0.58", "date": "2026-11-27", "title": "Payments you can follow, addresses that are checked, and swaps you can prove on both chains",
      "tags": ["Wallet", "Swap", "Market"],
      "items": [

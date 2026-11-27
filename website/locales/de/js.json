@@ -47,6 +47,10 @@
  "a634606cba": "Swaps, 24 h",
  "34540bb7b0": "Gemeldet",
  "7bb6a93903": "Noch keine abgeschlossenen Swaps.",
+ "96992f05dd": "gerade keine Zahl pro Block",
+ "ec4d862fdf": "Blöcke {a} bis {b}",
+ "692d71f893": "Durchschnitt {n}",
+ "d7605ee4f1": "Adressen mit Shares in jedem Block der letzten Stunde",
  "cc74741300": "Netzwerk-Hashrate, letzte 24 Stunden",
  "25a85aeb27": "Ø {n}",
  "cf6430e429": "Ø {n} s",
@@ -61,6 +65,18 @@
  "18c80a2d0a": {
   "one": "{n} Tag",
   "other": "{n} Tage"
+ },
+ "2912967a35": {
+  "one": "{n} Adresse",
+  "other": "{n} Adressen"
+ },
+ "43cfec18d2": {
+  "one": "über den letzten {n} Block · zwischen {lo} und {hi}",
+  "other": "über die letzten {n} Blöcke · zwischen {lo} und {hi}"
+ },
+ "9c78cdb416": {
+  "one": "Block {h} · {n} Share",
+  "other": "Block {h} · {n} Shares"
  },
  "773c4486c9": {
   "one": "{n} Share",
@@ -86,10 +102,13 @@
  "211d0bb8cf": "Block",
  "49e96d7cdf": "Betrag",
  "8e8252533c": "Verfügbar",
+ "76179aafc4": "Adressen",
  "4630a703a9": "Neueste Blöcke",
+ "4b62032922": "Verschiedene Adressen, denen der Block etwas gutschreibt: die, die ihn gefunden hat, und die seiner Shares",
  "b2b7a8c7a3": "Txs",
  "271732c929": "Belohnung GNR",
  "dcb7cad749": "Jeder Block fügt seine Belohnung einem gemeinsamen Pool hinzu; jeder Share schreibt seinem Miner einen gleich großen Anteil gut. So verdienen Miner im Verhältnis zu ihrer Hashrate.",
+ "2876071f14": "„Adressen“ gibt an, wie vielen verschiedenen Auszahlungsadressen ein Block etwas gutschreibt; der Durchschnitt der letzten Stunde steht auf der Mining-Seite.",
  "de194a2533": "Die Node-API ist gerade nicht erreichbar.",
  "0f545745fb": "private Überweisung",
  "f888c1f210": "Coin-Überweisung",
@@ -108,6 +127,7 @@
  "f242ecb0a3": "Belohnung an den Pool",
  "945bbc9260": "Gefunden von",
  "ae6c192aaf": "Gutgeschriebene Shares",
+ "6dc1c13d37": "Gutgeschriebene Adressen",
  "599247a883": "Geleistete Auszahlungen",
  "01f02a4349": "Wurzel des Note-Baums",
  "9b1e7d031b": "MMR-Wurzel (Light-Clients)",
@@ -126,12 +146,13 @@
  "c148bf0eb1": "in Block {h}",
  "c69332a222": "nicht ausgegeben",
  "22f3c8bcaa": "Ungültiger Nullifier.",
+ "1d5de1b901": "der Node hat nicht geantwortet (HTTP {status}); versuche es in einem Moment erneut",
  "08e058ed95": "Zahlungsnachweis prüfen",
  "15de96c759": "Absender erstellen einen Nachweis in ihrer Wallet (Verlauf → Nachweis). Er zeigt eine Zahlung und sonst nichts, geprüft gegen diese Chain.",
  "79006c0fe9": "Zahlungsnachweis",
- "9d8506186e": "Empfängeradresse (optional)",
  "9594710e59": "Vollständige Empfängeradresse (optional, bestätigt den Empfänger)",
  "eea2745e28": "Prüfen",
+ "c6f6a816b4": "Ein Nachweis steht nicht auf der Blockchain. Die Wallet des Absenders erstellt ihn, und er zeigt diese eine Zahlung jedem, der den Text hat; gib ihn also nur denen, die sie sehen sollen. Diese Seite sendet ihn zur Prüfung an den Node; er wird nicht gespeichert und nicht veröffentlicht.",
  "ec963ffc91": "Wird geprüft…",
  "1d01f0c0ef": "Zahlung ausstehend.",
  "0f471c594b": "Die Zahlung wurde gesendet und wartet im Mempool, ist aber noch in keinem Block. Prüfe nach dem nächsten Block erneut (etwa eine Minute): Nur eine bestätigte Zahlung ist endgültig.",

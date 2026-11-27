@@ -4,6 +4,22 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## Site · 2026-11-27: How many addresses mine in each block, and room at the end of every page
+
+### Added
+
+- The Mining page shows, live from the blockchain, how many payout addresses have shares in each block: the average over the last hour's blocks, the latest block, a bar for every block, and how many different addresses mined in the last 60 and 1,440 blocks. An address is where rewards are paid, not a person or a machine.
+- The explorer says the same for every block: the list of latest blocks has a column Addresses, and a block's page says how many addresses it credits.
+
+### Changed
+
+- The payment proof page says what becomes of a proof: it is not on the blockchain, it shows one payment to whoever has the text, and the page sends it to the node only to be checked. Its two fields have their labels above them.
+
+### Fixed
+
+- Every page ends with the same room above the footer. The explorer's pages of a proof, a block, a transaction and an address ended in a card that touched the footer, and several other pages left only a few pixels.
+- On a touch screen the figure of a chart's point stays after a tap, until the next tap elsewhere; it used to vanish as the finger lifted.
+
 ## [1.0.58](https://github.com/genoryn/genoryn/releases/tag/v1.0.58) · 2026-11-27: Payments you can follow, addresses that are checked, and swaps you can prove on both chains
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets, offers and swaps in progress carry over.

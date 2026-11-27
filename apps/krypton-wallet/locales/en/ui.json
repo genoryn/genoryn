@@ -441,7 +441,7 @@
  "817ad0ce24": "The file is encrypted with your password: <0>without it, nobody can open it</0>, on this computer or any other, not even with the file in hand. There is no backdoor and no recovery service.",
  "2e84622030": "Key from the password<0>Argon2id · 256 MiB · 3 passes</0>",
  "027761e584": "Encryption<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Tampering<0>detected, file refused</0>",
+ "31f206f0e0": "If someone changes the file<0>the wallet notices and refuses it</0>",
  "30e74cc317": "The only attack on a stolen file is guessing the password, and every guess costs a quarter of a gigabyte of memory and about a second. A strong password (the meter under a new password shows one) puts it out of reach of any computer, quantum ones included. Your 24 words restore the wallet without the file.",
  "3f9c991f63": "Change password",
  "9719a019b7": "For “<0>this wallet</0>”. The file is re-encrypted with a new key at once.",

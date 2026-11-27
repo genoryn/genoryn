@@ -46,6 +46,10 @@
  "a634606cba": "Swaps, 24 h",
  "34540bb7b0": "Reported",
  "7bb6a93903": "No completed swaps yet.",
+ "96992f05dd": "no figure per block right now",
+ "ec4d862fdf": "blocks {a} to {b}",
+ "692d71f893": "average {n}",
+ "d7605ee4f1": "Addresses with shares in each block of the last hour",
  "cc74741300": "Network hashrate, last 24 hours",
  "25a85aeb27": "{n} avg",
  "cf6430e429": "{n} s avg",
@@ -60,6 +64,18 @@
  "18c80a2d0a": {
   "one": "{n} day",
   "other": "{n} days"
+ },
+ "2912967a35": {
+  "one": "{n} address",
+  "other": "{n} addresses"
+ },
+ "43cfec18d2": {
+  "one": "over the last {n} block · between {lo} and {hi}",
+  "other": "over the last {n} blocks · between {lo} and {hi}"
+ },
+ "9c78cdb416": {
+  "one": "block {h} · {n} share",
+  "other": "block {h} · {n} shares"
  },
  "773c4486c9": {
   "one": "{n} share",
@@ -85,10 +101,13 @@
  "211d0bb8cf": "Block",
  "49e96d7cdf": "Amount",
  "8e8252533c": "Spendable",
+ "76179aafc4": "Addresses",
  "4630a703a9": "Latest blocks",
+ "4b62032922": "Different addresses the block credits: the one that found it and those of its shares",
  "b2b7a8c7a3": "Txs",
  "271732c929": "Reward GNR",
  "dcb7cad749": "Each block adds its reward to a shared pool; every share credits its miner an equal slice, so miners earn in proportion to their hashrate.",
+ "2876071f14": "Addresses is how many different payout addresses a block credits; the average of the last hour is on the Mining page.",
  "de194a2533": "The node API is not reachable right now.",
  "0f545745fb": "private transfer",
  "f888c1f210": "coin transfer",
@@ -107,6 +126,7 @@
  "f242ecb0a3": "Reward to the pool",
  "945bbc9260": "Found by",
  "ae6c192aaf": "Shares credited",
+ "6dc1c13d37": "Addresses credited",
  "599247a883": "Payouts made",
  "01f02a4349": "Note tree root",
  "9b1e7d031b": "MMR root (light clients)",
@@ -125,12 +145,13 @@
  "c148bf0eb1": "in block {h}",
  "c69332a222": "not spent",
  "22f3c8bcaa": "Invalid nullifier.",
+ "1d5de1b901": "the node did not answer (HTTP {status}); try again in a moment",
  "08e058ed95": "Verify a payment proof",
  "15de96c759": "Senders create a proof in their wallet (History → Proof). It shows one payment and nothing else, checked against this chain.",
  "79006c0fe9": "Payment proof",
- "9d8506186e": "Recipient address (optional)",
  "9594710e59": "Recipient full address (optional, confirms the recipient)",
  "eea2745e28": "Verify",
+ "c6f6a816b4": "A proof is not on the blockchain. The sender's wallet makes it, and it shows this one payment to whoever has the text, so give it only to those who should see it. This page sends it to the node to be checked; it is not kept and not published.",
  "ec963ffc91": "Checking…",
  "1d01f0c0ef": "Payment pending.",
  "0f471c594b": "The payment was sent and is waiting in the mempool, but it is not in a block yet. Check again after the next block (about a minute): only a confirmed payment is final.",

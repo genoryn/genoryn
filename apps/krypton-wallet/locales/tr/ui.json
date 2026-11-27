@@ -328,7 +328,7 @@
  "817ad0ce24": "Dosya parolanızla şifrelenmiştir: <0>parola olmadan kimse onu açamaz</0>; ne bu bilgisayarda ne de başka bir bilgisayarda, dosya elinde olsa bile. Arka kapı da kurtarma hizmeti de yoktur.",
  "2e84622030": "Paroladan türetilen anahtar<0>Argon2id · 256 MiB · 3 geçiş</0>",
  "027761e584": "Şifreleme<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Kurcalama<0>algılandı, dosya reddedildi</0>",
+ "31f206f0e0": "Biri dosyayı değiştirirse<0>cüzdan fark eder ve onu reddeder</0>",
  "30e74cc317": "Çalınmış bir dosyaya karşı tek saldırı parolayı tahmin etmektir ve her tahmin çeyrek gigabayt belleğe ve yaklaşık bir saniyeye mal olur. Güçlü bir parola (yeni bir parolanın altındaki gösterge bunu belirtir), kuantum bilgisayarlar dahil hiçbir bilgisayarın ulaşamayacağı bir yere taşır. 24 kelimeniz cüzdanı dosya olmadan da geri yükler.",
  "3f9c991f63": "Parolayı değiştir",
  "9719a019b7": "“<0>Bu cüzdan</0>” için. Dosya hemen yeni bir anahtarla yeniden şifrelenir.",

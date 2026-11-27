@@ -49,8 +49,9 @@
      every point), range: [lo, hi] (the scale; a value outside it is drawn at the edge, hollow and
      dashed, and the tip still shows its real figure), span: [t0, t1] (the time the x axis
      covers, when it is wider than the data: a period with empty days in it), ordinal (the
-     points are spaced evenly, one after another, instead of by their time: a few events that
-     happened close together stay readable), tipTime(d)}.
+     points, or the bars, are spaced evenly, one after another, instead of by their time: events
+     that happened close together stay readable; with clock: true their labels are times of
+     day when they all fall within two days, else dates), tipTime(d)}.
      A point with v == null is a gap: the line stops there and starts again after it. A soft point
      (soft: true) is drawn small and grey and the line passes it by. A bar with none: true is an
      empty slot (a day with nothing in it), drawn as a faint tick so the days stay in their places. */
@@ -97,8 +98,8 @@
       var inset = bars ? bw / 2 + 1 : (!one && data.length <= 6 ? iw * 0.07 : 0);
       function X(t) { return padL + inset + (one ? (iw - 2 * inset) / 2 : ((t - t0) / span) * (iw - 2 * inset)); }
       // Where datum k sits: by its place in the row when ordinal, else by its time.
-      var ord = !!o.ordinal && !bars;
-      if (ord) inset = iw * (data.length <= 6 ? 0.1 : 0.03);
+      var ord = !!o.ordinal;
+      if (ord && !bars) inset = iw * (data.length <= 6 ? 0.1 : 0.03);
       function XK(k) { return ord ? padL + inset + (data.length === 1 ? (iw - 2 * inset) / 2 : (k / (data.length - 1)) * (iw - 2 * inset)) : X(data[k].t); }
       function Y(v) { return padT + ih - ((v - vmin) / (vmax - vmin)) * ih; }
       var gid = "gkg" + (++uid);
@@ -119,7 +120,7 @@
           var k = nx === 0 ? 0 : Math.round(((data.length - 1) * j) / nx);
           if (shown[k]) continue;
           shown[k] = 1;
-          el("text", { x: XK(k), y: H - 7, "text-anchor": data.length === 1 ? "middle" : j === 0 ? "start" : j === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(data[k].t, Math.max(3 * 86400, real1 - real0));
+          el("text", { x: XK(k), y: H - 7, "text-anchor": data.length === 1 ? "middle" : j === 0 ? "start" : j === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(data[k].t, o.clock ? real1 - real0 : Math.max(3 * 86400, real1 - real0));
         }
       } else {
         for (var i = 0; i <= nx; i++) {
@@ -127,10 +128,7 @@
           el("text", { x: X(tt), y: H - 7, "text-anchor": nx === 0 ? "middle" : i === 0 ? "start" : i === nx ? "end" : "middle", class: "gk-axis" }, svg).textContent = timeLabel(tt, o.days ? 3 * 86400 : span);
         }
       }
-      if (o.target != null) {
-        el("line", { x1: padL, x2: W - padR, y1: Y(o.target), y2: Y(o.target), class: "gk-target" }, svg);
-        if (o.targetLabel) el("text", { x: W - padR - 4, y: Y(o.target) - 6, "text-anchor": "end", class: "gk-axis" }, svg).textContent = o.targetLabel;
-      }
+      if (o.target != null) el("line", { x1: padL, x2: W - padR, y1: Y(o.target), y2: Y(o.target), class: "gk-target" }, svg);
       // Where each point is drawn. far: 1 above the scale, -1 below it.
       var hov = [];
       var pts = data.map(function (d, k) {
@@ -190,6 +188,8 @@
           el("circle", { cx: last[0], cy: last[1], r: 3.5, class: "gk-last" }, svg);
         }
       }
+      // The target's name goes over the series, so a tall bar or the line does not cut it.
+      if (o.target != null && o.targetLabel) el("text", { x: W - padR - 4, y: Y(o.target) - 6, "text-anchor": "end", class: "gk-axis gk-target-label" }, svg).textContent = o.targetLabel;
       host._drawn = true;
       var cross = el("line", { y1: padT, y2: padT + ih, class: "gk-cross", visibility: "hidden" }, svg);
       var dot = el("circle", { r: 4.5, class: "gk-dot", visibility: "hidden" }, svg);
@@ -212,7 +212,15 @@
       function leave() { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.classList.add("hidden"); }
       svg.addEventListener("pointermove", move);
       svg.addEventListener("pointerdown", move);
-      svg.addEventListener("pointerleave", leave);
+      // A finger that lifts leaves the chart: what it tapped stays shown until the next tap
+      // somewhere else. A mouse that leaves takes its figure with it.
+      svg.addEventListener("pointerleave", function (ev) { if (ev.pointerType !== "touch") leave(); });
+      svg.addEventListener("pointercancel", function (ev) { if (ev.pointerType !== "touch") leave(); });
+      host._leave = leave;
+      if (!host._out) {
+        host._out = true;
+        document.addEventListener("pointerdown", function (ev) { if (!host.contains(ev.target) && host._leave) host._leave(); }, { passive: true });
+      }
     }
     state.draw = draw;
     draw();

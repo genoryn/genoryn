@@ -328,7 +328,7 @@
  "817ad0ce24": "Die Datei ist mit deinem Passwort verschlüsselt: <0>Ohne es kann niemand sie öffnen</0>, weder auf diesem noch auf einem anderen Computer, nicht einmal mit der Datei in der Hand. Es gibt keine Hintertür und keinen Wiederherstellungsdienst.",
  "2e84622030": "Schlüssel aus dem Passwort<0>Argon2id · 256 MiB · 3 Durchläufe</0>",
  "027761e584": "Verschlüsselung<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Manipulation<0>erkannt, Datei abgelehnt</0>",
+ "31f206f0e0": "Wenn jemand die Datei ändert<0>merkt die Wallet das und lehnt sie ab</0>",
  "30e74cc317": "Der einzige Angriff auf eine gestohlene Datei ist das Erraten des Passworts, und jeder Versuch kostet ein Viertel Gigabyte Speicher und etwa eine Sekunde. Ein starkes Passwort (die Anzeige unter einem neuen Passwort zeigt es an) bringt es außer Reichweite jedes Computers, auch von Quantencomputern. Deine 24 Wörter stellen die Wallet ohne die Datei wieder her.",
  "3f9c991f63": "Passwort ändern",
  "9719a019b7": "Für „<0>diese Wallet</0>“. Die Datei wird sofort mit einem neuen Schlüssel neu verschlüsselt.",

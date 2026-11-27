@@ -328,7 +328,7 @@
  "817ad0ce24": "Le fichier est chiffré avec votre mot de passe : <0>sans lui, personne ne peut l'ouvrir</0>, sur cet ordinateur ou sur un autre, même en ayant le fichier en main. Il n'y a ni porte dérobée ni service de récupération.",
  "2e84622030": "Clé issue du mot de passe<0>Argon2id · 256 MiB · 3 passes</0>",
  "027761e584": "Chiffrement<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Falsification<0>détectée, fichier refusé</0>",
+ "31f206f0e0": "Si quelqu'un modifie le fichier<0>le portefeuille s'en aperçoit et le refuse</0>",
  "30e74cc317": "La seule attaque possible sur un fichier volé consiste à deviner le mot de passe, et chaque essai coûte un quart de gigaoctet de mémoire et environ une seconde. Un mot de passe fort (la jauge sous un nouveau mot de passe l'indique) le met hors de portée de tout ordinateur, quantiques compris. Vos 24 mots restaurent le portefeuille sans le fichier.",
  "3f9c991f63": "Changer le mot de passe",
  "9719a019b7": "Pour « <0>ce portefeuille</0> ». Le fichier est aussitôt rechiffré avec une nouvelle clé.",

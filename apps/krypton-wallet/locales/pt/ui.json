@@ -328,7 +328,7 @@
  "817ad0ce24": "O arquivo é criptografado com sua senha: <0>sem ela, ninguém consegue abri-lo</0>, neste computador ou em qualquer outro, nem mesmo com o arquivo em mãos. Não há porta dos fundos nem serviço de recuperação.",
  "2e84622030": "Chave derivada da senha<0>Argon2id · 256 MiB · 3 passagens</0>",
  "027761e584": "Criptografia<0>XChaCha20-Poly1305</0>",
- "8e97bb727e": "Adulteração<0>detectada, arquivo recusado</0>",
+ "31f206f0e0": "Se alguém alterar o arquivo<0>a carteira percebe e o recusa</0>",
  "30e74cc317": "O único ataque contra um arquivo roubado é adivinhar a senha, e cada tentativa custa um quarto de gigabyte de memória e cerca de um segundo. Uma senha forte (o medidor abaixo de uma nova senha mostra isso) coloca o arquivo fora do alcance de qualquer computador, inclusive os quânticos. Suas 24 palavras restauram a carteira sem o arquivo.",
  "3f9c991f63": "Alterar senha",
  "9719a019b7": "Para “<0>esta carteira</0>”. O arquivo é criptografado novamente com uma nova chave na hora.",

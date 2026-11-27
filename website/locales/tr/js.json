@@ -47,6 +47,10 @@
  "a634606cba": "Takaslar, 24 sa",
  "34540bb7b0": "Bildirildi",
  "7bb6a93903": "Henüz tamamlanan takas yok.",
+ "96992f05dd": "şu anda blok başına rakam yok",
+ "ec4d862fdf": "{a} ile {b} arası bloklar",
+ "692d71f893": "ortalama {n}",
+ "d7605ee4f1": "Son bir saatteki her blokta share'i olan adresler",
  "cc74741300": "Ağ hashrate'i, son 24 saat",
  "25a85aeb27": "ort. {n}",
  "cf6430e429": "ort. {n} sn",
@@ -61,6 +65,18 @@
  "18c80a2d0a": {
   "one": "{n} gün",
   "other": "{n} gün"
+ },
+ "2912967a35": {
+  "one": "{n} adres",
+  "other": "{n} adres"
+ },
+ "43cfec18d2": {
+  "one": "son {n} blokta · {lo} ile {hi} arasında",
+  "other": "son {n} blokta · {lo} ile {hi} arasında"
+ },
+ "9c78cdb416": {
+  "one": "blok {h} · {n} share",
+  "other": "blok {h} · {n} share"
  },
  "773c4486c9": {
   "one": "{n} share",
@@ -86,10 +102,13 @@
  "211d0bb8cf": "Blok",
  "49e96d7cdf": "Miktar",
  "8e8252533c": "Harcanabilir",
+ "76179aafc4": "Adresler",
  "4630a703a9": "Son bloklar",
+ "4b62032922": "Bloğun ödülden pay verdiği farklı adresler: bloğu bulan adres ve share'lerinin adresleri",
  "b2b7a8c7a3": "İşlem",
  "271732c929": "Ödül GNR",
  "dcb7cad749": "Her blok, ödülünü ortak bir havuza ekler; her share, madencisine eşit bir dilim kazandırır; böylece madenciler hashrate'leriyle orantılı olarak kazanır.",
+ "2876071f14": "Adresler, bir bloğun ödülden pay verdiği farklı ödeme adreslerinin sayısıdır; son bir saatin ortalaması Madencilik sayfasındadır.",
  "de194a2533": "Düğüm API'sine şu anda ulaşılamıyor.",
  "0f545745fb": "gizli transfer",
  "f888c1f210": "coin transferi",
@@ -108,6 +127,7 @@
  "f242ecb0a3": "Havuza giden ödül",
  "945bbc9260": "Bulan",
  "ae6c192aaf": "Hesaba yazılan share'ler",
+ "6dc1c13d37": "Hesaba yazılan adresler",
  "599247a883": "Yapılan ödemeler",
  "01f02a4349": "Not ağacı kökü",
  "9b1e7d031b": "MMR kökü (hafif istemciler)",
@@ -126,12 +146,13 @@
  "c148bf0eb1": "blok {h} içinde",
  "c69332a222": "harcanmadı",
  "22f3c8bcaa": "Geçersiz nullifier.",
+ "1d5de1b901": "düğüm yanıt vermedi (HTTP {status}); biraz sonra tekrar deneyin",
  "08e058ed95": "Bir ödeme kanıtını doğrulayın",
  "15de96c759": "Gönderenler kanıtı cüzdanlarında oluşturur (Geçmiş → Kanıt). Kanıt yalnızca tek bir ödemeyi gösterir, başka hiçbir şeyi göstermez ve bu zincire göre kontrol edilir.",
  "79006c0fe9": "Ödeme kanıtı",
- "9d8506186e": "Alıcı adresi (isteğe bağlı)",
  "9594710e59": "Alıcının tam adresi (isteğe bağlı, alıcıyı doğrular)",
  "eea2745e28": "Doğrula",
+ "c6f6a816b4": "Bir kanıt blok zincirinde yer almaz. Onu gönderenin cüzdanı oluşturur ve metne sahip olan herkese bu tek ödemeyi gösterir; bu yüzden onu yalnızca görmesi gereken kişilere verin. Bu sayfa onu kontrol edilmesi için düğüme gönderir; kanıt saklanmaz ve yayımlanmaz.",
  "ec963ffc91": "Kontrol ediliyor…",
  "1d01f0c0ef": "Ödeme beklemede.",
  "0f471c594b": "Ödeme gönderildi ve mempool'da bekliyor, ancak henüz bir blokta değil. Bir sonraki bloktan sonra (yaklaşık bir dakika) tekrar kontrol edin: yalnızca onaylanmış bir ödeme kesindir.",
