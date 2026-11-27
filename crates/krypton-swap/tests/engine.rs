@@ -107,6 +107,13 @@ struct BtcState {
     /// What payments from outside pay while they wait, and the fee estimates of the day.
     waiting: HashMap<Txid, Unconfirmed>,
     estimates: Vec<(u32, f64)>,
+    /// A server that is behind: it takes payments, and what it tells about addresses and
+    /// outputs does not know them yet.
+    lagging: bool,
+    unlisted: std::collections::HashSet<Txid>,
+    /// A server like Bitcoin Core: it lists what pays an address only once that is in a
+    /// block, and of one output it says whether it is there, the mempool included.
+    blocks_only: bool,
 }
 
 impl BtcState {
@@ -197,6 +204,17 @@ impl MockBtc {
     fn stall(&self, on: bool) {
         self.inner.lock().unwrap().stalled = on;
     }
+    fn blocks_only(&self, on: bool) {
+        self.inner.lock().unwrap().blocks_only = on;
+    }
+    /// The server falls behind (payments sent from now on are not listed), or catches up.
+    fn lag(&self, on: bool) {
+        let mut s = self.inner.lock().unwrap();
+        s.lagging = on;
+        if !on {
+            s.unlisted.clear();
+        }
+    }
     /// The fee of a transaction the chain knows.
     fn fee_of(&self, id: &str) -> u64 {
         let s = self.inner.lock().unwrap();
@@ -249,6 +267,8 @@ impl BtcChain for MockBtc {
         let s = self.inner.lock().unwrap();
         Ok(s.utxos
             .iter()
+            .filter(|(op, _)| !s.unlisted.contains(&op.txid))
+            .filter(|(_, (_, h))| !s.blocks_only || h.is_some())
             .filter(|(_, (o, _))| o.script_pubkey == address.script_pubkey())
             .map(|(op, (o, h))| Utxo {
                 outpoint: *op,
@@ -258,11 +278,26 @@ impl BtcChain for MockBtc {
             .collect())
     }
     fn is_spent(&self, op: &OutPoint) -> Result<bool> {
-        Ok(self.inner.lock().unwrap().spent.contains_key(op))
+        let s = self.inner.lock().unwrap();
+        if s.unlisted.contains(&op.txid) {
+            bail!("Transaction not found");
+        }
+        // (Bitcoin Core says "not there" of an output it does not know, too.)
+        if s.blocks_only && !s.utxos.contains_key(op) {
+            return Ok(true);
+        }
+        Ok(s.spent.get(op).is_some_and(|by| !s.unlisted.contains(by)))
+    }
+    fn lists_unconfirmed(&self) -> bool {
+        !self.inner.lock().unwrap().blocks_only
     }
     fn spender(&self, op: &OutPoint, _from: u32) -> Result<Option<Transaction>> {
         let s = self.inner.lock().unwrap();
-        Ok(s.spent.get(op).and_then(|id| s.txs.get(id)).cloned())
+        Ok(s.spent
+            .get(op)
+            .filter(|id| !s.unlisted.contains(*id))
+            .and_then(|id| s.txs.get(id))
+            .cloned())
     }
     fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
         let mut s = self.inner.lock().unwrap();
@@ -301,13 +336,20 @@ impl BtcChain for MockBtc {
         }
         s.mempool.push(tx.clone());
         s.txs.insert(id, tx.clone());
+        if s.lagging {
+            s.unlisted.insert(id);
+        }
         Ok(id)
     }
     fn fee_rate(&self) -> Result<bitcoin::FeeRate> {
         Ok(bitcoin::FeeRate::from_sat_per_vb(3).unwrap())
     }
     fn tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
-        Ok(self.inner.lock().unwrap().txs.get(txid).cloned())
+        let s = self.inner.lock().unwrap();
+        if s.unlisted.contains(txid) {
+            bail!("Transaction not found");
+        }
+        Ok(s.txs.get(txid).cloned())
     }
     fn unconfirmed(&self, txid: &Txid) -> Result<Option<Unconfirmed>> {
         let s = self.inner.lock().unwrap();
@@ -1292,8 +1334,26 @@ fn an_unsold_deposit_goes_back_and_a_short_one_is_not_spent() {
     let s = b.swap();
     assert_eq!(s.stage, Stage::AwaitDeposit);
     assert!(s.paid_tx.is_none() && btc.broadcasts() == spent);
-    assert!(s.status.contains("no longer covers"), "{}", s.status);
+    // The wallet says that it pays by itself once the bitcoin is there. Nobody is asked to
+    // pay by hand, and no address to pay is named: a payment made by hand beside the
+    // wallet's own would be a second one.
+    assert_eq!(s.status, engine::SHORT_NOW);
+    assert!(!s.status.contains(&s.htlc_address().unwrap().to_string()));
     assert!(s.cancellable());
+    // The window passes with nothing paid: the swap ends, and says what happened.
+    {
+        let keep = load(&b.wallet);
+        let mut v = keep.clone();
+        v.last_mut().unwrap().pay_by = Some(krypton_core::now() - 60);
+        krypton_swap::engine::save(&mut b.wallet, &v).unwrap();
+        b.engine(&src, &btc, &chain).step(&[]).unwrap();
+        let s = b.swap();
+        assert_eq!(s.stage, Stage::Failed, "{}", s.status);
+        assert!(s.status.starts_with("Ended unpaid"), "{}", s.status);
+        assert!(!s.status.contains("pay now"), "{}", s.status);
+        assert_eq!(btc.broadcasts(), spent, "nothing was paid");
+        krypton_swap::engine::save(&mut b.wallet, &keep).unwrap();
+    }
     // A payment the wallet sent itself, which the Bitcoin server does not show yet, is
     // waited for past the payment window; not for ever.
     let keep = load(&b.wallet);
@@ -1316,6 +1376,213 @@ fn an_unsold_deposit_goes_back_and_a_short_one_is_not_spent() {
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert!(b.swap().paid_tx.is_some(), "{}", b.swap().status);
     assert_eq!(btc.received(&b.swap().htlc_address().unwrap()), SATS);
+}
+
+/// Two purchases are paid from the same bitcoin, one after the other in the same round.
+/// The second payment spends the change of the first, which the wallet knows from the
+/// payment it built: a Bitcoin server that has not listed that change yet does not make
+/// the wallet think its bitcoin is gone (1.0.57; it used to say so, and to ask for a
+/// payment by hand that would have been a second one).
+#[test]
+fn a_second_payment_follows_the_first_at_once() {
+    use krypton_swap::deposit::BALANCE;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    btc.mine();
+    let (mut a, mut b) = setup(dir.path(), &chain, &src);
+    let miner = a.wallet.address();
+    let payout = btc_addr(1).to_string();
+    let own = b.engine(&src, &btc, &chain).deposit_address(BALANCE);
+    let first = btc.pay(&own, 3 * SATS);
+    btc.mine();
+    for _ in 0..2 {
+        let req = b
+            .engine(&src, &btc, &chain)
+            .request_from(GNR, SATS, &own.to_string(), Some(BALANCE))
+            .unwrap();
+        let acc = a
+            .engine(&src, &btc, &chain)
+            .accept_seen(req.code.as_ref().unwrap(), &payout, None)
+            .unwrap();
+        b.engine(&src, &btc, &chain)
+            .receive(acc.code.as_ref().unwrap())
+            .unwrap();
+    }
+    // Both locks are sent and confirm (the second spends the change of the first).
+    for _ in 0..12 {
+        a.engine(&src, &btc, &chain).step(&[]).unwrap();
+        mine_both(&src, &miner, &mut a, &mut b);
+        let l = a.wallet.locks();
+        let tip = chain.tip().height();
+        if l.len() == 2 && l.iter().all(|x| x.height.is_some_and(|h| tip + 1 - h >= 2)) {
+            break;
+        }
+    }
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    let swaps = load(&b.wallet);
+    assert_eq!(swaps.len(), 2);
+    for s in &swaps {
+        assert_eq!(s.stage, Stage::AwaitDeposit, "{}", s.status);
+        assert!(s.paid_tx.is_none());
+    }
+    // Before anything is paid, none of it is change.
+    let coins = b.engine(&src, &btc, &chain).deposit_coins(BALANCE).unwrap();
+    assert_eq!(coins.len(), 1);
+    assert!(!b.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]));
+
+    // The Bitcoin server falls behind. One round pays both swaps.
+    btc.lag(true);
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    let swaps = load(&b.wallet);
+    for s in &swaps {
+        assert!(s.paid_tx.is_some(), "{}", s.status);
+        assert!(!s.status.contains("by hand"), "{}", s.status);
+    }
+    assert_eq!(btc.broadcasts(), 2, "two payments, each spending one coin");
+    let (t1, t2) = (
+        Txid::from_str(swaps[0].paid_tx.as_ref().unwrap()).unwrap(),
+        Txid::from_str(swaps[1].paid_tx.as_ref().unwrap()).unwrap(),
+    );
+    btc.lag(false);
+    let (tx1, tx2) = (btc.tx(&t1).unwrap().unwrap(), btc.tx(&t2).unwrap().unwrap());
+    assert_eq!(tx1.input[0].previous_output, first);
+    assert_eq!(
+        tx2.input[0].previous_output,
+        OutPoint::new(t1, 1),
+        "the second payment spends the change of the first"
+    );
+    for s in &swaps {
+        assert_eq!(btc.received(&s.htlc_address().unwrap()), SATS);
+    }
+    // What is left is change of the wallet's own payments, and the wallet knows it: from
+    // its own record, and from the chain alone (as the same wallet on another computer
+    // would see it).
+    let left = btc.received(&own);
+    assert!(left > SATS - 2_000 && left < SATS, "{left}");
+    let coins = b.engine(&src, &btc, &chain).deposit_coins(BALANCE).unwrap();
+    assert_eq!(coins.len(), 1);
+    assert_eq!(coins[0].outpoint, OutPoint::new(t2, 1));
+    assert_eq!(coins[0].height, None);
+    assert!(b.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]));
+    assert!(
+        !a.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]),
+        "another wallet's address: not its change"
+    );
+    b.wallet
+        .set_app_data("btc_own", serde_json::json!([]))
+        .unwrap();
+    assert!(
+        b.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]),
+        "everything that payment spends was at this address"
+    );
+    // Bitcoin someone else sends is not change.
+    let gift = btc.pay(&own, 7_000);
+    let coins = b.engine(&src, &btc, &chain).deposit_coins(BALANCE).unwrap();
+    let g = coins.iter().find(|c| c.outpoint == gift).unwrap();
+    assert!(!b.engine(&src, &btc, &chain).is_change(BALANCE, g));
+    // Nothing is paid a second time, and both swaps go on.
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(btc.broadcasts(), 2);
+    for s in load(&b.wallet) {
+        assert_eq!(s.stage, Stage::Deposited, "{}", s.status);
+    }
+}
+
+/// Change the Bitcoin server never lists is not spent for ever on the wallet's own word,
+/// and change that another copy of the wallet spent is not spent again.
+#[test]
+fn change_is_taken_on_the_wallets_word_only_for_a_while() {
+    use krypton_swap::deposit::BALANCE;
+    let dir = tempfile::tempdir().unwrap();
+    let chain = new_chain(dir.path());
+    let src = Local {
+        chain: &chain,
+        pool: RefCell::new(vec![]),
+    };
+    let btc = MockBtc::default();
+    btc.mine();
+    let (_a, mut b) = setup(dir.path(), &chain, &src);
+    let own = b.engine(&src, &btc, &chain).deposit_address(BALANCE);
+    btc.pay(&own, 3 * SATS);
+    btc.mine();
+    // A payment from the balance, with change back to it; the server does not list it.
+    btc.lag(true);
+    let id = b
+        .engine(&src, &btc, &chain)
+        .pay_from(BALANCE, &[(btc_addr(5), SATS)], BALANCE)
+        .unwrap();
+    let change = OutPoint::new(id, 1);
+    let coins = |b: &mut Side| b.engine(&src, &btc, &chain).deposit_coins(BALANCE).unwrap();
+    assert_eq!(
+        coins(&mut b).iter().map(|c| c.outpoint).collect::<Vec<_>>(),
+        [change]
+    );
+    // Half an hour later the server still does not list it: the payment was dropped, and
+    // the wallet no longer counts on its change.
+    let mut own_list = b.wallet.app_data("btc_own").unwrap().clone();
+    for e in own_list.as_array_mut().unwrap() {
+        e[3] = (krypton_core::now() - 31 * 60).into();
+    }
+    b.wallet.set_app_data("btc_own", own_list.clone()).unwrap();
+    assert!(coins(&mut b).is_empty());
+    // Listed by the server: counted once, not twice.
+    btc.lag(false);
+    for e in own_list.as_array_mut().unwrap() {
+        e[3] = krypton_core::now().into();
+    }
+    b.wallet.set_app_data("btc_own", own_list).unwrap();
+    assert_eq!(coins(&mut b).len(), 1);
+    // Spent by the same wallet on another computer (this copy has no record of that):
+    // the server says so, and the change is not counted here.
+    let key = krypton_swap::deposit::key(b.wallet.swap_seed(), BALANCE);
+    let c = coins(&mut b);
+    let away = krypton_swap::deposit::spend(
+        &c,
+        &key,
+        None,
+        &btc_addr(6).script_pubkey(),
+        btc.fee_rate().unwrap(),
+    )
+    .unwrap();
+    btc.broadcast(&away).unwrap();
+    assert!(coins(&mut b).is_empty());
+
+    // A server that lists only what is in a block (Bitcoin Core) never shows change
+    // before its block. It is asked about the change itself, and for longer: the answer
+    // is the server's, not only the wallet's own word.
+    btc.mine();
+    btc.blocks_only(true);
+    btc.pay(&own, 3 * SATS);
+    assert!(
+        coins(&mut b).is_empty(),
+        "a deposit is listed with its block"
+    );
+    btc.mine();
+    let id = b
+        .engine(&src, &btc, &chain)
+        .pay_from(BALANCE, &[(btc_addr(5), SATS)], BALANCE)
+        .unwrap();
+    let change = OutPoint::new(id, 1);
+    let ops = |b: &mut Side| -> Vec<OutPoint> { coins(b).iter().map(|c| c.outpoint).collect() };
+    assert_eq!(ops(&mut b), [change]);
+    let mut own_list = b.wallet.app_data("btc_own").unwrap().clone();
+    for e in own_list.as_array_mut().unwrap() {
+        e[3] = (krypton_core::now() - 3 * 3600).into();
+    }
+    b.wallet.set_app_data("btc_own", own_list).unwrap();
+    assert_eq!(
+        ops(&mut b),
+        [change],
+        "hours later, while the server says it is there"
+    );
+    // A payment that was dropped is not counted on: the server does not know its change.
+    btc.evict(id);
+    assert!(ops(&mut b).iter().all(|op| *op != change));
 }
 
 /// The same wallet is open on two computers and one of them sells GNR. The other copy

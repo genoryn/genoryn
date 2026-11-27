@@ -647,6 +647,37 @@ marks as covered, and its own seller's side still looks the bitcoin up. A modifi
 can skip its own rules, but it cannot make another wallet lock for bitcoin that is not
 there, and it cannot list on a board that checks.
 
+## Change, and a swap the wallet pays (from 1.0.57)
+
+A wallet that pays with a coin gets what is left of it back as a new coin at the same
+address: change. Change waits for a block like any other payment.
+
+- **The wallet knows its change.** `Engine::broadcast_spend` writes down what each payment
+  the wallet sends pays (`btc_own` in the wallet file: outpoint, amount, script, time), next
+  to the outputs it spent (`btc_spent`). `Engine::deposit_coins` adds change that is younger
+  than half an hour and that the Bitcoin server does not list yet, unless the server says it
+  was spent. A server lists a new output a moment after the payment, and Bitcoin Core's
+  `scantxoutset` lists it only once it is in a block; a second payment from the same bitcoin
+  no longer waits for either. After half an hour the server's word stands alone: a payment
+  it has not shown by then was dropped.
+- **A swap the wallet pays never asks for a payment.** While the wallet's bitcoin does not
+  cover a payment, the swap says `engine::SHORT_NOW` and tries again with every step. Its
+  page shows no contract address and no payment details, in any state. Before 1.0.57 the
+  status told the buyer to pay the contract, and the page then showed where: beside the
+  wallet's own payment a moment later, that would have been a second one. If the bitcoin is
+  not there when the payment window ends, the swap ends unpaid and the seller's lock
+  refunds.
+- **Change is told from a deposit.** `Engine::is_change`: the wallet sent that payment
+  itself, or everything the payment spends was at the same address, which only this
+  wallet's key signs for (so the same wallet on another computer sees it too). The page
+  says "your change" and what the wallet's own payment pays, and does not offer to speed it
+  up. This is only what the page says; nothing is spent on it.
+- **What counts where.** Swaps in progress are paid from change at once, and a buy offer's
+  deposit can be paid from it (the board lists the offer once the deposit is in a block,
+  whatever paid it). A new purchase needs bitcoin in a block: `Engine::accept_seen` on the
+  seller's side counts nothing else, and that did not change. When a block is all that is
+  missing, the buyer's wallet says so instead of asking for more bitcoin.
+
 ## A deposit that waits (from 1.0.56)
 
 Bitcoin sent to the wallet's balance counts once it is in a block. A payment whose sender

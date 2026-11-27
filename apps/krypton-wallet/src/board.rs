@@ -1588,7 +1588,11 @@ fn publish_lots(
                 .collect();
             let total: u64 = to.iter().map(|x| x.1).sum();
             let b = quick::balance(e, &st)?;
-            let free = b.confirmed.saturating_sub(b.committed);
+            // The wallet pays its own deposits: its own change counts before its block.
+            let free = b
+                .confirmed
+                .saturating_add(b.change)
+                .saturating_sub(b.committed);
             ensure!(
                 free >= total + reserve,
                 "your Bitcoin balance has {} BTC free and confirmed; this offer needs {} BTC and the network fee. Add bitcoin to your balance first",
@@ -2088,26 +2092,73 @@ fn key_of(w: &Wallet, n: u32) -> krypton_crypto::kem::SecretKey {
     offer_key(w.swap_seed(), 1_000_000u32.wrapping_add(n))
 }
 
+/// What the Bitcoin balance is to pay for.
+#[derive(Clone, Copy, PartialEq)]
+enum Paying {
+    /// A purchase: the seller's wallet looks the bitcoin up and counts it once it is in a
+    /// block, so only that counts here.
+    Purchase,
+    /// The deposit of the wallet's own buy offer: the wallet pays itself, so the change of
+    /// its own payments counts before its first block (the offer is listed once the
+    /// deposit is in a block, whatever paid it).
+    Deposit,
+}
+
 /// What the wallet says when its Bitcoin balance cannot pay `sats` and the network fee.
 /// Bitcoin counts once it is in a block and not promised to another purchase.
-fn short_of(e: &Engine<'_, Multi>, st: &State, sats: u64) -> Result<Option<String>> {
+fn short_of(
+    e: &Engine<'_, Multi>,
+    st: &State,
+    sats: u64,
+    paying: Paying,
+) -> Result<Option<String>> {
     let b = quick::balance(e, st)?;
-    let free = b.confirmed.saturating_sub(b.committed);
-    let need = sats.saturating_add(quick::btc_fee(e));
-    Ok((free < need).then(|| {
-        let waiting = b.total.saturating_sub(b.confirmed);
-        format!(
-            "your Bitcoin balance has {} BTC free and confirmed; this needs {} BTC with the network fee, so {} BTC more. Add bitcoin to your balance first (it counts after one confirmation){}",
+    Ok(short_text(
+        &b,
+        sats.saturating_add(quick::btc_fee(e)),
+        paying,
+    ))
+}
+
+fn short_text(b: &quick::Balance, need: u64, paying: Paying) -> Option<String> {
+    let with_change = b
+        .confirmed
+        .saturating_add(b.change)
+        .saturating_sub(b.committed);
+    let free = match paying {
+        Paying::Purchase => b.confirmed.saturating_sub(b.committed),
+        Paying::Deposit => with_change,
+    };
+    if free >= need {
+        return None;
+    }
+    // The bitcoin is there, as change of the wallet's own payment: nothing is missing but
+    // a block.
+    if with_change >= need {
+        let text = format!(
+            "your Bitcoin balance covers this, but {} BTC of it is change from your own payment and is not in a Bitcoin block yet. A seller's wallet counts bitcoin once it is in a block, usually within about ten minutes. Try again then: nothing needs to be added",
+            btc_text(b.change)
+        );
+        return Some(text);
+    }
+    let waiting = b.total.saturating_sub(b.confirmed);
+    if waiting > 0 {
+        let text = format!(
+            "your Bitcoin balance has {} BTC free and confirmed; this needs {} BTC with the network fee, so {} BTC more. Add bitcoin to your balance first (it counts after one confirmation); {} BTC there is still waiting for its first block",
             btc_text(free),
             btc_text(need),
             btc_text(need - free),
-            if waiting > 0 {
-                format!("; {} BTC there is still waiting for its first block", btc_text(waiting))
-            } else {
-                String::new()
-            }
-        )
-    }))
+            btc_text(waiting)
+        );
+        return Some(text);
+    }
+    let text = format!(
+        "your Bitcoin balance has {} BTC free and confirmed; this needs {} BTC with the network fee, so {} BTC more. Add bitcoin to your balance first (it counts after one confirmation)",
+        btc_text(free),
+        btc_text(need),
+        btc_text(need - free)
+    );
+    Some(text)
 }
 
 /// Takes offer `id`. Buying GNR pays from the wallet's Bitcoin balance and from nowhere
@@ -2145,7 +2196,7 @@ pub fn request_from_balance(
     gnr: u64,
     sats: u64,
 ) -> Result<engine::Swap> {
-    if let Some(why) = short_of(e, &load(e.wallet), sats)? {
+    if let Some(why) = short_of(e, &load(e.wallet), sats, Paying::Purchase)? {
         bail!(why);
     }
     let own = e.deposit_address(deposit::BALANCE).to_string();
@@ -2238,7 +2289,7 @@ fn take_listed(
                 btc_address.trim() == e.deposit_address(deposit::BALANCE).to_string(),
                 "buying pays from the wallet's Bitcoin balance"
             );
-            if let Some(why) = short_of(e, &st, sats)? {
+            if let Some(why) = short_of(e, &st, sats, Paying::Purchase)? {
                 bail!(why);
             }
             let s = e.request_from(gnr, sats, btc_address, Some(deposit::BALANCE))?;
@@ -3676,7 +3727,7 @@ fn fund_from_balance(e: &mut Engine<'_, Multi>, id: &str) -> Result<()> {
         .fund
         .clone()
         .context("the offer has no deposit")?;
-    let short = short_of(e, &st, f.need);
+    let short = short_of(e, &st, f.need, Paying::Deposit);
     let ok = matches!(short, Ok(None));
     let to = e.deposit_address(f.d);
     let paid = ok
@@ -3791,7 +3842,7 @@ pub async fn publish(
                 r.address.trim().to_string()
             };
             // A buy offer exists only with its bitcoin: said before anything is made.
-            if buying && let Some(why) = short_of(e, &load(e.wallet), sats)? {
+            if buying && let Some(why) = short_of(e, &load(e.wallet), sats, Paying::Deposit)? {
                 bail!(why);
             }
             let o = publish_offer(

@@ -521,6 +521,8 @@
  "4d3f5cec4b": "Genoryn",
  "09360169ac": "Manage wallets",
  "a74d02ab16": "Network hashrate, measured from the shares of every block, and the difficulty of the next block",
+ "0e91610117": "Refresh",
+ "5edb1af741": "Refresh: loads everything again. You stay where you are.",
  "8e5c9a5026": "Open the block explorer on genoryn.io",
  "bc2c2bd1e7": "Toggle light or dark theme",
  "efb52e7172": "Theme",

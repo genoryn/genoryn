@@ -26,6 +26,7 @@
  "6377a06e81": "Evet, tıpkı GNR gibi: token, miktar, gönderici ve alıcı bir sıfır bilgi kanıtıyla gizlenecek. Yalnızca tokenlerin oluşturulması ve yok edilmesi herkese açık olacak.",
  "377ed0c796": "Hayır. Hiçbir ihraççı token alamayacak, bakiyeleri göremeyecek veya tek bir sahibin varlıklarını donduramayacak; bir ihraççının yapabileceği her şey token var olmadan önce beyan edilecek.",
  "c914a0c430": "Hayır. Cüzdanınızı güncel tutun; Tokenler sekmesi, tokenler etkinleştirildiğinde kendiliğinden açılır.",
+ "980f47eb5d": "Genoryn Krypton 1.0.57: Cüzdanınızın ödediği takas sizden asla ödeme istemez, para üstü para üstü olarak gösterilir ve bir Yenile düğmesi",
  "bb46f586f7": "Genoryn Krypton 1.0.56: Sıkı kurallı bir piyasa: her teklifin arkasında coinleri var ve kimse söz vererek satın alamaz",
  "6b654526e0": "Genoryn Krypton 1.0.55: Yeni bir tasarım, önce doğrulanmış takasları gösteren bir işlem geçmişi ve yeni bir Genoryn Talks",
  "3fa8d0b2f5": "Genoryn Krypton 1.0.54: Takılıp kalmayan takas iadeleri; iki kez ödenen bitcoin geri gelir",
@@ -43,6 +44,5 @@
  "8c2be94529": "Genoryn Krypton 1.0.42: Bir satış teklifi GNR'sini bir haftalığına bağlar; hiçbir şey nedenini söylemeden beklemez",
  "3b66cf3ea5": "Genoryn Krypton 1.0.41: Bitcoini yatırılmış alış teklifleri: takas kendiliğinden tamamlanır",
  "38b291e976": "Genoryn Krypton 1.0.40: Satış teklifleri GNR'lerini kanıtlar",
- "4fdc50bcd4": "Genoryn Krypton 1.0.39: Krypton cinsinden bakiye, para cinsinden toplamlar, daha düzenli bir geçmiş",
- "d66cacd757": "Genoryn Krypton 1.0.38: Yeni bir cüzdan tasarımı, iki taraflı bir emir defteri, krypton"
+ "4fdc50bcd4": "Genoryn Krypton 1.0.39: Krypton cinsinden bakiye, para cinsinden toplamlar, daha düzenli bir geçmiş"
 }

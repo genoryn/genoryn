@@ -59,6 +59,12 @@ pub trait BtcChain {
     fn unspent(&self, address: &Address) -> Result<Vec<Utxo>> {
         unspent_of(self, address)
     }
+    /// Whether [`Self::unspent`] shows payments that are not in a block yet. A server that
+    /// does not (Bitcoin Core's `scantxoutset`) is asked about a wallet's own change one
+    /// output at a time ([`Self::is_spent`] knows the mempool).
+    fn lists_unconfirmed(&self) -> bool {
+        true
+    }
     /// What the waiting transaction `txid` pays; `None` when it is in a block already, or
     /// when the server cannot say. Only read, to tell a person why a deposit waits.
     fn unconfirmed(&self, _txid: &Txid) -> Result<Option<Unconfirmed>> {
@@ -486,6 +492,9 @@ impl BtcChain for CoreRpc {
         Ok(self
             .call("gettxout", json!([op.txid.to_string(), op.vout, true]))?
             .is_null())
+    }
+    fn lists_unconfirmed(&self) -> bool {
+        false
     }
     fn spender(&self, op: &OutPoint, from: u32) -> Result<Option<Transaction>> {
         let spends = |tx: &Transaction| tx.input.iter().any(|i| i.previous_output == *op);

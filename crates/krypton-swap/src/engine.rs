@@ -520,7 +520,69 @@ fn note_spent(w: &mut Wallet, tx: &bitcoin::Transaction) {
     if let Ok(x) = serde_json::to_value(&v) {
         let _ = w.set_app_data(SPENT_KEY, x);
     }
+    note_own(w, tx, t);
 }
+
+/// What the payments this wallet sent from its deposit addresses pay (1.0.57): outpoint,
+/// sat, the output's script as hex, and when. The change of a payment is among them. A
+/// Bitcoin server lists a new output a moment after the payment, and some list it only
+/// once it is in a block; the wallet built the payment, so it knows its change without
+/// asking. That is how a second payment follows the first at once, and how the page tells
+/// change from bitcoin someone sent.
+const OWN_KEY: &str = "btc_own";
+/// How long an entry is kept to tell change from a deposit: longer than any payment waits.
+const OWN_KEEP_SECS: u64 = 14 * 86_400;
+const OWN_MAX: usize = 400;
+/// How long change is spent on the wallet's own word while a Bitcoin server that lists
+/// waiting payments does not list it: as long as a spent coin is remembered, so that what
+/// the wallet spent of it in that time is known here and no server is asked. After that
+/// the server's word stands: a payment it has not shown by then was dropped.
+const OWN_TRUST_SECS: u64 = SPENT_KEEP_SECS;
+/// A Bitcoin server that lists a payment only once it is in a block (Bitcoin Core) is
+/// asked about change itself, one output at a time, for this long after the payment.
+const OWN_ASK_SECS: u64 = 86_400;
+/// Change such a server said was spent: not asked about again while the program runs.
+static OWN_GONE: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+type OwnOutput = (String, u64, String, u64);
+
+fn own_list(w: &Wallet) -> Vec<OwnOutput> {
+    w.app_data(OWN_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
+fn note_own(w: &mut Wallet, tx: &bitcoin::Transaction, t: u64) {
+    let id = tx.compute_txid();
+    let mut v = own_list(w);
+    v.retain(|(_, _, _, at)| at + OWN_KEEP_SECS > t);
+    // (Deposit addresses pay to a key; the contracts of swaps do not, and are left out.)
+    v.extend(
+        tx.output
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.script_pubkey.is_p2wpkh())
+            .map(|(n, o)| {
+                (
+                    OutPoint::new(id, n as u32).to_string(),
+                    o.value.to_sat(),
+                    o.script_pubkey.to_hex_string(),
+                    t,
+                )
+            }),
+    );
+    if v.len() > OWN_MAX {
+        v.drain(..v.len() - OWN_MAX);
+    }
+    if let Ok(x) = serde_json::to_value(&v) {
+        let _ = w.set_app_data(OWN_KEY, x);
+    }
+}
+
+/// What a swap that the wallet pays itself says while the wallet's bitcoin does not cover
+/// the payment. The wallet tries again with every step, and nobody is asked to pay by
+/// hand: a payment made by hand beside the wallet's own would be a second one.
+pub const SHORT_NOW: &str = "Your wallet pays this swap by itself, and its bitcoin does not cover the payment and the fee right now. It pays as soon as the bitcoin is there; if it is not there in time, the swap ends, nothing is paid and the seller's GNR returns to them. Do not pay by hand.";
 
 /// Why bitcoin at a deposit address is not in a block yet ([`Engine::waiting`]).
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -1298,10 +1360,10 @@ impl<G: ChainSource> Engine<'_, G> {
             {
                 s.stage = Stage::Failed;
                 s.code = None;
-                s.say(if s.paid_tx.is_some() {
-                    "The payment your wallet sent never appeared on the Bitcoin chain, so the swap ended. If it appears after all, the bitcoin refunds at the contract's time lock."
-                } else {
-                    "Expired: the payment window closed before you paid. Nothing was paid; if you pay now anyway, the bitcoin refunds."
+                s.say(match (s.paid_tx.is_some(), s.fund.is_some()) {
+                    (true, _) => "The payment your wallet sent never appeared on the Bitcoin chain, so the swap ended. If it appears after all, the bitcoin refunds at the contract's time lock.",
+                    (false, true) => "Ended unpaid: your wallet's bitcoin did not cover this payment in time. Nothing was paid, and the seller's GNR returns to them.",
+                    (false, false) => "Expired: the payment window closed before you paid. Nothing was paid; if you pay now anyway, the bitcoin refunds.",
                 });
             }
             // Paid after all, into a given-up swap: refund it at the timelock.
@@ -1361,7 +1423,12 @@ impl<G: ChainSource> Engine<'_, G> {
                 (Role::GnrSeller, false) => self.step_gnr_seller(s, btc_tip, gnr_tip),
             };
             if let Err(e) = r {
-                s.say(format!("Waiting: {e}"));
+                // Said as it is, not as a wait for something that is broken.
+                if e.to_string() == SHORT_NOW {
+                    s.say(SHORT_NOW);
+                } else {
+                    s.say(format!("Waiting: {e}"));
+                }
             }
             changed |= before != (s.stage, s.status.clone());
         }
@@ -1634,8 +1701,19 @@ impl<G: ChainSource> Engine<'_, G> {
     /// only, so the amounts a payment is signed for are never the server's word alone.
     fn checked_coins(&self, n: u32) -> Result<Vec<Utxo>> {
         let script = self.deposit_address(n).script_pubkey();
+        let hex = script.to_hex_string();
+        let own = own_list(self.wallet);
         let mut out = Vec::new();
         for c in self.deposit_coins(n)? {
+            // What this wallet paid to itself it knows from the payment it built.
+            let op = c.outpoint.to_string();
+            if let Some((_, sats, _, _)) = own.iter().find(|(o, _, s, _)| *o == op && *s == hex) {
+                out.push(Utxo {
+                    value: Amount::from_sat(*sats),
+                    ..c
+                });
+                continue;
+            }
             match self.btc.tx(&c.outpoint.txid)? {
                 Some(tx) => {
                     let o = tx
@@ -1663,7 +1741,8 @@ impl<G: ChainSource> Engine<'_, G> {
     }
 
     /// The bitcoin at deposit address `n` that has not been spent: every payment to it,
-    /// confirmed or not, less what this wallet spent itself moments ago.
+    /// confirmed or not, less what this wallet spent itself moments ago, and with the
+    /// change of its own payments of moments ago that the Bitcoin server does not list yet.
     pub fn deposit_coins(&self, n: u32) -> Result<Vec<Utxo>> {
         let spent = spent_coins(self.wallet);
         let mut coins: Vec<Utxo> = self
@@ -1672,6 +1751,53 @@ impl<G: ChainSource> Engine<'_, G> {
             .into_iter()
             .filter(|c| !spent.contains(&c.outpoint.to_string()))
             .collect();
+        let hex = self.deposit_address(n).script_pubkey().to_hex_string();
+        let t = now();
+        // A server that lists waiting payments shows change within moments; one that lists
+        // only what is in a block is asked about each piece of change.
+        let listed = self.btc.lists_unconfirmed();
+        let keep = if listed { OWN_TRUST_SECS } else { OWN_ASK_SECS };
+        for (name, sats, script, at) in own_list(self.wallet) {
+            if script != hex || at + keep <= t || spent.contains(&name) {
+                continue;
+            }
+            let Ok(op) = OutPoint::from_str(&name) else {
+                continue;
+            };
+            if coins.iter().any(|c| c.outpoint == op) {
+                continue;
+            }
+            let there = if listed {
+                // Spent since (by this wallet on another computer) is the server's word.
+                // A server that does not know the payment yet says nothing.
+                !matches!(self.btc.is_spent(&op), Ok(true))
+            } else {
+                let mut gone = OWN_GONE.lock().unwrap_or_else(|e| e.into_inner());
+                if gone.contains(&name) {
+                    false
+                } else {
+                    match self.btc.is_spent(&op) {
+                        Ok(false) => true,
+                        Ok(true) => {
+                            if gone.len() >= 2 * OWN_MAX {
+                                gone.clear();
+                            }
+                            gone.push(name);
+                            false
+                        }
+                        // No answer: the wallet's own word, for as long as it is good.
+                        Err(_) => at + OWN_TRUST_SECS > t,
+                    }
+                }
+            };
+            if there {
+                coins.push(Utxo {
+                    outpoint: op,
+                    value: Amount::from_sat(sats),
+                    height: None,
+                });
+            }
+        }
         // Anyone can pay an address: dust sent to it must not stand in the way. One
         // transaction spends the largest outputs; a later one takes the rest.
         coins.sort_by_key(|c| std::cmp::Reverse(c.value));
@@ -1679,8 +1805,39 @@ impl<G: ChainSource> Engine<'_, G> {
         Ok(coins)
     }
 
+    /// Whether the waiting coin `c` at deposit address `n` is change of this wallet's own
+    /// payment, and not bitcoin someone sent: the wallet sent that payment itself, or
+    /// everything the payment spends was at this same address (only this wallet's key
+    /// signs for it, so this wallet made it, here or on another computer). Only read, for
+    /// what the page says; `false` when it cannot be told.
+    pub fn is_change(&self, n: u32, c: &Utxo) -> bool {
+        let script = self.deposit_address(n).script_pubkey();
+        let hex = script.to_hex_string();
+        let op = c.outpoint.to_string();
+        if own_list(self.wallet)
+            .iter()
+            .any(|(o, _, s, _)| *o == op && *s == hex)
+        {
+            return true;
+        }
+        let Ok(Some(tx)) = self.btc.tx(&c.outpoint.txid) else {
+            return false;
+        };
+        !tx.input.is_empty()
+            && tx.input.len() <= MAX_BUMP_PARENTS
+            && tx.input.iter().all(|i| {
+                matches!(
+                    self.btc.tx(&i.previous_output.txid),
+                    Ok(Some(p)) if p
+                        .output
+                        .get(i.previous_output.vout as usize)
+                        .is_some_and(|o| o.script_pubkey == script)
+                )
+            })
+    }
+
     /// Broadcasts `tx`, which spends outputs of this wallet's deposit addresses, and
-    /// remembers them as spent.
+    /// remembers them as spent and what it pays as the wallet's own.
     fn broadcast_spend(&mut self, tx: &bitcoin::Transaction) -> Result<Txid> {
         let id = self.btc.broadcast(tx)?;
         note_spent(self.wallet, tx);
@@ -1800,6 +1957,10 @@ impl<G: ChainSource> Engine<'_, G> {
     /// payments is those payments' business.
     pub fn bump_plan(&self, n: u32) -> Result<std::result::Result<Bump, &'static str>> {
         let own = spent_coins(self.wallet);
+        let own_change: std::collections::HashSet<String> = own_list(self.wallet)
+            .into_iter()
+            .map(|(op, _, _, _)| op)
+            .collect();
         let mut coins = Vec::new();
         let (mut fees, mut vsizes, mut slowest) = (0u64, 0u64, f64::MAX);
         // What each waiting payment is good for: `None`, its coins are sent on; else why
@@ -1810,7 +1971,7 @@ impl<G: ChainSource> Engine<'_, G> {
             std::collections::HashMap::new();
         let (mut taken, mut why_not) = (0usize, None::<&'static str>);
         for c in self.checked_coins(n)? {
-            if c.height.is_some() {
+            if c.height.is_some() || own_change.contains(&c.outpoint.to_string()) {
                 continue;
             }
             let id = c.outpoint.txid;
@@ -1995,12 +2156,7 @@ impl<G: ChainSource> Engine<'_, G> {
             .map_err(|e| anyhow!("not paying: {e}"))?;
         let coins = self.checked_coins(n)?;
         let have: u64 = coins.iter().map(|c| c.value.to_sat()).sum();
-        ensure!(
-            have > s.sats,
-            "the bitcoin deposited for this offer ({} BTC) no longer covers the payment of {} BTC and its fee; pay the contract yourself, or let the swap end",
-            Amount::from_sat(have).to_btc(),
-            Amount::from_sat(s.sats).to_btc()
-        );
+        ensure!(have > s.sats, SHORT_NOW);
         let back = match s.change_to {
             Some(d) => self.deposit_address(d).script_pubkey(),
             None => btc_address(&s.btc_address, self.btc_network)?.script_pubkey(),

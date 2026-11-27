@@ -4,6 +4,27 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
+## [1.0.57](https://github.com/genoryn/genoryn/releases/tag/v1.0.57) · 2026-11-27: A swap your wallet pays never asks you to pay, change is shown as change, and a Refresh button
+
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over. The market's rules of 1.0.56 stay as they are.
+
+### Added
+
+- Refresh: a small button in the top bar loads everything again, now. You stay on the same tab and at the same place, and what you typed stays. F5 and Ctrl+R do the same. A page that is loaded anew, as after choosing another language, comes back on the tab it was on.
+
+### Changed
+
+- What change can do before its block: swaps that are already running are paid from it at once, and a buy offer can be published from it. A new purchase starts once it is in a block, usually within about ten minutes, because a seller's wallet counts only bitcoin it can see in a block. When a block is all that is missing, the wallet says so and no longer asks you to add bitcoin.
+
+### Fixed
+
+- A swap that your wallet pays from the Bitcoin balance could, for a moment, tell you to pay its contract yourself and show the contract's address. It happened when two purchases were paid one after the other: right after the first payment the Bitcoin server did not list the change yet, the wallet took the balance for empty, and the page offered a payment by hand until the wallet looked again and paid by itself. With a Bitcoin Core node as the wallet's Bitcoin server that lasted until the first payment's block. Anyone who had followed it would have paid a second time. No bitcoin was lost: a second payment into a contract comes back when the contract's lock ends. The wallet now knows the change of its own payments without asking a server, so the next payment follows at once.
+- Change is shown as change. When your wallet pays with a coin, what is left of it comes back to the balance as a new coin, and that coin waits for a block like any other. The balance showed it as confirming, like a deposit someone had sent, with a note about its sender. It now says that this is your change, on its way into a block, and what your own payment pays.
+
+### Security
+
+- A swap the wallet pays never shows where to pay. Its card has no contract address, no payment details and no Pay now, in any state. If the balance cannot pay, the wallet says that it pays by itself as soon as the bitcoin is there, and that otherwise the swap ends, nothing is paid and the seller's GNR returns to them.
+
 ## [1.0.56](https://github.com/genoryn/genoryn/releases/tag/v1.0.56) · 2026-11-27: A strict market: every offer has its coins behind it, and nobody buys on a promise
 
 - No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over. What changes is what the offer board lists and what a wallet agrees to.

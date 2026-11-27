@@ -201,6 +201,9 @@ pub(super) struct Balance {
     pub confirmed: u64,
     pub total: u64,
     pub committed: u64,
+    /// Of what is not in a block yet: the change of the wallet's own payments. It is the
+    /// wallet's own bitcoin on its way back, not a deposit someone sent.
+    pub change: u64,
     /// Coins still in the Bitcoin mempool, and when this program first saw the oldest.
     pub pending_coins: usize,
     pub pending_since: Option<u64>,
@@ -270,6 +273,47 @@ fn committed_in(swaps: &[engine::Swap], st: &State) -> u64 {
     taken.saturating_add(direct)
 }
 
+/// Whether each waiting coin is change of the wallet's own payments, as last found, and
+/// when: what a payment spends never changes, so a coin found to be change is not asked
+/// about again, and one that was not is asked about once a minute at most.
+type ChangeSeen = (krypton_swap::bitcoin::OutPoint, bool, u64);
+static CHANGE_SEEN: std::sync::Mutex<Vec<ChangeSeen>> = std::sync::Mutex::new(Vec::new());
+/// The most waiting coins looked at in one go (anyone can send dust to an address).
+const CHANGE_LOOKS: usize = 4;
+
+/// How much of the waiting bitcoin in `coins` is change of the wallet's own payments.
+fn change_in(e: &Engine<'_, Multi>, coins: &[krypton_swap::btc::Utxo]) -> u64 {
+    let now = krypton_core::now();
+    let known: Vec<ChangeSeen> = {
+        let mut k = CHANGE_SEEN.lock().unwrap_or_else(|e| e.into_inner());
+        k.retain(|(_, _, t)| now.saturating_sub(*t) < 14 * 86_400);
+        k.clone()
+    };
+    let (mut sum, mut looked, mut found) = (0u64, 0usize, Vec::new());
+    for c in coins.iter().filter(|c| c.height.is_none()) {
+        let own = match known.iter().find(|(op, _, _)| *op == c.outpoint) {
+            Some((_, true, _)) => true,
+            Some((_, false, t)) if now.saturating_sub(*t) < 60 => false,
+            _ if looked < CHANGE_LOOKS => {
+                looked += 1;
+                let own = e.is_change(deposit::BALANCE, c);
+                found.push((c.outpoint, own, now));
+                own
+            }
+            _ => false,
+        };
+        if own {
+            sum = sum.saturating_add(c.value.to_sat());
+        }
+    }
+    if !found.is_empty() {
+        let mut k = CHANGE_SEEN.lock().unwrap_or_else(|e| e.into_inner());
+        k.retain(|(op, _, _)| !found.iter().any(|(f, _, _)| f == op));
+        k.extend(found);
+    }
+    sum
+}
+
 pub(super) fn balance(e: &Engine<'_, Multi>, st: &State) -> Result<Balance> {
     let coins = e.deposit_coins(deposit::BALANCE)?;
     Ok(Balance {
@@ -280,6 +324,7 @@ pub(super) fn balance(e: &Engine<'_, Multi>, st: &State) -> Result<Balance> {
             .sum(),
         total: coins.iter().map(|c| c.value.to_sat()).sum(),
         committed: committed(e.wallet, st),
+        change: change_in(e, &coins),
         pending_coins: coins.iter().filter(|c| c.height.is_none()).count(),
         pending_since: pending_since(&coins),
         pending_ids: {
@@ -1233,6 +1278,8 @@ pub async fn btc_info(axum::extract::State(app): S, h: HeaderMap) -> Response {
                 "address": address,
                 "confirmed": b.confirmed, "total": b.total, "committed": b.committed,
                 "pending": b.total.saturating_sub(b.confirmed),
+                // Of `pending`: change of the wallet's own payments, on its way back.
+                "change": b.change, "change_text": btc_text(b.change),
                 "pending_coins": b.pending_coins, "pending_since": since,
                 "waiting": waiting,
                 "now": krypton_core::now(),

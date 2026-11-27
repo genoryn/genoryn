@@ -889,6 +889,14 @@ header .btn,header .nav-search,header .badge{flex:none;white-space:nowrap}
   .term .con-in,.con-in{flex-wrap:wrap}.con-in input{flex:1 1 150px;min-width:0}
   .term-bar{flex-wrap:wrap}
 }
+/* On a window as narrow as a phone the top bar keeps one row of buttons: the block explorer
+   gives way there (search opens it, and so does every row of the history). */
+@media (max-width:430px){header #exBtn{display:none}}
+/* Refresh: its icon turns while everything is loaded again. */
+#rfBtn.busy .ic{animation:rfspin .8s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes rfspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#rfBtn.busy .ic{animation:none;opacity:.5}}
+[data-fx="low"] #rfBtn.busy .ic{animation:none;opacity:.5}
 /* The four figures beside the price stand one under another on a phone. */
 @media (max-width:480px){.mk-hero{grid-template-columns:minmax(0,1fr)}.mk-hero>.mk-stat,.mk-hero>.mk-stat:nth-child(odd){border-left:0;border-top:1px solid var(--line)}}
 @media (prefers-reduced-motion:reduce){.btcp-bar i{transition:none}.btcp-bar i::after{display:none}}
@@ -943,6 +951,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
   <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 7.7-1.6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
   <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 14.5a7.8 7.8 0 1 1-1.9-8.1l2.9 2.7"/><path d="M20.5 4.6v4.6h-4.6"/></symbol>
   <symbol id="i-wallets" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="12" rx="2.2"/><path d="M6 8V6.6A1.6 1.6 0 0 1 7.6 5h8.8A1.6 1.6 0 0 1 18 6.6V8"/><path d="M8.5 5V4M15.5 5V4"/><circle cx="16.5" cy="14" r="1.2"/></symbol>
 </svg>
 <header class="float">
@@ -954,7 +963,8 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
   <span id="netBadge" class="badge net-badge hidden" title="Network hashrate, measured from the shares of every block, and the difficulty of the next block"><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg><span id="netBadgeText"></span></span>
   <span id="sync" class="badge">connecting…</span>
   <button id="cmdBtn" class="nav-search hidden" type="button" data-cmdk-open aria-label="Search" aria-keyshortcuts="Control+K"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span>Search</span><span class="kbd" id="cmdKey" aria-hidden="true"></span></button>
-  <button class="btn" onclick="openLink('explorer')" title="Open the block explorer on genoryn.io"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg><span class="lbl">Explorer</span></button>
+  <button id="rfBtn" class="btn icon-only" type="button" onclick="refreshAll()" aria-label="Refresh" title="Refresh: loads everything again. You stay where you are."><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+  <button id="exBtn" class="btn" onclick="openLink('explorer')" title="Open the block explorer on genoryn.io"><svg class="ic" aria-hidden="true"><use href="#i-explorer"/></svg><span class="lbl">Explorer</span></button>
   <button class="btn icon-only" onclick="fxToggleTheme()" aria-label="Toggle light or dark theme" title="Theme"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button>
   <button id="lockBtn" class="btn hidden" onclick="lockNow()" title="Lock this wallet (other wallets stay as they are)"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span class="lbl">Lock</span></button>
   <button class="btn" onclick="quitApp()" title="Close the wallet, node and miner"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span class="lbl">Quit</span></button>
@@ -2397,7 +2407,7 @@ const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'
 const TRADE=['swap','market','publish','swaps'];
 const TABS=['wallet','history','swap','market','publish','swaps','trades','coins','mining','network','settings','console','security','about'];
 const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],publish:[T("Publish an offer"),T("Sell or buy GNR at a price of your own, paid from or into your Bitcoin balance.")],swaps:[T("Your swaps"),T("Every swap of this wallet: running, completed and refunded.")],trades:[T("Trade history"),T("Every completed GNR swap with its price, in charts and in full, and your own trades.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
-function goTab(t){ closeSwitcher(); document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
+function goTab(t){ closeSwitcher(); try{ sessionStorage.setItem('gk-tab', t); }catch(e){} document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
   if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(TRADE.includes(t)){ loadSwaps(true); btcLoad(true); renderTradeBars(); } if(t==='publish') bdBalSet(); if(t==='trades') loadTrades(); if(t==='coins') loadCoins(); if(t==='wallet'){ fitBig($('bal')); if(S.unlocked) btcLoad(); renderTradeBars(); } if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
@@ -2468,7 +2478,9 @@ async function swapAdopt(id){
     body:'<p class="mtext">'+TE("This computer takes the swap over as the other one last reported it, and does every step that is still open: lock, pay from the deposit, claim or refund. Do this when the other computer is switched off, broken or lost. If both run the swap, nothing is paid or locked twice (each step spends something that can be spent once), but keep to one computer.")+'</p>'}); const pw=takePass(); if(!okA) return;
   try{ await api('/api/swap/adopt',{id, password:pw}); toast(T("The swap carries on at this computer")); loadSwaps(); }catch(e){ toast(e.message,true) }
 }
-const swAuto=s=>!!s.auto_pay&&!/yourself/.test(s.status||'');
+/* A swap the wallet pays itself (from the Bitcoin balance, or from an offer's deposit) never
+   shows where to pay: a payment made by hand beside the wallet's own would be a second one. */
+const swAuto=s=>!!s.auto_pay;
 function swLabel2(s){ const buy=s.role==='btc_seller';
   if(s.peer_gone) return T("Not paid · GNR returns by itself");
   if(s.stage==='await_deposit'&&swAuto(s)) return T("Paying by itself");
@@ -2516,18 +2528,20 @@ function swapCard2(s){
     <p class="swc-status">${esc(TR(s.status))}</p>
     ${!s.finished?'<p class="swc-keep">'+TE("Keep this wallet open and unlocked until this swap is done: only it can lock, take or refund these coins.")+'</p>':''}
     ${s.code?`<label>${TE("Send this code to the other person")}</label><div class="mono addr inset">${esc(s.code)}</div><button class="btn" data-c="${esc(s.code)}" onclick="copyText(this.dataset.c)">${TE("Copy code")}</button>`:''}
-    ${pay&&swAuto(s)?'<div class="swc-safe"><b>'+TE("Nothing to do.")+'</b> '+TE("The seller's GNR is locked for you on chain, and your wallet pays the swap contract from the bitcoin you deposited with the offer.")+'</div>':''}
+    ${pay&&swAuto(s)?'<div class="swc-safe"><b>'+TE("Nothing to do.")+'</b> '+TE("The seller's GNR is locked for you on chain, and your wallet pays the swap contract by itself, from its own bitcoin. Do not pay anything by hand.")+'</div>':''}
     ${pay&&!swAuto(s)?`<button class="btn btn-primary" type="button" onclick="showPayId(${jsq(s.id)})">${TE("Show payment details")}</button><div class="swc-safe"><b>${TE("The seller's GNR is locked for you on chain.")}</b> ${TE("Only you can claim it, with the secret the seller reveals when taking your bitcoin.")}</div><label>${s.pay_in!=null?TE("Pay exactly {amount} BTC to this contract address within {time}", {amount: s.btc_text, time: swLeft(s.pay_in)}):TE("Pay exactly {amount} BTC to this contract address", {amount: s.btc_text})}</label><div class="mono addr inset">${esc(s.htlc_address)}</div><button class="btn" data-c="${esc(s.htlc_address)}" onclick="copyText(this.dataset.c)">${TE("Copy address")}</button>`:''}
     ${acts}
     <details><summary>${TE("Details")}</summary>
-      ${row(TE("You receive"),s.receive_text)}${row(TE("Your Bitcoin address"),s.btc_address)}${row(TE("Contract address"),pay||!buy?s.htlc_address:'')}
+      ${row(TE("You receive"),s.receive_text)}${row(TE("Your Bitcoin address"),s.btc_address)}${row(TE("Contract address"),(pay&&!swAuto(s))||!buy?s.htlc_address:'')}
       ${row(TE("GNR lock"),s.lock_cm)}${row(TE("GNR refunds to the seller from block"),s.gnr_refund_height)}${row(TE("Bitcoin refunds to the buyer after block"),s.btc_refund_height)}
       ${row(TE("Payment"),s.deposit?s.deposit.txid+':'+s.deposit.vout:'')}${row(TE("Our bitcoin transaction"),s.btc_spend)}${row(TE("Hash lock"),s.hash&&!/^0+$/.test(s.hash)?s.hash:'')}${row(TE("Swap id"),s.id)}
       <ol class="swc-log">${log}</ol></details></div>`;
 }
 /* Buying is paid from the Bitcoin balance and from nowhere else. When the balance is short
    the wallet says by how much, and offers to add bitcoin. */
-async function needBtc(e){ if(!/Add bitcoin to your balance first/.test(e.raw||e.message)) return toast(e.message,true);
+async function needBtc(e){
+  if(/is change from your own payment/.test(e.raw||e.message)) return void ask({title:T("Your change is not in a block yet"), icon:'swap', ok:T("OK"), hideCancel:true, body:'<p class="mtext">'+esc(e.message)+'</p>'});
+  if(!/Add bitcoin to your balance first/.test(e.raw||e.message)) return toast(e.message,true);
   if(await ask({title:T("Add bitcoin to your balance first"), icon:'swap', ok:T("Add bitcoin"), cancel:T("Not now"),
     body:'<p class="mtext">'+esc(e.message)+'</p><p class="mtext">'+TE("Buying is paid from your Bitcoin balance, and from nowhere else. That is how a seller's wallet can see that the bitcoin is there before it locks any GNR, and why nobody can take an offer and never pay.")+'</p>'})) btcAdd(); }
 async function swapRequest(){
@@ -2854,12 +2868,14 @@ document.querySelectorAll('#bdSide button').forEach(b=>b.onclick=()=>{ bdSide=b.
    of the seller's. A buy offer is always paid from it (1.0.56): the offer exists only with
    its bitcoin, so the form says what the balance has free and offers to add more. */
 const bdBal=()=>$('bdBal').checked;
-function bdBalSet(quiet){ const sell=bdSide==='sell_gnr', b=QS.bal, free=b?Math.max(0,(b.confirmed||0)-(b.committed||0)):null;
+function bdBalSet(quiet){ const sell=bdSide==='sell_gnr', b=QS.bal, chg=btcChg(b), free=b?Math.max(0,(b.confirmed||0)+chg-(b.committed||0)):null;
+  // (A buy offer's deposit is paid by the wallet to itself, so its own change counts already.)
   if(!sell) $('bdBal').checked=true; $('bdBal').disabled=!sell; $('bdBalRow').classList.toggle('fixed', !sell);
-  const need=Math.round(Number($('bdBtc').value)*1e8)||0, short=!sell&&free!=null&&need>0&&free<need+1000, wait=b?Math.max(0,(b.total||0)-(b.confirmed||0)):0;
+  const need=Math.round(Number($('bdBtc').value)*1e8)||0, short=!sell&&free!=null&&need>0&&free<need+1000, wait=b?Math.max(0,(b.total||0)-(b.confirmed||0)-chg):0;
   $('bdBalT').textContent=sell?T("Receive the bitcoin into my Bitcoin balance"):T("Paid from my Bitcoin balance");
   $('bdBalN').textContent=sell?T("Ready for your next purchase at once; or turn this off to name another address."):free==null?T("Loading your Bitcoin balance…")
-    :short?T("{btc} BTC free and confirmed; this offer needs {need} BTC and the network fee. Add bitcoin first: it counts after one confirmation.", {btc: btcFmt(free/1e8), need: btcFmt(need/1e8)})+(wait?' '+T("{amount} BTC is still confirming.", {amount: btcFmt(wait/1e8)}):'')
+    :short?(chg?T("{btc} BTC free, your change counted; this offer needs {need} BTC and the network fee. Add bitcoin first: it counts after one confirmation.", {btc: btcFmt(free/1e8), need: btcFmt(need/1e8)}):T("{btc} BTC free and confirmed; this offer needs {need} BTC and the network fee. Add bitcoin first: it counts after one confirmation.", {btc: btcFmt(free/1e8), need: btcFmt(need/1e8)}))+(wait?' '+T("{amount} BTC is still confirming.", {amount: btcFmt(wait/1e8)}):'')
+    :chg?T("{btc} BTC free, your change counted; bitcoin that is not spent comes back to the balance.", {btc: btcFmt(free/1e8)})
     :T("{btc} BTC free and confirmed; bitcoin that is not spent comes back to the balance.", {btc: btcFmt(free/1e8)});
   $('bdBalRow').classList.toggle('short', !!short); $('bdBalAdd').classList.toggle('hidden', sell||!(short||free===0));
   $('bdAddrBox').classList.toggle('hidden', bdBal());
@@ -3013,6 +3029,13 @@ async function boardTake(id, side, g, b){
   const buy=side==='sell_gnr', of=(BD.offers||[]).find(x=>x.id===id)||{};
   if(buy&&!QS.bal) await btcLoad(true);
   const q=QS.bal, free=q?Math.max(0,(q.confirmed||0)-(q.committed||0)):0, need=Math.round(Number(b)*1e8), wait=q?Math.max(0,(q.total||0)-(q.confirmed||0)):0;
+  // The bitcoin is there, as change of the wallet's own payment that is not in a block yet:
+  // nothing is missing but a block, and nothing is asked for.
+  if(buy&&q&&free<need+1000&&free+btcChg(q)>=need+1000){
+    await ask({title:T("Your change is not in a block yet"), icon:'swap', ok:T("OK"), hideCancel:true,
+      body:`<p class="mtext">${TH("Your Bitcoin balance covers this offer, but **{amount} BTC** of it is change from your own payment and is not in a Bitcoin block yet.", {amount: btcFmt(btcChg(q)/1e8)})}</p>
+      <p class="mtext">${TE("A seller's wallet counts bitcoin once it is in a block, usually within about ten minutes. Try again then: nothing needs to be added.")}</p>`});
+    return; }
   // Not enough bitcoin in the balance: say by how much, and offer to add it. Nothing is taken.
   if(buy&&!(q&&free>=need+1000)){
     if(await ask({title:T("Add bitcoin to buy this"), icon:'swap', ok:T("Add bitcoin"), cancel:T("Not now"),
@@ -3152,20 +3175,26 @@ function qsOrders(){ const l=BD.quick||[]; $('qsOrdersBox').classList.toggle('hi
           <div class="qsp-steps">${steps.map((n,k)=>`<i class="${k<at?'on':''}${k===at&&!bad&&at<5?' now':''}"></i>`).join('')}</div>
           <div class="qsp-names">${steps.map((n,k)=>`<span class="${k<at?'on':''}">${n}</span>`).join('')}</div>
           ${p.status&&at<5?`<p class="qsp-msg">${esc(TR(p.status))}</p>`:''}</div>`; }).join('')}</div>`; }).join(''); }
-/* The Bitcoin balance. */
+/* The Bitcoin balance. Of what is not in a block yet, part can be change: when the wallet pays
+   with a coin, what is left of it comes back as a new coin, which also waits for a block. It
+   is the wallet's own bitcoin and is said so, not shown as a deposit someone sent. */
+const btcChg=b=>b?Math.min(Number(b.change)||0, Number(b.pending)||0):0, btcDep=b=>b?(Number(b.pending)||0)-btcChg(b):0;
+const btcPendText=b=>{ const d=btcDep(b), c=btcChg(b); return [d?T("{amount} BTC confirming", {amount: btcFmt(d/1e8)}):'', c?T("{amount} BTC is your change, on its way into a block", {amount: btcFmt(c/1e8)}):''].filter(Boolean).join(' · '); };
+/* "ready to buy" only when bitcoin in a block is free: a seller's wallet counts nothing else. */
+const btcReady=b=>Number(b.confirmed||0)-Number(b.committed||0)>0;
 async function btcLoad(force){ if(!force&&Date.now()-QS.balAt<15000) return; QS.balAt=Date.now();
   let b; try{ b=await api('/api/btc'); }catch(e){ $('btcBal').textContent='-'; $('btcBalSub').textContent=T("The Bitcoin server did not answer; trying again."); return; }
   QS.bal=b; const u=Number(b.btc_usd)||btcUsd();
   $('btcNet').textContent=b.network==='main'?'Bitcoin':b.network;
   $('btcBal').textContent=btcFmt(b.total/1e8)+' BTC';
-  $('btcBalSub').textContent=(u?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)})+' · ':'')+(b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy"):T("add bitcoin to buy in one click"));
+  $('btcBalSub').textContent=[u?'≈ '+GKValue.usd(b.total/1e8*u):'', b.pending?btcPendText(b):'', b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?(btcReady(b)?T("ready to buy"):''):T("add bitcoin to buy in one click")].filter(Boolean).join(' · ');
   if(QS.q) qsShow(); renderTradeBars(); btcProgress(); if(tabOn('publish')) bdBalSet(); }
 /* The balances at the top of every Trade page and on the Wallet tab: GNR that can be traded
    (spendable) and the Bitcoin balance, each with its coin and its dollar value. */
 function renderTradeBars(){ const u=btcUsd(), b=QS.bal, sp=Number((S.balance||{}).spendable||0), set=(k,v)=>document.querySelectorAll('[data-tb="'+k+'"]').forEach(e=>{ if(e.textContent!==v) e.textContent=v; });
   set('gnr', S.balance?gnr(sp)+' GNR':'-'); const mv=valueOf(sp); set('gnru', mv!=null&&sp?'≈ '+GKValue.usd(mv):(S.balance?T("spendable now"):' '));
   set('btc', b?btcFmt(b.total/1e8)+' BTC':'-');
-  set('btcu', b?((u&&b.total?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)}):b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy in one click"):T("add bitcoin to buy in one click"))):' '); }
+  set('btcu', b?([u&&b.total?'≈ '+GKValue.usd(b.total/1e8*u):'', b.pending?btcPendText(b):b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy in one click"):T("add bitcoin to buy in one click")].filter(Boolean).join(' · ')||' '):' '); }
 /* A deposit on its way. Bitcoin counts it after its first block. What the page says about
    the wait is what the Bitcoin server tells: the fee the payment pays, the fee blocks take
    now, and within how many blocks that is enough. The bar is the time waited against the
@@ -3183,7 +3212,13 @@ function btcProgress(){ const boxes=document.querySelectorAll('[data-btcp]'), b=
   const w=(pend&&b.waiting)||{}, rate=w.rate!=null?Number(w.rate):null, next=w.next!=null?Number(w.next):null, blocks=w.blocks!=null?Number(w.blocks):null;
   const expect=blocks?blocks*600:0, stuck=pend&&!expect;
   const pct=done?100:expect?Math.min(95, Math.max(3, waited/expect*100)):100;
+  // All that waits is the wallet's own change: said as that, with what its payment pays.
+  const chg=pend&&btcDep(b)<=0;
   const note=done?T("You can use it now."):
+    chg?T("This is what was left of the bitcoin your wallet paid with. It comes back to your balance as a new coin and gets into a block together with that payment. Swaps that are already running are paid from it at once. A new purchase can start once it is in a block: a seller's wallet counts only bitcoin it can see in a block.")+(rate==null?'':' '+
+      (blocks==null?T("Your payment pays {rate} sat/vB, which is below what blocks take now, so it waits until fees fall.", {rate: satvb(rate)}):
+       blocks<=1?T("Your payment pays {rate} sat/vB, enough for the next block at today's fees.", {rate: satvb(rate)}):
+       T("Your payment pays {rate} sat/vB: at today's fees that is within about {n} blocks, roughly {time}.", {rate: satvb(rate), n: blocks, time: dur(expect)}))):
     rate==null?T("A Bitcoin block takes about 10 minutes on average, sometimes longer. You can use the bitcoin after that."):
     (w.together?T("It was sped up: together with the payment it spends, it now pays {rate} sat/vB.", {rate: satvb(rate)}):T("Its sender paid a fee of {rate} sat/vB.", {rate: satvb(rate)}))+' '+
     (blocks==null?(next!=null?T("Blocks now take {now} sat/vB or more, so it waits until fees fall that far. That can take hours, sometimes days. The bitcoin is not lost: it is on its way to this wallet's address.", {now: satvb(next)}):T("That is below what blocks take now, so it waits until fees fall. The bitcoin is not lost: it is on its way to this wallet's address.")):
@@ -3196,7 +3231,7 @@ function btcProgress(){ const boxes=document.querySelectorAll('[data-btcp]'), b=
     x.querySelector('.btcp-bar i').style.width=pct.toFixed(1)+'%';
     const put=(k,v)=>{ const e=x.querySelector('[data-p="'+k+'"]'); if(e&&e.textContent!==v) e.textContent=v; };
     x.querySelector('.btcp-bar').title=done?'':expect?T("The bar is the time waited against the time a payment with this fee usually takes today ({time}). It is an estimate: nobody knows when the next block comes.", {time: dur(expect)}):T("There is no estimate for this payment, so the bar does not fill. It ends when the payment is in a block.");
-    put('a', done?T("Confirmed: your bitcoin is in a block"):T("Not in a Bitcoin block yet"));
+    put('a', done?T("Confirmed: your bitcoin is in a block"):chg?T("Your change, on its way into a block"):T("Not in a Bitcoin block yet"));
     put('w', done?'':T("first seen {time} ago", {time: dur(waited)}));
     put('n', note);
     const s=x.querySelector('[data-p="s"]'); if(s&&s.dataset.was!==act){ s.dataset.was=act; s.innerHTML=act; s.classList.toggle('hidden', !act); } }); }
@@ -3529,6 +3564,8 @@ async function refresh(){
     if(ws.length>1){ if(document.activeElement!==$('uSel')) $('uSel').innerHTML=ws.map(w=>`<option value="${esc(w.id)}"${w.id===act.id?' selected':''}>${esc(w.name)}${w.unlocked?' ('+TE("unlocked")+')':''}</option>`).join(''); show('uPick'); } else hide('uPick');
     show('unlockBox'); return; }
   show('app'); loadWallets();
+  // The page was loaded anew (a new language, a reload): back on the tab it was on.
+  if(!TAB_BACK){ TAB_BACK=true; let t=null; try{ t=sessionStorage.getItem('gk-tab'); }catch(e){} if(t&&t!=='wallet'&&TABS.includes(t)) goTab(t); }
   $('wSelName').textContent=act.name||T("Wallet"); $('cpName').textContent=act.name||T("this wallet"); $('wSelAddr').textContent=S.short?midAddr(S.short,14,8):''; $('wSelAddr').title=S.short||'';
   initOverview(); checkPublished(); if(!FEE.t) loadFees();
   if(OV.stats){ renderOvKpis(); const k=(S.balance&&S.balance.total)+'|'+(S.history||[]).length+'|'+S.short; if(k!==OV.balKey){ OV.balKey=k; renderOvBalance(); } }
@@ -3583,6 +3620,26 @@ async function refresh(){
     // First start: the system's language, once; the choice in Settings always wins.
     if(S.settings.language==null){ const l=firstLanguage(); if(l!=='en') setLanguage(l); else api('/api/language',{language:'en'}).catch(()=>{}); } }
 }
+/* Refresh: everything the page shows is asked for again, now. The page itself is not loaded
+   anew, so the tab, the place on it, an open dialog and anything typed stay as they are. */
+let RF_BUSY=false;
+async function refreshAll(){ if(RF_BUSY) return; RF_BUSY=true; const b=$('rfBtn'), t0=Date.now(); b.classList.add('busy'); b.setAttribute('aria-busy','true');
+  const jobs=[refresh()];
+  try{ if(S.unlocked&&!$('app').classList.contains('hidden')){ QS.balAt=0;
+    jobs.push(loadWallets(), loadFees(), loadSwaps(), btcLoad(true));
+    if(tabOn('wallet')) jobs.push(loadOvStats(), loadOvBlocks());
+    if(tabOn('history')) jobs.push(loadHistory());
+    if(['swap','market','publish'].some(tabOn)) jobs.push(loadBoard());
+    if(tabOn('trades')) jobs.push(loadTrades());
+    if(tabOn('mining')) jobs.push(loadMining());
+    if(tabOn('network')){ jobs.push(loadNetExtras()); if(netDash) netDash.reload(); }
+    if(tabOn('coins')) jobs.push(loadCoins()); } }catch(e){}
+  await Promise.all(jobs.map(j=>Promise.resolve(j).catch(()=>{})));
+  await new Promise(r=>setTimeout(r, Math.max(0, 700-(Date.now()-t0))));
+  b.classList.remove('busy'); b.removeAttribute('aria-busy'); RF_BUSY=false; toast(T("Refreshed")); }
+/* F5 and Ctrl+R refresh the same way, instead of loading the page anew (Ctrl+Shift+R still does). */
+addEventListener('keydown', e=>{ if((e.key==='F5'&&!e.ctrlKey&&!e.shiftKey)||((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&(e.key==='r'||e.key==='R'))){ e.preventDefault(); refreshAll(); } });
+let TAB_BACK=false;
 refresh(); setInterval(refresh, 4000); setTimeout(splashDone, 6000);
 </script>
 </body>
