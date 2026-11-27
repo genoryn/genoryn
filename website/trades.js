@@ -146,7 +146,7 @@
     var lock = line(T("Hash lock"), x.hash, copy(x.hash)) + (c && HEX.test(c.secret || "") ? line(T("Secret"), c.secret, copy(c.secret), "<span class=\"thp-chk\" data-hash=\"" + e(x.hash) + "\" data-secret=\"" + e(c.secret) + "\">" + e(T("checking…")) + "</span>") : "");
     var fund = b ? String(b.funding || "").split(":") : [];
     var btcSide = b && HEX.test(fund[0]) && HEX.test(b.claim)
-      ? line(T("Bitcoin paid into the swap's contract"), fund[0], copy(fund[0]) + btx(fund[0]), e(T("output {n} · Bitcoin block {height}", { n: Number(fund[1]) || 0, height: GKI18N.num(Number(b.funded_height)) }))) +
+      ? line(T("Bitcoin paid into the swap's contract"), fund[0], copy(fund[0]) + btx(fund[0]), Number(b.funded_height) > 0 ? e(T("output {n} · Bitcoin block {height}", { n: Number(fund[1]) || 0, height: GKI18N.num(Number(b.funded_height)) })) : "") +
         line(T("Bitcoin taken with the secret"), b.claim, copy(b.claim) + btx(b.claim))
       : "<p class=\"thp-none\">" + e(x.verified ? T("The board found this swap's bitcoin on the Bitcoin chain. It writes the two Bitcoin transactions down from version 1.0.58 on; this swap is older.") : T("The board has not found this swap's bitcoin on the Bitcoin chain: it is a report, and counts as unverified.")) + "</p>";
     return "<div class=\"thp\"><div class=\"thp-g\"><h4>" + e(T("On the GNR chain")) + "</h4>" + gnrSide + "</div><div class=\"thp-g\"><h4>" + e(T("The lock both coins shared")) + "</h4>" + lock + "</div><div class=\"thp-g\"><h4>" + e(T("On the Bitcoin chain")) + "</h4>" + btcSide + "</div>" +

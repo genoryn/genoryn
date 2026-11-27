@@ -65,6 +65,11 @@ pub trait BtcChain {
     fn lists_unconfirmed(&self) -> bool {
         true
     }
+    /// Whether transaction `txid` is in the block at `height`; `None` when the server cannot
+    /// say. Only read, for what a swap's proof shows of its payment.
+    fn in_block(&self, _txid: &Txid, _height: u32) -> Result<Option<bool>> {
+        Ok(None)
+    }
     /// What the waiting transaction `txid` pays; `None` when it is in a block already, or
     /// when the server cannot say. Only read, to tell a person why a deposit waits.
     fn unconfirmed(&self, _txid: &Txid) -> Result<Option<Unconfirmed>> {
@@ -318,6 +323,13 @@ impl BtcChain for Esplora {
             serde_json::from_str(&self.get(&format!("/tx/{}/outspend/{}", op.txid, op.vout))?)?;
         Ok(v["spent"].as_bool().unwrap_or(false))
     }
+    fn in_block(&self, txid: &Txid, height: u32) -> Result<Option<bool>> {
+        let s: Value = serde_json::from_str(&self.get(&format!("/tx/{txid}/status"))?)?;
+        Ok(Some(
+            s["confirmed"].as_bool() == Some(true)
+                && s["block_height"].as_u64() == Some(u64::from(height)),
+        ))
+    }
     fn spender(&self, op: &OutPoint, _from: u32) -> Result<Option<Transaction>> {
         let v: Value =
             serde_json::from_str(&self.get(&format!("/tx/{}/outspend/{}", op.txid, op.vout))?)?;
@@ -527,6 +539,14 @@ impl BtcChain for CoreRpc {
     }
     fn lists_unconfirmed(&self) -> bool {
         false
+    }
+    fn in_block(&self, txid: &Txid, height: u32) -> Result<Option<bool>> {
+        let hash = self.call("getblockhash", json!([height]))?;
+        let block = self.call("getblock", json!([hash, 1]))?;
+        let id = txid.to_string();
+        Ok(block["tx"]
+            .as_array()
+            .map(|t| t.iter().any(|x| x.as_str() == Some(id.as_str()))))
     }
     fn spender(&self, op: &OutPoint, from: u32) -> Result<Option<Transaction>> {
         let spends = |tx: &Transaction| tx.input.iter().any(|i| i.previous_output == *op);

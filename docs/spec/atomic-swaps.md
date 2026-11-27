@@ -696,7 +696,9 @@ leaves all three:
   (`btc::claim_of`): the transaction that spends the payment has one input, its witness
   ends with the contract's script and holds the secret that the GNR claim shows. Only then
   is the swap verified, and from 1.0.58 the board keeps what it saw: the payment's
-  outpoint and block, and the ID of the transaction that took it.
+  outpoint and the ID of the transaction that took it. The report names the block of the
+  payment; the board asks the chain whether the payment is in that block
+  (`BtcChain::in_block`) and keeps the block only then (`funded_height` is 0 otherwise).
 - **Where it is kept.** In the trade history's database, in a table of its own (`btc`,
   hash lock to 72 bytes: funding txid, output, block, claim txid). The records of the
   swaps themselves are not touched, so a node that goes back to an older version reads

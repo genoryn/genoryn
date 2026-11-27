@@ -1855,14 +1855,23 @@ fn paid_on_chain(
     let claim =
         krypton_swap::btc::claim_of(btc.as_ref(), &htlc, &funding, p.funded_height, &secret)?;
     Ok(match claim {
-        Some((txid, sats)) => (
-            sats,
-            Some(BtcSeen {
-                funding: funding.to_string(),
-                funded_height: p.funded_height,
-                claim: txid.to_string(),
-            }),
-        ),
+        Some((txid, sats)) => {
+            // The report says in which block to look for the payment. The block is named
+            // only when the chain shows the payment there (0: not named); what a proof
+            // shows is what this board saw. A server that cannot say changes nothing else.
+            let funded_height = match btc.in_block(&funding.txid, p.funded_height) {
+                Ok(Some(true)) => p.funded_height,
+                _ => 0,
+            };
+            (
+                sats,
+                Some(BtcSeen {
+                    funding: funding.to_string(),
+                    funded_height,
+                    claim: txid.to_string(),
+                }),
+            )
+        }
         None => (0, None),
     })
 }
