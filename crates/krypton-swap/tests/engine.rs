@@ -204,6 +204,10 @@ impl MockBtc {
     fn stall(&self, on: bool) {
         self.inner.lock().unwrap().stalled = on;
     }
+    /// The server does not show the payment `id` (yet).
+    fn unlist(&self, id: Txid) {
+        self.inner.lock().unwrap().unlisted.insert(id);
+    }
     fn blocks_only(&self, on: bool) {
         self.inner.lock().unwrap().blocks_only = on;
     }
@@ -1473,6 +1477,7 @@ fn a_second_payment_follows_the_first_at_once() {
         !a.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]),
         "another wallet's address: not its change"
     );
+    let record = b.wallet.app_data("btc_own").unwrap().clone();
     b.wallet
         .set_app_data("btc_own", serde_json::json!([]))
         .unwrap();
@@ -1480,11 +1485,26 @@ fn a_second_payment_follows_the_first_at_once() {
         b.engine(&src, &btc, &chain).is_change(BALANCE, &coins[0]),
         "everything that payment spends was at this address"
     );
+    b.wallet.set_app_data("btc_own", record).unwrap();
     // Bitcoin someone else sends is not change.
     let gift = btc.pay(&own, 7_000);
     let coins = b.engine(&src, &btc, &chain).deposit_coins(BALANCE).unwrap();
     let g = coins.iter().find(|c| c.outpoint == gift).unwrap();
     assert!(!b.engine(&src, &btc, &chain).is_change(BALANCE, g));
+    // The program stopped after a payment went out and before the swap's record said so,
+    // and the Bitcoin server does not show the payment yet: the wallet wrote the payment
+    // down with the payment itself, and does not pay that contract a second time.
+    btc.unlist(t1);
+    let mut v = load(&b.wallet);
+    let was = v[0].paid_tx.take();
+    v[0].status = "stopped before this was written".into();
+    krypton_swap::engine::save(&mut b.wallet, &v).unwrap();
+    b.engine(&src, &btc, &chain).step(&[]).unwrap();
+    assert_eq!(btc.broadcasts(), 2, "no second payment into the contract");
+    let s = &load(&b.wallet)[0];
+    assert_eq!(s.paid_tx, was, "{}", s.status);
+    assert_eq!(s.stage, Stage::AwaitDeposit);
+    btc.lag(false);
     // Nothing is paid a second time, and both swaps go on.
     b.engine(&src, &btc, &chain).step(&[]).unwrap();
     assert_eq!(btc.broadcasts(), 2);

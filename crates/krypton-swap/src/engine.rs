@@ -528,7 +528,9 @@ fn note_spent(w: &mut Wallet, tx: &bitcoin::Transaction) {
 /// Bitcoin server lists a new output a moment after the payment, and some list it only
 /// once it is in a block; the wallet built the payment, so it knows its change without
 /// asking. That is how a second payment follows the first at once, and how the page tells
-/// change from bitcoin someone sent.
+/// change from bitcoin someone sent. The payments into swap contracts are among them too:
+/// a contract this wallet has paid is never paid a second time, also when the program
+/// stopped before the swap's own record of the payment was written.
 const OWN_KEY: &str = "btc_own";
 /// How long an entry is kept to tell change from a deposit: longer than any payment waits.
 const OWN_KEEP_SECS: u64 = 14 * 86_400;
@@ -556,21 +558,14 @@ fn note_own(w: &mut Wallet, tx: &bitcoin::Transaction, t: u64) {
     let id = tx.compute_txid();
     let mut v = own_list(w);
     v.retain(|(_, _, _, at)| at + OWN_KEEP_SECS > t);
-    // (Deposit addresses pay to a key; the contracts of swaps do not, and are left out.)
-    v.extend(
-        tx.output
-            .iter()
-            .enumerate()
-            .filter(|(_, o)| o.script_pubkey.is_p2wpkh())
-            .map(|(n, o)| {
-                (
-                    OutPoint::new(id, n as u32).to_string(),
-                    o.value.to_sat(),
-                    o.script_pubkey.to_hex_string(),
-                    t,
-                )
-            }),
-    );
+    v.extend(tx.output.iter().enumerate().map(|(n, o)| {
+        (
+            OutPoint::new(id, n as u32).to_string(),
+            o.value.to_sat(),
+            o.script_pubkey.to_hex_string(),
+            t,
+        )
+    }));
     if v.len() > OWN_MAX {
         v.drain(..v.len() - OWN_MAX);
     }
@@ -2139,6 +2134,21 @@ impl<G: ChainSource> Engine<'_, G> {
     ) -> Result<()> {
         if s.paid_tx.is_some() {
             // Sent; the Bitcoin server has not shown it yet.
+            return Ok(());
+        }
+        // Sent, and written down with the payment itself, but not in the swap's record
+        // (the program stopped in between): that payment stands, and there is no second.
+        let to = contract.script_pubkey().to_hex_string();
+        if let Some((op, _, _, _)) = own_list(self.wallet)
+            .into_iter()
+            .find(|(_, sats, script, _)| *script == to && *sats >= s.sats)
+        {
+            let id = op.split(':').next().unwrap_or_default().to_string();
+            s.say(format!(
+                "The seller's GNR is locked for you, and your wallet paid {} BTC into the contract from the bitcoin you deposited ({id}).",
+                Amount::from_sat(s.sats).to_btc()
+            ));
+            s.paid_tx = Some(id);
             return Ok(());
         }
         ensure!(

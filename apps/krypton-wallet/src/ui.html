@@ -892,6 +892,10 @@ header .btn,header .nav-search,header .badge{flex:none;white-space:nowrap}
 /* On a window as narrow as a phone the top bar keeps one row of buttons: the block explorer
    gives way there (search opens it, and so does every row of the history). */
 @media (max-width:430px){header #exBtn{display:none}}
+/* The Bitcoin balance with all its eight decimals has room on a small phone too: smaller
+   there, and on a second line before it is cut. */
+.wl-btc-n{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+@media (max-width:400px){.wl-btc-n{font-size:24px}}
 /* Refresh: its icon turns while everything is loaded again. */
 #rfBtn.busy .ic{animation:rfspin .8s linear infinite;transform-box:fill-box;transform-origin:center}
 @keyframes rfspin{to{transform:rotate(360deg)}}
