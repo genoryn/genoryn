@@ -798,7 +798,10 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 .htable td.amt,.htable td.h-to,.htable td.h-act,.htable .hx .btn{white-space:nowrap}
 .htable td.h-memo{overflow-wrap:anywhere}
 .htable .h-addr{cursor:default}
-@media (max-width:1400px){
+/* Seven columns need a wide window in every language (a Russian or German heading and a
+   payment with two buttons take more room than the English ones): below that, a list. */
+.htable thead th{white-space:normal}.htable td.h-memo{min-width:150px}
+@media (max-width:1600px){
   .htable,.htable tbody{display:block;width:100%}
   .htable thead{display:none}
   .htable tr{display:grid;grid-template-columns:minmax(128px,auto) auto auto minmax(0,1fr) auto;grid-template-areas:"ty memo memo memo amt" "ty blk time to act";align-items:start;gap:5px 12px;width:auto;margin:0;padding:13px 4px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
@@ -868,8 +871,11 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 .bd-bal.short{border-color:var(--status-warning,var(--line-strong))}.bd-bal.short em{color:var(--text-secondary)}
 .bd-baladd{width:100%;margin:8px 0 0;justify-content:center;gap:8px}.bd-baladd .coin{width:16px;height:16px}
 .modal-card .swc-safe{margin:12px 0 0}
-/* The totals of the board: a figure too long for its tile goes on to a second line, whole. */
-.sw-totals .swt b{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+/* A figure is never cut to three dots: one too long for its tile goes on to a second line,
+   whole. Balances grow, and a translated word can be longer than the English one. */
+.sw-totals .swt b,.ov-kpi b,.tb-c b,.mk-stat b,.mn-kpi b{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+/* The four figures beside the price stand one under another on a phone. */
+@media (max-width:480px){.mk-hero{grid-template-columns:minmax(0,1fr)}.mk-hero>.mk-stat,.mk-hero>.mk-stat:nth-child(odd){border-left:0;border-top:1px solid var(--line)}}
 @media (prefers-reduced-motion:reduce){.btcp-bar i{transition:none}.btcp-bar i::after{display:none}}
 [data-fx="low"] .btcp-bar i::after{display:none}
 @media (prefers-reduced-motion:reduce){.btcp.wait .btcp-bar i{background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px)}}

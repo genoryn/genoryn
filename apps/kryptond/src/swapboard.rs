@@ -1531,20 +1531,41 @@ fn recheck_deposits(node: &Arc<Node>) {
         i.deposits_checked = t;
         i.next_deposits(DEPOSIT_CHECK_BATCH)
     };
-    if list.is_empty() {
+    // One round at a time: a Bitcoin server that answers slowly does not gather rounds.
+    static RECHECKING: AtomicBool = AtomicBool::new(false);
+    if list.is_empty() || RECHECKING.swap(true, Ordering::AcqRel) {
         return;
+    }
+    struct Done;
+    impl Drop for Done {
+        fn drop(&mut self) {
+            RECHECKING.store(false, Ordering::Release);
+        }
     }
     let node = node.clone();
     tokio::task::spawn_blocking(move || {
         use std::str::FromStr;
-        // Only a clear "not there" counts against an offer, never a failed lookup.
+        let _done = Done;
+        // Only a clear "not there" counts against an offer, never a failed lookup. A
+        // server that fails three times running is left alone for the rest of the round.
+        let mut failed = 0;
         let seen: Vec<(String, String, Option<bool>)> = list
             .into_iter()
             .map(|(id, a, need)| {
-                let there = krypton_swap::bitcoin::Address::from_str(&a)
-                    .ok()
+                let there = (failed < 3)
+                    .then(|| krypton_swap::bitcoin::Address::from_str(&a).ok())
+                    .flatten()
                     .map(|x| x.assume_checked())
-                    .and_then(|x| deposit_at(&api, &x, need).ok());
+                    .and_then(|x| match deposit_at(&api, &x, need) {
+                        Ok(v) => {
+                            failed = 0;
+                            Some(v)
+                        }
+                        Err(_) => {
+                            failed += 1;
+                            None
+                        }
+                    });
                 (id, a, there)
             })
             .collect();

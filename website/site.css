@@ -1275,6 +1275,22 @@ a.pg-card:hover .pg-go svg { transform: translateX(4px); }
    cells of a row one under another, each under the name of its column. */
 .hp-break b, .mkt b, .mk-totals .mkt b, .mc-now b, .lp .hs-kpis .stat b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 .hp-break b { line-height: 1.35; }
+/* The figures under the price follow the width of their own card, not of the window: three
+   across while there is room, then two, then one under another. */
+.ob-live .hero-price, .mk-hero-price { container-type: inline-size; }
+@container (max-width: 400px) {
+  .hp-break:not(.mk-break) { grid-template-columns: 1fr 1fr; }
+  .hp-break:not(.mk-break) > span:last-child { grid-column: 1 / -1; border-left: 0; padding-left: 0; }
+}
+@container (max-width: 330px) {
+  .hp-break, .mk-break { grid-template-columns: minmax(0, 1fr); }
+  .hp-break > span, .mk-break > span, .mk-break > span:last-child, .mk-break > span:nth-child(3) { grid-column: auto; border-left: 0; padding-left: 0; margin-top: 0; }
+}
+/* The first column of a table names its row: it keeps room for a few words. */
+@media (min-width: 861px) {
+  .table-wrap table.data td:first-child, .table-wrap table.data th:first-child { min-width: 9.5em; }
+  .table-wrap { overflow-x: auto; }
+}
 .gk-card-head h3 { min-width: 0; overflow-wrap: anywhere; }
 /* A pill that says "available" keeps the pill's own look in the light theme (the dark chip
    that the light theme puts behind status colours made its black text unreadable). */
@@ -1282,7 +1298,7 @@ a.pg-card:hover .pg-go svg { transform: translateX(4px); }
 .step .kv, .value-kv { grid-template-columns: minmax(42%, 1fr) minmax(0, auto); }
 .mc-table th { white-space: nowrap; }
 .hs-foot .btn { white-space: normal; text-align: center; }
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .table-wrap table.data thead { display: none; }
   .table-wrap table.data, .table-wrap table.data tbody, .table-wrap table.data tr { display: block; width: 100%; }
   .table-wrap table.data tr { padding: 13px 16px; border-bottom: 1px solid var(--line); }
