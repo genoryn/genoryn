@@ -874,6 +874,21 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 /* A figure is never cut to three dots: one too long for its tile goes on to a second line,
    whole. Balances grow, and a translated word can be longer than the English one. */
 .sw-totals .swt b,.ov-kpi b,.tb-c b,.mk-stat b,.mn-kpi b{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+/* Words are longer in other languages than in English: on a phone a row of buttons goes
+   on to a second line, a label wraps, and nothing is wider than its card. */
+.wbar-total b{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+.htable .ty{white-space:normal}
+/* The top bar measures whether it fits. Its buttons and badges keep their width (Chinese can
+   break after any character and would hide the overflow), so the bar gives way in its steps. */
+header .btn,header .nav-search,header .badge{flex:none;white-space:nowrap}
+.pub-layout{grid-template-columns:minmax(0,1fr) minmax(300px,.9fr)}.pub-side,.pub-how{min-width:0}
+.bd-sideseg{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.bd-sideseg button{white-space:normal;min-width:0;padding-inline:6px}
+@media (max-width:1180px){.pub-layout{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){
+  .wbar-acts{flex-wrap:wrap}.wbar-acts .btn{flex:1 1 230px;min-width:0;white-space:normal}
+  .term .con-in,.con-in{flex-wrap:wrap}.con-in input{flex:1 1 150px;min-width:0}
+  .term-bar{flex-wrap:wrap}
+}
 /* The four figures beside the price stand one under another on a phone. */
 @media (max-width:480px){.mk-hero{grid-template-columns:minmax(0,1fr)}.mk-hero>.mk-stat,.mk-hero>.mk-stat:nth-child(odd){border-left:0;border-top:1px solid var(--line)}}
 @media (prefers-reduced-motion:reduce){.btcp-bar i{transition:none}.btcp-bar i::after{display:none}}
