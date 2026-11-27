@@ -4,25 +4,38 @@ Everything that changed in Genoryn Krypton, newest first. The same list, with a 
 [genoryn.io/updates](https://genoryn.io/updates). This file is written by `website/build.py` from
 `website/updates.py`; edit that file, not this one.
 
-## [1.0.56](https://github.com/genoryn/genoryn/releases/tag/v1.0.56) · 2026-11-26: A wallet that fits every window, Max when sending, and a bitcoin deposit you can watch arrive
+## [1.0.56](https://github.com/genoryn/genoryn/releases/tag/v1.0.56) · 2026-11-27: A strict market: every offer has its coins behind it, and nobody buys on a promise
 
-- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over.
+- No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets and swaps in progress carry over. What changes is what the offer board lists and what a wallet agrees to.
 
 ### Added
 
-- A bitcoin deposit on its way has a bar under the Bitcoin balance until its first block. The bar fills with the time waited, against the ten minutes a Bitcoin block takes on average. It is an estimate: nobody knows when the next block comes, so it is full only once the block is there.
-- Send: a Max button fills in the most one payment can send. Coins that sit in many small notes are merged first, and each merge pays the fee; the amount allows for that.
+- A bitcoin deposit that waits says why. Under the Bitcoin balance the wallet shows how long the payment has been seen, the fee its sender paid, what blocks take now, and within about how many blocks that fee is enough. The bar is the time waited against that. When the fee is below what blocks take, the wallet says that it waits until fees fall, and the bar does not pretend to fill.
+- Speed up: when a deposit's sender paid too little, the wallet can pay the difference. It sends the waiting bitcoin on to the balance's own address with a fee that makes miners take both payments together. The exact fee is shown first, the wallet's password is asked, the fee is never more than a twentieth of the deposit, and nothing leaves the wallet but the fee.
+- Send: a Max button fills in the most one payment can send. Coins that sit in many small notes are merged first, and each merge pays the fee; the amount allows for that. GNR set aside for an open sell offer is not part of it.
 
 ### Changed
 
+- Paying by hand is gone. The dialog that takes an offer no longer offers to pay to a new address or to pay by hand after the seller's GNR is locked, and a seller can no longer open an offer to any buyer. Someone could use those to have a seller's GNR locked for a day and never pay: it cost the seller time, never coins, and it cost the taker nothing.
+- Buy offers that were on the board without bitcoin were removed when the node updated. Sell offers, which already had to prove their GNR, stayed, and so did swaps in progress. A swap that was running when you update finishes the way it started.
 - Market: buy offers come first and sell offers second, in the wallet and on genoryn.io.
 - Addresses are shown by their two ends, as in gnrs1k7q2m9x4…y0u1i2, in the list of wallets, the wallet switcher and the history.
+- For node operators: a node lists buy offers only if it can read the Bitcoin chain (KRYPTON_BTC_API: an Esplora address, or rpc: and a Bitcoin Core address on the same computer). Without it the board lists sell offers only. Nothing else changes for a node.
 
 ### Fixed
 
+- Market totals say what is there. For sale is now an amount of GNR, with its share of all GNR issued and its worth at the market price. It used to show, in dollars beside a GNR coin, the sum of what sellers ask, which read as if more GNR were offered than exists. All of it is GNR its sellers have proven. Wanted is the bitcoin on deposit. /v1/swap/offers returns the sums as for_sale_gnr, wanted_sats and issued.
 - The wallet fits every window width. In a window narrower than a wide monitor the History table squeezed the recipient into a column one letter wide, and the total of all wallets was cut to three dots. The history now turns into a list when seven columns have no room, and bars, tables and figures give way before they are squeezed.
 - The top bar measures itself: when it does not fit it drops the words on its buttons, then the hashrate, then the total of all wallets, instead of pushing the page sideways. This showed with two or more wallets on a 1366-pixel screen.
 - The menu of a wallet in the list of wallets (Rename, Copy short address, Delete) opens above the list instead of being cut off by it.
+- genoryn.io on phones: tables in the documentation and on the help pages turn into cards with each column named, figures are no longer cut to three dots, and a label the light theme made unreadable can be read again.
+
+### Security
+
+- A buy offer is listed only when its bitcoin is there. Publishing one pays its bitcoin from your Bitcoin balance to an address of your own wallet made for that offer; the board looks the address up on the Bitcoin chain and lists the offer once the amount is there, confirmed and unspent. A buy offer with nothing behind it is refused. Until now one could be published without any bitcoin.
+- A buy offer whose bitcoin leaves its address is taken down. The board looks every deposit up again every few minutes; when the bitcoin is clearly gone, the offer comes off the board and its wallet shows it as ended and says why. A Bitcoin server that does not answer takes nothing down.
+- Buying is paid from the wallet's Bitcoin balance, and from nowhere else. Add bitcoin to the balance once; every purchase then starts and completes by itself. When the balance is short the wallet starts nothing, says how much is missing and offers to add bitcoin. Bitcoin that a running purchase still has to pay is kept aside: it cannot buy a second time and cannot be sent out.
+- A seller's wallet locks GNR only for a buyer whose bitcoin it has seen itself on the Bitcoin chain, in the buyer's own wallet, and only if the board does not count that bitcoin as promised to another seller. This holds for offers on the board and for swaps by codes.
 
 ## [1.0.55](https://github.com/genoryn/genoryn/releases/tag/v1.0.55) · 2026-11-26: A new design, a trade history that shows verified swaps first, and a new Genoryn Talks
 

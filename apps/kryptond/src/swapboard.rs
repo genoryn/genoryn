@@ -321,8 +321,11 @@ impl Inner {
     /// Counts the promise `p` against the deposit at `address` (a request is counted once)
     /// and says what that deposit is promised to in all, and to how many swaps. A seller's
     /// wallet compares the sum with what the Bitcoin chain shows at the address: the same
-    /// bitcoin shown to two sellers is seen by both.
+    /// bitcoin shown to two sellers is seen by both. Bitcoin that stands behind an open buy
+    /// offer is spoken for too: it counts against any promise that is not for that offer,
+    /// so one address cannot back an offer and pay for a purchase at once.
     fn promise(&mut self, address: String, p: Promised) -> Result<(u64, usize), &'static str> {
+        let p_offer = p.offer.clone();
         let known = self
             .promises
             .get(&address)
@@ -345,8 +348,14 @@ impl Inner {
             self.promises.entry(address.clone()).or_default().push(p);
         }
         let v = &self.promises[&address];
+        let offered = self
+            .deposits
+            .iter()
+            .filter(|(id, a)| **a == address && **id != p_offer)
+            .filter_map(|(id, _)| self.offers.get(id))
+            .fold(0u64, |a, o| a.saturating_add(o.sats));
         Ok((
-            v.iter().fold(0u64, |a, x| a.saturating_add(x.sats)),
+            v.iter().fold(offered, |a, x| a.saturating_add(x.sats)),
             v.len(),
         ))
     }
@@ -1510,7 +1519,13 @@ fn recheck_deposits(node: &Arc<Node>) {
     let list = {
         let mut i = node.board.inner.lock();
         let t = now();
-        if i.deposits_checked + DEPOSIT_CHECK_SECS > t {
+        // (A private test chain has its blocks seconds apart.)
+        let every = if node.chain.params.network == krypton_core::Network::Devnet {
+            15
+        } else {
+            DEPOSIT_CHECK_SECS
+        };
+        if i.deposits_checked + every > t {
             return;
         }
         i.deposits_checked = t;
@@ -2698,6 +2713,26 @@ mod tests {
         assert!(
             !i.promises.contains_key("z"),
             "a refused promise leaves nothing behind"
+        );
+        // Bitcoin behind an open buy offer is spoken for: it does not also pay for a
+        // purchase made from the same address. The offer's own swap is another matter.
+        assert_eq!(
+            i.list(offer("b", Side::BuyGnr), None, at("addr5"), T),
+            Ok(())
+        );
+        assert_eq!(
+            i.promise("addr5".into(), p("r7", "other", 20_000)),
+            Ok((70_000, 1)),
+            "the offer's 50,000 sat and the purchase's 20,000"
+        );
+        assert_eq!(
+            i.promise("addr5".into(), p("r8", "b", 50_000)),
+            Ok((70_000, 2))
+        );
+        i.take_down("b");
+        assert_eq!(
+            i.promise("addr5".into(), p("r7", "other", 20_000)),
+            Ok((70_000, 2))
         );
         // Promises run out by themselves (a swap that never paid frees the deposit).
         Board::expire(&mut i, T + board::PROMISE_SECS + 1);

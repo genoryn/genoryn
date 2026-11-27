@@ -2504,6 +2504,7 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             .reserve
             .as_ref()
             .is_some_and(|r| r.posted && r.reposts < 20 && reserve_ready(e.wallet, r));
+        let (sats, mut asked) = (m.offer.sats, true);
         if again {
             // Its GNR is still there, untouched: the board lost the offer (it restarted,
             // the maker was away for long, or the chain reorganised under the proof).
@@ -2523,12 +2524,31 @@ pub fn poll(a: &App, e: &mut Engine<'_, Multi>) -> Result<()> {
             .fund
             .as_mut()
             .filter(|f| f.posted && f.closed.is_none() && !f.handed && f.reposts < 20)
+            // The board lost the offer (it restarted, the maker was away for long) and
+            // its bitcoin is still at its address: post it again. When the bitcoin has
+            // gone, the board was right to take the offer down, and it has ended. A
+            // Bitcoin server that does not answer decides nothing: the next round asks.
+            .filter(|f| match e.deposit_coins(f.d) {
+                Ok(coins) => {
+                    asked = true;
+                    coins
+                        .iter()
+                        .filter(|c| c.height.is_some())
+                        .fold(0u64, |a, c| a.saturating_add(c.value.to_sat()))
+                        >= sats
+                }
+                Err(_) => {
+                    asked = false;
+                    true
+                }
+            })
         {
-            // Its bitcoin is still at its address: post it again.
-            f.posted = false;
-            f.reposts += 1;
-            f.last_check = 0;
-            f.status = "The board no longer lists this offer; publishing it again.".into();
+            if asked {
+                f.posted = false;
+                f.reposts += 1;
+                f.last_check = 0;
+                f.status = "The board no longer lists this offer; publishing it again.".into();
+            }
         } else {
             // A buy offer the board will not list again: its bitcoin was not found at
             // its address any more, or (an offer from before 1.0.56) it never had any.

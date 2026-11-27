@@ -29,6 +29,8 @@ RUST_SITES = re.compile(r'(?:\bsay\(|\bbail!\(|\banyhow!\(|\bensure!\([^;]*?,|\.
 RUST_PH = re.compile(r"\{\{|\}\}|\{[^{}]*\}")
 # Messages chosen in a branch: `why = if .. { "..".into() } else ..` and `match side { A => "..", }`.
 RUST_MORE = re.compile(r'"((?:[^"\\]|\\.){12,})"\s*\.into\(\)|=>\s*"((?:[^"\\]|\\.){12,})"')
+# Messages kept as constants: `pub const WHY: &str = "a sentence a person reads";`.
+RUST_CONST = re.compile(r'\bconst\s+[A-Z0-9_]+:\s*&(?:\'static\s+)?str\s*=\s*"((?:[^"\\]|\\.){24,})"')
 
 
 def rust_template(lit):
@@ -54,6 +56,7 @@ def rust_strings():
         text = re.sub(r"#\[cfg\(test\)\]\s*mod tests\s*\{.*", "", text, flags=re.S)
         found = [(m.group(1), 2) for m in RUST_SITES.finditer(text)]
         found += [(m.group(1) or m.group(2), 4) for m in RUST_MORE.finditer(text)]
+        found += [(m.group(1), 6) for m in RUST_CONST.finditer(text)]
         for lit, least in found:
             t = rust_template(lit).strip()
             words = re.findall(r"[A-Za-z]{2,}", t)

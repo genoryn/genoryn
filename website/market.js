@@ -6,6 +6,7 @@
   var sat = function (p) { return GKValue.btc(p); };
   var usd = function (p) { return data.btc > 0 && p != null ? GKValue.usd(p * data.btc / 1e8) : ""; };
   var gnr = function (v) { return GKI18N.num(v / 1e8, { maximumFractionDigits: 8 }); };
+  var gnr2 = function (v) { return GKI18N.num(v / 1e8, { maximumFractionDigits: 2 }); };
   var btc = function (v) { return GKI18N.num(v / 1e8, { minimumFractionDigits: 4, maximumFractionDigits: 8 }); };
   var ago = function (s) { return s >= 3600 ? T("{n} h", { n: Math.floor(s / 3600) }) : T("{n} min", { n: Math.max(1, Math.floor(s / 60)) }); };
   var price = function (o) { return o.sats / (o.gnr / 1e8); };
@@ -55,8 +56,14 @@
     var shown = list.slice(page[kind] * PER, (page[kind] + 1) * PER);
     var g = list.reduce(function (s, o) { return s + o.gnr; }, 0), b = list.reduce(function (s, o) { return s + o.sats; }, 0);
     var on = list.filter(function (o) { return o.online !== false; }).length;
+    // Sell offers: the GNR on offer and its worth at the market price; what is asked for it is
+    // named as such. Buy offers: the bitcoin on deposit.
+    var mp = mprice(), worth = mp ? dollars(g / 1e8 * mp) : "";
+    var sums = kind === "sell"
+      ? gnr2(g) + " GNR" + (worth ? " · <b>≈ " + worth + "</b> " + e(T("at the market price")) : "") + " · " + e(T("asked: {btc} BTC", { btc: btc(b) }))
+      : btc(b) + " BTC" + (dollars(b) ? " · <b>≈ " + dollars(b) + "</b>" : "") + " " + e(T("on deposit")) + " · " + e(T("for {gnr} GNR", { gnr: gnr2(g) }));
     $(kind === "sell" ? "mkSellN" : "mkBuyN").innerHTML = list.length
-      ? e(T("{n} online", { n: on })) + (list.length > on ? " · " + e(T("{n} offline", { n: list.length - on })) : "") + "<br>" + gnr(g) + " GNR · " + btc(b) + " BTC" + (dollars(b) ? " · <b>≈ " + dollars(b) + "</b>" : "")
+      ? e(T("{n} online", { n: on })) + (list.length > on ? " · " + e(T("{n} offline", { n: list.length - on })) : "") + "<br>" + sums
       : e(T("none yet"));
     $(kind === "sell" ? "mkSell" : "mkBuy").innerHTML = shown.length
       ? rows(shown, kind, function (o) { return left(Math.max(0, o.expires - data.now)); })
@@ -96,27 +103,42 @@
     history();
     totals();
   }
-  // What the board holds, in bitcoin and in dollars.
+  // What the board holds. Every offer on it has its coins behind it, so these are sums of
+  // coins that exist. "For sale" is GNR its sellers have proven: the amount, its share of all
+  // GNR issued, and its worth at the market price (what the sellers ask for it is another
+  // figure, and is named as such). "Wanted" is bitcoin the board found at its buyers'
+  // deposits. Swaps running and swaps done are counted by the bitcoin paid in them.
   function totals() {
     if (!$("mktBtc")) return;
     var sum = function (l, k) { return l.reduce(function (a, o) { return a + Number(o[k] || 0); }, 0); };
-    var put = function (id, l, count, none) {
+    var put = function (id, l, none) {
       var s = sum(l, "sats"), g = sum(l, "gnr");
       $(id).textContent = l.length ? (dollars(s) || btc(s) + " BTC") : "—";
-      $(id + "N").textContent = l.length ? gnr(g) + " GNR · " + btc(s) + " BTC · " + count(l.length) : none;
+      $(id + "N").textContent = l.length ? gnr(g) + " GNR · " + btc(s) + " BTC · " + Tn(l.length, "{n} swap", "{n} swaps") : none;
     };
     $("mktBtc").textContent = data.btc > 0 ? GKValue.usd(data.btc) : "—";
     $("mktBtcN").textContent = data.btc > 0 ? T("per bitcoin") : T("the price could not be read");
-    put("mktSell", data.offers.filter(function (o) { return o.side === "sell_gnr"; }), function (n) { return Tn(n, "{n} sell offer", "{n} sell offers"); }, T("no sell offers"));
-    put("mktBuy", data.offers.filter(function (o) { return o.side === "buy_gnr"; }), function (n) { return Tn(n, "{n} buy offer", "{n} buy offers"); }, T("no buy offers"));
+    var sells = data.offers.filter(function (o) { return o.side === "sell_gnr"; }), buys = data.offers.filter(function (o) { return o.side === "buy_gnr"; });
+    var g = data.forSale != null ? data.forSale : sum(sells, "gnr"), asked = sum(sells, "sats"), mp = mprice();
+    $("mktSell").textContent = sells.length ? gnr2(g) + " GNR" : "—";
+    $("mktSellN").textContent = sells.length ? [
+      data.issued > 0 ? T("{pct} % of all GNR issued", { pct: GKI18N.num(g / data.issued * 100, { maximumFractionDigits: 2 }) }) : "",
+      mp ? T("worth {value} at the market price", { value: dollars(g / 1e8 * mp) || btc(g / 1e8 * mp) + " BTC" }) : "",
+      T("its sellers ask {btc} BTC in all", { btc: btc(asked) }),
+      Tn(sells.length, "{n} sell offer", "{n} sell offers")
+    ].filter(Boolean).join(" · ") : T("no sell offers");
+    var w = data.wanted != null ? data.wanted : sum(buys, "sats");
+    $("mktBuy").textContent = buys.length ? btc(w) + " BTC" : "—";
+    $("mktBuyN").textContent = buys.length ? [
+      dollars(w) ? "≈ " + dollars(w) : "",
+      T("on deposit, found on the Bitcoin chain"),
+      T("for {gnr} GNR", { gnr: gnr2(sum(buys, "gnr")) }),
+      Tn(buys.length, "{n} buy offer", "{n} buy offers")
+    ].filter(Boolean).join(" · ") : T("no buy offers");
     var paidNow = data.pending.filter(function (o) { return o.funded; }), waiting = data.pending.length - paidNow.length;
-    var swaps = function (n) { return Tn(n, "{n} swap", "{n} swaps"); };
-    put("mktProg", paidNow, swaps, waiting ? "" : T("none right now"));
+    put("mktProg", paidNow, waiting ? "" : T("none right now"));
     if (waiting) $("mktProgN").textContent += (paidNow.length ? " · " : "") + T("{n} taken, not paid yet", { n: waiting });
-    put("mktDone", data.recent, swaps, T("no swaps yet"));
-    // Bitcoin that buyers have really deposited (found by the board on the Bitcoin chain).
-    var dep = data.offers.filter(function (o) { return o.side === "buy_gnr" && o.deposited; });
-    if (dep.length) $("mktBuyN").textContent += " · " + T("{amount} BTC deposited", { amount: btc(sum(dep, "sats")) });
+    put("mktDone", data.recent, T("no swaps yet"));
     depth();
   }
   // How much can be swapped near the market price: GNR offered and bitcoin bid within 2, 5,
@@ -307,7 +329,7 @@
     if (!p.length) {
       $("qxOut").textContent = "—";
       $("qxOutN").textContent = quickOffers(buy).length ? T("That is less than the smallest part of the offers online (at least 10,000 sat).")
-        : quickAll(buy).length ? T("Every Quick Swap offer online is further from the market price than Quick Swap goes ({pct} %). It can still be taken by hand on the board.", { pct: guardPct() })
+        : quickAll(buy).length ? T("Every Quick Swap offer online is further from the market price than Quick Swap goes ({pct} %). It can still be taken on the board, one offer at a time.", { pct: guardPct() })
         : T("No Quick Swap offer is online on this side right now.");
       return;
     }
@@ -332,7 +354,13 @@
       gk.api("/v1/btc-price").catch(function () { return {}; }),
       gk.api("/v1/info").catch(function () { return null; })
     ]).then(function (r) {
-      data.offers = r[0].offers || []; data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
+      // Only offers with their coins behind them are shown, whatever the board answers: GNR it
+      // has proven, bitcoin it has found (a board from 1.0.56 lists nothing else).
+      data.offers = (r[0].offers || []).filter(function (o) { return o.side === "sell_gnr" ? o.backed : o.deposited; });
+      data.pending = r[0].in_progress || []; data.now = r[0].now || Date.now() / 1000;
+      data.forSale = r[0].for_sale_gnr != null ? Number(r[0].for_sale_gnr) : null;
+      data.wanted = r[0].wanted_sats != null ? Number(r[0].wanted_sats) : null;
+      data.issued = Number(r[0].issued) || 0;
       data.market = r[1].market || {}; data.recent = r[1].recent || []; data.quick = r[1].quick || null;
       data.btc = Number(r[2].USD) || 0;
       render();

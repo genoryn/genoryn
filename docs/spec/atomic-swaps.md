@@ -25,16 +25,16 @@ Both chains lock coins under the same hash lock `h = SHA-256(s)`. In the **GNR-f
 
 | Step | Who | What |
 |---|---|---|
-| 1 | Buyer | Sends a request: amounts, its bitcoin refund key and its GNR claim outputs. |
-| 2 | GNR seller | Answers with `h`, its bitcoin claim key and the GNR lock terms, and **locks the GNR at once** in a lock note: claimable with `s` by the buyer only, refundable to the seller after `T_gnr` (≈ 32 h). |
-| 3 | Buyer | Waits for the lock to confirm: 3 GNR blocks for a payment up to 0.001 BTC, 6 up to 0.01 BTC, 15 up to 0.1 BTC, 30 above (`Timing::gnr_confs_for`), so undoing the lock costs more than the trade. The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet show where to pay. The buyer pays the bitcoin into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
+| 1 | Buyer | Sends a request: amounts, its bitcoin refund key, its GNR claim outputs and (from 1.0.56, always) the proof of where its bitcoin is: an address of its own wallet and that address's signature over the request. |
+| 2 | GNR seller | Looks the buyer's bitcoin up on the Bitcoin chain and goes on only if the swap's amount is there, confirmed and unspent (`Engine::accept_seen`). Answers with `h`, its bitcoin claim key and the GNR lock terms, and **locks the GNR at once** in a lock note: claimable with `s` by the buyer only, refundable to the seller after `T_gnr` (≈ 32 h). |
+| 3 | Buyer | Waits for the lock to confirm: 3 GNR blocks for a payment up to 0.001 BTC, 6 up to 0.01 BTC, 15 up to 0.1 BTC, 30 above (`Timing::gnr_confs_for`), so undoing the lock costs more than the trade. The lock is found only if it holds exactly the agreed amount, pays the buyer's own claim outputs and lasts long enough; only then does the wallet pay, by itself, from its Bitcoin balance or from the deposit of its buy offer (from 1.0.56 nothing is paid by hand). The bitcoin goes into the HTLC (refund after `T_btc`, ≈ 6 h) within 2 hours. |
 | 4 | GNR seller | Waits for the bitcoin to confirm (1 block up to 0.01 BTC, else 2), then **claims the bitcoin** with `s`, at least 6 blocks before `T_btc`. This publishes `s` on Bitcoin. |
 | 5 | Buyer | Its wallet reads `s` from that bitcoin transaction and **claims the GNR**, long before `T_gnr`. |
 
 If anyone stops halfway, the timelocks return the coins:
 
 * **The seller has no GNR, locks less, or never locks:** no confirmed lock matches the terms,
-  so the buyer's wallet never shows where to pay. The buyer pays nothing.
+  so the buyer's wallet never pays. The buyer pays nothing.
 * **The buyer never pays:** the seller refunds the GNR after `T_gnr`.
 * **The seller never claims the bitcoin:** `s` stays secret; the buyer refunds the bitcoin
   after `T_btc` and the seller refunds the GNR after `T_gnr`.
@@ -45,7 +45,9 @@ If anyone stops halfway, the timelocks return the coins:
 * **No swap may last longer than a week:** both wallets refuse longer timelocks.
 
 The free option is now on the buyer's side: a buyer who takes an offer and never pays keeps
-the seller's GNR locked until `T_gnr` (≈ 32 h), but cannot take it.
+the seller's GNR locked until `T_gnr` (≈ 32 h), but cannot take it. From 1.0.56 a seller's
+wallet locks only for a buyer whose bitcoin it has seen, so the option is no longer free of
+bitcoin: see [The market's rules](#the-markets-rules-from-1056).
 
 Swaps started before 1.0.23 used the bitcoin-first flow (the buyer held `s` and paid first);
 they finish as they began. A 1.0.23 wallet answers only GNR-first requests: older wallets
@@ -430,19 +432,19 @@ nobody could buy it then: a swap's lock names the buyer's outputs, which do not 
 there is a buyer. What the chain and the board do guarantee is that an offer whose GNR moved
 is no longer listed.
 
-**Buyers whose bitcoin is ready** (1.0.43). A sell offer can be for prepaid buyers only
-(`MyOffer::prepaid_only`, the default; the board lists `prepaid: true`). A buyer whose
-bitcoin waits at a deposit address puts a proof into its request (`Msg::Request2::prepaid`):
-the address's public key and its signature over the request's id, amounts, refund key and
-Bitcoin network (`engine::prepaid_address`). The seller's wallet looks the address up with
-its own Bitcoin server and locks only if at least the swap's amount is there, confirmed and
-unspent (`deposit_shown`). A buyer could still move that bitcoin afterwards instead of
-paying, but has to hold it for every offer it takes, and an unmodified wallet pays by
-itself. For buyers whose bitcoin the wallet has not seen, it holds at most
-`MAX_UNPAID_LOCKS` (2) unpaid locks at a time and answers further requests with "gone". A
-higher proof of work for takes was considered and left out: requests are sealed, so the
-board cannot weigh them, and a wallet-side rule would shut out older wallets while costing
-an attacker seconds.
+**Buyers whose bitcoin is ready** (1.0.43; the only buyers from 1.0.56). A buyer puts a
+proof into its request (`Msg::Request2::prepaid`): the public key of an address of its own
+wallet and that key's signature over the request's id, amounts, refund key and Bitcoin
+network (`engine::prepaid_address`). The seller's wallet looks the address up with its own
+Bitcoin server and locks only if at least the swap's amount is there, confirmed and unspent
+(`Engine::accept_seen`), and if the board does not count that bitcoin as promised to other
+sellers already (`deposit_promised`). A buyer could still move that bitcoin afterwards
+instead of paying, but has to hold it for every offer it takes, and an unmodified wallet pays
+by itself. Until 1.0.55 a seller could also open an offer to buyers whose bitcoin its wallet
+had not seen (at most `MAX_UNPAID_LOCKS` such locks at a time); that choice is gone, see
+[The market's rules](#the-markets-rules-from-1056). A higher proof of work for takes was
+considered and left out: requests are sealed, so the board cannot weigh them, and a
+wallet-side rule would shut out older wallets while costing an attacker seconds.
 
 **Shorter locks and fewer confirmations** (1.0.43). The buyer waits for confirmations on
 the seller's lock by the size of its own payment: 3 blocks up to 0.001 BTC, 6 up to
@@ -471,11 +473,12 @@ A take of a buy offer that its maker's wallet does not answer ends after ten min
 while the Bitcoin server cannot be reached, and says so on the swaps that wait for it. A
 seller whose bitcoin claim lost to the buyer's refund takes the GNR back at its refund height.
 
-**What this does not solve.** A taker can still take an offer and never pay: the seller's GNR
-then waits in its lock for the refund height. That is the free option every atomic swap gives
-the side that acts second; it costs the seller time, never coins. The board counts such a
-swap as "taken, not paid yet", and as running only once the maker reports that the bitcoin is
-in the contract.
+**What this does not solve.** A taker who has the bitcoin can still take an offer and then
+not pay: the seller's GNR waits in its lock for the refund height. That is the option every
+atomic swap gives the side that acts second; it costs the seller time, never coins, and from
+1.0.56 it costs the taker bitcoin held for every offer taken. The board counts such a swap as
+"taken, not paid yet", and as running only once the maker reports that the bitcoin is in the
+contract.
 
 **Buy offers** cannot put bitcoin into the swap contract when they are published. The
 contract names the seller's claim key and the hash of the seller's secret, and neither exists
@@ -483,9 +486,12 @@ before a seller takes the offer. See the next section for what a buy offer does 
 
 ## Buy offers with the bitcoin deposited (from 1.0.41)
 
-A buyer pays the bitcoin when publishing the offer, to an address of the buyer's own wallet,
-and from then on does nothing: the wallet pays the contract when a seller's GNR is locked,
-and sends the bitcoin back if nobody sells.
+A buy offer's bitcoin is paid when the offer is published, to an address of the buyer's own
+wallet made for that offer, and from then on the buyer does nothing: the wallet pays the
+contract when a seller's GNR is locked, and takes the bitcoin back if nobody sells. From
+1.0.56 that payment comes from the wallet's Bitcoin balance (`fund_from_balance`) and there
+is no buy offer without it; until 1.0.55 the buyer could send it by hand, or publish without
+it and pay later.
 
 **The deposit address** (`krypton_swap::deposit`). A pay-to-witness-public-key-hash address
 whose key derives from the wallet's swap seed and a small number (`deposit::key(seed, n)`,
@@ -502,15 +508,17 @@ offer key, cancel hash, amounts, both networks; `board::sign_funding`). The sign
 that whoever posts the offer controls the address; it fits no other offer.
 
 **What the board does** (`apps/kryptond/src/swapboard.rs`). It checks the signature
-(`board::check_funding`). If it is configured with a Bitcoin server (`KRYPTON_BTC_API`: an
-Esplora URL, or `rpc:` and a Bitcoin Core URL) it looks the address up: confirmed, unspent
+(`board::check_funding`) and looks the address up with its Bitcoin server
+(`KRYPTON_BTC_API`: an Esplora URL, or `rpc:` and a Bitcoin Core URL): confirmed, unspent
 outputs worth at least the offer's bitcoin must be there, or the offer is refused. It then
-lists the offer with `deposited: true`, keeps the address to itself, refuses a second offer
-on the same address, and looks the deposits of open offers up again every five minutes,
-taking the mark off an offer whose bitcoin moved. A board without a Bitcoin server lists the
-offer unmarked. The mark is a statement of the board; a seller who takes a marked offer
-risks what a seller always risks, GNR locked until its refund height if the buyer does not
-pay, never coins.
+lists the offer with `deposited: true`, keeps the address to itself, and refuses a second
+offer on the same address. From 1.0.56 this is the only way a buy offer is listed
+(`Inner::list`): one without `funding` is refused (`board::FUNDING_MISSING`), a lookup that
+fails lists nothing (the wallet tries again), and a board without a Bitcoin server lists no
+buy offers. The deposits of open offers are looked up again in turn, sixty every two
+minutes (`recheck_deposits`); an offer whose bitcoin was clearly not there twice in a row is
+taken down, and its maker's wallet learns that from its next ping. A Bitcoin server that
+does not answer takes nothing down.
 
 **The payment** (`Engine::pay_from_deposit`). A swap that comes from such an offer carries
 the deposit's number (`Swap::fund`). When it reaches the point where a person would be shown
@@ -532,14 +540,15 @@ on the board with the same deposit. A wallet restored from its phrase has no rec
 offers: `POST /api/board/recover-btc` (Swap, Bitcoin connection) looks at its deposit
 addresses and sends what it finds to an address the user gives.
 
-**Taking a sell offer with the bitcoin paid first** (`take_offer`, `advance_takes`). A
-buyer who takes a sell offer can pay in advance in the same way. The wallet then does not
-send its request at once: it waits until the deposit has one confirmation and the offer is
-still listed, proven and its maker online, and only then starts the swap, which pays from
-the deposit by itself. A seller's GNR is therefore locked only for a buyer whose bitcoin is
-ready (an honest wallet's rule; the cost of taking without paying is still open, see issue
-9). If the offer is gone by then, no bitcoin arrives within two hours, or the swap cannot
-start for six, the purchase is called off and what was sent goes back.
+**Taking a sell offer** (`take_offer`, `take_listed`). From 1.0.56 a purchase is paid from
+the wallet's Bitcoin balance (`deposit::BALANCE`, one address from the wallet's seed that the
+user fills once) and from nowhere else. The wallet first checks that the balance holds the
+swap's bitcoin and its fee, confirmed and not owed to another purchase (`short_of`,
+`committed_in`); if not it starts nothing and says how much is missing. The request goes out
+at once and names the balance; the seller's wallet sees the bitcoin there before it locks;
+the buyer's wallet pays the contract from the balance once the lock has confirmed; change and
+any refund come back to the balance. Until 1.0.55 a buyer could also pay to a deposit address
+made for the purchase (`advance_takes` still carries such purchases through) or by hand.
 
 **Limits on fees and inputs.** No transaction of a deposit pays more fee than a tenth of
 what it moves (3,000 sat for small ones), whatever fee rate the Bitcoin server reports, and
@@ -575,6 +584,87 @@ Before each release the whole flow is also run end to end with two desktop walle
 and Bitcoin Core on regtest: listing only after the proof, refusals without one, a wallet
 restored from the same phrase that tries to list the same coins again (refused) and then
 moves them (the board takes the offers down within seconds), and a complete swap.
+
+## The market's rules (from 1.0.56)
+
+Until 1.0.55 two things on the board could stand for coins that were not there: a buy offer
+published without bitcoin, and a take by a buyer who meant to pay by hand, or not at all. The
+first made the board's totals a sum of wishes; the second let anyone tie up a seller's GNR
+for a day at no cost. From 1.0.56 every entry on the board has its coins behind it, and
+nobody buys on a promise. None of this is a rule of the chain: blocks, transactions and
+locks are what they were, and wallets of both kinds meet on the same network.
+
+**One door** (`Inner::list`). A sell offer is listed with the notes its seller proved
+(`board::check_reserve`), a buy offer with the deposit address the board found its bitcoin
+at (`board::check_funding`, then the Bitcoin chain). Nothing else is listed, whoever posts
+it; `Board::expire` drops an offer that is on the board without one. Each note backs one
+offer or one swap in progress, each deposit one offer or one swap.
+
+**What was on the board before.** The board's file carries the rules it was written under
+(`RULES`, now 3). A file from 1.0.55 keeps its sell offers (they were proven) and its buy
+offers with a found deposit; a buy offer with nothing behind it is dropped when the node
+starts. Swaps in progress and sealed messages are not touched: a running swap must not lose
+a code. The dropped offer's wallet learns it from its next ping, ends the offer and says why.
+
+**What a board lists means the same everywhere.** A wallet shows and takes only sell offers
+a board marks `backed` and buy offers it marks `deposited`, from any board
+(`board::list`, `take_listed`); and it never rests on that mark alone. A seller's lock is
+made by `Engine::accept_seen`, which looks the buyer's bitcoin up itself.
+
+**Every sell offer is for buyers whose bitcoin is there.** The board says `prepaid: true` of
+every sell offer, so a wallet before 1.0.56 knows it must pay from a deposit; the seller's
+wallet refuses a request whose bitcoin it cannot see, whatever the request's wallet is.
+
+**The buyer's balance is promised once.** What a purchase taken on the board, or a swap by
+codes, still has to pay is kept aside in the balance (`committed_in`) from the moment the
+request is made until the payment is sent or the swap is over. It cannot buy a second time
+and it cannot be sent out. On the seller's side the board counts what a deposit is promised
+to (`Inner::promise`), so bitcoin shown to two sellers is seen by both.
+
+**Swaps by codes** follow the same rules: the request is made from the balance
+(`request_from_balance`) and the seller's wallet accepts it only when it sees the bitcoin
+(`accept_shown`). Without an offer on a board there is no count of promises, so a buyer could
+show the same bitcoin to two sellers who deal with it directly; each of them then risks what
+a seller always risks, GNR that waits out its lock, never coins.
+
+**Swaps that were running** when a wallet was updated go on as they started: a buyer who was
+shown where to pay still pays there, a purchase that waits for a deposit sent by hand still
+starts when it arrives, and every refund works as before.
+
+**Lookups are rationed.** A new buy offer costs the board one look at the Bitcoin chain. It
+comes after the offer's proof of work and the deposit's signature, and is limited to thirty
+a minute in all and six a minute from one client (`deposit_lookup_allowed`); beyond that the
+wallet is asked to try again. No lookup holds the board's lock.
+
+**The totals** (`GET /v1/swap/offers`: `for_sale_gnr`, `wanted_sats`, `issued`). Sums of
+coins that exist: GNR proven by its sellers, bitcoin found at its buyers' deposits, and the
+GNR issued so far to set the first against. What sellers ask for their GNR is not its worth,
+and the wallet and the site show the two apart.
+
+**What remains.** These are rules of the board and of the wallet, not of the chain. A board
+run by someone else can list what it likes; a wallet shows from it only what that board
+marks as covered, and its own seller's side still looks the bitcoin up. A modified wallet
+can skip its own rules, but it cannot make another wallet lock for bitcoin that is not
+there, and it cannot list on a board that checks.
+
+## A deposit that waits (from 1.0.56)
+
+Bitcoin sent to the wallet's balance counts once it is in a block. A payment whose sender
+paid less than blocks take can wait for hours, and only its sender could change it. The
+wallet says what it knows (`Engine::waiting`): the fee rate the payment pays, the rate the
+next block takes, and within how many blocks its rate is enough by the server's estimates
+(`BtcChain::unconfirmed`, `BtcChain::fee_estimates`: two calls that only read). The bar on
+the page is the time waited against that; with no estimate it does not fill.
+
+**Speeding it up** (`Engine::bump_plan`, `Engine::bump_deposit`). The wallet can pay the
+difference itself: it sends the waiting coins on to the balance's own address at a fee that
+makes the two payments worth a miner's while together (child pays for parent). The new
+payment has one output, the balance's address; `bump_deposit` refuses to send anything else.
+It is offered only for coins that came from outside (the wallet's own payments carry the fee
+chosen for them), only when the waiting payment spends nothing that waits itself, and never
+for more than a twentieth of what it moves. The page shows the exact fee and asks for the
+password, and the wallet pays no more than the fee that was shown. Nothing of this touches
+bitcoin that stands behind an offer or is in a swap: it lives at other addresses.
 
 ## Plan
 

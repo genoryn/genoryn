@@ -1269,3 +1269,47 @@ a.pg-card:hover .pg-go svg { transform: translateX(4px); }
 .dp-bid { fill: var(--text-primary); fill-opacity: .12; stroke: var(--text-primary); stroke-width: 1.5; }
 .dp-ask { fill: var(--text-secondary); fill-opacity: .06; stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 3; }
 .dp-ref { stroke: var(--line-strong); stroke-dasharray: 2 3; }
+
+/* Every width (1.0.56). A figure is never cut to "…": one too long for its tile goes on to a
+   second line, whole. A table of prose becomes a list of small cards on a narrow screen: the
+   cells of a row one under another, each under the name of its column. */
+.hp-break b, .mkt b, .mk-totals .mkt b, .mc-now b, .lp .hs-kpis .stat b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.hp-break b { line-height: 1.35; }
+.gk-card-head h3 { min-width: 0; overflow-wrap: anywhere; }
+/* A pill that says "available" keeps the pill's own look in the light theme (the dark chip
+   that the light theme puts behind status colours made its black text unreadable). */
+[data-theme="light"] .pill.ok { background: transparent; padding: 5px 9px; border-radius: 99px; }
+.step .kv, .value-kv { grid-template-columns: minmax(42%, 1fr) minmax(0, auto); }
+.mc-table th { white-space: nowrap; }
+.hs-foot .btn { white-space: normal; text-align: center; }
+@media (max-width: 760px) {
+  .table-wrap table.data thead { display: none; }
+  .table-wrap table.data, .table-wrap table.data tbody, .table-wrap table.data tr { display: block; width: 100%; }
+  .table-wrap table.data tr { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .table-wrap table.data tr:last-child { border-bottom: 0; }
+  .table-wrap table.data td, .pg-sec .table-wrap table.data td, .lp-cmp table.data td { display: block; width: 100%; border: 0; padding: 0; text-align: left; }
+  .table-wrap table.data td + td { margin-top: 9px; }
+  .table-wrap table.data td::before { content: attr(data-label); display: block; margin-bottom: 2px; font: 500 12px/1.4 var(--font-sans); color: var(--text-tertiary); text-align: left; }
+  .table-wrap table.data td:first-child { color: var(--text-primary); font-weight: 600; }
+  .table-wrap table.data td:first-child::before { content: none; }
+  .table-wrap table.data td:first-child code, .pg-sec table.data td:first-child code { white-space: normal; overflow-wrap: anywhere; }
+  .table-wrap table.data td.num { text-align: left; }
+  .lp-cmp table.data th:last-child, .lp-cmp table.data td:last-child { background: transparent; }
+}
+@media (max-width: 560px) {
+  .step .kv, .value-kv { grid-template-columns: minmax(0, 1fr); }
+  .step .kv > div:nth-child(odd), .value-kv > div:nth-child(odd) { padding-bottom: 0; border-bottom: 0; }
+  .step .kv > div:nth-child(even), .value-kv > div:nth-child(even) { text-align: left; padding-top: 2px; }
+  .gk-card-head { flex-wrap: wrap; }
+  .gk-card-head h3 { flex: 1 1 100%; }
+}
+@media (max-width: 420px) {
+  .row-btns { flex-direction: column; align-items: stretch; }
+  .row-btns .btn, .plan .btn, .cta-band .btn { width: 100%; white-space: normal; text-align: center; justify-content: center; }
+  .btn { padding-inline: 14px; }
+  .row-btns .btn, .hs-foot .btn, .plan .btn, .cta-band .btn { font-size: 13.5px; padding: 10px 12px; }
+  footer .cols > div:first-child { grid-column: 1 / -1; }
+  .foot-author { max-width: none; }
+  .hs-foot .btn { width: 100%; }
+  .mk-totals.glass { grid-template-columns: minmax(0, 1fr); }
+}

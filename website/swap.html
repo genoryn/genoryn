@@ -70,7 +70,7 @@
       <ol class="mk-steps">
         <li><b>Get the wallet</b> from the <a href="/download">download page</a> and keep it running.</li>
         <li>Open <b>Swap</b> to buy or sell in one click, or <b>Market</b> to take an offer from the board or publish your own.</li>
-        <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.</li>
+        <li><b>The seller's GNR is locked first.</b> As soon as you take an offer, the seller's wallet sees your bitcoin in your Bitcoin balance and locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and pays from the balance by itself only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them; and a buyer without bitcoin cannot take an offer, so a seller's GNR is never tied up for nothing.</li>
         <li><b>The wallets finish alone.</b> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 3 hours, the GNR after about 21. No swap lasts longer than a week.</li>
       </ol>
     </div>

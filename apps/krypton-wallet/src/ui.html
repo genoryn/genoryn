@@ -868,6 +868,8 @@ th{font-size:12px;font-weight:500;color:var(--text-tertiary)}
 .bd-bal.short{border-color:var(--status-warning,var(--line-strong))}.bd-bal.short em{color:var(--text-secondary)}
 .bd-baladd{width:100%;margin:8px 0 0;justify-content:center;gap:8px}.bd-baladd .coin{width:16px;height:16px}
 .modal-card .swc-safe{margin:12px 0 0}
+/* The totals of the board: a figure too long for its tile goes on to a second line, whole. */
+.sw-totals .swt b{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
 @media (prefers-reduced-motion:reduce){.btcp-bar i{transition:none}.btcp-bar i::after{display:none}}
 [data-fx="low"] .btcp-bar i::after{display:none}
 @media (prefers-reduced-motion:reduce){.btcp.wait .btcp-bar i{background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px)}}
@@ -1289,7 +1291,7 @@ header.fit4{flex-wrap:wrap;height:auto;min-height:56px;padding-top:8px;padding-b
             <table class="bd-table"><thead><tr><th>Price per GNR</th><th class="r"><svg class="coin coin-gnr coin-sm" aria-hidden="true"><use href="#c-gnr"/></svg>GNR</th><th class="r"><svg class="coin coin-btc coin-sm" aria-hidden="true"><use href="#c-btc"/></svg>BTC</th><th class="r">vs market</th><th class="r">Expires</th><th></th></tr></thead><tbody id="bdRows"></tbody></table>
           </div>
           <div class="pager" id="bdPager"></div>
-          <details class="mk-how"><summary>How the offer board works</summary><p class="hero-note"><b>Every sell offer is proven</b> (✓): its GNR sits in a note of its own, the board has checked a zero-knowledge proof of that, and it takes the offer down the moment that GNR moves. <b>A buy offer with a ✓ has its bitcoin deposited</b>: the board found it on the Bitcoin chain, and the buyer's wallet pays the swap by itself. Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: from completed swaps whose bitcoin the board found on the Bitcoin chain (the last 24 hours when the market is busy, otherwise up to 30 days). It is their weighted median: half of that bitcoin changed hands below it, half above, no single swap counts for more than a fifth, and it moves at most 10 % an hour. Its confidence (0 to 100) says how much bitcoin and how many swaps are behind it. Offers and swaps in progress never move it, so offer at any price you like.</p></details>
+          <details class="mk-how"><summary>How the offer board works</summary><p class="hero-note"><b>Every sell offer is proven</b> (✓): its GNR sits in a note of its own, the board has checked a zero-knowledge proof of that, and it takes the offer down the moment that GNR moves. <b>Every buy offer has its bitcoin deposited</b> (✓): the board found it on the Bitcoin chain, takes the offer down if it leaves, and the buyer's wallet pays the swap by itself. <b>Buying is paid from your Bitcoin balance</b>, and from nowhere else: a seller's wallet locks its GNR only for bitcoin it can see, so nobody takes an offer on a promise to pay later. Offers are anonymous: each has its own one-time post-quantum key, never your address. Taking an <b>online</b> offer (green dot) starts the swap within seconds, with no approval: the maker's wallet answers by itself. The two wallets pass the codes through the board, sealed so the board cannot read them. <b>Market price</b>: from completed swaps whose bitcoin the board found on the Bitcoin chain (the last 24 hours when the market is busy, otherwise up to 30 days). It is their weighted median: half of that bitcoin changed hands below it, half above, no single swap counts for more than a fifth, and it moves at most 10 % an hour. Its confidence (0 to 100) says how much bitcoin and how many swaps are behind it. Offers and swaps in progress never move it, so offer at any price you like.</p></details>
         </section>
         <aside class="bd-side">
           <section class="glass card bd-cta"><h2><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg>Publish an offer</h2>
@@ -2725,23 +2727,31 @@ async function loadBoard(){
     <p class="swc-status">${esc(TR(o.status)||'')}</p>
     ${o.waiting?`<div class="swc-acts">${o.fund?`<button class="btn btn-primary" onclick="showTakeId(${jsq(o.id)})">${TE("Deposit address")}</button>`:''}<button class="btn" onclick="boardUntake(${jsq(o.id)},${o.fund?1:0})">${TE("Call off")}</button><span class="muted">${o.fund?TE("The swap starts by itself once the bitcoin has one confirmation."):TE("Nothing is locked or paid yet.")}</span></div>`:''}</div>`).join('');
 }
-/* What the board holds, in bitcoin and in dollars: offers on each side, swaps running, swaps done. */
+/* What the board holds. Every offer on it has its coins behind it, so these are sums of coins
+   that exist. "For sale" is GNR its sellers have proven: the amount, its share of all GNR
+   issued, and its worth at the market price (what the sellers ask for it is another figure,
+   and is named as such). "Wanted" is bitcoin the board found at its buyers' deposits. Swaps
+   running and swaps done are counted by the bitcoin paid in them. */
 function swTotals(){
-  const u=btcUsd(), all=BD.offers||[], sum=(l,k)=>l.reduce((a,o)=>a+Number(o[k]||0),0);
+  const u=btcUsd(), all=BD.offers||[], sum=(l,k)=>l.reduce((a,o)=>a+Number(o[k]||0),0), mp=bdMkt().price;
   const money=s=>u?GKValue.usd(s*u/1e8):btcFmt(s/1e8)+' BTC';
-  const put=(id,l,word,none)=>{ const s=sum(l,'sats'), g=sum(l,'gnr'); $(id).textContent=l.length?money(s):'-';
-    $(id+'N').textContent=l.length?gnrShort(g)+' GNR · '+btcFmt(s/1e8)+' BTC · '+(word==='sell offer'?Tn(l.length, "{n} sell offer", "{n} sell offers", {n: l.length}):word==='buy offer'?Tn(l.length, "{n} buy offer", "{n} buy offers", {n: l.length}):Tn(l.length, "{n} swap", "{n} swaps", {n: l.length})):none; };
+  const put=(id,l,none)=>{ const s=sum(l,'sats'), g=sum(l,'gnr'); $(id).textContent=l.length?money(s):'-';
+    $(id+'N').textContent=l.length?gnrShort(g)+' GNR · '+btcFmt(s/1e8)+' BTC · '+Tn(l.length, "{n} swap", "{n} swaps", {n: l.length}):none; };
   $('swtBtc').textContent=u?GKValue.usd(u):'-'; $('swtBtcN').textContent=u?T("per bitcoin"):T("the price could not be read");
-  put('swtSell', all.filter(o=>o.side==='sell_gnr'), 'sell offer', T("no sell offers"));
-  put('swtBuy', all.filter(o=>o.side==='buy_gnr'), 'buy offer', T("no buy offers"));
+  const sells=all.filter(o=>o.side==='sell_gnr'), buys=all.filter(o=>o.side==='buy_gnr');
+  const g=BD.for_sale_gnr!=null?Number(BD.for_sale_gnr):sum(sells,'gnr'), asked=sum(sells,'sats'), issued=Number(BD.issued)||0;
+  $('swtSell').textContent=sells.length?GKI18N.num(g/1e8, {maximumFractionDigits: 2})+' GNR':'-'; $('swtSell').title=sells.length?gnrShort(g)+' GNR':'';
+  $('swtSellN').textContent=sells.length?[issued>0?T("{pct} % of all GNR issued", {pct: GKI18N.num(g/issued*100, {maximumFractionDigits: 2})}):'',
+    mp?T("worth {value} at the market price", {value: money(g/1e8*mp)}):'',
+    T("its sellers ask {btc} BTC in all", {btc: btcFmt(asked/1e8)}), Tn(sells.length, "{n} sell offer", "{n} sell offers", {n: sells.length})].filter(Boolean).join(' · '):T("no sell offers");
+  const w=BD.wanted_sats!=null?Number(BD.wanted_sats):sum(buys,'sats');
+  $('swtBuy').textContent=buys.length?btcFmt(w/1e8)+' BTC':'-';
+  $('swtBuyN').textContent=buys.length?[u?'≈ '+GKValue.usd(w*u/1e8):'', T("on deposit, found on the Bitcoin chain"), T("for {gnr} GNR", {gnr: gnrShort(sum(buys,'gnr'))}), Tn(buys.length, "{n} buy offer", "{n} buy offers", {n: buys.length})].filter(Boolean).join(' · '):T("no buy offers");
   const ip=BD.in_progress||[], paid=ip.filter(o=>o.funded), wait=ip.length-paid.length;
-  put('swtProg', paid, 'swap', wait?'':T("none right now"));
+  put('swtProg', paid, wait?'':T("none right now"));
   if(wait) $('swtProgN').textContent+=(paid.length?' · ':'')+T("{n} taken, not paid yet", {n: wait});
-  put('swtDone', (BD.market&&BD.market.recent)||[], 'swap', T("no swaps yet"));
-  // Bitcoin buyers have really deposited (the board found it on the Bitcoin chain).
-  const dep=all.filter(o=>o.side==='buy_gnr'&&o.deposited), ds=sum(dep,'sats');
-  if(dep.length) $('swtBuyN').textContent+=' · '+T("{amount} BTC deposited", {amount: btcFmt(ds/1e8)});
-  $('swtDepth').innerHTML=bdDepth(all.filter(o=>o.online!==false), bdMkt().price);
+  put('swtDone', (BD.market&&BD.market.recent)||[], T("no swaps yet"));
+  $('swtDepth').innerHTML=bdDepth(all.filter(o=>o.online!==false), mp);
 }
 /* How much can be swapped near the market price: GNR offered within 2, 5, 10 and 20 % of
    it, and bitcoin bid within the same (the depth that trackers use to judge a market). */
@@ -3127,7 +3137,7 @@ async function btcLoad(force){ if(!force&&Date.now()-QS.balAt<15000) return; QS.
   QS.bal=b; const u=Number(b.btc_usd)||btcUsd();
   $('btcNet').textContent=b.network==='main'?'Bitcoin':b.network;
   $('btcBal').textContent=btcFmt(b.total/1e8)+' BTC';
-  $('btcBalSub').textContent=(u?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)})+' · ':'')+(b.committed?T("{amount} BTC promised to running Quick Swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy"):T("add bitcoin to buy in one click"));
+  $('btcBalSub').textContent=(u?'≈ '+GKValue.usd(b.total/1e8*u)+' · ':'')+(b.pending?T("{amount} BTC confirming", {amount: btcFmt(b.pending/1e8)})+' · ':'')+(b.committed?T("{amount} BTC promised to running swaps", {amount: btcFmt(b.committed/1e8)}):b.total?T("ready to buy"):T("add bitcoin to buy in one click"));
   if(QS.q) qsShow(); renderTradeBars(); btcProgress(); if(tabOn('publish')) bdBalSet(); }
 /* The balances at the top of every Trade page and on the Wallet tab: GNR that can be traded
    (spendable) and the Bitcoin balance, each with its coin and its dollar value. */
@@ -3141,7 +3151,7 @@ function renderTradeBars(){ const u=btcUsd(), b=QS.bal, sp=Number((S.balance||{}
    time such a fee usually takes; it is full only once the block is there. A payment whose
    fee is below everything blocks take has no estimate, and the bar says so by not filling. */
 const BTCP={was:false, done:0};
-const BUMP_WHY={parents:TE("It cannot be sped up from here: the payment it spends is not in a block either."), unknown:TE("It cannot be sped up from here: the Bitcoin server does not say what this payment pays."), server:TE("The Bitcoin server did not answer about speeding it up; the wallet asks again."), costly:TE("Speeding it up would cost more than a twentieth of the deposit, so the wallet does not offer it."), committed:TE("It cannot be sped up while running Quick Swaps count on this bitcoin.")};
+const BUMP_WHY={parents:TE("It cannot be sped up from here: the payment it spends is not in a block either."), unknown:TE("It cannot be sped up from here: the Bitcoin server does not say what this payment pays."), server:TE("The Bitcoin server did not answer about speeding it up; the wallet asks again."), costly:TE("Speeding it up would cost more than a twentieth of the deposit, so the wallet does not offer it."), committed:TE("It cannot be sped up while running swaps count on this bitcoin.")};
 const satvb=r=>{ r=Number(r); return (r>=10?r.toFixed(0):r.toFixed(r>=1?1:2)).replace(/\.0+$/,''); };
 function btcProgress(){ const boxes=document.querySelectorAll('[data-btcp]'), b=QS.bal; if(!boxes.length) return;
   const pend=!!b&&Number(b.pending)>0, t=Date.now();
@@ -3200,7 +3210,7 @@ async function btcAdd(){ let b=QS.bal; if(!b){ await btcLoad(true); b=QS.bal; } 
 let BTC_SENDING=false;
 async function btcSend(){ const b=QS.bal; if(!b||!b.total) return toast(T("There is no bitcoin in the balance"),true); if(BTC_SENDING) return;
   const okS=await ask({title:T("Send bitcoin out of the balance"), icon:'swap', ok:T("Continue"),
-    body:`<p class="mtext">${b.committed?TE("{amount} BTC can be sent ({held} BTC stays for running Quick Swaps). The network fee comes out of it.", {amount: btcFmt(b.free/1e8), held: btcFmt(b.committed/1e8)}):TE("{amount} BTC can be sent. The network fee comes out of it.", {amount: btcFmt(b.free/1e8)})}</p><label for="btcTo">${TE("To this Bitcoin address")}</label><input id="btcTo" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"><label for="btcAmt">${TE("Amount (BTC), or max")}</label><input id="btcAmt" class="mono" value="max" autocomplete="off">`});
+    body:`<p class="mtext">${b.committed?TE("{amount} BTC can be sent ({held} BTC stays for running swaps). The network fee comes out of it.", {amount: btcFmt(b.free/1e8), held: btcFmt(b.committed/1e8)}):TE("{amount} BTC can be sent. The network fee comes out of it.", {amount: btcFmt(b.free/1e8)})}</p><label for="btcTo">${TE("To this Bitcoin address")}</label><input id="btcTo" class="mono" placeholder="bc1q…" spellcheck="false" autocomplete="off"><label for="btcAmt">${TE("Amount (BTC), or max")}</label><input id="btcAmt" class="mono" value="max" autocomplete="off">`});
   const addr=(($('btcTo')||{}).value||'').trim(), amt=(($('btcAmt')||{}).value||'max').trim(); if(!okS) return; if(!addr) return toast(T("Enter the Bitcoin address"),true);
   // Checked first (address, network, amount, fee), then confirmed with everything it does.
   let pv; try{ pv=await api('/api/btc/send',{address:addr, amount:amt, preview:true}); }catch(e){ return toast(e.message,true); }

@@ -25,7 +25,7 @@
  "6377a06e81": "Yes, exactly like GNR: the token, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of tokens will be public.",
  "377ed0c796": "No. No issuer will be able to take tokens, see balances or freeze a single holder; anything an issuer may do will be declared before the token exists.",
  "c914a0c430": "No. Keep your wallet up to date; its Tokens tab turns on by itself when tokens are activated.",
- "32c7e48599": "Genoryn Krypton 1.0.56: A wallet that fits every window, Max when sending, and a bitcoin deposit you can watch arrive",
+ "bb46f586f7": "Genoryn Krypton 1.0.56: A strict market: every offer has its coins behind it, and nobody buys on a promise",
  "6b654526e0": "Genoryn Krypton 1.0.55: A new design, a trade history that shows verified swaps first, and a new Genoryn Talks",
  "3fa8d0b2f5": "Genoryn Krypton 1.0.54: Swap refunds that do not get stuck, and bitcoin paid twice comes back",
  "4662007ace": "Genoryn Krypton 1.0.53: Light wallets that check every block, a sturdier market price, trade history and Tor",

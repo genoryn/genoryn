@@ -301,17 +301,6 @@ const WAIT_NOTE_SECS: u64 = 60;
 type WaitNote = (u64, Vec<krypton_swap::bitcoin::OutPoint>, Value);
 static WAIT_NOTE: std::sync::Mutex<Option<WaitNote>> = std::sync::Mutex::new(None);
 
-/// Why speeding up is not offered, as a word the page has a sentence for.
-fn bump_code(why: &str) -> &'static str {
-    match why {
-        engine::BUMP_NONE => "none",
-        engine::BUMP_ENOUGH => "enough",
-        engine::BUMP_PARENTS => "parents",
-        engine::BUMP_COSTLY => "costly",
-        _ => "unknown",
-    }
-}
-
 /// The plan to speed up the waiting bitcoin of the balance, with the one check the engine
 /// cannot make: what running Quick Swaps still pay must stay whole after the fee.
 fn bump_for(
@@ -321,7 +310,7 @@ fn bump_for(
     Ok(match e.bump_plan(deposit::BALANCE)? {
         Ok(p) if b.total.saturating_sub(p.fee) < b.committed => Err("committed"),
         Ok(p) => Ok(p),
-        Err(why) => Err(bump_code(why)),
+        Err(why) => Err(why),
     })
 }
 
@@ -1303,7 +1292,7 @@ pub async fn btc_speedup(
                     bail!("the payment before it is not in a block either; a higher fee here would not be enough")
                 }
                 Err("costly") => bail!("it would cost more than a twentieth of the deposit"),
-                Err("committed") => bail!("running Quick Swaps still pay from this bitcoin"),
+                Err("committed") => bail!("running swaps still have to pay from this bitcoin"),
                 Err(_) => bail!("the Bitcoin server does not say what this payment pays"),
             };
             let out = json!({
@@ -1393,7 +1382,7 @@ pub async fn btc_send(
                 ensure!(amount >= 1_000, "send at least 0.00001 BTC");
                 ensure!(
                     amount + fee <= free,
-                    "the balance has {} BTC free (running Quick Swaps still pay {} BTC)",
+                    "the balance has {} BTC free (running swaps still have to pay {} BTC)",
                     btc_text(free),
                     btc_text(b.committed)
                 );
@@ -1425,7 +1414,7 @@ pub async fn btc_send(
                 ensure!(amount >= 1_000, "send at least 0.00001 BTC");
                 ensure!(
                     amount + btc_fee(e) <= free,
-                    "the balance has {} BTC free (running Quick Swaps still pay {} BTC)",
+                    "the balance has {} BTC free (running swaps still have to pay {} BTC)",
                     btc_text(free),
                     btc_text(b.committed)
                 );

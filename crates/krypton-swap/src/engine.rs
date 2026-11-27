@@ -558,13 +558,15 @@ pub struct Bump {
 /// What a seller's wallet says to a request that names no bitcoin.
 pub const NOT_SHOWN: &str = "this request does not say where its bitcoin is. A swap starts only when your wallet can see the buyer's bitcoin: ask the buyer to update the wallet (1.0.56 or newer) and to make the request again, from its Bitcoin balance. Nothing was locked";
 
-/// Why speeding up is not offered.
-pub const BUMP_NONE: &str = "Nothing that came from outside is waiting for a block.";
-pub const BUMP_ENOUGH: &str = "It already pays enough for the next blocks.";
-pub const BUMP_UNKNOWN: &str = "The Bitcoin server does not say what this payment pays.";
-pub const BUMP_PARENTS: &str =
-    "The payment it spends is not in a block either, so a higher fee here would not be enough.";
-pub const BUMP_COSTLY: &str = "It would cost more than a twentieth of the deposit.";
+/// Why speeding up is not offered, as a word (the wallet's page has the sentences): nothing
+/// that came from outside waits; it already pays enough for the next blocks; the Bitcoin
+/// server does not say what the payment pays; the payment it spends waits too, so a higher
+/// fee here would not be enough; it would cost more than [`BUMP_FEE_SHARE`] allows.
+pub const BUMP_NONE: &str = "none";
+pub const BUMP_ENOUGH: &str = "enough";
+pub const BUMP_UNKNOWN: &str = "unknown";
+pub const BUMP_PARENTS: &str = "parents";
+pub const BUMP_COSTLY: &str = "costly";
 /// Speeding up never costs more than this share of what it moves (a twentieth).
 pub const BUMP_FEE_SHARE: u64 = 20;
 /// The most waiting payments looked up for one address.
@@ -1714,14 +1716,14 @@ impl<G: ChainSource> Engine<'_, G> {
         let mut seen = std::collections::HashSet::new();
         let (mut rate, mut known, mut together) = (None::<f64>, true, false);
         let mut since = None::<u64>;
+        // The largest coins first: what they wait for is what matters. Small coins of
+        // further payments (anyone can send dust to an address) are not asked about.
         for c in &coins {
-            if !seen.insert(c.outpoint.txid) {
+            if !seen.insert(c.outpoint.txid) || seen.len() > MAX_BUMP_PARENTS {
                 continue;
             }
-            let u = match (seen.len() <= MAX_BUMP_PARENTS)
-                .then(|| self.btc.unconfirmed(&c.outpoint.txid))
-            {
-                Some(Ok(Some(u))) => u,
+            let u = match self.btc.unconfirmed(&c.outpoint.txid) {
+                Ok(Some(u)) => u,
                 _ => {
                     known = false;
                     continue;
@@ -1800,42 +1802,61 @@ impl<G: ChainSource> Engine<'_, G> {
         let own = spent_coins(self.wallet);
         let mut coins = Vec::new();
         let (mut fees, mut vsizes, mut slowest) = (0u64, 0u64, f64::MAX);
-        let mut seen = std::collections::HashSet::new();
+        // What each waiting payment is good for: `None`, its coins are sent on; else why
+        // not. The largest coins come first, and at most `MAX_BUMP_PARENTS` payments are
+        // carried: a payment that cannot be sped up (or dust someone sent to stand in the
+        // way) is left to wait and does not stop the others.
+        let mut verdict: std::collections::HashMap<Txid, Option<&'static str>> =
+            std::collections::HashMap::new();
+        let (mut taken, mut why_not) = (0usize, None::<&'static str>);
         for c in self.checked_coins(n)? {
             if c.height.is_some() {
                 continue;
             }
-            if let Some(tx) = self.btc.tx(&c.outpoint.txid)?
-                && tx
-                    .input
-                    .iter()
-                    .any(|i| own.contains(&i.previous_output.to_string()))
-            {
-                continue;
+            let id = c.outpoint.txid;
+            let v = match verdict.get(&id) {
+                Some(v) => *v,
+                None => {
+                    if let Some(tx) = self.btc.tx(&id)?
+                        && tx
+                            .input
+                            .iter()
+                            .any(|i| own.contains(&i.previous_output.to_string()))
+                    {
+                        // The wallet's own payment: it carries the fee chosen for it.
+                        continue;
+                    }
+                    let v = if taken >= MAX_BUMP_PARENTS || verdict.len() >= 2 * MAX_BUMP_PARENTS {
+                        Some(BUMP_UNKNOWN)
+                    } else {
+                        match self.btc.unconfirmed(&id)? {
+                            None => Some(BUMP_UNKNOWN),
+                            Some(u) if !u.parents_confirmed => Some(BUMP_PARENTS),
+                            // No payment a node relays is larger than this; a server
+                            // that says so is not believed.
+                            Some(u) if u.vsize == 0 || u.vsize > 100_000 => Some(BUMP_UNKNOWN),
+                            Some(u) => {
+                                fees = fees.saturating_add(u.fee);
+                                vsizes = vsizes.saturating_add(u.vsize);
+                                slowest = slowest.min(u.rate());
+                                taken += 1;
+                                None
+                            }
+                        }
+                    };
+                    verdict.insert(id, v);
+                    v
+                }
+            };
+            match v {
+                None => coins.push(c),
+                Some(why) => {
+                    why_not.get_or_insert(why);
+                }
             }
-            if seen.insert(c.outpoint.txid) {
-                if seen.len() > MAX_BUMP_PARENTS {
-                    return Ok(Err(BUMP_UNKNOWN));
-                }
-                let Some(u) = self.btc.unconfirmed(&c.outpoint.txid)? else {
-                    return Ok(Err(BUMP_UNKNOWN));
-                };
-                if !u.parents_confirmed {
-                    return Ok(Err(BUMP_PARENTS));
-                }
-                // No payment a node relays is larger than this; a server that says so
-                // is not believed.
-                if u.vsize == 0 || u.vsize > 100_000 {
-                    return Ok(Err(BUMP_UNKNOWN));
-                }
-                fees = fees.saturating_add(u.fee);
-                vsizes = vsizes.saturating_add(u.vsize);
-                slowest = slowest.min(u.rate());
-            }
-            coins.push(c);
         }
         if coins.is_empty() {
-            return Ok(Err(BUMP_NONE));
+            return Ok(Err(why_not.unwrap_or(BUMP_NONE)));
         }
         let next = match self.btc.fee_estimates()?.first() {
             Some(e) => e.1,
@@ -2081,12 +2102,22 @@ impl<G: ChainSource> Engine<'_, G> {
                 s.pay_by = Some(now() + t.pay_window_secs);
                 s.stage = Stage::AwaitDeposit;
                 let addr = s.htlc_address()?;
-                s.say(format!(
-                    "{} GNR are locked for you (block {h}, {confs} confirmations). Pay exactly {} BTC to {addr} within {} minutes.",
-                    krypton_core::emission::format_amount(s.gnr - s.claim_fee),
-                    Amount::from_sat(s.sats).to_btc(),
-                    t.pay_window_secs / 60
-                ));
+                if s.fund.is_some() {
+                    // Paid from the wallet's own bitcoin in the next step: nobody is asked
+                    // to send anything.
+                    s.say(format!(
+                        "{} GNR are locked for you (block {h}, {confs} confirmations). Your wallet pays {} BTC into the swap's contract by itself.",
+                        krypton_core::emission::format_amount(s.gnr - s.claim_fee),
+                        Amount::from_sat(s.sats).to_btc()
+                    ));
+                } else {
+                    s.say(format!(
+                        "{} GNR are locked for you (block {h}, {confs} confirmations). Pay exactly {} BTC to {addr} within {} minutes.",
+                        krypton_core::emission::format_amount(s.gnr - s.claim_fee),
+                        Amount::from_sat(s.sats).to_btc(),
+                        t.pay_window_secs / 60
+                    ));
+                }
             }
             Stage::AwaitDeposit => {
                 let addr = s.htlc_address()?;

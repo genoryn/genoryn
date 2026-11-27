@@ -39,7 +39,7 @@
  "f86fec75f9": "How a swap works",
  "d91435d2a4": "<0>Get the wallet</0> from the <1>download page</1> and keep it running.",
  "fef272ca89": "Open <0>Swap</0> to buy or sell in one click, or <1>Market</1> to take an offer from the board or publish your own.",
- "38e883afdd": "<0>The seller's GNR is locked first.</0> As soon as you take an offer, the seller's wallet locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and shows where to pay only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them.",
+ "5aa87d71de": "<0>The seller's GNR is locked first.</0> As soon as you take an offer, the seller's wallet sees your bitcoin in your Bitcoin balance and locks the GNR on chain, payable only to you. Your wallet checks that lock (exactly the agreed amount, only you can claim it) and pays from the balance by itself only after it has confirmed. A seller who does not have the GNR cannot lock it, so you never pay them; and a buyer without bitcoin cannot take an offer, so a seller's GNR is never tied up for nothing.",
  "903110ef4f": "<0>The wallets finish alone.</0> The seller takes your bitcoin with its secret; your wallet reads that secret from the bitcoin transaction and claims the GNR. If anyone stops, timeouts refund both: the bitcoin after about 3 hours, the GNR after about 21. No swap lasts longer than a week.",
  "4c5c485f7d": "The price, the order book and every completed swap",
  "fc0c8452cb": "See the live sell and buy offers, the price history, and each swap as the blockchain proves it.",

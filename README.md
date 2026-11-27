@@ -235,9 +235,9 @@ in its own window. Keys, scanning and proving never leave your computer.
 
 | Tab | What it does |
 |---|---|
-| **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it (a deposit on its way shows a bar until its first block), **Receive** (QR code, short form, full address, *Publish short form*), **Send privately** (full or short address, amount or **Max**, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
+| **Wallet** | Balance (spendable, incoming, maturing rewards, optional market value) with the **Bitcoin balance** for swaps beside it (a deposit on its way says why it waits, with a bar until its first block and a way to speed it up), **Receive** (QR code, short form, full address, *Publish short form*), **Send privately** (full or short address, amount or **Max**, memo, market fee), several wallets with one total, and an overview of the network with live charts and the latest blocks |
 | **History** | Paged (15 to 100 per page), filters for received, sent, mining and pending, search by memo, txid, address or block, totals, a **Proof** button for every send, and **View ↗** / **Block ↗** to open a payment's transaction or block on the genoryn.io explorer. A table in a wide window, a list in a narrow one |
-| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: buy, sell, in progress, yours), **Publish an offer** (1 hour to 1 year), **Your swaps** with their progress, and **Trade history** (every completed swap, in figures and charts: verified swaps first, the ones whose bitcoin the board found on the Bitcoin chain, with every other report one switch away). Offers can be paid from and paid into the wallet's own Bitcoin balance, so buying and selling needs no transfer each time |
+| **Trade** | One group with the GNR and Bitcoin balances on top of every page: **Swap** (Quick Swap: buy or sell any amount in one click), **Market** (the price, the offer board: buy, sell, in progress, yours), **Publish an offer** (1 hour to 1 year), **Your swaps** with their progress, and **Trade history** (every completed swap, in figures and charts: verified swaps first, the ones whose bitcoin the board found on the Bitcoin chain, with every other report one switch away). Buying is paid from the wallet's own Bitcoin balance and selling can be paid into it, so trading needs no transfer each time and nothing is paid by hand |
 | **Tokens** | Quantum tokens: planned for a future release (the tab explains them and turns on by itself once the network activates them) |
 | **Mining** | Automatic, NVIDIA (CUDA), AMD / Intel (OpenCL) or CPU with a CPU cap; hashrate, share of the network, expected GNR per day, shares, accruing rewards, payouts, the miner's error if it stops, and the mining and price calculator |
 | **Network** | Charts of hashrate, supply, difficulty, issuance, block time, shares and transactions per block (1 hour to all time), block finders, peers, and the connection mode |
@@ -543,21 +543,24 @@ and if nobody does, both refund. Since 1.0.23 **the GNR is locked first**:
 1. **Agree.** A buyer takes a sell offer, or a seller takes a buy offer. The wallets exchange
    the swap codes as sealed messages that the board relays from wallet to wallet, by themselves,
    within seconds. No e-mail is involved: the board is part of every node.
-2. **The seller locks the GNR.** The seller's wallet holds the secret and locks exactly the
-   agreed GNR on chain, payable only to the buyer with that secret, or back to the seller after
-   the GNR timelock.
+2. **The seller locks the GNR.** The seller's wallet first looks the buyer's bitcoin up on the
+   Bitcoin chain, in the buyer's own wallet, and goes on only if it is there. It holds the
+   secret and locks exactly the agreed GNR on chain, payable only to the buyer with that
+   secret, or back to the seller after the GNR timelock.
 3. **The buyer checks and pays.** The buyer's wallet waits until the lock has confirmed and is
-   exactly the agreed amount, claimable only by the buyer. Only then does it show where to pay
-   (amount, address, QR code). The buyer pays within 2 hours into a bitcoin contract with the
-   same hash lock.
+   exactly the agreed amount, claimable only by the buyer. Only then does it pay, by itself,
+   from its Bitcoin balance, into a bitcoin contract with the same hash lock. Nothing is paid
+   by hand.
 4. **The seller takes the bitcoin** with the secret, well before the bitcoin timelock. That claim
    reveals the secret on the Bitcoin chain.
 5. **The buyer takes the GNR** with the secret read from the seller's bitcoin claim.
 
 Nobody can sell GNR they do not have: a sell offer is listed only after the board has checked
 a proof that its GNR is there (see [the offer board](#the-offer-board)), and a seller cannot
-lock what it does not have. The seller cannot take the bitcoin without releasing the GNR to
-the buyer.
+lock what it does not have. Nobody can buy with bitcoin they do not have: buying is paid from
+the wallet's Bitcoin balance and from nowhere else, a buy offer is listed only once the board
+has found its bitcoin on the Bitcoin chain, and a seller's wallet locks only for bitcoin it
+has seen itself. The seller cannot take the bitcoin without releasing the GNR to the buyer.
 
 | Mainnet timing | Value |
 |---|---|
@@ -588,10 +591,11 @@ two wallets of a swap; it never sees keys, codes or coins.
 | Proof of work | 18 bits per offer, message and report; offers longer than a day need one bit more per doubling (21 for a week, 23 for a month, 27 for a year: seconds on a modern CPU) |
 | Proof of funds | A sell offer is listed only after its GNR is set aside in a note of its own and the board has checked a zero-knowledge proof that the seller can spend it. The proof fits that offer only and can never be mined: nothing moves. The board takes the offer down the moment the note is spent, and no note backs two offers, or an offer and a swap in progress |
 | While it is open | The note cannot be sent or put into another offer; a take locks exactly it |
-| Buyers whose bitcoin is ready | A sell offer is by default only for buyers whose bitcoin is already at an address of their own wallet: the seller's wallet checks that on the Bitcoin chain before it locks GNR, and the buyer's wallet pays by itself. For other buyers a wallet holds at most two unpaid locks at a time |
+| Every offer has its coins | From 1.0.56 the board lists a sell offer only with proven GNR and a buy offer only with bitcoin it has found at the buyer's deposit. Its totals are therefore sums of coins that exist: "For sale" is GNR (with its share of all GNR issued and its worth at the market price), "Wanted" is bitcoin on deposit |
+| Buyers have their bitcoin | Every sell offer is for buyers whose bitcoin is already in their own wallet: the seller's wallet finds it on the Bitcoin chain before it locks GNR, the board counts what it is promised to, and the buyer's wallet pays by itself. Nobody takes an offer on a promise to pay later, and nothing is paid by hand |
 | One wallet, several computers | Each copy reports its swaps, encrypted, as sealed messages on the board that only copies of that wallet can read; another computer shows them and can carry one on if the first is gone |
 | A week's commitment | Publishing a sell offer commits its GNR for 7 days: it can be sold or go into another sell offer at once, but not be sent, also after cancelling or after the offer ran its time. A rule of the wallet; the chain cannot tell a real sale from a seller selling to themselves |
-| Buy offers | The bitcoin is paid in advance to an address of the buyer's own wallet (a contract cannot hold it before a seller exists: it names the seller's key and the hash of the seller's secret). The board checks on the Bitcoin chain that it is there and marks the offer. When a seller's GNR is locked and confirmed, the buyer's wallet pays the contract by itself; if nobody sells, it sends the bitcoin back |
+| Buy offers | The bitcoin is paid when the offer is published, from the wallet's Bitcoin balance to an address made for the offer, also the buyer's own (a contract cannot hold it before a seller exists: it names the seller's key and the hash of the seller's secret). The board lists the offer only once it has found the bitcoin there, confirmed, and takes it down if the bitcoin leaves. When a seller's GNR is locked and confirmed, the buyer's wallet pays the contract by itself; if nobody sells, the bitcoin goes back to the balance |
 | One wallet, two computers | Offers and swaps live in the wallet that started them. A second copy of the wallet shows the GNR as locked in a swap elsewhere and takes it back 30 blocks after its lock ends if the first copy is gone |
 | Online | The maker's wallet pings every 45 s; seen in the last 2 minutes = green dot, takeable, swap starts within seconds without approval |
 | Offline | Stays listed, greyed out, not takeable; removed after a week offline (the wallet then frees the GNR) |
@@ -610,7 +614,7 @@ and swaps exactly that amount.
 | Parts | Up to 3 offers at once, best price first, each part its own atomic swap with its own contract. The seller's GNR is locked on chain before any bitcoin moves, as in every swap |
 | Which offers | Quick Swap offers whose makers are online, with their GNR proven (sell) or their bitcoin found deposited (buy) |
 | Price | A part costs its offer's price, rounded in the maker's favour to the sat. A part that does not start (taken by someone else a moment earlier, maker gone silent for 2 minutes) is replaced, never at more than 1 % above the worst price you were shown (or below it, when selling) |
-| Bitcoin balance | An address of the wallet's own, from the 24 words. Buying pays from it at once, once it has one confirmation; selling is paid into it; it can be sent out at any time, except what running Quick Swaps still need |
+| Bitcoin balance | An address of the wallet's own, from the 24 words. Every purchase is paid from it and from nowhere else, once the bitcoin has one confirmation; selling is paid into it; it can be sent out at any time, except what running purchases still have to pay. A deposit that waits for its first block says what its sender paid and what blocks take now, and can be sped up from the wallet for a fee that is shown first |
 | Quick Swap offers | Tick Quick Swap when you publish. Anyone can then swap any part of the offer, from its smallest part (at least 10,000 sat) up to all of it. It is listed as up to 3 lots so several people can swap at once; after a part, the rest goes back on the board by itself (sell: after the next block, from the change of the lock; buy: once the change of the payment has one confirmation). A buy offer is paid from the Bitcoin balance |
 | Promises | Before a seller's wallet locks GNR for a buyer whose bitcoin waits at a deposit, it shows the board the buyer's signed word. The board adds up what that deposit is promised to across all sellers; a seller locks only if the deposit covers it all. Only an offer's maker (or a buy offer's own deposit) can make a promise, so the board cannot be flooded with them |
 | Time | About 10 to 20 minutes for a small part, mostly the bitcoin confirmation |

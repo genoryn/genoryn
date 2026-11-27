@@ -1899,6 +1899,19 @@ fn a_waiting_deposit_is_explained_and_can_be_sped_up() {
         "bitcoin in a block is left alone"
     );
     assert_eq!(btc.broadcasts(), before, "nothing was sent");
+    // Dust that someone sends to the address, in a payment that cannot be sped up, does
+    // not stand in the way of the deposit: it is left to wait, the deposit is sent on.
+    let dust = btc.pay_waiting(&addr, 700, 10, 141, false);
+    let plan = e
+        .bump_plan(BALANCE)
+        .unwrap()
+        .expect("the deposit is still sped up");
+    assert_eq!(plan.coins.len(), 1);
+    assert_eq!((plan.coins[0].outpoint, plan.value), (op2, 300_000));
+    assert!(!plan.coins.iter().any(|c| c.outpoint == dust));
+    let w = e.waiting(BALANCE).unwrap().unwrap();
+    assert_eq!(w.coins, 2);
+    assert_eq!(w.rate, None, "one of the two cannot be told");
     // A deposit too small to carry the fee is left to wait.
     btc.mine();
     let _ = btc.pay_waiting(&addr, 9_000, 141, 141, true);
