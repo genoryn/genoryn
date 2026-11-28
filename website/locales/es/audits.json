@@ -36,7 +36,6 @@
  "e26d87f1a1": "Qué hace la 1.0.53",
  "94e98f83e5": "Un nodo deshonesto podía hacer que una billetera ligera aceptara bloques por los que nadie había trabajado, con pagos dentro.",
  "2cced59a66": "Cada bloque por encima del punto de control de la versión se comprueba como lo comprueba un nodo completo, y la cadena debe pasar por el punto de control.",
- "e93372533f": "Nodo",
  "9ec7846f81": "Un par podía ralentizar el procesamiento que hace un nodo de los mensajes de todos los demás pares.",
  "448b065ae6": "Las transacciones de los pares se comprueban fuera del bucle de mensajes, unas pocas a la vez y dentro de un presupuesto.",
  "06fc63468c": "Se podía hacer que un pago diminuto se mostrara como un importe enorme.",

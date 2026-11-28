@@ -26,5 +26,14 @@ responder answers `magic | version | X25519 eph | ML-KEM-768 ct`; keys are deriv
 secrets and the transcript. Frames: `u32 length || ChaCha20-Poly1305(counter nonce)`, at most
 8 MiB. Messages: Hello, Ping/Pong, GetHashes/Hashes (locator-based sync), GetBlocks/Block,
 Inv, GetTxs/Tx, GetAddr/Addr. Limits: 8 outbound, 64 inbound, 4 per IP; malformed data
-bans the peer's IP for 24 hours. Your own transactions go first to one random peer and are
+bans the peer's IP for 24 hours.
+
+A node asks a peer for its chain (GetHashes with a locator of its own main chain) when the
+peer's Hello announces a greater height, and, from 1.0.60, also when the announced tip is a
+block the node does not have and the peer is at most 100 blocks below it: a branch with more
+work can have as many blocks as the node's own, or fewer, when it ran at a higher
+difficulty. Such a request is repeated at most three times for the same tip. The blocks
+that arrive are judged by fork choice as always (the most cumulative work; equal work keeps
+the chain the node already has). Before 1.0.60 such a branch was found with the next block
+announced on it. Your own transactions go first to one random peer and are
 announced to everyone after 20 seconds (stem/fluff).

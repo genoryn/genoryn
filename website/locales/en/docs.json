@@ -330,7 +330,7 @@
  "f3dd7104db": "Every proof verifies, nullifiers are unique, anchors are recent (≤ 2,880 blocks), and lock spends (swaps) follow the lock rules.",
  "868ece8cbe": "Its payouts equal those computed by the reward rules.",
  "57332e96b1": "The note tree after appending matured payout notes and transfer outputs has the committed root.",
- "938cdf0ee5": "Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Full specification: <0>docs/spec/consensus.md</0>.",
+ "edbf9f449d": "Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Two nodes that meet on different branches exchange them at once, also when both branches have the same number of blocks, or the heavier one has fewer (from 1.0.60). Full specification: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Every transfer spends two notes (one may be a zero-value dummy) and creates two outputs (payment and change). The STARK proof shows that the inputs exist under a recent tree root, that their nullifiers are correct, that the outputs commit to the stated owners and values, that all values are below 2^60 and that inputs equal outputs plus fee.",
  "652bcc3a47": "Item",
  "51bf3f0a30": "Size / time",

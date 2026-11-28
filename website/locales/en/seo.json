@@ -25,6 +25,7 @@
  "6377a06e81": "Yes, exactly like GNR: the token, the amount, the sender and the recipient will be hidden by a zero-knowledge proof. Only the creation and destruction of tokens will be public.",
  "377ed0c796": "No. No issuer will be able to take tokens, see balances or freeze a single holder; anything an issuer may do will be declared before the token exists.",
  "c914a0c430": "No. Keep your wallet up to date; its Tokens tab turns on by itself when tokens are activated.",
+ "698db439ad": "Genoryn Krypton 1.0.60: Nodes on different branches agree at once, also at the same height",
  "6362acb5d4": "Genoryn Krypton 1.0.59: The wallet on several screens, and a miner that stops without freezing the display",
  "d7b709b04d": "Genoryn Krypton 1.0.58: Payments you can follow, addresses that are checked, and swaps you can prove on both chains",
  "980f47eb5d": "Genoryn Krypton 1.0.57: A swap your wallet pays never asks you to pay, change is shown as change, and a Refresh button",
@@ -42,6 +43,5 @@
  "93a46c858e": "Genoryn Krypton 1.0.45: Old 24-word recovery phrases restore as people wrote them down",
  "0e9d7447da": "Genoryn Krypton 1.0.44: A console in the wallet, offers that follow the market, a market price that rests on bitcoin really paid",
  "6813d9794a": "Genoryn Krypton 1.0.43: Offers only for buyers whose bitcoin is ready, faster swaps, one wallet on two computers",
- "8c2be94529": "Genoryn Krypton 1.0.42: A sell offer commits its GNR for a week; nothing waits without saying why",
- "3b66cf3ea5": "Genoryn Krypton 1.0.41: Buy offers with the bitcoin deposited: the swap completes by itself"
+ "8c2be94529": "Genoryn Krypton 1.0.42: A sell offer commits its GNR for a week; nothing waits without saying why"
 }

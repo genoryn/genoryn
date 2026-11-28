@@ -26,6 +26,7 @@
  "6377a06e81": "Ja, genau wie bei GNR: Token, Betrag, Absender und Empfänger werden durch einen Zero-Knowledge-Beweis verborgen. Nur das Erzeugen und Vernichten von Token wird öffentlich sein.",
  "377ed0c796": "Nein. Kein Herausgeber wird Token wegnehmen, Guthaben einsehen oder auch nur einen einzigen Inhaber sperren können; alles, was ein Herausgeber tun darf, wird erklärt, bevor der Token existiert.",
  "c914a0c430": "Nein. Halte deine Wallet aktuell; ihr Token-Tab schaltet sich von selbst ein, wenn Token aktiviert werden.",
+ "698db439ad": "Genoryn Krypton 1.0.60: Nodes auf verschiedenen Zweigen einigen sich sofort, auch bei gleicher Höhe",
  "6362acb5d4": "Genoryn Krypton 1.0.59: Die Wallet auf mehreren Bildschirmen, und ein Miner, der stoppt, ohne die Anzeige einzufrieren",
  "d7b709b04d": "Genoryn Krypton 1.0.58: Zahlungen, die du verfolgen kannst, Adressen, die geprüft werden, und Swaps, die du auf beiden Chains nachweisen kannst",
  "980f47eb5d": "Genoryn Krypton 1.0.57: Ein Swap, den deine Wallet bezahlt, fordert dich nie zum Zahlen auf, Wechselgeld wird als Wechselgeld angezeigt, und ein Button „Aktualisieren“",
@@ -43,6 +44,5 @@
  "93a46c858e": "Genoryn Krypton 1.0.45: Alte Wiederherstellungsphrasen aus 24 Wörtern lassen sich so wiederherstellen, wie sie aufgeschrieben wurden",
  "0e9d7447da": "Genoryn Krypton 1.0.44: Eine Konsole in der Wallet, Angebote, die dem Markt folgen, ein Marktpreis, der auf tatsächlich gezahlten Bitcoin beruht",
  "6813d9794a": "Genoryn Krypton 1.0.43: Angebote nur für Käufer, deren Bitcoin bereitliegen, schnellere Swaps, eine Wallet auf zwei Computern",
- "8c2be94529": "Genoryn Krypton 1.0.42: Ein Verkaufsangebot bindet seine GNR für eine Woche; nichts wartet, ohne den Grund zu nennen",
- "3b66cf3ea5": "Genoryn Krypton 1.0.41: Kaufangebote mit hinterlegten Bitcoin: Der Swap schließt sich von selbst ab"
+ "8c2be94529": "Genoryn Krypton 1.0.42: Ein Verkaufsangebot bindet seine GNR für eine Woche; nichts wartet, ohne den Grund zu nennen"
 }

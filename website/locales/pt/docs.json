@@ -331,7 +331,7 @@
  "f3dd7104db": "Toda prova é verificada, os nullifiers são únicos, as âncoras são recentes (≤ 2,880 blocos) e os gastos de bloqueios (trocas) seguem as regras de bloqueio.",
  "868ece8cbe": "Seus pagamentos são iguais aos calculados pelas regras de recompensa.",
  "57332e96b1": "A árvore de notas, após acrescentar as notas de pagamento maduras e as saídas das transferências, tem a raiz comprometida.",
- "938cdf0ee5": "Escolha do fork: a cadeia válida com o maior trabalho acumulado. Os ramos laterais têm a prova de trabalho verificada antes de serem armazenados e são totalmente validados quando ficam mais pesados; um ramo muito atrás da cadeia principal nem é armazenado. Especificação completa: <0>docs/spec/consensus.md</0>.",
+ "edbf9f449d": "Escolha do fork: a cadeia válida com o maior trabalho acumulado. Os ramos laterais têm a prova de trabalho verificada antes de serem armazenados e são totalmente validados quando ficam mais pesados; um ramo muito atrás da cadeia principal nem é armazenado. Dois nós que se encontram em ramos diferentes trocam esses ramos entre si na hora, também quando os dois ramos têm o mesmo número de blocos ou quando o mais pesado tem menos (a partir da 1.0.60). Especificação completa: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Toda transferência gasta duas notas (uma pode ser fictícia, de valor zero) e cria duas saídas (pagamento e troco). A prova STARK mostra que as entradas existem sob uma raiz de árvore recente, que seus nullifiers estão corretos, que as saídas se comprometem com os proprietários e valores declarados, que todos os valores estão abaixo de 2^60 e que as entradas são iguais às saídas mais a taxa.",
  "652bcc3a47": "Item",
  "51bf3f0a30": "Tamanho / tempo",

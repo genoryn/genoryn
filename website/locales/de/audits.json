@@ -36,7 +36,6 @@
  "e26d87f1a1": "Was 1.0.53 tut",
  "94e98f83e5": "Ein unehrlicher Node konnte eine Light-Wallet dazu bringen, Blöcke zu akzeptieren, für die niemand gearbeitet hatte, mit Zahlungen darin.",
  "2cced59a66": "Jeder Block über dem Release-Checkpoint wird so geprüft, wie ein Full Node ihn prüft, und die Chain muss durch den Checkpoint führen.",
- "e93372533f": "Node",
  "9ec7846f81": "Ein einzelner Peer konnte verlangsamen, wie ein Node die Nachrichten aller anderen Peers verarbeitet.",
  "448b065ae6": "Transaktionen von Peers werden außerhalb der Nachrichtenschleife geprüft, jeweils einige wenige und innerhalb eines Budgets.",
  "06fc63468c": "Eine winzige Zahlung konnte als riesiger Betrag angezeigt werden.",

@@ -36,7 +36,6 @@
  "e26d87f1a1": "1.0.53 ne yapıyor",
  "94e98f83e5": "Dürüst olmayan bir düğüm, hafif bir cüzdana kimsenin üzerinde çalışmadığı, içinde ödemeler bulunan blokları kabul ettirebilirdi.",
  "2cced59a66": "Sürüm kontrol noktasının üzerindeki her blok, bir tam düğümün kontrol ettiği gibi kontrol edilir ve zincir kontrol noktasından geçmelidir.",
- "e93372533f": "Düğüm",
  "9ec7846f81": "Tek bir eş, bir düğümün diğer tüm eşlerin mesajlarını işlemesini yavaşlatabilirdi.",
  "448b065ae6": "Eşlerin işlemleri mesaj döngüsünün dışında, her seferinde birkaç tane olmak üzere ve bir bütçe dahilinde kontrol edilir.",
  "06fc63468c": "Çok küçük bir ödeme çok büyük bir tutar olarak gösterilebilirdi.",
