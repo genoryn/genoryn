@@ -1088,6 +1088,15 @@ button.recv-qr:active{transform:scale(.985)}
 .pg-win .btn{width:34px;min-width:34px;min-height:34px;height:34px;padding:0;border-radius:var(--radius-sm)}
 .pg-win .btn .ic{width:16px;height:16px;margin:0}
 .pg-win .btn[aria-pressed="true"]{background:var(--bg-raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+/* A narrow window: the title and its buttons share the first line, the subtitle has the
+   whole width below them. */
+@media (max-width:640px){
+  .pg-head{flex-wrap:wrap;row-gap:0}
+  .pg-head-t{display:contents}
+  .pg-head h2{flex:1 1 0;min-width:0;order:1}
+  .pg-win{order:2}
+  .pg-head p{order:3;flex:0 0 100%}
+}
 .rail-win{display:none}
 @media (min-width:1080px){
   .rail-win{display:flex;align-items:center;gap:9px;margin:auto 2px 0;padding:8px 10px;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);color:var(--text-secondary);font:500 12.5px/1.3 var(--font-sans);cursor:pointer;-webkit-user-select:none;user-select:none;flex:none}
