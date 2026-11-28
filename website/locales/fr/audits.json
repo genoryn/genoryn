@@ -36,7 +36,6 @@
  "e26d87f1a1": "Ce que fait la 1.0.53",
  "94e98f83e5": "Un nœud malhonnête pouvait amener un portefeuille léger à accepter des blocs pour lesquels personne n'avait travaillé, contenant des paiements.",
  "2cced59a66": "Chaque bloc au-delà du point de contrôle de la version est vérifié comme le vérifie un nœud complet, et la chaîne doit passer par le point de contrôle.",
- "e93372533f": "Nœud",
  "9ec7846f81": "Un seul pair pouvait ralentir le traitement, par un nœud, des messages de tous les autres pairs.",
  "448b065ae6": "Les transactions des pairs sont vérifiées en dehors de la boucle de messages, quelques-unes à la fois et dans les limites d'un budget.",
  "06fc63468c": "Un paiement minuscule pouvait être affiché comme un montant énorme.",

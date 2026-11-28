@@ -503,7 +503,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
           <li>Its payouts equal those computed by the reward rules.</li>
           <li>The note tree after appending matured payout notes and transfer outputs has the committed root.</li>
         </ol>
-        <p>Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Full specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/consensus.md">docs/spec/consensus.md</a>.</p>
+        <p>Fork choice: the valid chain with the most cumulative work. Side branches are checked for proof of work before storage and fully validated when they become heavier; a branch far behind the main chain is not stored at all. Two nodes that meet on different branches exchange them at once, also when both branches have the same number of blocks, or the heavier one has fewer (from 1.0.60). Full specification: <a href="https://github.com/genoryn/genoryn/blob/main/docs/spec/consensus.md">docs/spec/consensus.md</a>.</p>
       </section>
 
       <section id="transactions">

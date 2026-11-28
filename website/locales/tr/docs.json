@@ -331,7 +331,7 @@
  "f3dd7104db": "Her kanıt doğrulanır, nullifier'lar benzersizdir, çapalar yenidir (≤ 2,880 blok) ve kilit harcamaları (takaslar) kilit kurallarına uyar.",
  "868ece8cbe": "Ödemeleri, ödül kurallarıyla hesaplananlara eşittir.",
  "57332e96b1": "Olgunlaşmış ödeme notları ve transfer çıktıları eklendikten sonra not ağacı, taahhüt edilen köke sahiptir.",
- "938cdf0ee5": "Çatal seçimi: en fazla toplam işe sahip geçerli zincir. Yan dallar depolanmadan önce iş kanıtı açısından denetlenir ve daha ağır hâle geldiklerinde tamamen doğrulanır; ana zincirin çok gerisinde kalan bir dal hiç depolanmaz. Tam spesifikasyon: <0>docs/spec/consensus.md</0>.",
+ "edbf9f449d": "Çatal seçimi: en fazla toplam işe sahip geçerli zincir. Yan dallar depolanmadan önce iş kanıtı açısından denetlenir ve daha ağır hâle geldiklerinde tamamen doğrulanır; ana zincirin çok gerisinde kalan bir dal hiç depolanmaz. Farklı dallarda karşılaşan iki düğüm, her iki dalda aynı sayıda blok olduğunda veya daha ağır olanda daha az blok olduğunda da bu dalları hemen değiş tokuş eder (1.0.60 sürümünden itibaren). Tam spesifikasyon: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Her transfer iki not harcar (biri sıfır değerli sahte bir not olabilir) ve iki çıktı oluşturur (ödeme ve para üstü). STARK kanıtı; girdilerin yeni bir ağaç kökü altında var olduğunu, nullifier'larının doğru olduğunu, çıktıların belirtilen sahiplere ve değerlere bağlandığını, tüm değerlerin 2^60'ın altında olduğunu ve girdilerin çıktılar artı ücrete eşit olduğunu gösterir.",
  "652bcc3a47": "Öğe",
  "51bf3f0a30": "Boyut / süre",

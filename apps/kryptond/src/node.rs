@@ -55,6 +55,20 @@ const MAX_REJECTED_TXS: usize = 8192;
 /// Blocks one announcement may make this node ask for (new blocks come one or two at a
 /// time; catching up goes through `GetHashes`).
 const MAX_INV_BLOCKS: usize = 64;
+/// How far below our tip a peer's unknown tip still makes us ask for its branch. A branch
+/// of more work can have as many blocks as ours, or fewer: it ran at a higher difficulty.
+const SYNC_TIE_WINDOW: u64 = 100;
+/// How often one peer is asked for the same unknown tip that is not above ours (the
+/// first ask, and retries in case a request was lost).
+const SYNC_TIE_ASKS: u8 = 3;
+
+/// Whether a peer's chain is worth asking for: it is higher than ours, or its tip is a
+/// block we neither have nor dropped as cheap and it is at most [`SYNC_TIE_WINDOW`] below
+/// ours. Which chain is followed is still decided by work when its blocks arrive.
+fn worth_asking(ours: u64, peer: u64, peer_best_known: bool, peer_best_dropped: bool) -> bool {
+    peer > ours
+        || (!peer_best_known && !peer_best_dropped && peer.saturating_add(SYNC_TIE_WINDOW) >= ours)
+}
 
 /// Messages a peer may send per minute and in a burst; honest peers stay far below.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -248,6 +262,8 @@ pub struct Node {
     peer_heights: Mutex<HashMap<PeerId, u64>>,
     /// The tip each peer announced (its Hello).
     peer_best: Mutex<HashMap<PeerId, Hash32>>,
+    /// Per peer: how often it was asked for its tip while that tip was not above ours.
+    tie_asks: Mutex<HashMap<PeerId, (Hash32, u8)>>,
     /// Blocks requested and not yet received: who was asked and when.
     in_flight: Mutex<HashMap<Hash32, (PeerId, Instant)>>,
     /// When we last asked each peer for hashes; unsolicited `Hashes` are ignored.
@@ -302,6 +318,7 @@ impl Node {
             started: Instant::now(),
             peer_heights: Mutex::new(HashMap::new()),
             peer_best: Mutex::new(HashMap::new()),
+            tie_asks: Mutex::new(HashMap::new()),
             in_flight: Mutex::new(HashMap::new()),
             hash_requests: Mutex::new(HashMap::new()),
             share_counts: Mutex::new(HashMap::new()),
@@ -470,6 +487,52 @@ impl Node {
             .unwrap_or(0)
     }
 
+    /// A peer whose tip is unknown to us and not above ours, but close enough to be worth
+    /// asking for (see [`worth_asking`]), not asked in the last minute, and not asked for
+    /// this tip [`SYNC_TIE_ASKS`] times already. Counts the ask.
+    fn tie_peer(&self) -> Option<PeerId> {
+        let ours = self.chain.tip().height();
+        let heights = self.peer_heights.lock().clone();
+        let bests = self.peer_best.lock().clone();
+        for (p, best) in bests {
+            let Some(&h) = heights.get(&p) else { continue };
+            if h > ours
+                || !worth_asking(
+                    ours,
+                    h,
+                    self.chain.has_block(&best).unwrap_or(true),
+                    self.was_dropped(&best),
+                )
+            {
+                continue;
+            }
+            let recent = self
+                .hash_requests
+                .lock()
+                .get(&p)
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(60));
+            if recent || !self.count_tie_ask(p, best) {
+                continue;
+            }
+            return Some(p);
+        }
+        None
+    }
+
+    /// Counts one ask of `p` for its tip `best`; false once it was asked often enough.
+    fn count_tie_ask(&self, p: PeerId, best: Hash32) -> bool {
+        let mut m = self.tie_asks.lock();
+        let e = m.entry(p).or_insert((best, 0));
+        if e.0 != best {
+            *e = (best, 0);
+        }
+        if e.1 >= SYNC_TIE_ASKS {
+            return false;
+        }
+        e.1 += 1;
+        true
+    }
+
     fn request_hashes(&self, peer: PeerId) {
         if let Ok(locator) = self.chain.locator() {
             self.hash_requests.lock().insert(peer, Instant::now());
@@ -547,6 +610,7 @@ impl Node {
                 Event::Disconnected(p) => {
                     self.peer_heights.lock().remove(&p);
                     self.peer_best.lock().remove(&p);
+                    self.tie_asks.lock().remove(&p);
                     self.hash_requests.lock().remove(&p);
                     self.share_counts.lock().remove(&p);
                     self.addr_from.lock().remove(&p);
@@ -585,6 +649,8 @@ impl Node {
             if let Some(p) = behind.first() {
                 self.in_flight.lock().clear();
                 self.request_hashes(*p);
+            } else if let Some(p) = self.tie_peer() {
+                self.request_hashes(p);
             }
             // Dandelion-style fluff: after the stem embargo, announce our own txs to everyone.
             let due: Vec<Hash32> = {
@@ -640,11 +706,18 @@ impl Node {
                 // (blocks every 60 s on average; twice as fast is already implausible).
                 let elapsed = krypton_core::now().saturating_sub(self.chain.params.genesis_time);
                 let plausible = elapsed / (krypton_core::difficulty::TARGET_SPACING / 2) + 1_000;
-                self.peer_heights.lock().insert(p, h.height.min(plausible));
+                let height = h.height.min(plausible);
+                self.peer_heights.lock().insert(p, height);
                 self.peer_best.lock().insert(p, h.best);
                 self.net.set_hello(p, h.clone());
                 let tip = self.chain.tip();
-                if h.height > tip.height() {
+                // A peer on another branch at our height, or a little below, may carry
+                // more work (blocks of a higher difficulty): its branch is asked for too.
+                let known = self.chain.has_block(&h.best).unwrap_or(true);
+                if worth_asking(tip.height(), height, known, self.was_dropped(&h.best)) {
+                    if height <= tip.height() {
+                        self.count_tie_ask(p, h.best);
+                    }
                     self.request_hashes(p);
                 }
                 self.net.send(p, &Message::GetAddr);
@@ -1131,5 +1204,66 @@ impl Node {
             );
             self.stem.lock().push((id, Instant::now()));
         }
+    }
+}
+
+#[cfg(test)]
+mod sync_tests {
+    use super::*;
+
+    #[test]
+    fn a_higher_peer_is_always_asked() {
+        assert!(worth_asking(100, 101, false, false));
+        assert!(worth_asking(100, 101, true, false));
+        assert!(worth_asking(100, 101, true, true));
+        assert!(worth_asking(0, u64::MAX, true, true));
+    }
+
+    #[test]
+    fn a_peer_at_our_height_on_another_branch_is_asked() {
+        assert!(worth_asking(100, 100, false, false));
+        // Its tip is ours, or a block we have: nothing to fetch.
+        assert!(!worth_asking(100, 100, true, false));
+        // Its tip was dropped as a cheap branch: not asked again.
+        assert!(!worth_asking(100, 100, false, true));
+    }
+
+    #[test]
+    fn a_peer_a_little_below_on_another_branch_is_asked_and_one_far_below_is_not() {
+        assert!(worth_asking(1_000, 1_000 - SYNC_TIE_WINDOW, false, false));
+        assert!(!worth_asking(
+            1_000,
+            1_000 - SYNC_TIE_WINDOW - 1,
+            false,
+            false
+        ));
+        // A peer behind us on our own chain (its tip is a block we have) is never asked.
+        assert!(!worth_asking(1_000, 990, true, false));
+        assert!(!worth_asking(1_000, 0, true, false));
+        // Near genesis the window does not underflow.
+        assert!(worth_asking(5, 0, false, false));
+        assert!(worth_asking(0, 0, false, false));
+        // A peer that claims the largest height is higher, and nothing overflows.
+        assert!(worth_asking(u64::MAX, u64::MAX, false, false));
+        assert!(worth_asking(
+            u64::MAX,
+            u64::MAX - SYNC_TIE_WINDOW,
+            false,
+            false
+        ));
+        assert!(!worth_asking(
+            u64::MAX,
+            u64::MAX - SYNC_TIE_WINDOW - 1,
+            false,
+            false
+        ));
+    }
+
+    #[test]
+    fn the_window_and_the_retries_stay_small() {
+        // A branch of more work and fewer blocks is found within an hour and a half of
+        // blocks; one peer is asked a few times at most for a tip that is not above ours.
+        const { assert!(SYNC_TIE_WINDOW >= 32 && SYNC_TIE_WINDOW <= 500) };
+        const { assert!(SYNC_TIE_ASKS >= 1 && SYNC_TIE_ASKS <= 5) };
     }
 }

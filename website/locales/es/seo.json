@@ -26,6 +26,7 @@
  "6377a06e81": "Sí, exactamente igual que GNR: el token, el importe, el remitente y el destinatario quedarán ocultos mediante una prueba de conocimiento cero. Solo la creación y la destrucción de tokens serán públicas.",
  "377ed0c796": "No. Ningún emisor podrá quitar tokens, ver saldos ni congelar a un solo titular; todo lo que un emisor pueda hacer se declarará antes de que exista el token.",
  "c914a0c430": "No. Mantén tu billetera actualizada; su pestaña Tokens se activa sola cuando se activan los tokens.",
+ "698db439ad": "Genoryn Krypton 1.0.60: Los nodos en ramas distintas se ponen de acuerdo enseguida, también a la misma altura",
  "6362acb5d4": "Genoryn Krypton 1.0.59: La billetera en varias pantallas, y un minero que se detiene sin congelar la imagen",
  "d7b709b04d": "Genoryn Krypton 1.0.58: pagos que puedes seguir, direcciones que se comprueban e intercambios que puedes demostrar en ambas cadenas",
  "980f47eb5d": "Genoryn Krypton 1.0.57: un intercambio que paga tu billetera nunca te pide que pagues, el cambio se muestra como cambio, y un botón Actualizar",
@@ -43,6 +44,5 @@
  "93a46c858e": "Genoryn Krypton 1.0.45: las frases de recuperación antiguas de 24 palabras se restauran tal como la gente las anotó",
  "0e9d7447da": "Genoryn Krypton 1.0.44: una consola en la billetera, ofertas que siguen al mercado y un precio de mercado basado en bitcoin realmente pagado",
  "6813d9794a": "Genoryn Krypton 1.0.43: ofertas solo para compradores con el bitcoin listo, intercambios más rápidos, una billetera en dos ordenadores",
- "8c2be94529": "Genoryn Krypton 1.0.42: una oferta de venta compromete sus GNR durante una semana; nada espera sin decir por qué",
- "3b66cf3ea5": "Genoryn Krypton 1.0.41: ofertas de compra con el bitcoin depositado: el intercambio se completa solo"
+ "8c2be94529": "Genoryn Krypton 1.0.42: una oferta de venta compromete sus GNR durante una semana; nada espera sin decir por qué"
 }

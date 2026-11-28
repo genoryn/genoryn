@@ -35,7 +35,6 @@
  "e26d87f1a1": "What 1.0.53 does",
  "94e98f83e5": "A dishonest node could get a light wallet to accept blocks nobody had worked for, with payments in them.",
  "2cced59a66": "Every block above the release checkpoint is checked as a full node checks it, and the chain must pass through the checkpoint.",
- "e93372533f": "Node",
  "9ec7846f81": "One peer could slow a node's handling of every other peer's messages.",
  "448b065ae6": "Peers' transactions are checked outside the message loop, a few at a time and within a budget.",
  "06fc63468c": "A tiny payment could be made to show as a huge amount.",

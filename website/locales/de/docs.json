@@ -331,7 +331,7 @@
  "f3dd7104db": "jeder Beweis verifiziert wird, Nullifier eindeutig sind, Anker aktuell sind (≤ 2,880 Blöcke) und Sperr-Ausgaben (Swaps) den Sperrregeln folgen.",
  "868ece8cbe": "seine Auszahlungen denen entsprechen, die nach den Belohnungsregeln berechnet werden.",
  "57332e96b1": "der Note-Baum nach dem Anhängen gereifter Auszahlungs-Notes und Überweisungs-Outputs die festgelegte Wurzel hat.",
- "938cdf0ee5": "Fork-Wahl: die gültige Chain mit der meisten kumulierten Arbeit. Seitenzweige werden vor dem Speichern auf Proof of Work geprüft und vollständig validiert, wenn sie schwerer werden; ein Zweig weit hinter der Haupt-Chain wird gar nicht gespeichert. Vollständige Spezifikation: <0>docs/spec/consensus.md</0>.",
+ "edbf9f449d": "Fork-Wahl: die gültige Chain mit der meisten kumulierten Arbeit. Seitenzweige werden vor dem Speichern auf Proof of Work geprüft und vollständig validiert, wenn sie schwerer werden; ein Zweig weit hinter der Haupt-Chain wird gar nicht gespeichert. Zwei Nodes, die sich auf verschiedenen Zweigen treffen, tauschen diese sofort aus, auch wenn beide Zweige gleich viele Blöcke haben oder der schwerere weniger hat (ab 1.0.60). Vollständige Spezifikation: <0>docs/spec/consensus.md</0>.",
  "065f8c9c5e": "Jede Überweisung gibt zwei Notes aus (eine kann ein Dummy mit Wert null sein) und erzeugt zwei Outputs (Zahlung und Wechselgeld). Der STARK-Beweis zeigt, dass die Inputs unter einer aktuellen Baumwurzel existieren, dass ihre Nullifier korrekt sind, dass die Outputs sich auf die angegebenen Besitzer und Werte festlegen, dass alle Werte unter 2^60 liegen und dass die Inputs den Outputs plus Gebühr entsprechen.",
  "652bcc3a47": "Element",
  "51bf3f0a30": "Größe / Zeit",

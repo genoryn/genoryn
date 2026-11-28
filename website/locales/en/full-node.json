@@ -69,7 +69,7 @@
  "9d3ff6d06f": "On older systems, or to run exactly what you have read. You need Rust 1.89 or newer and nothing else:",
  "d5aecbd8ab": "<0>Check the signature too.</0> <1/> is signed with the project's hybrid post-quantum release key (ML-DSA-87 + SLH-DSA, fingerprint <2/>). With the source code at hand, <3/> checks it. The wallet's updater does this by itself before it installs anything.",
  "4b05a902f9": "The easy way: the wallet",
- "d728defad0": "Download <0>GenorynKrypton-1.0.59-Windows-x64-Setup.exe</0> from <1>Download</1> and run it. It installs for you alone and asks for no administrator rights. The node comes with it.",
+ "b9cf13aa67": "Download <0>GenorynKrypton-1.0.60-Windows-x64-Setup.exe</0> from <1>Download</1> and run it. It installs for you alone and asks for no administrator rights. The node comes with it.",
  "d2ad01f336": "Create or open a wallet",
  "0cac70b994": "Choose a password, write the 24 words on paper.",
  "eb3260a856": "Switch to full node",

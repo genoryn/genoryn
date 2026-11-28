@@ -36,7 +36,6 @@
  "e26d87f1a1": "O que a 1.0.53 faz",
  "94e98f83e5": "Um nó desonesto podia levar uma carteira leve a aceitar blocos pelos quais ninguém tinha trabalhado, com pagamentos dentro deles.",
  "2cced59a66": "Cada bloco acima do checkpoint da versão é verificado como um nó completo o verifica, e a cadeia precisa passar pelo checkpoint.",
- "e93372533f": "Nó",
  "9ec7846f81": "Um par podia deixar lento o processamento, por um nó, das mensagens de todos os outros pares.",
  "448b065ae6": "As transações dos pares são verificadas fora do laço de mensagens, algumas de cada vez e dentro de um orçamento.",
  "06fc63468c": "Um pagamento minúsculo podia ser feito para aparecer como um valor enorme.",

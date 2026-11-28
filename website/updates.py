@@ -17,6 +17,14 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.60", "date": "2026-11-28", "title": "Nodes on different branches agree at once, also at the same height",
+     "tags": ["Node", "Network"],
+     "items": [
+         "No change to the rules of the chain: which chain counts is decided exactly as before, by the most work. Nodes, wallets and miners on older versions keep working with this one. Coins, wallets, offers and swaps in progress carry over.",
+         ("Fixed", "Two nodes that met on different branches of the same height did not exchange them: a node asked a peer for its chain only when the peer had more blocks. They agreed only when the next block was found, usually within a minute. A node now also asks when the peer's latest block is one it does not have and the peer is at most 100 blocks below it, so the heavier branch is found at once, also when it has fewer blocks because it was mined at a higher difficulty."),
+         ("Changed", "Such a request is made at most three times for the same block, so a peer is never asked again and again. The blocks that arrive are checked as always; a branch with the same work as the node's own changes nothing."),
+         ("Changed", "Mixed networks work: a node of this version finds the heavier branch from older nodes as well. An older node still waits for the next block, as before."),
+     ]},
     {"v": "1.0.59", "date": "2026-11-28", "title": "The wallet on several screens, and a miner that stops without freezing the display",
      "tags": ["Wallet", "Mining"],
      "items": [
