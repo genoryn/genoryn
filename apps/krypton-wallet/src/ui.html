@@ -1080,6 +1080,39 @@ button.recv-qr:active{transform:scale(.985)}
 .bd-filters #bdMaxBtc{min-width:0}
 @media (prefers-reduced-motion:reduce){.pp::before,.pp-bar i::after,.rc.way::after,.way-dot,.pp-steps li.now::before,.ac.wait i{animation:none}}
 [data-fx="low"] .pp::before,[data-fx="low"] .pp-bar i::after,[data-fx="low"] .rc.way::after,[data-fx="low"] .way-dot,[data-fx="low"] .pp-steps li.now::before{animation:none}
+/* ---- 1.0.59: a section in a window of its own ---- */
+.pg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.pg-head-t{min-width:0}
+.pg-head h2{overflow-wrap:anywhere}
+.pg-win{display:flex;gap:8px;flex:none}
+.pg-win .btn{width:34px;min-width:34px;min-height:34px;height:34px;padding:0;border-radius:var(--radius-sm)}
+.pg-win .btn .ic{width:16px;height:16px;margin:0}
+.pg-win .btn[aria-pressed="true"]{background:var(--bg-raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.rail-win{display:none}
+@media (min-width:1080px){
+  .rail-win{display:flex;align-items:center;gap:9px;margin:auto 2px 0;padding:8px 10px;border:1px dashed var(--line-strong);border-radius:var(--radius-sm);color:var(--text-secondary);font:500 12.5px/1.3 var(--font-sans);cursor:pointer;-webkit-user-select:none;user-select:none;flex:none}
+  .rail-win:hover,.rail-win:focus-visible{color:var(--text-primary);background:var(--bg-hover);border-style:solid;outline:none}
+  .rail-win:focus-visible{box-shadow:0 0 0 2px var(--line-strong)}
+  #app>nav.tabs .rail-win .ic{width:16px;height:16px;flex:none}
+  .rail-win+.rail-foot{margin-top:10px}
+}
+/* A section's own window: the section alone, until its menu is asked for. */
+html.solo #app>nav.tabs{display:none}
+@media (min-width:1080px){
+  html.solo #app:not(.hidden){grid-template-columns:minmax(0,1fr)}
+  html.solo #app>.pg-head,html.solo #app>div[id^="tab-"]{grid-column:1}
+}
+@media (max-width:1079px){
+  html.solo #app>.pg-head{padding-top:18px}
+}
+html.sect #splash>*{display:none}
+html.sect #splash{transition:opacity .16s ease,visibility .16s}
+/* The menu of a section in the list (right click) */
+.ctx-menu{position:fixed;left:8px;top:8px;z-index:60;display:flex;flex-direction:column;min-width:236px;max-width:calc(100vw - 16px);padding:6px;border-radius:var(--radius-sm);background:var(--bg-pop);border:1px solid var(--line-strong);box-shadow:var(--shadow-pop)}
+.ctx-menu em{font-style:normal;display:block;padding:6px 10px 5px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctx-menu button{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;color:var(--text-primary);font:500 13.5px var(--font-sans);cursor:pointer}
+.ctx-menu button:hover,.ctx-menu button:focus-visible{background:var(--bg-inset);outline:none}
+.ctx-menu .ic{width:16px;height:16px;flex:none;opacity:.8}
 </style>
 </head>
 <body>
@@ -1107,6 +1140,8 @@ button.recv-qr:active{transform:scale(.985)}
   <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 7.7-1.6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
   <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="3.5" y="8" width="12.5" height="12.5" rx="2"/><path d="M8 8V5.5a2 2 0 0 1 2-2h8.5a2 2 0 0 1 2 2V14a2 2 0 0 1-2 2H16"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 14.5a7.8 7.8 0 1 1-1.9-8.1l2.9 2.7"/><path d="M20.5 4.6v4.6h-4.6"/></symbol>
   <symbol id="i-wallets" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="12" rx="2.2"/><path d="M6 8V6.6A1.6 1.6 0 0 1 7.6 5h8.8A1.6 1.6 0 0 1 18 6.6V8"/><path d="M8.5 5V4M15.5 5V4"/><circle cx="16.5" cy="14" r="1.2"/></symbol>
 </svg>
@@ -1185,9 +1220,11 @@ button.recv-qr:active{transform:scale(.985)}
       <button class="rail" data-tab="security"><svg class="ic" aria-hidden="true"><use href="#i-security"/></svg><span>Security</span></button>
       <button class="rail" data-tab="settings"><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg><span>Settings</span></button>
 <button class="rail" data-tab="about"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg><span>About</span></button>
+      <div class="rail-win" id="railWin" role="button" tabindex="0" onclick="openWindow()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWindow()}" title="Opens the section you are on in a window of its own. Put it on another screen: every window stays live."><svg class="ic" aria-hidden="true"><use href="#i-window"/></svg><span>Open in a separate window</span></div>
       <div class="rail-foot"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span>Keys never leave this computer.</span></div>
     </nav>
-    <div class="pg-head"><h2 id="pgTitle">Wallet</h2><p id="pgSub">Your balance, sending and receiving, and the network at a glance.</p></div>
+    <div class="pg-head"><div class="pg-head-t"><h2 id="pgTitle">Wallet</h2><p id="pgSub">Your balance, sending and receiving, and the network at a glance.</p></div>
+      <div class="pg-win"><button class="btn icon-only hidden" id="winNavBtn" type="button" onclick="winNav(document.documentElement.classList.contains('solo'))" aria-pressed="false" aria-label="Show all sections in this window" title="Show all sections in this window"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button><button class="btn icon-only" id="winOpenBtn" type="button" onclick="openWindow()" aria-label="Open this section in a separate window" title="Open this section in a separate window. Put it on another screen: every window stays live."><svg class="ic" aria-hidden="true"><use href="#i-window"/></svg></button></div></div>
     <div id="tab-wallet">
     <div class="glass wbar">
       <button class="wsel" id="wSel" type="button" onclick="openSwitcher(this)" aria-haspopup="dialog" title="Switch wallet">
@@ -1742,7 +1779,7 @@ button.recv-qr:active{transform:scale(.985)}
         <label for="backend">Device</label>
         <select id="backend"><option value="auto">Automatic (best available GPU, else CPU)</option><option value="cuda">NVIDIA GPU (CUDA)</option><option value="opencl">AMD / Intel GPU (OpenCL)</option><option value="cpu">CPU</option></select>
         <label for="cpu">Maximum CPU usage when mining on CPU: <b id="cpuv">50</b>%</label><input id="cpu" type="range" min="10" max="100" step="5" value="50" oninput="cpuv.textContent=this.value">
-        <div class="row-flex"><button class="btn btn-primary" onclick="minerStart()">Start mining</button><button class="btn" onclick="api('/api/miner/stop',{}).then(refresh)">Stop</button><button class="btn" onclick="devices()">Detect devices</button></div>
+        <div class="row-flex"><button class="btn btn-primary" onclick="minerStart()">Start mining</button><button class="btn" id="minerStopBtn" onclick="minerStop(this)">Stop</button><button class="btn" onclick="devices()">Detect devices</button></div>
         <pre id="devs" class="mono"></pre>
       </div>
       <div class="glass card"><h2><svg class="ic" aria-hidden="true"><use href="#i-mining"/></svg>Miner</h2>
@@ -2002,6 +2039,11 @@ button.recv-qr:active{transform:scale(.985)}
     <div class="modal-acts"><button type="button" class="btn" id="mCancel">Cancel</button><button type="button" class="btn btn-primary" id="mOk">OK</button></div>
   </div>
 </div>
+<div id="navMenu" class="ctx-menu hidden" role="menu" aria-label="This section">
+  <em id="navMenuName"></em>
+  <button type="button" role="menuitem" onclick="openWindow($('navMenu').dataset.tab)"><svg class="ic" aria-hidden="true"><use href="#i-window"/></svg><span>Open in a separate window</span></button>
+  <button type="button" role="menuitem" onclick="goTab($('navMenu').dataset.tab);closeNavMenu()"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg><span>Open here</span></button>
+</div>
 <div id="toast" class="toast float hidden" role="status" aria-live="polite"></div>
 <script src="/assets/fx.js" data-base="/assets/"></script>
 <script src="/assets/charts.js"></script>
@@ -2009,6 +2051,11 @@ button.recv-qr:active{transform:scale(.985)}
 <script>
 // The page in the wallet's language, before anything is drawn (the catalog is in the page).
 GKI18N.translatePage(document.body);
+/* A section in a window of its own: such a window is opened on "?w=<section>" and remembers
+   it for as long as it lives (a reload keeps it). It shows that section alone, without the
+   list of sections, until its menu is asked for. */
+const WIN = (()=>{ let w=''; try{ w=new URLSearchParams(location.search).get('w')||''; if(w) sessionStorage.setItem('gk-win', w); else w=sessionStorage.getItem('gk-win')||''; }catch(e){} return /^[a-z]{3,10}$/.test(w)?w:''; })();
+if(WIN){ document.documentElement.classList.add('sect'); try{ if(!sessionStorage.getItem('gk-tab')) sessionStorage.setItem('gk-tab', WIN); if(sessionStorage.getItem('gk-nav')!=='1') document.documentElement.classList.add('solo'); }catch(e){ document.documentElement.classList.add('solo'); } }
 const token = location.hash.slice(1) || sessionStorage.getItem('t') || ''; sessionStorage.setItem('t', token); history.replaceState(null,'',location.pathname);
 const $ = id => document.getElementById(id); const show = id => $(id).classList.remove('hidden'); const hide = id => $(id).classList.add('hidden');
 const gnr = v => GKI18N.num(Number(v||0)/1e8,{minimumFractionDigits:2,maximumFractionDigits:8});
@@ -2017,10 +2064,17 @@ const esc = s => String(s||'').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;
    attribute is decoded before the script runs, so HTML escaping alone does not keep it a string. */
 const jsq = s => esc(JSON.stringify(String(s??'')));
 let S = {};
-async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET', headers:{'x-token':token,'content-type':'application/json'}, body: body?JSON.stringify(body):undefined}); const j = await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(TR(j.error)||r.statusText); e.raw=j.error||''; throw e; } return j; }
+/* Windows of the same wallet tell each other when something was done in one of them, so that
+   none waits for its next look. Only what a person did is told (a request that only asks is
+   not), and a window that was just told keeps quiet for a moment: two windows never keep
+   each other busy. */
+const BC=('BroadcastChannel' in window)?new BroadcastChannel('gk-wallet'):null; let bcTold=0, bcTimer=0;
+const BC_QUIET=/^\/api\/(password\/strength|reveal|window|open|proof|address\/check|update\/check|verify-proof|swap\/decode|quick\/quote|console|trades\/export|coin\/preview|quit|language)$/;
+function tellWindows(what){ if(!BC||Date.now()-bcTold<800) return; try{ BC.postMessage(what||'changed'); }catch(e){} }
+async function api(p, body){ const r = await fetch(p,{method: body?'POST':'GET', headers:{'x-token':token,'content-type':'application/json'}, body: body?JSON.stringify(body):undefined}); const j = await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(TR(j.error)||r.statusText); e.raw=j.error||''; throw e; } if(body&&!BC_QUIET.test(p)) tellWindows(); return j; }
 /* The language is saved with the settings and the page reloads in it; the wallet itself keeps
    running (sync, mining and swaps are not interrupted). */
-async function setLanguage(l){ try{ await api('/api/language',{language:l}); location.reload(); }catch(e){ toast(e.message,true); } }
+async function setLanguage(l){ try{ await api('/api/language',{language:l}); bcTold=0; tellWindows('lang'); location.reload(); }catch(e){ toast(e.message,true); } }
 const LANGS=['en','de','fr','es','pt','ru','tr','zh-cn','ja','ko'];
 function firstLanguage(){ for(const w of (navigator.languages||[navigator.language||'']).map(x=>String(x).toLowerCase())){ const c=w.startsWith('zh')?(/tw|hk|mo|hant/.test(w)?'':'zh-cn'):w.split('-')[0]; if(c&&LANGS.includes(c)) return c; } return 'en'; }
 /* In-app dialog instead of the browser's confirm/prompt. Resolves to the input's value
@@ -2604,6 +2658,11 @@ function renderOvBlocks(){
       <div class="bf"><i style="width:${Math.min(100,(b.shares/maxS)*100)}%"></i></div></div>`; }).join('');
   bl.forEach(b=>OV.seen.add(b.hash));
 }
+/* The miner is asked to stop and ends by itself (it lets go of the graphics card in order);
+   the button says so until it has. */
+async function minerStop(b){ if(b){ if(b.disabled) return; b.disabled=true; b.dataset.label=b.textContent; b.textContent=T("Stopping…"); }
+  try{ await api('/api/miner/stop',{}); }catch(e){ toast(e.message,true); }
+  if(b){ b.disabled=false; b.textContent=b.dataset.label; } refresh(); }
 async function minerStart(){ window.fxBusy=true; setTimeout(()=>window.fxBusy=false, 90000); try{ await api('/api/miner/start',{backend:$('backend').value, max_cpu:Number($('cpu').value)}); toast(T("Miner starting (the first run prepares a 2 GiB dataset)")); }catch(e){ toast(e.message,true) } refresh(); }
 async function devices(){ try{ $('devs').textContent = (await api('/api/devices')).devices; }catch(e){ toast(e.message,true) } }
 /* ---- Mining tab: live miner, payouts, blocks ---- */
@@ -2705,7 +2764,21 @@ const tabOn=t=>{ const e=$('tab-'+t); return !!e&&!e.classList.contains('hidden'
 const TRADE=['swap','market','publish','swaps'];
 const TABS=['wallet','history','swap','market','publish','swaps','trades','coins','mining','network','settings','console','security','about'];
 const PG={wallet:[T("Wallet"),T("Your balance, sending and receiving, and the network at a glance.")],history:[T("History"),T("Every payment, with proofs you can share.")],swap:[T("Swap"),T("Trade GNR and bitcoin directly between two wallets. No exchange, no custody.")],market:[T("Market"),T("The GNR price, every offer on the board, and your own offers.")],publish:[T("Publish an offer"),T("Sell or buy GNR at a price of your own, paid from or into your Bitcoin balance.")],swaps:[T("Your swaps"),T("Every swap of this wallet: running, completed and refunded.")],trades:[T("Trade history"),T("Every completed GNR swap with its price, in charts and in full, and your own trades.")],coins:[T("Quantum tokens"),T("Planned for a future release. Not available yet.")],mining:[T("Mining"),T("Earn GNR with your GPU or CPU, in proportion to your work.")],network:[T("Network"),T("Live charts, peers and the latest blocks.")],settings:[T("Settings"),T("Language, display and how this wallet connects.")],console:[T("Console"),T("Ask the chain and this wallet by command. It only reads.")],security:[T("Security"),T("Passwords and locks of your wallets.")],about:[T("About"),T("Version, updates and links.")]};
-function goTab(t){ closeSwitcher(); try{ sessionStorage.setItem('gk-tab', t); }catch(e){} document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1];
+/* Sections in windows of their own. The page asks the wallet for a native window; a wallet
+   that runs in a browser has none, and the browser opens one. Every window is the same live
+   wallet. */
+let CUR='wallet';
+function winTitle(name){ if(WIN) document.title=name+' \u00b7 Genoryn Krypton'; }
+function closeNavMenu(){ const m=$('navMenu'); if(m) m.classList.add('hidden'); }
+function navMenu(tab, x, y){ const m=$('navMenu'); m.dataset.tab=tab; $('navMenuName').textContent=(PG[tab]||[tab])[0]; m.classList.remove('hidden'); const r=m.getBoundingClientRect(); m.style.left=Math.max(8, Math.min(x, innerWidth-r.width-8))+'px'; m.style.top=Math.max(8, Math.min(y, innerHeight-r.height-8))+'px'; const b=m.querySelector('button'); if(b) b.focus(); }
+async function openWindow(t){ t=TABS.includes(t)?t:CUR; closeNavMenu();
+  try{ const r=await api('/api/window',{tab:t});
+    if(!r.native){ const w=window.open(location.pathname+'?w='+encodeURIComponent(t)+'#'+token, 'gk-'+t, 'popup,width=1100,height=820'); if(!w) toast(T("The browser did not let the wallet open a window. Allow pop-ups for this page and try again."), true); } }
+  catch(e){ toast(e.message,true); } }
+/* A section's window shows its section alone; its menu button brings the list of sections in. */
+function winButtons(){ const solo=document.documentElement.classList.contains('solo'); $('winNavBtn').classList.toggle('hidden', !WIN); $('winNavBtn').setAttribute('aria-pressed', WIN&&!solo?'true':'false'); $('winOpenBtn').classList.toggle('hidden', solo); }
+function winNav(on){ document.documentElement.classList.toggle('solo', !on); try{ sessionStorage.setItem('gk-nav', on?'1':'0'); }catch(e){} winButtons(); }
+function goTab(t){ CUR=t; closeNavMenu(); closeSwitcher(); try{ sessionStorage.setItem('gk-tab', t); }catch(e){} document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.tab===t)); TABS.forEach(x=>hide('tab-'+x)); show('tab-'+t); const pg=PG[t]||[t,'']; $('pgTitle').textContent=pg[0]; $('pgSub').textContent=pg[1]; winTitle(pg[0]);
   const el=$('tab-'+t); el.classList.remove('tab-in'); void el.offsetWidth; el.classList.add('tab-in');
   if(t==='network'){ initNetDash(); loadNetExtras(); } if(t==='history') loadHistory(); if(TRADE.includes(t)){ loadSwaps(true); btcLoad(true); renderTradeBars(); } if(t==='publish') bdBalSet(); if(t==='trades') loadTrades(); if(t==='coins') loadCoins(); if(t==='wallet'){ fitBig($('bal')); if(S.unlocked) btcLoad(); renderTradeBars(); } if(t==='mining') loadMining(); if(t==='console') loadConsole(); }
 /* Atomic swaps (BTC ⇄ GNR). The wallet advances swaps in the background; this tab shows them. */
@@ -3800,7 +3873,22 @@ async function cnBurn(id){ const c=(CN.holdings||[]).find(x=>x.id===id)||{};
 async function cnPause(id, pause){ const c=(CN.mine||[]).find(x=>x.id===id)||{};
   if(!await ask({title:pause?T("Pause {ticker}", {ticker: c.ticker||''}):T("Resume {ticker}", {ticker: c.ticker||''}), icon:'lock', ok:pause?T("Pause"):T("Resume"), danger:pause, pass:true, body:`<p class="mtext">${pause?TE("No holder can move this coin until you resume it."):TE("Holders can move the coin again.")}</p>`})) return;
   cnIssuerAct(id, pause?'pause':'unpause'); }
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
+{ const NAV=document.querySelector('nav.tabs'), on=e=>e.target.closest('button[data-tab]');
+  NAV.querySelectorAll('button[data-tab]').forEach(b=>b.onclick=e=>{ if(e.ctrlKey||e.metaKey||e.shiftKey){ openWindow(b.dataset.tab); return; } goTab(b.dataset.tab); });
+  // Right click (or the menu key) on a section: its menu. The middle button: its own window.
+  NAV.addEventListener('contextmenu', e=>{ const b=on(e); if(!b) return; e.preventDefault(); const r=b.getBoundingClientRect(), key=!e.clientX&&!e.clientY; navMenu(b.dataset.tab, key?r.left+24:e.clientX, key?r.bottom-6:e.clientY); });
+  NAV.addEventListener('mousedown', e=>{ if(e.button===1&&on(e)) e.preventDefault(); });
+  NAV.addEventListener('auxclick', e=>{ const b=e.button===1&&on(e); if(b){ e.preventDefault(); openWindow(b.dataset.tab); } });
+  document.addEventListener('pointerdown', e=>{ if(!e.target.closest('#navMenu')) closeNavMenu(); }, true);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeNavMenu(); });
+  window.addEventListener('blur', closeNavMenu); window.addEventListener('resize', closeNavMenu);
+  if(WIN&&!TABS.includes(WIN)) document.documentElement.classList.remove('solo');
+  winButtons(); if(WIN&&TABS.includes(WIN)) winTitle((PG[WIN]||[WIN])[0]); }
+// What another window of this wallet did shows here at once; theme and language follow it.
+if(BC) BC.onmessage=e=>{ bcTold=Date.now(); if(e.data==='lang'){ location.reload(); return; } closeNavMenu(); clearTimeout(bcTimer); bcTimer=setTimeout(()=>{ refresh(); }, 250); };
+window.addEventListener('storage', e=>{ const t=e.newValue; if(e.key==='gk-theme'&&(t==='light'||t==='dark')&&t!==document.documentElement.getAttribute('data-theme')){ document.documentElement.setAttribute('data-theme', t); try{ window.dispatchEvent(new CustomEvent('fx-theme',{detail:t})); }catch(x){} } });
+// A window that is looked at again shows the present, not what it showed when it was left.
+{ let seen=0; window.addEventListener('focus', ()=>{ if(Date.now()-seen>1500){ seen=Date.now(); refresh(); } }); }
 /* Search and commands (Ctrl+K). It only moves between the tabs and runs what the buttons of the
    top bar run: it never sends, swaps or signs anything, and it stays shut while the wallet is
    locked or a dialog is open. */
@@ -3904,7 +3992,8 @@ let settingsLoaded=false, lockGrace=0;
    (at least about a second, so it does not flicker). */
 const SPLASH_T0=Date.now();
 function splashDone(){ const sp=$('splash'); if(!sp||sp.dataset.done) return; sp.dataset.done='1';
-  setTimeout(()=>{ sp.classList.add('out'); setTimeout(()=>sp.remove(), 700); }, Math.max(0, 1100-(Date.now()-SPLASH_T0))); }
+  // A section's window is there at once: the animation is for the wallet's start.
+  setTimeout(()=>{ sp.classList.add('out'); setTimeout(()=>sp.remove(), WIN?220:700); }, WIN?0:Math.max(0, 1100-(Date.now()-SPLASH_T0))); }
 /* The lock in the middle of the screen: its shackle opens on unlock and closes on lock. */
 function lockFx(kind){ const el=$('lockFx'); if(!el) return Promise.resolve();
   el.classList.remove('open','close','on'); void el.getBoundingClientRect(); el.classList.add('on', kind);

@@ -32,6 +32,7 @@
  "a039dfb962": "Tokens",
  "4a754148b8": "em breve",
  "74a883a037": "Configurações",
+ "24ca418805": "Abrir em janela separada",
  "508e7f4bb1": "As chaves nunca saem deste computador.",
  "208ab4f805": "Seu saldo, envios e recebimentos e a rede em um relance.",
  "215459b66b": "Carteira ativa",
@@ -394,6 +395,7 @@
  "56a5acdb5a": "Código-fonte<0>github.com/genoryn/genoryn</0>",
  "9fd728c66c": "Adicionar",
  "565339bc4d": "OK",
+ "b08e2fd2e8": "Abrir aqui",
  "4d3f5cec4b": "Genoryn",
  "09360169ac": "Gerenciar carteiras",
  "a74d02ab16": "Hashrate da rede, medido a partir das cotas de cada bloco, e a dificuldade do próximo bloco",
@@ -405,6 +407,10 @@
  "50ac4bb3cf": "Fechar a carteira, o nó e o minerador",
  "3206c5468a": "Senha desta carteira",
  "222c7287da": "Seções da carteira",
+ "49742c41e5": "Abre a seção em que você está em uma janela própria. Coloque-a em outra tela: todas as janelas continuam ao vivo.",
+ "58982ae943": "Mostrar todas as seções nesta janela",
+ "13b4e28bb4": "Abrir esta seção em janela separada",
+ "6efc712ea2": "Abrir esta seção em janela separada. Coloque-a em outra tela: todas as janelas continuam ao vivo.",
  "b7af0b9783": "Trocar de carteira",
  "36bc35f446": "ex.: Poupança",
  "93ee6c27d0": "Buscar por nome ou endereço",
@@ -459,5 +465,6 @@
  "43661bd8d4": "socks5h://127.0.0.1:9050",
  "9e109a582d": "Saída do console",
  "449aae7b24": "Comandos frequentes",
- "9adbce4659": "Digite um comando, por exemplo getblockchaininfo, ou help"
+ "9adbce4659": "Digite um comando, por exemplo getblockchaininfo, ou help",
+ "b03b2a0150": "Esta seção"
 }

@@ -32,6 +32,7 @@
  "a039dfb962": "Jetons",
  "4a754148b8": "bientôt",
  "74a883a037": "Paramètres",
+ "24ca418805": "Ouvrir dans une fenêtre séparée",
  "508e7f4bb1": "Les clés ne quittent jamais cet ordinateur.",
  "208ab4f805": "Votre solde, l'envoi et la réception, et le réseau en un coup d'œil.",
  "215459b66b": "Portefeuille actif",
@@ -394,6 +395,7 @@
  "56a5acdb5a": "Source<0>github.com/genoryn/genoryn</0>",
  "9fd728c66c": "Ajouter",
  "565339bc4d": "OK",
+ "b08e2fd2e8": "Ouvrir ici",
  "4d3f5cec4b": "Genoryn",
  "09360169ac": "Gérer les portefeuilles",
  "a74d02ab16": "Taux de hachage du réseau, mesuré à partir des parts de chaque bloc, et difficulté du prochain bloc",
@@ -405,6 +407,10 @@
  "50ac4bb3cf": "Fermer le portefeuille, le nœud et le mineur",
  "3206c5468a": "Mot de passe de ce portefeuille",
  "222c7287da": "Sections du portefeuille",
+ "49742c41e5": "Ouvre la section où vous vous trouvez dans sa propre fenêtre. Placez-la sur un autre écran : chaque fenêtre reste en direct.",
+ "58982ae943": "Afficher toutes les sections dans cette fenêtre",
+ "13b4e28bb4": "Ouvrir cette section dans une fenêtre séparée",
+ "6efc712ea2": "Ouvrir cette section dans une fenêtre séparée. Placez-la sur un autre écran : chaque fenêtre reste en direct.",
  "b7af0b9783": "Changer de portefeuille",
  "36bc35f446": "p. ex. Épargne",
  "93ee6c27d0": "Rechercher par nom ou adresse",
@@ -459,5 +465,6 @@
  "43661bd8d4": "socks5h://127.0.0.1:9050",
  "9e109a582d": "Sortie de la console",
  "449aae7b24": "Commandes fréquentes",
- "9adbce4659": "Tapez une commande, par exemple getblockchaininfo, ou help"
+ "9adbce4659": "Tapez une commande, par exemple getblockchaininfo, ou help",
+ "b03b2a0150": "Cette section"
 }

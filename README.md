@@ -264,9 +264,22 @@ signs, and it stays shut while the wallet is locked.
   wallet password, and a node or Bitcoin Core on this computer is still reached directly.
 
 **Background mining:** while the miner runs, closing the window keeps the wallet, node and
-miner running; **Quit** stops everything. If the miner stops, the Mining tab shows why (for
-example a GPU driver error); it restarts by itself, and after three quick failures in a row
-the wallet stops retrying and says so.
+miner running; **Quit** stops everything. **Stop** tells the miner to finish the batch it is
+working on and to end by itself, which takes a fraction of a second. The wallet does not end
+it by force: on a graphics card that also draws the screen, that freezes the display for a
+moment. If the miner stops, the Mining tab shows why (for example a GPU driver error); it
+restarts by itself, and after three quick failures in a row the wallet stops retrying and
+says so.
+
+**Several windows:** any section opens in a window of its own, so Mining can stay on one
+screen, Swap on another and the Wallet on a third. Right-click a section in the list and
+choose **Open in a separate window**, or press the small button at the foot of the list or the
+one beside the page's title; Ctrl+click and the middle mouse button do the same. A section's
+window shows that section alone, and its menu button brings the list in. Every window is the
+same live wallet: what you do in one shows in the others at once, and they share the theme,
+the language and the lock. The wallet remembers where its windows were and which sections
+were open, and opens them there again at the next start. Closing the main window leaves the
+others open; the desktop icon shows it again.
 
 A transaction spends at most two notes. When a payment needs more, the wallet merges notes
 automatically in parallel rounds (one block per round) and then pays.
@@ -470,6 +483,7 @@ krypton-miner --node http://127.0.0.1:30334 --address-file my-address.txt --back
 | `--devices` | GPU indices as in `--list-devices`, e.g. `0,2` |
 | `--batch` | Nonces per GPU launch (auto-tuned by default) |
 | `--json` | Machine-readable status lines; with `--list-devices`, a JSON list with `usable` and `error` |
+| `--stdin-control` | End in order when the line `stop` arrives on standard input: the batch that is running is finished, the devices are released and the process ends by itself. The wallet starts its miner this way. The end of the input is not a stop |
 
 The desktop wallet's **Mining** tab offers the same choices and a CPU limit. GPU solutions are
 always re-verified on the CPU before they are submitted. If a GPU driver cannot compile the

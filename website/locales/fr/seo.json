@@ -26,6 +26,7 @@
  "6377a06e81": "Oui, exactement comme GNR : le jeton, le montant, l'expéditeur et le destinataire seront cachés par une preuve à divulgation nulle de connaissance. Seules la création et la destruction de jetons seront publiques.",
  "377ed0c796": "Non. Aucun émetteur ne pourra prendre de jetons, voir les soldes ou geler un détenteur en particulier ; tout ce qu'un émetteur pourra faire sera déclaré avant que le jeton n'existe.",
  "c914a0c430": "Non. Gardez votre portefeuille à jour ; son onglet Jetons s'activera de lui-même lorsque les jetons seront activés.",
+ "6362acb5d4": "Genoryn Krypton 1.0.59 : Le portefeuille sur plusieurs écrans, et un mineur qui s'arrête sans figer l'affichage",
  "d7b709b04d": "Genoryn Krypton 1.0.58 : des paiements que vous pouvez suivre, des adresses vérifiées, et des échanges que vous pouvez prouver sur les deux chaînes",
  "980f47eb5d": "Genoryn Krypton 1.0.57 : un échange payé par votre portefeuille ne vous demande jamais de payer, la monnaie rendue est affichée comme telle, et un bouton Actualiser",
  "bb46f586f7": "Genoryn Krypton 1.0.56 : un marché strict où chaque offre est couverte par ses pièces et où personne n’achète sur une simple promesse",
@@ -43,6 +44,5 @@
  "0e9d7447da": "Genoryn Krypton 1.0.44 : une console dans le portefeuille, des offres qui suivent le marché, un prix du marché fondé sur des bitcoins réellement payés",
  "6813d9794a": "Genoryn Krypton 1.0.43 : des offres uniquement pour les acheteurs dont les bitcoins sont prêts, des échanges plus rapides, un portefeuille sur deux ordinateurs",
  "8c2be94529": "Genoryn Krypton 1.0.42 : une offre de vente engage ses GNR pour une semaine ; rien n'attend sans dire pourquoi",
- "3b66cf3ea5": "Genoryn Krypton 1.0.41 : des offres d'achat avec les bitcoins déposés, l'échange se termine tout seul",
- "38b291e976": "Genoryn Krypton 1.0.40 : les offres de vente prouvent leurs GNR"
+ "3b66cf3ea5": "Genoryn Krypton 1.0.41 : des offres d'achat avec les bitcoins déposés, l'échange se termine tout seul"
 }

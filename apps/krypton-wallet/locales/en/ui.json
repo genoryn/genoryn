@@ -44,6 +44,7 @@
  "8f6fb4eb7f": "Security",
  "74a883a037": "Settings",
  "4efca0d10c": "About",
+ "24ca418805": "Open in a separate window",
  "508e7f4bb1": "Keys never leave this computer.",
  "208ab4f805": "Your balance, sending and receiving, and the network at a glance.",
  "215459b66b": "Active wallet",
@@ -524,6 +525,7 @@
  "56a5acdb5a": "Source<0>github.com/genoryn/genoryn</0>",
  "9fd728c66c": "Add",
  "565339bc4d": "OK",
+ "b08e2fd2e8": "Open here",
  "4d3f5cec4b": "Genoryn",
  "09360169ac": "Manage wallets",
  "a74d02ab16": "Network hashrate, measured from the shares of every block, and the difficulty of the next block",
@@ -536,6 +538,10 @@
  "50ac4bb3cf": "Close the wallet, node and miner",
  "3206c5468a": "Password of this wallet",
  "222c7287da": "Wallet sections",
+ "49742c41e5": "Opens the section you are on in a window of its own. Put it on another screen: every window stays live.",
+ "58982ae943": "Show all sections in this window",
+ "13b4e28bb4": "Open this section in a separate window",
+ "6efc712ea2": "Open this section in a separate window. Put it on another screen: every window stays live.",
  "b7af0b9783": "Switch wallet",
  "36bc35f446": "e.g. Savings",
  "93ee6c27d0": "Search by name or address",
@@ -600,5 +606,6 @@
  "9e109a582d": "Console output",
  "449aae7b24": "Frequent commands",
  "9adbce4659": "Type a command, for example getblockchaininfo, or help",
- "713166971d": "Command"
+ "713166971d": "Command",
+ "b03b2a0150": "This section"
 }

@@ -17,6 +17,20 @@ SITE = "https://genoryn.io"
 RELEASES = "https://github.com/genoryn/genoryn/releases/tag/v"
 
 UPDATES = [
+    {"v": "1.0.59", "date": "2026-11-28", "title": "The wallet on several screens, and a miner that stops without freezing the display",
+     "tags": ["Wallet", "Mining"],
+     "items": [
+         "No change to the rules of the chain: nodes and wallets on older versions keep working with this one. Coins, wallets, offers and swaps in progress carry over.",
+         ("Added", "Any section of the wallet opens in a window of its own: Mining on one screen, Swap on another, the Wallet on a third. Right-click a section in the list and choose Open in a separate window, or press the small button at the foot of the list or the one beside the page's title; Ctrl+click and the middle mouse button do the same. Every window is the same live wallet: what you do in one shows in the others at once, and they share the theme, the language and the lock."),
+         ("Added", "A section's window shows that section alone, without the list; its menu button brings the list in when you want it. There is one window per section: asked for again, it comes to the front."),
+         ("Added", "The wallet remembers where its windows were and which sections were open, and opens them there again at the next start, after an update as well. A window whose screen is no longer attached opens on a screen that is."),
+         ("Changed", "Closing the main window leaves the sections' windows open. With no window left, the wallet keeps running only while it has work (the miner, an offer, a swap), as before. The desktop icon shows the main window of the wallet that is running."),
+         ("Fixed", "Stopping the miner froze the display for a moment and could leave a blank, white window. The wallet ended the miner's process by force in the middle of its work on the graphics card, and the display driver recorded an error each time. The miner is now told to stop: it finishes the batch that is running (about a tenth of a second), releases the card and ends by itself. The same holds when the wallet quits, when Start is pressed again and when an update is installed. On the card we test with, an NVIDIA RTX 5090, the driver logged its error when the miner was ended by force and none when it was told to stop."),
+         ("Changed", "The update from 1.0.58 to this version still ends a running miner the old way, one last time: it is the old wallet that does it."),
+         ("Changed", "The Stop button says that the miner is stopping until it has ended, and the miner's status then reads stopped, without a line of its progress after it."),
+         ("Fixed", "A new window is dark from its first moment; it used to be white until its page had drawn."),
+         ("Changed", "krypton-miner has a new option, --stdin-control: with it the miner ends in order when the line stop arrives on its standard input. The wallet starts its miner this way. Without the option nothing changes, so a miner on a rig or under Hive OS runs as before."),
+     ]},
     {"date": "2026-11-27", "title": "How many addresses mine in each block, and room at the end of every page",
      "tags": ["Site", "Mining"],
      "items": [

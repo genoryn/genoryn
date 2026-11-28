@@ -32,6 +32,7 @@
  "a039dfb962": "Tokenler",
  "4a754148b8": "yakında",
  "74a883a037": "Ayarlar",
+ "24ca418805": "Ayrı pencerede aç",
  "508e7f4bb1": "Anahtarlar bu bilgisayardan asla çıkmaz.",
  "208ab4f805": "Bakiyeniz, gönderme ve alma işlemleriniz ve ağ, tek bakışta.",
  "215459b66b": "Etkin cüzdan",
@@ -394,6 +395,7 @@
  "56a5acdb5a": "Kaynak<0>github.com/genoryn/genoryn</0>",
  "9fd728c66c": "Ekle",
  "565339bc4d": "Tamam",
+ "b08e2fd2e8": "Burada aç",
  "4d3f5cec4b": "Genoryn",
  "09360169ac": "Cüzdanları yönet",
  "a74d02ab16": "Her bloğun paylarından ölçülen ağ hash oranı ve bir sonraki bloğun zorluğu",
@@ -405,6 +407,10 @@
  "50ac4bb3cf": "Cüzdanı, düğümü ve madenciyi kapat",
  "3206c5468a": "Bu cüzdanın parolası",
  "222c7287da": "Cüzdan bölümleri",
+ "49742c41e5": "Bulunduğunuz bölümü kendi penceresinde açar. Onu başka bir ekrana koyun: her pencere canlı kalır.",
+ "58982ae943": "Tüm bölümleri bu pencerede göster",
+ "13b4e28bb4": "Bu bölümü ayrı pencerede aç",
+ "6efc712ea2": "Bu bölümü ayrı pencerede aç. Onu başka bir ekrana koyun: her pencere canlı kalır.",
  "b7af0b9783": "Cüzdan değiştir",
  "36bc35f446": "ör. Birikim",
  "93ee6c27d0": "Ada veya adrese göre ara",
@@ -459,5 +465,6 @@
  "43661bd8d4": "socks5h://127.0.0.1:9050",
  "9e109a582d": "Konsol çıktısı",
  "449aae7b24": "Sık kullanılan komutlar",
- "9adbce4659": "Bir komut yazın, örneğin getblockchaininfo veya help"
+ "9adbce4659": "Bir komut yazın, örneğin getblockchaininfo veya help",
+ "b03b2a0150": "Bu bölüm"
 }

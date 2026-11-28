@@ -165,6 +165,113 @@ struct App {
     /// Pending transactions fetched from the node (the whole pool, fetched once each).
     mempool:
         Mutex<std::collections::HashMap<krypton_core::Hash32, krypton_core::types::Transaction>>,
+    /// The way to the window thread, when this wallet has native windows: it opens a
+    /// section in a window of its own, or shows the main window again.
+    ui: Mutex<Option<UiHook>>,
+}
+
+/// What the window thread can be asked for. (Native windows exist on Windows only;
+/// elsewhere the wallet runs in the system browser and nothing reads these.)
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) enum UiCmd {
+    /// A section in a window of its own (one of [`WINDOW_TABS`]).
+    Open(String),
+    /// The main window, shown again and brought to the front.
+    ShowMain,
+}
+
+/// Hands a request to the window thread; false when that thread is gone.
+type UiHook = Box<dyn Fn(UiCmd) -> bool + Send + Sync>;
+
+/// The sections a window can be opened for: the page's tabs.
+const WINDOW_TABS: [&str; 14] = [
+    "wallet", "history", "swap", "market", "publish", "swaps", "trades", "coins", "mining",
+    "network", "settings", "console", "security", "about",
+];
+
+/// Where a window was, so that it opens there again: its outer position and inner size
+/// in physical pixels, and whether it was maximized.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) struct Geo {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    #[serde(default)]
+    max: bool,
+}
+
+/// A monitor's rectangle in physical pixels.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) struct Screen {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+impl Geo {
+    /// The place as it can be used now. `None` when no monitor shows the part of the
+    /// title bar a hand takes hold of (the monitor it was on is gone); otherwise the same
+    /// place, no larger than that monitor.
+    pub(crate) fn on(self, screens: &[Screen]) -> Option<Geo> {
+        let (px, py) = (self.x.saturating_add(80), self.y.saturating_add(14));
+        let s = screens.iter().find(|s| {
+            px >= s.x
+                && px < s.x.saturating_add(s.w as i32)
+                && py >= s.y
+                && py < s.y.saturating_add(s.h as i32)
+        })?;
+        (self.w >= 240 && self.h >= 240).then_some(Geo {
+            w: self.w.min(s.w),
+            h: self.h.min(s.h),
+            ..self
+        })
+    }
+}
+
+/// What this wallet remembers of its windows (`windows.json`): where each one was, by name
+/// ("main", or a section), and which sections were in windows of their own. Those open
+/// again at the next start, so the screens look as they were left.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) struct Windows {
+    #[serde(default)]
+    places: std::collections::HashMap<String, Geo>,
+    #[serde(default)]
+    open: Vec<String>,
+}
+
+/// Reads `windows.json`. Only this wallet's windows are kept (the main one and its
+/// sections, each section once); a file that cannot be read is no memory at all.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn load_windows(dir: &std::path::Path) -> Windows {
+    let mut w = std::fs::read(dir.join("windows.json"))
+        .ok()
+        .filter(|b| b.len() <= 64 << 10)
+        .and_then(|b| serde_json::from_slice::<Windows>(&b).ok())
+        .unwrap_or_default();
+    w.places
+        .retain(|k, _| k == "main" || WINDOW_TABS.contains(&k.as_str()));
+    let mut open: Vec<String> = Vec::new();
+    for t in std::mem::take(&mut w.open) {
+        if WINDOW_TABS.contains(&t.as_str()) && !open.contains(&t) {
+            open.push(t);
+        }
+    }
+    w.open = open;
+    w
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn save_windows(dir: &std::path::Path, w: &Windows) {
+    if let Ok(b) = serde_json::to_vec(w) {
+        let _ = std::fs::write(dir.join("windows.json"), b);
+    }
 }
 
 /// The node's pending transactions as (all fetched, ids still in the pool). The whole
@@ -1804,10 +1911,54 @@ async fn miner_start(State(app): S, h: HeaderMap, Json(r): Json<MinerReq>) -> Re
     };
     // Started by the user: a fresh count for the watchdog.
     MINER_RUN.lock().1 = 0;
-    match spawn_miner(&app, &addr, &r.backend, r.max_cpu.unwrap_or(50)) {
+    // Off the request's thread: a miner that is still running is stopped first.
+    let a = app.clone();
+    match blocking(move || spawn_miner(&a, &addr, &r.backend, r.max_cpu.unwrap_or(50))).await {
         Ok(()) => Json(json!({"ok": true})).into_response(),
         Err(e) => err(e),
     }
+}
+
+/// How long a miner that was asked to stop may take before it is killed. It ends within a
+/// fraction of a second while it searches; one that is building its dataset on the
+/// graphics card finishes that first (it gives itself ten seconds), and is waited for.
+const MINER_STOP_PATIENCE: std::time::Duration = std::time::Duration::from_secs(12);
+
+/// Ends a miner process. It is asked first (the line `stop` on its standard input): it then
+/// finishes the launch that is running, releases the graphics card in order and ends by
+/// itself, usually within a fraction of a second. A process killed in the middle of a GPU
+/// launch leaves the driver to tear the work down, and the same card draws the screen:
+/// that showed as a frozen display and a blank window (and as an error of the display
+/// driver in the system's log, every time). It is killed only if it does not end in time.
+fn stop_miner_process(mut c: Child, patience: std::time::Duration) -> bool {
+    use std::io::Write;
+    let asked = c
+        .stdin
+        .as_mut()
+        .is_some_and(|i| i.write_all(b"stop\n").and_then(|_| i.flush()).is_ok());
+    if asked {
+        let t = std::time::Instant::now();
+        while t.elapsed() < patience {
+            if matches!(c.try_wait(), Ok(Some(_))) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(40));
+        }
+    }
+    let ended = matches!(c.try_wait(), Ok(Some(_)));
+    let _ = c.kill();
+    let _ = c.wait();
+    ended
+}
+
+/// Whether a line of the miner's error output tells of its progress (what it is, the
+/// dataset it prepares), not of something that went wrong: such a line is not shown as
+/// the reason the miner stopped.
+fn miner_progress(line: &str) -> bool {
+    line.starts_with("krypton-miner ")
+        || line.starts_with("preparing epoch ")
+        || (line.starts_with("epoch ") && line.contains(" ready in "))
+        || line == "stopped"
 }
 
 /// Starts krypton-miner paying `addr` and follows its JSON status lines.
@@ -1823,8 +1974,9 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
             s.nodes.first().cloned().unwrap_or_else(|| app.local_node())
         }
     };
-    if let Some(mut c) = app.miner.lock().take() {
-        let _ = c.kill();
+    let old = app.miner.lock().take();
+    if let Some(c) = old {
+        stop_miner_process(c, MINER_STOP_PATIENCE);
     }
     let addr_file = app.dir.join("miner-address.txt");
     std::fs::write(&addr_file, addr)?;
@@ -1840,9 +1992,15 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
         .arg(&addr_file)
         .arg("--backend")
         .arg(backend)
-        .arg("--json");
+        .arg("--json")
+        .arg("--stdin-control");
     cmd.arg("--max-cpu").arg(max_cpu.clamp(1, 100).to_string());
-    match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
+    match cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
         Ok(mut c) => {
             let out = c.stdout.take();
             if let Some(err) = c.stderr.take() {
@@ -1850,7 +2008,7 @@ fn spawn_miner(app: &App, addr: &str, backend: &str, max_cpu: u32) -> Result<()>
                 std::thread::spawn(move || {
                     for line in std::io::BufReader::new(err).lines().map_while(|l| l.ok()) {
                         let l = line.trim().trim_start_matches("Error: ").to_string();
-                        if !l.is_empty() {
+                        if !l.is_empty() && !miner_progress(&l) {
                             stats.lock().error = l.chars().take(600).collect();
                         }
                     }
@@ -1959,11 +2117,45 @@ async fn miner_stop(State(app): S, h: HeaderMap) -> Response {
         return x;
     }
     *app.miner_want.lock() = None;
-    if let Some(mut c) = app.miner.lock().take() {
-        let _ = c.kill();
+    let child = app.miner.lock().take();
+    {
+        // Stopped by its owner: there is no reason to show for it.
+        let mut s = app.miner_stats.lock();
+        s.running = false;
+        s.error.clear();
     }
-    app.miner_stats.lock().running = false;
-    Json(json!({"ok": true})).into_response()
+    // The answer comes when the miner has ended (a moment, four seconds at most), so the
+    // page can say "stopping" until then. The wait is off the request's thread.
+    let clean = match child {
+        Some(c) => tokio::task::spawn_blocking(move || stop_miner_process(c, MINER_STOP_PATIENCE))
+            .await
+            .unwrap_or(false),
+        None => true,
+    };
+    Json(json!({"ok": true, "clean": clean})).into_response()
+}
+
+#[derive(Deserialize)]
+struct WindowReq {
+    tab: String,
+}
+
+/// Opens a section in a window of its own ("main": shows the main window again). The
+/// answer says whether this wallet has native windows; without them (the wallet in a
+/// browser) the page opens a browser window itself.
+async fn window_open(State(app): S, h: HeaderMap, Json(r): Json<WindowReq>) -> Response {
+    if let Err(x) = check(&app, &h) {
+        return x;
+    }
+    let cmd = if r.tab == "main" {
+        UiCmd::ShowMain
+    } else if WINDOW_TABS.contains(&r.tab.as_str()) {
+        UiCmd::Open(r.tab)
+    } else {
+        return err("unknown section");
+    };
+    let native = app.ui.lock().as_ref().is_some_and(|ask| ask(cmd));
+    Json(json!({"ok": true, "native": native})).into_response()
 }
 
 async fn devices(State(app): S, h: HeaderMap) -> Response {
@@ -2074,21 +2266,40 @@ async fn start_install(app: &Arc<App>) -> Result<()> {
             .lock()
             .as_mut()
             .is_some_and(|c| c.try_wait().ok().flatten().is_none());
+        let resume = a.dir.join("resume-mining.json");
         if mining && let Ok(s) = std::fs::read(a.dir.join("miner-settings.json")) {
-            std::fs::write(a.dir.join("resume-mining.json"), s)?;
+            std::fs::write(&resume, s)?;
         }
-        let install_dir = std::env::current_exe()?
-            .parent()
-            .context("install directory")?
-            .to_path_buf();
-        hidden(&mut Command::new(&installer))
-            .arg("--silent")
-            .arg("--launch")
-            .arg("--dir")
-            .arg(&install_dir)
-            .spawn()
-            .context("start the installer")?;
-        Ok(())
+        // The miner ends in order before the installer replaces it: the installer ends by
+        // force whatever still runs, and a miner ended that way in the middle of its work
+        // freezes the display for a moment. The new wallet starts it again.
+        let want = a.miner_want.lock().take();
+        let child = a.miner.lock().take();
+        if let Some(c) = child {
+            stop_miner_process(c, MINER_STOP_PATIENCE);
+        }
+        let started = (|| -> Result<()> {
+            let install_dir = std::env::current_exe()?
+                .parent()
+                .context("install directory")?
+                .to_path_buf();
+            hidden(&mut Command::new(&installer))
+                .arg("--silent")
+                .arg("--launch")
+                .arg("--dir")
+                .arg(&install_dir)
+                .spawn()
+                .context("start the installer")?;
+            Ok(())
+        })();
+        if started.is_err() {
+            // Nothing is being installed: mining goes on as it was.
+            let _ = std::fs::remove_file(&resume);
+            if let Some((addr, backend, max_cpu)) = want {
+                let _ = spawn_miner(&a, &addr, &backend, max_cpu);
+            }
+        }
+        started
     })
     .await;
     match r {
@@ -2285,6 +2496,44 @@ fn running_instance(dir: &std::path::Path, patient: bool) -> Option<String> {
         .then(|| url.trim().to_string())
 }
 
+/// Asks the wallet that is already running to show its main window (a second launch: the
+/// desktop icon clicked again). True when that wallet has native windows and did; false
+/// when it cannot (then this process shows a window on it, as before).
+fn ask_main_window(url: &str) -> bool {
+    use std::io::{Read, Write};
+    let Some((origin, token)) = url.trim().split_once("/#") else {
+        return false;
+    };
+    let Some(host) = origin.strip_prefix("http://") else {
+        return false;
+    };
+    let Ok(addr) = host.parse::<std::net::SocketAddr>() else {
+        return false;
+    };
+    if !addr.ip().is_loopback() || token.is_empty() || !token.bytes().all(|c| c.is_ascii_hexdigit())
+    {
+        return false;
+    }
+    let Ok(mut s) =
+        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(2_000))
+    else {
+        return false;
+    };
+    let _ = s.set_read_timeout(Some(std::time::Duration::from_millis(4_000)));
+    let body = r#"{"tab":"main"}"#;
+    let sent = write!(
+        s,
+        "POST /api/window HTTP/1.0\r\nHost: {host}\r\nx-token: {token}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    if sent.is_err() {
+        return false;
+    }
+    let mut buf = String::new();
+    let _ = s.read_to_string(&mut buf);
+    buf.starts_with("HTTP/1.") && buf.contains(" 200 ") && buf.contains("\"native\":true")
+}
+
 /// Links the embedded window may hand to the system browser.
 #[cfg(windows)]
 fn project_link(url: &str) -> bool {
@@ -2352,6 +2601,7 @@ async fn serve(
         vault,
         published: Mutex::new(None),
         mempool: Mutex::new(std::collections::HashMap::new()),
+        ui: Mutex::new(None),
     });
 
     // Full-node mode: our node starts with the wallet.
@@ -2529,6 +2779,7 @@ async fn serve(
         .route("/api/node/stop", post(node_stop))
         .route("/api/miner/start", post(miner_start))
         .route("/api/miner/stop", post(miner_stop))
+        .route("/api/window", post(window_open))
         .route("/api/devices", get(devices))
         .route("/api/ping", get(|| async { "genoryn-krypton-wallet" }))
         .route("/api/quit", post(quit))
@@ -2612,8 +2863,10 @@ async fn serve(
         })
         .await?;
     let _ = std::fs::remove_file(&instance_file);
-    if let Some(mut c) = app.miner.lock().take() {
-        let _ = c.kill();
+    let miner = app.miner.lock().take();
+    if let Some(c) = miner {
+        let _ =
+            tokio::task::spawn_blocking(move || stop_miner_process(c, MINER_STOP_PATIENCE)).await;
     }
     if let Some(mut c) = app.node.lock().take() {
         let _ = c.kill();
@@ -2657,7 +2910,9 @@ fn main() -> Result<()> {
     let mut waited = 0;
     while instance_lock.try_lock().is_err() {
         if let Some(url) = running_instance(&dir, waited > 0) {
-            if !a.no_browser {
+            // The running wallet shows its own main window; a wallet without windows (in
+            // a browser, or started with --no-browser) gets one from this process.
+            if !a.no_browser && !ask_main_window(&url) {
                 window::show(&url, None, None);
             }
             return Ok(());
@@ -2695,56 +2950,191 @@ mod window {
 
     #[cfg(windows)]
     pub fn show(url: &str, app: Option<Arc<App>>, server: Option<Server>) {
-        use tao::dpi::LogicalSize;
+        use super::{Geo, Screen, UiCmd, Windows};
+        use std::collections::HashMap;
+        use tao::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
         use tao::event::{Event, WindowEvent};
-        use tao::event_loop::{ControlFlow, EventLoopBuilder};
-        use tao::window::{Icon, WindowBuilder};
+        use tao::event_loop::{
+            ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget,
+        };
+        use tao::window::{Icon, Window, WindowBuilder, WindowId};
 
         #[derive(Debug)]
         enum User {
             Quit,
+            /// A section in a window of its own.
+            Open(String),
+            /// The main window, shown again.
+            ShowMain,
+            /// The page of a section's window named itself.
+            Title(WindowId, String),
         }
+        /// A section's own window. The view goes before its window.
+        struct Extra {
+            _view: wry::WebView,
+            window: Window,
+            tab: String,
+        }
+
+        fn screens(t: &EventLoopWindowTarget<User>) -> Vec<Screen> {
+            t.available_monitors()
+                .map(|m| {
+                    let (p, s) = (m.position(), m.size());
+                    Screen {
+                        x: p.x,
+                        y: p.y,
+                        w: s.width,
+                        h: s.height,
+                    }
+                })
+                .collect()
+        }
+        /// A window where it was last time, if a monitor still shows that place; else of
+        /// the given size, at `at` or where the system puts it.
+        fn window_at(
+            t: &EventLoopWindowTarget<User>,
+            icon: Option<Icon>,
+            size: LogicalSize<f64>,
+            place: Option<Geo>,
+            at: Option<PhysicalPosition<i32>>,
+        ) -> Option<Window> {
+            // Dark before the page has drawn, and whenever the view has nothing to show:
+            // a window without a colour of its own is white until then.
+            let b = WindowBuilder::new()
+                .with_title("Genoryn Krypton")
+                .with_min_inner_size(LogicalSize::new(420.0, 600.0))
+                .with_window_icon(icon)
+                .with_background_color((0, 0, 0, 255))
+                .with_theme(Some(tao::window::Theme::Dark));
+            let b = match place.and_then(|g| g.on(&screens(t))) {
+                Some(g) => b
+                    .with_position(PhysicalPosition::new(g.x, g.y))
+                    .with_inner_size(PhysicalSize::new(g.w, g.h))
+                    .with_maximized(g.max),
+                None => {
+                    let b = b.with_inner_size(size);
+                    match at {
+                        Some(p) => b.with_position(p),
+                        None => b,
+                    }
+                }
+            };
+            b.build(t).ok()
+        }
+        /// The wallet's page in a native view, with what it may and may not do.
+        fn view(
+            window: &Window,
+            url: &str,
+            origin: String,
+            title: Option<(EventLoopProxy<User>, WindowId)>,
+        ) -> Option<wry::WebView> {
+            let mut b = wry::WebViewBuilder::new()
+                .with_url(url)
+                .with_background_color((0, 0, 0, 255))
+                .with_devtools(false)
+                // The page reads the clipboard back after copying an address, to say that
+                // it holds exactly that address (it has no other use for it).
+                .with_clipboard(true)
+                .with_navigation_handler(move |to| {
+                    if to.starts_with(&origin) || to.starts_with("about:") {
+                        return true;
+                    }
+                    if super::project_link(&to) {
+                        super::open_browser(&to);
+                    }
+                    false
+                })
+                .with_new_window_req_handler(|to, _| {
+                    if super::project_link(&to) {
+                        super::open_browser(&to);
+                    }
+                    wry::NewWindowResponse::Deny
+                });
+            if let Some((proxy, id)) = title {
+                b = b.with_document_title_changed_handler(move |t| {
+                    let _ = proxy.send_event(User::Title(id, t));
+                });
+            }
+            b.build(window).ok()
+        }
+        /// Remembers where a window is, as a normal window (not while it is minimized or
+        /// hidden; a maximized one keeps the size it had before). True when that changed.
+        fn note(places: &mut HashMap<String, Geo>, name: &str, w: &Window) -> bool {
+            if w.is_minimized() || !w.is_visible() {
+                return false;
+            }
+            let old = places.get(name).copied();
+            let new = if w.is_maximized() {
+                old.map(|g| Geo { max: true, ..g })
+            } else {
+                w.outer_position()
+                    .ok()
+                    .map(|p| {
+                        let s = w.inner_size();
+                        Geo {
+                            x: p.x,
+                            y: p.y,
+                            w: s.width,
+                            h: s.height,
+                            max: false,
+                        }
+                    })
+                    .filter(|g| g.w >= 240 && g.h >= 240)
+            };
+            match new {
+                Some(g) if Some(g) != old => {
+                    places.insert(name.to_string(), g);
+                    true
+                }
+                _ => false,
+            }
+        }
+        /// With no window left to see: keep running while there is work that needs the
+        /// wallet (the miner, open offers, swaps in progress), else stop the server (and
+        /// its node); the watcher then ends the loop.
+        fn quit_if_idle(a: &App) {
+            let busy = !a.vault.hold.lock().is_empty();
+            if !a.miner_running() && a.miner_want.lock().is_none() && !busy {
+                a.quit.notify_one();
+            }
+        }
+
         let event_loop = EventLoopBuilder::<User>::with_user_event().build();
         let icon = decode_icon().and_then(|(rgba, w, h)| Icon::from_rgba(rgba, w, h).ok());
-        let Ok(window) = WindowBuilder::new()
-            .with_title("Genoryn Krypton")
-            .with_inner_size(LogicalSize::new(1280.0, 860.0))
-            .with_min_inner_size(LogicalSize::new(420.0, 600.0))
-            .with_window_icon(icon)
-            .with_theme(Some(tao::window::Theme::Dark))
-            .build(&event_loop)
-        else {
+        let dir = app.as_ref().map(|a| a.dir.clone());
+        let Windows {
+            mut places,
+            mut open,
+        } = dir.as_deref().map(super::load_windows).unwrap_or_default();
+        let Some(window) = window_at(
+            &event_loop,
+            icon.clone(),
+            LogicalSize::new(1280.0, 860.0),
+            places.get("main").copied(),
+            None,
+        ) else {
             return fallback(url, server);
         };
         let origin = url.split('#').next().unwrap_or(url).to_string();
-        let webview = wry::WebViewBuilder::new()
-            .with_url(url)
-            .with_background_color((0, 0, 0, 255))
-            .with_devtools(false)
-            // The page reads the clipboard back after copying an address, to say that it
-            // holds exactly that address (it has no other use for it).
-            .with_clipboard(true)
-            .with_navigation_handler(move |to| {
-                if to.starts_with(&origin) || to.starts_with("about:") {
-                    return true;
-                }
-                if super::project_link(&to) {
-                    super::open_browser(&to);
-                }
-                false
-            })
-            .with_new_window_req_handler(|to, _| {
-                if super::project_link(&to) {
-                    super::open_browser(&to);
-                }
-                wry::NewWindowResponse::Deny
-            })
-            .build(&window);
-        let Ok(webview) = webview else {
+        let token = url.split_once('#').map(|x| x.1).unwrap_or("").to_string();
+        let Some(webview) = view(&window, url, origin.clone(), None) else {
             drop(window);
             return fallback(url, server);
         };
-        // When the server stops (Quit button), close the window too.
+        // The server's way to this thread: the page asks it for a section in a window of
+        // its own, a second launch for the main window.
+        if let Some(a) = &app {
+            let ask = parking_lot::Mutex::new(event_loop.create_proxy());
+            *a.ui.lock() = Some(Box::new(move |c| {
+                ask.lock()
+                    .send_event(match c {
+                        UiCmd::Open(tab) => User::Open(tab),
+                        UiCmd::ShowMain => User::ShowMain,
+                    })
+                    .is_ok()
+            }));
+        }
+        // When the server stops (Quit button), close the windows too.
         let proxy = event_loop.create_proxy();
         let mut server = server;
         let watcher = server.take().map(|s| {
@@ -2754,28 +3144,159 @@ mod window {
             })
         });
         let _keep = (webview, watcher);
-        event_loop.run(move |event, _, flow| {
+        let titles = event_loop.create_proxy();
+        // The sections that were in windows of their own when the wallet was last running
+        // open again, each where it was; the main window stays the one in front.
+        if app.is_some() && !open.is_empty() {
+            for tab in open.clone() {
+                let _ = titles.send_event(User::Open(tab));
+            }
+            let _ = titles.send_event(User::ShowMain);
+        }
+        let main_id = window.id();
+        let mut extras: HashMap<WindowId, Extra> = HashMap::new();
+        // Places are written when a window opens or closes and at the end, and while one
+        // is being moved every two seconds at most; the loop wakes up to write the last
+        // of a move.
+        const FLUSH: std::time::Duration = std::time::Duration::from_secs(2);
+        let mut dirty = false;
+        let mut written = std::time::Instant::now();
+        event_loop.run(move |event, target, flow| {
             *flow = ControlFlow::Wait;
+            let mut write = false;
             match event {
                 Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => match &app {
-                    // While mining, closing the window keeps everything running in the
-                    // background (the desktop icon reopens it; Quit stops it). Otherwise stop
-                    // the server (and its node); the watcher then posts Quit.
-                    Some(a) => {
-                        window.set_visible(false);
-                        // Open offers and swaps in progress need the wallet running too.
-                        let busy = !a.vault.hold.lock().is_empty();
-                        if !a.miner_running() && a.miner_want.lock().is_none() && !busy {
-                            a.quit.notify_one();
+                    window_id, event, ..
+                } => match event {
+                    WindowEvent::CloseRequested => {
+                        if window_id == main_id {
+                            note(&mut places, "main", &window);
+                            match &app {
+                                // The main window goes out of sight. Sections in their own
+                                // windows stay; with none of them open, the wallet keeps
+                                // running only while it has work (the desktop icon shows
+                                // the window again; Quit stops everything).
+                                Some(a) => {
+                                    window.set_visible(false);
+                                    if extras.is_empty() {
+                                        quit_if_idle(a);
+                                    }
+                                }
+                                None => *flow = ControlFlow::Exit,
+                            }
+                        } else if let Some(x) = extras.remove(&window_id) {
+                            note(&mut places, &x.tab, &x.window);
+                            // Closed by hand: it does not open again by itself.
+                            open.retain(|t| t != &x.tab);
+                            drop(x);
+                            if extras.is_empty()
+                                && !window.is_visible()
+                                && let Some(a) = &app
+                            {
+                                quit_if_idle(a);
+                            }
+                        }
+                        write = true;
+                    }
+                    WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+                        dirty |= if window_id == main_id {
+                            note(&mut places, "main", &window)
+                        } else if let Some(x) = extras.get(&window_id) {
+                            note(&mut places, &x.tab, &x.window)
+                        } else {
+                            false
+                        };
+                    }
+                    _ => {}
+                },
+                Event::UserEvent(User::Open(tab)) => {
+                    if let Some(x) = extras.values().find(|x| x.tab == tab) {
+                        // One window per section: it comes to the front.
+                        x.window.set_minimized(false);
+                        x.window.set_focus();
+                    } else {
+                        // A little down and to the right of the main window, each further.
+                        let step = 44 * (extras.len() as i32 + 1);
+                        let at = if window.is_visible() && !window.is_minimized() {
+                            window
+                                .outer_position()
+                                .ok()
+                                .map(|p| PhysicalPosition::new(p.x + step, p.y + step))
+                        } else {
+                            None
+                        };
+                        if let Some(w) = window_at(
+                            target,
+                            icon.clone(),
+                            LogicalSize::new(1060.0, 780.0),
+                            places.get(&tab).copied(),
+                            at,
+                        ) {
+                            let page = format!("{origin}?w={tab}#{token}");
+                            if let Some(v) =
+                                view(&w, &page, origin.clone(), Some((titles.clone(), w.id())))
+                            {
+                                w.set_focus();
+                                if !open.contains(&tab) {
+                                    open.push(tab.clone());
+                                }
+                                write = true;
+                                extras.insert(
+                                    w.id(),
+                                    Extra {
+                                        _view: v,
+                                        window: w,
+                                        tab,
+                                    },
+                                );
+                            }
                         }
                     }
-                    None => *flow = ControlFlow::Exit,
-                },
-                Event::UserEvent(User::Quit) => *flow = ControlFlow::Exit,
+                }
+                Event::UserEvent(User::ShowMain) => {
+                    window.set_visible(true);
+                    window.set_minimized(false);
+                    window.set_focus();
+                }
+                Event::UserEvent(User::Title(id, title)) => {
+                    if let Some(x) = extras.get(&id) {
+                        let t: String = title
+                            .chars()
+                            .filter(|c| !c.is_control())
+                            .take(120)
+                            .collect();
+                        x.window.set_title(if t.trim().is_empty() {
+                            "Genoryn Krypton"
+                        } else {
+                            &t
+                        });
+                    }
+                }
+                Event::UserEvent(User::Quit) => {
+                    note(&mut places, "main", &window);
+                    for x in extras.values() {
+                        note(&mut places, &x.tab, &x.window);
+                    }
+                    write = true;
+                    *flow = ControlFlow::Exit;
+                }
                 _ => {}
+            }
+            if (write || (dirty && written.elapsed() >= FLUSH))
+                && let Some(d) = &dir
+            {
+                super::save_windows(
+                    d,
+                    &Windows {
+                        places: places.clone(),
+                        open: open.clone(),
+                    },
+                );
+                dirty = false;
+                written = std::time::Instant::now();
+            }
+            if dirty && !matches!(*flow, ControlFlow::Exit) {
+                *flow = ControlFlow::WaitUntil(written + FLUSH);
             }
         });
     }
@@ -2808,6 +3329,295 @@ mod window {
         super::open_browser(url);
         if let Some(s) = server {
             let _ = s.join();
+        }
+    }
+}
+
+#[cfg(test)]
+mod window_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    const ONE: [Screen; 1] = [Screen {
+        x: 0,
+        y: 0,
+        w: 1920,
+        h: 1080,
+    }];
+    /// A second monitor to the left of the first, as Windows numbers it: negative x.
+    const TWO: [Screen; 2] = [
+        Screen {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+        },
+        Screen {
+            x: -2560,
+            y: -200,
+            w: 2560,
+            h: 1440,
+        },
+    ];
+
+    /// A folder of this test alone, removed when the test ends.
+    struct Tmp(PathBuf);
+    impl Tmp {
+        fn new() -> Tmp {
+            let d = std::env::temp_dir().join(format!(
+                "gk-windows-test-{}-{:x}",
+                std::process::id(),
+                rand::random::<u64>()
+            ));
+            std::fs::create_dir_all(&d).unwrap();
+            Tmp(d)
+        }
+        fn path(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+    impl Drop for Tmp {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn geo(x: i32, y: i32, w: u32, h: u32) -> Geo {
+        Geo {
+            x,
+            y,
+            w,
+            h,
+            max: false,
+        }
+    }
+
+    #[test]
+    fn a_window_opens_where_it_was() {
+        let g = geo(300, 120, 1060, 780);
+        assert_eq!(g.on(&ONE), Some(g));
+        // On the second monitor too, with its negative coordinates.
+        let left = geo(-2000, 40, 1400, 900);
+        assert_eq!(left.on(&TWO), Some(left));
+        let max = Geo { max: true, ..g };
+        assert_eq!(max.on(&ONE), Some(max));
+    }
+
+    #[test]
+    fn a_window_of_a_monitor_that_is_gone_opens_in_the_default_place() {
+        // It was on the left monitor; that monitor is no longer attached.
+        assert_eq!(geo(-2000, 40, 1400, 900).on(&ONE), None);
+        // Its title bar would be above or beside every monitor: nothing to take hold of.
+        assert_eq!(geo(100, -40, 900, 700).on(&ONE), None);
+        assert_eq!(geo(1900, 100, 900, 700).on(&ONE), None);
+        assert_eq!(geo(100, 1075, 900, 700).on(&ONE), None);
+        assert_eq!(geo(100, 100, 900, 700).on(&[]), None);
+        // Numbers at the edge of what a file can hold do not overflow.
+        assert_eq!(geo(i32::MAX, i32::MAX, u32::MAX, u32::MAX).on(&ONE), None);
+        assert_eq!(geo(i32::MIN, i32::MIN, 900, 700).on(&TWO), None);
+    }
+
+    #[test]
+    fn a_remembered_window_is_never_larger_than_its_monitor_nor_too_small_to_use() {
+        let g = geo(10, 10, 5000, 4000).on(&ONE).expect("on the monitor");
+        assert_eq!((g.x, g.y, g.w, g.h), (10, 10, 1920, 1080));
+        assert_eq!(geo(10, 10, 100, 700).on(&ONE), None);
+        assert_eq!(geo(10, 10, 700, 100).on(&ONE), None);
+        assert_eq!(geo(10, 10, 0, 0).on(&ONE), None);
+    }
+
+    #[test]
+    fn windows_are_written_and_read_and_only_known_windows_are_kept() {
+        let dir = Tmp::new();
+        assert_eq!(load_windows(dir.path()), Windows::default());
+        let mut m = HashMap::new();
+        m.insert("main".to_string(), geo(1, 2, 1280, 860));
+        m.insert(
+            "mining".to_string(),
+            Geo {
+                max: true,
+                ..geo(-1800, 30, 1000, 700)
+            },
+        );
+        let w = Windows {
+            places: m,
+            open: vec!["mining".to_string(), "swap".to_string()],
+        };
+        save_windows(dir.path(), &w);
+        assert_eq!(load_windows(dir.path()), w);
+
+        // A file from elsewhere: names that are no window of this wallet are dropped (a
+        // place, or a section to open), a section is opened once however often it is
+        // named, and a place without "max" is read as not maximized.
+        std::fs::write(
+            dir.path().join("windows.json"),
+            br#"{"places":{"swap":{"x":5,"y":6,"w":900,"h":700},"../x":{"x":0,"y":0,"w":900,"h":700},"nope":{"x":0,"y":0,"w":900,"h":700}},"open":["swap","main","../x","mining","swap","","nope","mining"]}"#,
+        )
+        .unwrap();
+        let got = load_windows(dir.path());
+        assert_eq!(got.places.len(), 1);
+        assert_eq!(got.places["swap"], geo(5, 6, 900, 700));
+        assert_eq!(got.open, ["swap", "mining"]);
+
+        // Either part may be missing.
+        std::fs::write(dir.path().join("windows.json"), br#"{"open":["about"]}"#).unwrap();
+        let got = load_windows(dir.path());
+        assert!(got.places.is_empty());
+        assert_eq!(got.open, ["about"]);
+        std::fs::write(dir.path().join("windows.json"), b"{}").unwrap();
+        assert_eq!(load_windows(dir.path()), Windows::default());
+
+        // Not JSON, the wrong shape, or far too large: nothing remembered, and no error.
+        for bad in [
+            &b"not json"[..],
+            &br#"{"places":{"main":[1,2,3]}}"#[..],
+            &br#"{"places":{"main":{"x":"a"}}}"#[..],
+            &br#"{"open":"mining"}"#[..],
+            &br#"{"open":[1,2]}"#[..],
+            &br#"[]"#[..],
+        ] {
+            std::fs::write(dir.path().join("windows.json"), bad).unwrap();
+            assert_eq!(load_windows(dir.path()), Windows::default(), "{bad:?}");
+        }
+        let mut big = br#"{"open":["mining"]"#.to_vec();
+        big.extend(std::iter::repeat_n(b' ', 70 << 10));
+        big.push(b'}');
+        std::fs::write(dir.path().join("windows.json"), big).unwrap();
+        assert_eq!(load_windows(dir.path()), Windows::default());
+    }
+
+    #[test]
+    fn the_sections_a_window_can_show_are_the_tabs_of_the_page() {
+        let ui = include_str!("ui.html");
+        let at = ui.find("const TABS=[").expect("the page's tabs") + "const TABS=[".len();
+        let list = &ui[at..at + ui[at..].find(']').unwrap()];
+        let tabs: Vec<&str> = list
+            .split(',')
+            .map(|t| t.trim().trim_matches('\''))
+            .collect();
+        assert_eq!(tabs, WINDOW_TABS);
+        // Every one of them has a page and a button in the list of sections.
+        for t in WINDOW_TABS {
+            assert!(ui.contains(&format!(r#"id="tab-{t}""#)), "{t} has no page");
+            assert!(
+                ui.contains(&format!(r#"data-tab="{t}""#)),
+                "{t} is not in the list"
+            );
+            // The page accepts it as the name of a window ("?w=<section>").
+            assert!(t.len() >= 3 && t.len() <= 10 && t.bytes().all(|b| b.is_ascii_lowercase()));
+        }
+    }
+
+    #[test]
+    fn the_miners_progress_is_not_shown_as_the_reason_it_stopped() {
+        for progress in [
+            "krypton-miner 1.0.59 | cpu x4 | node http://127.0.0.1:30334",
+            "preparing epoch 12 ...",
+            "epoch 12 ready in 3.4s",
+            "stopped",
+        ] {
+            assert!(miner_progress(progress), "{progress}");
+        }
+        for reason in [
+            "waiting for node: connection refused",
+            "the node's work is for epoch 9 while mining epoch 12: ignoring it",
+            "no CUDA device found",
+            "solution not accepted: {\"accepted\":false}",
+            "submit failed: timed out",
+            "epoch",
+            "stopped by the driver",
+        ] {
+            assert!(!miner_progress(reason), "{reason}");
+        }
+    }
+
+    /// A process that ends when it is given a line, as a miner does when it is told to stop.
+    fn listener() -> Child {
+        #[cfg(windows)]
+        let mut c = {
+            let mut c = Command::new("cmd");
+            c.args(["/D", "/C", "set /p x="]);
+            c
+        };
+        #[cfg(not(windows))]
+        let mut c = {
+            let mut c = Command::new("sh");
+            c.args(["-c", "read x"]);
+            c
+        };
+        c.stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("a process that reads a line")
+    }
+
+    /// A process that does not listen, as a miner from before this version.
+    fn deaf(stdin: Stdio) -> Child {
+        #[cfg(windows)]
+        let mut c = {
+            let mut c = Command::new("ping");
+            c.args(["-n", "60", "127.0.0.1"]);
+            c
+        };
+        #[cfg(not(windows))]
+        let mut c = {
+            let mut c = Command::new("sleep");
+            c.arg("60");
+            c
+        };
+        c.stdin(stdin)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("a process that waits")
+    }
+
+    #[test]
+    fn a_miner_that_listens_ends_by_itself_and_one_that_does_not_is_ended() {
+        use std::time::{Duration, Instant};
+        // Asked, it ends by itself, well within the patience.
+        let t = Instant::now();
+        assert!(stop_miner_process(listener(), Duration::from_secs(20)));
+        assert!(t.elapsed() < Duration::from_secs(15), "{:?}", t.elapsed());
+
+        // One that does not answer is ended once the patience is over, never left running.
+        let c = deaf(Stdio::piped());
+        let id = c.id();
+        let t = Instant::now();
+        assert!(!stop_miner_process(c, Duration::from_millis(400)));
+        assert!(t.elapsed() >= Duration::from_millis(400));
+        assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+        assert!(!alive(id), "the process is gone");
+
+        // One that was started without a way to be asked is ended at once.
+        let c = deaf(Stdio::null());
+        let id = c.id();
+        let t = Instant::now();
+        assert!(!stop_miner_process(c, Duration::from_secs(30)));
+        assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+        assert!(!alive(id), "the process is gone");
+    }
+
+    /// Whether a process of this id is still there. After `wait` the id is free, and the
+    /// system does not hand it out again within a test's time.
+    fn alive(id: u32) -> bool {
+        #[cfg(windows)]
+        {
+            let out = Command::new("tasklist")
+                .args(["/FI", &format!("PID eq {id}"), "/FO", "CSV", "/NH"])
+                .output()
+                .expect("tasklist");
+            String::from_utf8_lossy(&out.stdout).contains(&format!("\"{id}\""))
+        }
+        #[cfg(not(windows))]
+        {
+            Command::new("kill")
+                .args(["-0", &id.to_string()])
+                .stderr(Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
         }
     }
 }

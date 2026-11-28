@@ -26,6 +26,7 @@
  "6377a06e81": "Evet, tıpkı GNR gibi: token, miktar, gönderici ve alıcı bir sıfır bilgi kanıtıyla gizlenecek. Yalnızca tokenlerin oluşturulması ve yok edilmesi herkese açık olacak.",
  "377ed0c796": "Hayır. Hiçbir ihraççı token alamayacak, bakiyeleri göremeyecek veya tek bir sahibin varlıklarını donduramayacak; bir ihraççının yapabileceği her şey token var olmadan önce beyan edilecek.",
  "c914a0c430": "Hayır. Cüzdanınızı güncel tutun; Tokenler sekmesi, tokenler etkinleştirildiğinde kendiliğinden açılır.",
+ "6362acb5d4": "Genoryn Krypton 1.0.59: Birden fazla ekranda cüzdan ve görüntüyü dondurmadan duran bir madenci",
  "d7b709b04d": "Genoryn Krypton 1.0.58: Takip edebileceğiniz ödemeler, kontrol edilen adresler ve iki zincirde de kanıtlayabileceğiniz takaslar",
  "980f47eb5d": "Genoryn Krypton 1.0.57: Cüzdanınızın ödediği takas sizden asla ödeme istemez, para üstü para üstü olarak gösterilir ve bir Yenile düğmesi",
  "bb46f586f7": "Genoryn Krypton 1.0.56: Sıkı kurallı bir piyasa: her teklifin arkasında coinleri var ve kimse söz vererek satın alamaz",
@@ -43,6 +44,5 @@
  "0e9d7447da": "Genoryn Krypton 1.0.44: Cüzdanda bir konsol, piyasayı takip eden teklifler, gerçekten ödenmiş bitcoine dayanan bir piyasa fiyatı",
  "6813d9794a": "Genoryn Krypton 1.0.43: Yalnızca bitcoini hazır olan alıcılar için teklifler, daha hızlı takaslar, iki bilgisayarda tek cüzdan",
  "8c2be94529": "Genoryn Krypton 1.0.42: Bir satış teklifi GNR'sini bir haftalığına bağlar; hiçbir şey nedenini söylemeden beklemez",
- "3b66cf3ea5": "Genoryn Krypton 1.0.41: Bitcoini yatırılmış alış teklifleri: takas kendiliğinden tamamlanır",
- "38b291e976": "Genoryn Krypton 1.0.40: Satış teklifleri GNR'lerini kanıtlar"
+ "3b66cf3ea5": "Genoryn Krypton 1.0.41: Bitcoini yatırılmış alış teklifleri: takas kendiliğinden tamamlanır"
 }

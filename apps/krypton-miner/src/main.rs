@@ -18,6 +18,85 @@ use std::time::{Duration, Instant};
 /// The most a node's answer may be: a mining job is a few kilobytes.
 const MAX_ANSWER: u64 = 4 << 20;
 
+/// Set when the miner was asked to stop (`--stdin-control`): the search ends after the
+/// launch that is running, the devices are released in order and the process ends by
+/// itself. A process that is killed in the middle of a GPU launch leaves the driver to tear
+/// the work down, and on a desktop the same card draws the screen.
+static STOP: AtomicBool = AtomicBool::new(false);
+
+fn stopping() -> bool {
+    STOP.load(Ordering::Relaxed)
+}
+
+/// Whether a line on standard input asks the miner to stop.
+fn stop_line(line: &str) -> bool {
+    line.trim().eq_ignore_ascii_case("stop")
+}
+
+/// How long a stop may take before the process ends anyway when no device is busy (a
+/// node that does not answer, a dataset that is being built on the CPU): ending then
+/// harms nothing, and the caller is not kept waiting.
+const STOP_PATIENCE: Duration = Duration::from_secs(3);
+
+/// How long a stop waits for a device that is busy (the dataset is being built on the
+/// graphics card: seconds). Ending in the middle of that is what stopping in order is
+/// there to avoid; the limit is for a driver that hangs.
+const DEVICE_PATIENCE: Duration = Duration::from_secs(10);
+
+/// True while the main thread is in a call that works on a device: a launch, building the
+/// dataset, releasing the device.
+static ON_DEVICE: AtomicBool = AtomicBool::new(false);
+
+/// Marks the time spent in such a call.
+struct OnDevice;
+
+impl OnDevice {
+    fn enter() -> OnDevice {
+        ON_DEVICE.store(true, Ordering::Relaxed);
+        OnDevice
+    }
+}
+
+impl Drop for OnDevice {
+    fn drop(&mut self) {
+        ON_DEVICE.store(false, Ordering::Relaxed);
+    }
+}
+
+/// Whether a miner that was asked to stop this long ago ends now, by itself having failed
+/// to: after the patience when no device is busy, and when one is, only at the limit.
+fn give_up(waited: Duration, on_device: bool) -> bool {
+    waited >= STOP_PATIENCE && (!on_device || waited >= DEVICE_PATIENCE)
+}
+
+/// Reads standard input for the line `stop`. The end of the input is not a stop: a miner
+/// started without a terminal (a rig, a service) has none, and keeps mining.
+fn watch_stdin() {
+    std::thread::spawn(|| {
+        let stdin = std::io::stdin();
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match stdin.read_line(&mut line) {
+                Ok(0) | Err(_) => return,
+                Ok(_) if stop_line(&line) => break,
+                Ok(_) => {}
+            }
+        }
+        STOP.store(true, Ordering::Relaxed);
+        // The main thread ends the process itself as soon as it is back in its loop. Still
+        // here after the patience: it waits for the node or builds a dataset on the CPU,
+        // and ending now harms nothing. A device that is busy is waited for.
+        let asked = Instant::now();
+        loop {
+            std::thread::sleep(Duration::from_millis(50));
+            if give_up(asked.elapsed(), ON_DEVICE.load(Ordering::Relaxed)) {
+                std::process::exit(0);
+            }
+        }
+    });
+}
+
 /// A node's answer as JSON, read only up to [`MAX_ANSWER`].
 fn answer(r: reqwest::blocking::Response) -> Result<Value> {
     use std::io::Read;
@@ -76,6 +155,11 @@ struct Args {
     /// List devices and exit
     #[arg(long)]
     list_devices: bool,
+    /// End cleanly when the line `stop` arrives on standard input: the search ends after
+    /// the launch that is running and the graphics card is released in order (the wallet
+    /// stops its miner this way)
+    #[arg(long)]
+    stdin_control: bool,
 }
 
 struct Shared {
@@ -451,6 +535,9 @@ fn main() -> Result<()> {
         list_devices(a.json);
         return Ok(());
     }
+    if a.stdin_control {
+        watch_stdin();
+    }
     let input = match (&a.address, &a.address_file) {
         (Some(x), _) => x.trim().to_string(),
         (None, Some(f)) => std::fs::read_to_string(f)?.trim().to_string(),
@@ -572,6 +659,9 @@ fn main() -> Result<()> {
 
     let mut cache: Option<Arc<Cache>> = None;
     loop {
+        if stopping() {
+            break;
+        }
         let work = match client.template() {
             Ok(w) => w,
             Err(e) => {
@@ -602,12 +692,14 @@ fn main() -> Result<()> {
                 }
                 #[cfg(feature = "cuda")]
                 Engine::Cuda(ms) => {
+                    let _busy = OnDevice::enter();
                     for m in ms.iter_mut() {
                         m.prepare(&work.params, &c)?;
                     }
                 }
                 #[cfg(feature = "opencl")]
                 Engine::Opencl(ms) => {
+                    let _busy = OnDevice::enter();
                     for m in ms.iter_mut() {
                         m.prepare(&work.params, &c)?;
                     }
@@ -619,6 +711,10 @@ fn main() -> Result<()> {
                 t.elapsed().as_secs_f64()
             );
             cache = Some(c);
+            // Asked to stop while the dataset was being built: no search is started.
+            if stopping() {
+                break;
+            }
         }
         let c = cache.clone().expect("cache");
         let job = Job {
@@ -657,6 +753,18 @@ fn main() -> Result<()> {
             }
         }
     }
+    // Asked to stop: nothing is running on the devices any more. They are released here,
+    // in order, and the process ends by itself.
+    {
+        let _busy = OnDevice::enter();
+        drop(engine);
+    }
+    if a.json {
+        println!("{}", json!({"event": "stopped"}));
+    } else {
+        eprintln!("stopped");
+    }
+    Ok(())
 }
 
 /// Text from the node as this miner prints it: control characters replaced and the length
@@ -716,6 +824,9 @@ fn mine_round(
                 let h = hashes.load(Ordering::Relaxed);
                 shared.hashes.fetch_add(h - seen, Ordering::Relaxed);
                 seen = h;
+                if stopping() {
+                    stop.store(true, Ordering::Relaxed);
+                }
                 if worker.is_finished() || stop.load(Ordering::Relaxed) {
                     break;
                 }
@@ -745,13 +856,19 @@ fn mine_round(
                         ..*job
                     };
                     let t = Instant::now();
-                    if let Some(s) = m
-                        .search_verified(&j, b, cache)
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
-                    {
+                    let found = {
+                        let _busy = OnDevice::enter();
+                        m.search_verified(&j, b, cache)
+                            .map_err(|e| anyhow::anyhow!("{e}"))?
+                    };
+                    if let Some(s) = found {
                         return Ok(Some(s.nonce));
                     }
                     shared.hashes.fetch_add(b as u64, Ordering::Relaxed);
+                    // Asked to stop: the launch has ended, nothing runs on the card.
+                    if stopping() {
+                        return Ok(None);
+                    }
                     // Keep each launch near 100 ms for responsiveness.
                     if batch.is_none() {
                         let ms_ = t.elapsed().as_millis();
@@ -782,13 +899,18 @@ fn mine_round(
                         start_nonce: nonce.wrapping_add((i as u64) << 40),
                         ..*job
                     };
-                    if let Some(s) = m
-                        .search_verified(&j, b, cache)
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
-                    {
+                    let found = {
+                        let _busy = OnDevice::enter();
+                        m.search_verified(&j, b, cache)
+                            .map_err(|e| anyhow::anyhow!("{e}"))?
+                    };
+                    if let Some(s) = found {
                         return Ok(Some(s.nonce));
                     }
                     shared.hashes.fetch_add(b as u64, Ordering::Relaxed);
+                    if stopping() {
+                        return Ok(None);
+                    }
                 }
                 nonce = nonce.wrapping_add(b as u64);
                 if last_check.elapsed() > Duration::from_secs(2) {
@@ -821,8 +943,52 @@ mod tests {
         }
     }
 
-    /// A node's template is accepted only if its header pays this miner, and everything
-    /// mined is derived from that header, not from what the node says next to it.
+    /// The wallet stops its miner with the line `stop`; nothing else on that input does.
+    #[test]
+    fn only_the_word_stop_stops() {
+        for yes in ["stop", "stop\n", "  STOP\r\n", "Stop "] {
+            assert!(stop_line(yes), "{yes:?}");
+        }
+        for no in [
+            "",
+            "\n",
+            "stop now",
+            "stopped",
+            "st op",
+            "quit",
+            "{\"stop\":true}",
+        ] {
+            assert!(!stop_line(no), "{no:?}");
+        }
+        assert!(!stopping());
+    }
+
+    /// A miner that was asked to stop and has not ended by itself ends after the patience
+    /// when no device is busy; one whose device is busy is given until the limit, so that a
+    /// dataset being built on the card is not cut off.
+    #[test]
+    fn a_stop_waits_for_a_busy_device() {
+        let ms = Duration::from_millis;
+        assert!(STOP_PATIENCE < DEVICE_PATIENCE);
+        for on_device in [false, true] {
+            assert!(!give_up(ms(0), on_device));
+            assert!(!give_up(STOP_PATIENCE - ms(1), on_device));
+            assert!(give_up(DEVICE_PATIENCE, on_device));
+            assert!(give_up(DEVICE_PATIENCE + ms(1), on_device));
+        }
+        assert!(give_up(STOP_PATIENCE, false));
+        assert!(!give_up(STOP_PATIENCE, true));
+        assert!(!give_up(DEVICE_PATIENCE - ms(1), true));
+
+        // The mark is set for exactly the time of the call it guards.
+        assert!(!ON_DEVICE.load(Ordering::Relaxed));
+        {
+            let _busy = OnDevice::enter();
+            assert!(ON_DEVICE.load(Ordering::Relaxed));
+        }
+        assert!(!ON_DEVICE.load(Ordering::Relaxed));
+    }
+
     #[test]
     fn node_text_cannot_write_log_lines() {
         let s = clean("bad\n{\"event\":\"status\"}\r\u{1b}[2J");
@@ -833,6 +999,8 @@ mod tests {
         assert_eq!(clean(&"x".repeat(1000)).len(), 300);
     }
 
+    /// A node's template is accepted only if its header pays this miner, and everything
+    /// mined is derived from that header, not from what the node says next to it.
     #[test]
     fn work_must_pay_the_miner() {
         let me = address(1);
